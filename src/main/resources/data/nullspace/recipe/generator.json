@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ITI",
+    "CFC",
+    "SHS"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "F": "minecraft:furnace",
+    "H": "nullspace:machine_casing",
+    "I": "minecraft:iron_ingot",
+    "S": "#nullspace:rough_stone",
+    "T": "minecraft:redstone_torch"
+  },
+  "result": {
+    "id": "nullspace:generator",
+    "count": 1
+  }
+}

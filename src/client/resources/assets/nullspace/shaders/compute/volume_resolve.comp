@@ -1,0 +1,72 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba16f, binding = 0) writeonly uniform image2D Output;
+uniform sampler2D Current, History, CurrentStop, HistoryStop;
+uniform mat4 InvView, PreviousProjection;
+uniform vec3 EyeDelta;
+uniform ivec2 ViewSize;
+uniform int HistoryValid;
+const int SLICES = 24;
+float distanceAt(int i) {
+    return i == 0 ? 0. : .05 * pow(1000000. / .05, float(i) / float(SLICES - 1));
+}
+vec4 previousPrefix(vec2 uv, float distance) {
+    float layer = clamp(log(max(.05, distance) / .05) / log(1000000. / .05) * float(SLICES - 1), 0.,
+                        float(SLICES - 1));
+    return mix(texture(History, vec2(uv.x, (uv.y + floor(layer)) / float(SLICES))),
+               texture(History, vec2(uv.x, (uv.y + ceil(layer)) / float(SLICES))), fract(layer));
+}
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, ViewSize)))
+        return;
+    vec2 uv = (vec2(p) + .5) / vec2(ViewSize);
+    vec4 r = InvView * vec4(uv * 2. - 1., 1, 1);
+    vec3 ray = normalize(r.xyz / r.w);
+    vec2 stopData = texelFetch(CurrentStop, p, 0).rg;
+    float stop = stopData.x, end = stopData.y;
+    bool resolvedEnd = false;
+    vec4 finalOptics = vec4(0, 0, 0, 1);
+    for (int layer = 0; layer < SLICES; layer++) {
+        ivec2 at = ivec2(p.x, p.y + layer * ViewSize.y);
+        if (resolvedEnd) {
+            imageStore(Output, at, finalOptics);
+            continue;
+        }
+        vec4 current = texelFetch(Current, at, 0);
+        if (dot(current.rgb, current.rgb) < .00000001 && current.a > .9999) {
+            imageStore(Output, at, current);
+            continue;
+        }
+        if (HistoryValid != 0 && layer > 0) {
+            vec3 point = ray * min(end, distanceAt(layer)) + EyeDelta;
+            vec4 projected = PreviousProjection * vec4(point, 1);
+            vec2 oldUV = projected.xy / projected.w * .5 + .5;
+            if (projected.w > 0. && all(greaterThan(oldUV, vec2(0))) &&
+                all(lessThan(oldUV, vec2(1)))) {
+                float oldStop = texture(HistoryStop, oldUV).r;
+                float expected = length(ray * stop + EyeDelta);
+                if (abs(oldStop - expected) < max(.1, expected * .01) ||
+                    (oldStop > 999999. && stop > 999999.)) {
+                    vec4 lo = current, hi = current;
+                    for (int y = -1; y <= 1; y++)
+                        for (int x = -1; x <= 1; x++) {
+                            if (abs(x) + abs(y) > 1)
+                                continue;
+                            ivec2 q = clamp(p + ivec2(x, y), ivec2(0), ViewSize - 1);
+                            vec4 c = texelFetch(Current, ivec2(q.x, q.y + layer * ViewSize.y), 0);
+                            lo = min(lo, c);
+                            hi = max(hi, c);
+                        }
+                    vec4 old = clamp(previousPrefix(oldUV, length(point)), lo, hi);
+                    current = mix(current, old, .6);
+                }
+            }
+        }
+        imageStore(Output, at, current);
+        if (distanceAt(layer) >= end) {
+            resolvedEnd = true;
+            finalOptics = current;
+        }
+    }
+}

@@ -1,0 +1,153 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    runs {
+        client {
+            // Keep offline UUIDs stable across restarts. This identity owns the recovered World 5
+            // survival inventory; use -PdevUsername=AnotherName for an independent character.
+            programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
+            if (providers.gradleProperty('devWorld').isPresent()) {
+                programArgs '--quickPlaySingleplayer', providers.gradleProperty('devWorld').get()
+            }
+        }
+        playtest {
+            client()
+            programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
+            name 'NullSpace prepared test world'
+            vmArg '-Dnullspace.playtest=true'
+            runDir 'run'
+        }
+        shipLab {
+            client()
+            programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
+            name 'NullSpace walking ship test gallery'
+            vmArg '-Dnullspace.playtest=true'
+            vmArg '-Dnullspace.lab=true'
+            runDir 'run-lab'
+        }
+    }
+    mods {
+        nullspace {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+}
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'nullspace-test'
+        enableGameTests = true
+        enableClientGameTests = true
+        eula = true
+    }
+}
+
+processResources {
+    def modVersion = project.version.toString()
+    inputs.property 'version', modVersion
+    filesMatching('fabric.mod.json') {
+        expand version: modVersion
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// Opt-in pure systems benchmark; never starts Minecraft or opens player worlds.
+tasks.register('benchmarkSystems', JavaExec) {
+    dependsOn 'testClasses'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.nullandkale.nullspace.systems.AtmosphereBenchmark'
+    args layout.buildDirectory.dir('performance').get().asFile.absolutePath,
+        providers.gradleProperty('benchmarkLabel').getOrElse('current')
+}
+
+
+// Explicitly invoked local verification only; never added to build/check or CI.
+tasks.register('exportLocalClientLaunch') {
+    notCompatibleWithConfigurationCache('Exports the configured JavaExec launch for opt-in local verification')
+    dependsOn 'compileGametestJava', 'processGametestResources', 'configureClientLaunch', 'configureLaunch', 'generateDLIConfig', 'downloadAssets'
+    doLast {
+        def launch = tasks.named('runClientGameTest').get()
+        def output = layout.buildDirectory.file('local-client-launch.json').get().asFile
+        output.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+            executable: launch.javaLauncher.get().executablePath.asFile.absolutePath,
+            jvmArgs: launch.allJvmArgs,
+            classpath: launch.classpath.asPath,
+            mainClass: launch.mainClass.get(),
+            args: launch.args
+        ]))
+    }
+}
+
+tasks.register('exportLocalServerLaunch') {
+    notCompatibleWithConfigurationCache('Exports the configured JavaExec launch for opt-in local verification')
+    dependsOn 'compileGametestJava', 'processGametestResources', 'configureLaunch', 'generateDLIConfig', 'acceptGameTestEula'
+    doLast {
+        def launch = tasks.named('runGameTest').get()
+        layout.buildDirectory.file('local-server-launch.json').get().asFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+            executable: launch.javaLauncher.get().executablePath.asFile.absolutePath,
+            jvmArgs: launch.allJvmArgs, classpath: launch.classpath.asPath,
+            mainClass: launch.mainClass.get(), args: launch.args
+        ]))
+    }
+}
+
+// Each server-test run owns a fresh disposable world. Reusing the old world
+// accumulates completed transfer journals and makes recovery tests scan many
+// unrelated fixture snapshots on every iteration. Never touch player saves.
+def serverTestSessions = layout.buildDirectory.dir('run/gameTest-sessions')
+if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+    tasks.register('pruneGameTestWorlds', Exec) {
+        commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
+            layout.projectDirectory.file('scripts/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
+    }
+    tasks.named('runGameTest').configure { dependsOn 'pruneGameTestWorlds' }
+}
+tasks.named('runGameTest', JavaExec).configure {
+    def sessionsDirectory = serverTestSessions
+    doFirst {
+        def testDirectory = new File(sessionsDirectory.get().asFile, UUID.randomUUID().toString())
+        testDirectory.mkdirs()
+        // Use Minecraft's public world-root option; Loom owns the process cwd.
+        args '--universe', testDirectory.absolutePath
+    }
+}
+
+apply from: 'gradle/content-assets.gradle'

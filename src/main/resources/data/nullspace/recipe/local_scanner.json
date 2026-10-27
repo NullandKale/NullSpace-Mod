@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IGI",
+    "RKR",
+    "CTC"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "K": "nullspace:computer_base",
+    "C": "minecraft:copper_ingot",
+    "T": "minecraft:redstone_torch"
+  },
+  "result": {
+    "id": "nullspace:local_scanner",
+    "count": 1
+  }
+}

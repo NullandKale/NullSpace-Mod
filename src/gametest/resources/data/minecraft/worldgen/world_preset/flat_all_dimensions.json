@@ -1,0 +1,188 @@
+{
+  "dimensions": {
+    "minecraft:overworld": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "features": false,
+          "lakes": false,
+          "layers": [
+            {
+              "block": "minecraft:bedrock",
+              "height": 1
+            },
+            {
+              "block": "minecraft:sandstone",
+              "height": 67
+            }
+          ]
+        }
+      }
+    },
+    "minecraft:the_end": {
+      "type": "minecraft:the_end",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:the_end",
+          "features": false,
+          "lakes": false,
+          "layers": [
+            {
+              "block": "minecraft:bedrock",
+              "height": 1
+            },
+            {
+              "block": "minecraft:end_stone",
+              "height": 3
+            }
+          ]
+        }
+      }
+    },
+    "minecraft:the_nether": {
+      "type": "minecraft:the_nether",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:basalt_deltas",
+          "features": false,
+          "lakes": false,
+          "layers": [
+            {
+              "block": "minecraft:bedrock",
+              "height": 1
+            },
+            {
+              "block": "minecraft:basalt",
+              "height": 3
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:space": {
+      "type": "nullspace:space",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:the_void",
+          "layers": [],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:sol_luna": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:sol_ares": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:vega_pelagos": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:vega_cinder": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:basalt_deltas",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:basalt"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:blackstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    }
+  }
+}

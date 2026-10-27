@@ -1,0 +1,205 @@
+{
+  "chapters": [
+    {
+      "id": "start",
+      "title": "First ship",
+      "pages": [
+        "Build a grass/dirt pad with a cobble ring. Register it. Add a sealed hull, one helm and an outward-facing engine. Close doors, Inspect, then Launch.",
+        "For powered systems add a generator, battery, air supply and door control. Choose Upgrade systems at the helm. A new battery starts empty."
+      ]
+    },
+    {
+      "id": "pads",
+      "title": "Landing pads",
+      "pages": [
+        "Use a flat grass/dirt rectangle inside a complete cobblestone ring. Grass may become dirt. The interior and ship fit within 32 x 32 x 32.",
+        "Place the Pad Computer on the ring. Facing does not matter. Name and register the pad. Pad/Ship preview highlights fade over 30 seconds.",
+        "Leave clear sky above the ship. A stacked pad overhead obstructs launch. On landing, choose a pad on your current planet. Inspect again after repairs."
+      ]
+    },
+    {
+      "id": "hull",
+      "title": "Hull and cargo",
+      "pages": [
+        "Use full blocks for the pressure hull, full glass for windows and framed doors or trapdoors. Stairs, slabs and panes are fittings, not pressure seals.",
+        "Keep all ship parts connected. Pad dirt stays behind. Furnaces, storage and many workshop blocks travel with saved contents. Read Inspect for exact exceptions.",
+        "Stop moving pistons and pending actions before travel. Live explosives and world-bound machinery can block launch. Diagnostics name the broken block or machine."
+      ]
+    },
+    {
+      "id": "controllers",
+      "title": "Controllers",
+      "pages": [
+        "Install one Helm OR Ship Computer for travel. Systems Controllers add engineering access. The Pad Computer stays on the planet.",
+        "Computer Base is an unconfigured crafting part. Computer Terminal runs NullOS. Engines and other machines open status menus when right-clicked."
+      ]
+    },
+    {
+      "id": "power",
+      "title": "Ship power",
+      "pages": [
+        "Equipment shares the connected ship bus. Generators supply power; batteries store surplus. Allocate power in Engineering. No cables are required.",
+        "Keep Controls powered. Allocate Air, Doors, Engines and Cameras as needed. Disabled or disconnected hardware cannot work. Profiles change allocations.",
+        "Each enabled camera/scanner needs one Cameras power slot. Cameras take the first slots. Two scanners without cameras need 2 power. Monitor feeds use camera channels."
+      ]
+    },
+    {
+      "id": "air",
+      "title": "Spatial air",
+      "pages": [
+        "Air occupies a 32-cube grid. Pumps fill their outlet cells, then gas spreads through rooms. Breaches drain stored air. Crew uses air locally.",
+        "Air particles show filling, equalization and leaks. Full sealed rooms become quiet. Real vacuum leaks stay visible. Turning particles off does not stop oxygen use.",
+        "Keep the air-supply outlet inside the cabin and unobstructed. Watch room readings. Closing a door helps only if its frame and surrounding hull also seal."
+      ]
+    },
+    {
+      "id": "doors",
+      "title": "Doors and groups",
+      "pages": [
+        "Door Control handles framed vanilla doors and trapdoors. Use Engineering to list doors, create groups and open or close a group.",
+        "Power and enabled hardware are required. Redstone can override closing. Inspect a failed action: a powered hatch or damaged frame may keep a room exposed."
+      ]
+    },
+    {
+      "id": "suit",
+      "title": "Suits and EVA",
+      "pages": [
+        "Wear all four suit pieces. A sealed breathable cabin refills your oxygen. A suit has no separate crafted oxygen tank yet; keep a working ship air source.",
+        "In space, leaving the cabin enables flight. The tether limit is 72 blocks. Watch oxygen and return before it runs out. Airless planet surfaces retain normal gravity.",
+        "Airless ground drains oxygen away from a safe cabin/source. Wearing armor alone is not unlimited life support. Repair the cabin and monitor air before exploring."
+      ]
+    },
+    {
+      "id": "travel",
+      "title": "Launch and land",
+      "pages": [
+        "At the helm: Inspect, fix errors, close doors, then Launch. Blocks and cargo transfer to space with a loading screen. The hull stays stationary Minecraft blocks.",
+        "Recall EVA crew before travel. Landing restores the real hull at a clear registered pad. Do not quit during a loading screen. On reconnect, follow recovery messages."
+      ]
+    },
+    {
+      "id": "flight",
+      "title": "Piloting",
+      "pages": [
+        "Helm > Pilot ship. W/S thrust, A/D yaw, Space/Ctrl lift. Up/Down pitch, Q/E roll. R brakes; F fires the cannon. Only one crew member pilots.",
+        "Drag to orbit and use the wheel to zoom. H shows controls. Esc returns to the helm and stops motion. Ship camera is an observer view; it grants no thrust.",
+        "Power loss or unsafe crew stops flight. Local piloting stays in this region. Use helm Navigation to change planets or systems. Avoid solid bodies and other hulls."
+      ]
+    },
+    {
+      "id": "planets",
+      "title": "Planet travel",
+      "pages": [
+        "Helm > Navigation jumps between Sol and Vega destinations. Jumping changes local space. Then choose the planet landing pad to visit its terrain.",
+        "Terra is the overworld. Pelagos has grass and breathable air. Luna, Ares and Cinder are airless. New surfaces are flat; first arrival creates a starter pad.",
+        "Launching returns to that planet orbit. Existing overworld pads belong to Terra. Jump back to Sol/Terra before landing at home."
+      ]
+    },
+    {
+      "id": "sensors",
+      "title": "Scanners",
+      "pages": [
+        "Local Scanner reports this region, celestial bodies and nearby ships. Long-Range Scanner lists planetary jump addresses. Right-click for readings and power status.",
+        "Mount scanners on the connected hull. Enable them and allocate Cameras power. A Long-Range Scanner consumes a Local Scanner in crafting; make two to keep both."
+      ]
+    },
+    {
+      "id": "cameras",
+      "title": "Cameras",
+      "pages": [
+        "Point a Camera toward the view you want. A ground camera can open a terrain feed. Aboard a powered ship, enable its camera and Cameras power slot.",
+        "Place a Monitor on the hull. Right-click to inspect it and select its channel. Nearby displays show live feeds. Players and supported native visuals appear in feeds.",
+        "A fullscreen feed uses arrows to aim, Page Up/Down to zoom and F2 to capture. Tab changes eligible feeds. Esc exits. Ground feeds cover a bounded neighborhood.",
+        "Camera loading does not tick distant machines or TNT. A feed can fill in as terrain arrives. Unsupported renderer details may differ from a normal player view."
+      ]
+    },
+    {
+      "id": "computer",
+      "title": "NullOS terminal",
+      "pages": [
+        "Computer Terminal opens an 80-column console. It keeps files and jobs with the ship. It uses a custom runtime isolated from host files, processes and networks.",
+        "Keep Controls powered for ship calls. Up/Down recalls commands. Ctrl-C stops a foreground job; Shift-Esc closes the console. A standalone terminal can still edit files."
+      ]
+    },
+    {
+      "id": "shell",
+      "title": "Shell commands",
+      "pages": [
+        "Try these commands:\nhelp\nls\nship status\nship rooms\npython air.py\nbash seal.sh\n\nseal.sh closes doors.",
+        "Files: pwd, cd, ls, cat, echo, mkdir, cp, mv, rm. Pipes support grep, head, wc. Use > to replace a file and >> to append. These paths stay inside the guest disk.",
+        "edit name.py starts a replacement editor. Type lines. A single . line or Ctrl-S saves; Ctrl-C cancels. cat name.py reads it back."
+      ]
+    },
+    {
+      "id": "scripts",
+      "title": "Scripts and jobs",
+      "pages": [
+        "Bash-style: bash file.sh\nPython-style:\npython file.py\n\nLoops, branches and native ship functions are supported. These are language subsets, not full Bash/Python.",
+        "run --detach file.py leaves a job running. ps lists jobs; kill ID stops one. Foreground jobs pause without a viewer. Files and detached jobs survive a restart.",
+        "Detached jobs compute while chunks unload. World actions wait for the full hull to load again. Jobs use the last known power state while unloaded."
+      ]
+    },
+    {
+      "id": "automation",
+      "title": "Native ship API",
+      "pages": [
+        "Shell: ship rooms\nPython:\nprint(ship.rooms())\n\nOther calls handle power, doors, devices, scanners, cameras, firing and bounded flight.",
+        "Try: ship scan local\nship scan long\nship doors all close\n\nThe usual power and safety checks apply. Travel scripts need online crew near the helm."
+      ]
+    },
+    {
+      "id": "combat",
+      "title": "Damage and cannon",
+      "pages": [
+        "The cannon needs connected, enabled hardware and Weapons power. Fire from the helm or F while piloting. Normal recharge rules apply.",
+        "Damage removes real hull and equipment. Breaches lose air; severed hardware loses the bus. Repair survivors before travel. Material blast resistance still matters."
+      ]
+    },
+    {
+      "id": "graphics",
+      "title": "Space graphics",
+      "pages": [
+        "Options > Video Settings > Space Graphics. Fast, Balanced and High presets trade quality for GPU cost. Settings save on this client.",
+        "Adjust surface/volume resolution, integration steps, antialiasing and temporal settings. Planet skies and air particles have switches. Check moving views as well as still shots."
+      ]
+    },
+    {
+      "id": "trouble",
+      "title": "Troubleshooting",
+      "pages": [
+        "Pad not found? Put its computer on the cobble ring at floor height. Fill the interior with grass/dirt. Repair border holes and check for overlapping ownership.",
+        "No power? Check generator/battery, enabled switches, connected hull and allocations. No scanner feed? Add one Cameras slot per enabled camera/scanner.",
+        "Losing air? Check room readings, exterior doors, hatch frames and breaches. Engine blocked? Clear its outward exhaust. Inspect names unsupported machines and travel obstacles.",
+        "Cannot land? Jump to the right planet, choose a registered pad and clear its volume. Crew or cargo not ready? Recall crew and wait for the loading handshake."
+      ]
+    },
+    {
+      "id": "crafting",
+      "title": "Crafting notes",
+      "pages": [
+        "Recipes follow in this book. Each page shows real items in a 3 x 3 grid. Hover for names. Click a crafted part for its recipe. Horizontal mirroring works; rotation does not.",
+        "Circuit boards craft in batches of four. Plank and stone slots cycle through accepted items. Vanilla piston and lever recipes still need actual cobblestone.",
+        "For Terminal + both scanners: 18 iron, 33 copper, 16 glass, 21 redstone, 8 planks. Includes subparts and torches; leaves one stick. Craft two Local Scanners."
+      ]
+    },
+    {
+      "id": "shipyard",
+      "title": "Ship beacons",
+      "pages": [
+        "Craft a Ship Beacon and place it on a registered pad's cobblestone ring. Keep the pad computer on another ring block. Facing does not matter. Open the beacon with right-click.",
+        "Select a preset for size and equipment details. Choose Call selected to buy it. All ships are FREE for now. Stand beside the ring; clear the pad and its sky. Existing builds are never replaced.",
+        "Ships have a helm, generator, battery, air supply, door control, terminal, camera, monitor and both scanners. Bigger ships have rooms and stairs. Walk in, close the door, inspect and launch at the helm.",
+        "A beacon needs a pad large enough for the whole preset. Free space must extend to the sky. Move mobs and dropped items out of its hull area. An interrupted delivery can resume by calling the same ship again.",
+        "Operators: /nullspace shipyard creates a showroom and empty delivery pads above unused terrain. Return visits preserve your changes. No shipyard is generated automatically in a survival world."
+      ]
+    },
+    {
+      "id": "lab",
+      "title": "Testing and limits",
+      "pages": [
+        "Development worlds: /nullspace lab visits test ships; /nullspace lab sphere visits the large sphere; /nullspace lab recipes shows crafting chests.",
+        "Normal survival uses player-built ships and pads. /nullspace guide replaces this manual. Stations, docking, random encounters and the rendering workshop are planned, not playable yet."
+      ]
+    }
+  ]
+}

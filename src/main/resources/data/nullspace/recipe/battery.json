@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CRC",
+    "CHC",
+    "IRI"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "H": "nullspace:machine_casing",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "nullspace:battery",
+    "count": 1
+  }
+}

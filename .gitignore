@@ -1,0 +1,68 @@
+# Gradle caches, downloaded tools and compiled output
+/.gradle/
+/.gradle-user-home/
+/.tools/
+/build/
+/out/
+/bin/
+*.class
+
+# Minecraft development instances, worlds and local runtime data
+/run/
+/run-*/
+/runs/
+/mods/
+/logs/
+/saves/
+/world/
+/world_nether/
+/world_the_end/
+/crash-reports/
+/screenshots/
+/resourcepacks/
+/shaderpacks/
+/config/
+/.fabric/
+/eula.txt
+/options.txt
+/servers.dat
+/servers.dat_old
+/server.properties
+/usercache.json
+/usernamecache.json
+/ops.json
+/whitelist.json
+/banned-ips.json
+/banned-players.json
+
+# Logs, JVM crash reports and heap dumps
+*.log
+*.log.*
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# Local IDE metadata and editor temporary files
+/.idea/
+/.vscode/
+/.vs/
+/.settings/
+/.classpath
+/.project
+*.iml
+*.swp
+*.swo
+*~
+
+# Machine-specific environment settings (keep example files)
+/local.properties
+/.env
+/.env.*
+!/.env.example
+!/.env.sample
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+

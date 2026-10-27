@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW",
+    "CKC",
+    "STS"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "K": "nullspace:computer_base",
+    "S": "#nullspace:rough_stone",
+    "T": "minecraft:redstone_torch",
+    "W": "#minecraft:planks"
+  },
+  "result": {
+    "id": "nullspace:pad_computer",
+    "count": 1
+  }
+}

@@ -1,0 +1,20 @@
+{
+    "variants": {
+        "facing=north": {
+            "model": "nullspace:block/weapon",
+            "y": 0
+        },
+        "facing=east": {
+            "model": "nullspace:block/weapon",
+            "y": 90
+        },
+        "facing=south": {
+            "model": "nullspace:block/weapon",
+            "y": 180
+        },
+        "facing=west": {
+            "model": "nullspace:block/weapon",
+            "y": 270
+        }
+    }
+}

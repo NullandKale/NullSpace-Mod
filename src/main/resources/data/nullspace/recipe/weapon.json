@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "III",
+    "PHP",
+    "CDC"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "D": "minecraft:dispenser",
+    "H": "nullspace:machine_casing",
+    "I": "minecraft:iron_ingot",
+    "P": "minecraft:piston"
+  },
+  "result": {
+    "id": "nullspace:weapon",
+    "count": 1
+  }
+}

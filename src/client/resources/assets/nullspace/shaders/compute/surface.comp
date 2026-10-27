@@ -1,0 +1,24 @@
+#version 430
+#include "space.glsl"
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba16f, binding = 0) writeonly uniform image2D Radiance;
+layout(rgba32f, binding = 1) writeonly uniform image2D Geometry;
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, ViewSize)))
+        return;
+    vec3 d = ray(pixel, ViewSize);
+    vec2 hit = trace(vec3(0), d, FAR);
+    vec3 color = surface(d, hit);
+    if (SurfaceSamples >= 4) {
+        color = vec3(0);
+        for (int y = 0; y < 2; y++)
+            for (int x = 0; x < 2; x++) {
+                vec3 sampleRay = rayAt((vec2(pixel) + vec2(x, y) * .5 + .25) / vec2(ViewSize));
+                color += surface(sampleRay, trace(vec3(0), sampleRay, FAR)) * .25;
+            }
+    }
+    color = surfaceAtmosphere(d, color, hit);
+    imageStore(Radiance, pixel, vec4(color, 1));
+    imageStore(Geometry, pixel, vec4(hit.x, hit.y, 0, 1));
+}

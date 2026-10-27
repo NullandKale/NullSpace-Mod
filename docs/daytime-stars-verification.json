@@ -1,0 +1,18 @@
+{
+    "formatter":  "passed",
+    "inputsSha256":  "776a05f2583cc78e561e889ce673db3858c71f711893afc94d7336a55903f194",
+    "graphicalEntrypoints":  14,
+    "artifacts":  "build/verification/daytime-stars-20261026-2130",
+    "status":  "passed",
+    "command":  "runClientGameTest assemble",
+    "checks":  [
+                   "atmospheric daytime has no star speckles",
+                   "twilight visibility fades gradually",
+                   "night retains visible stars",
+                   "space and airless views ignore solar elevation"
+               ],
+    "jar":  {
+                "sha256":  "d7edf72f7df4031d507736c09e6c66e54fce337279712ff754f581186957472b",
+                "path":  "build/libs/nullspace-0.1.0.jar"
+            }
+}

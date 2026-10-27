@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GTG",
+    "CKC",
+    "SHS"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "T": "minecraft:redstone_torch",
+    "C": "minecraft:copper_ingot",
+    "K": "nullspace:computer_base",
+    "S": "#nullspace:rough_stone",
+    "H": "nullspace:machine_casing"
+  },
+  "result": {
+    "id": "nullspace:ship_beacon",
+    "count": 1
+  }
+}

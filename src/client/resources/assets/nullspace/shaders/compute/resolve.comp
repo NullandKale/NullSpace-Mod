@@ -1,0 +1,56 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba16f, binding = 0) writeonly uniform image2D Output;
+uniform sampler2D Current, Geometry, History, HistoryGeometry;
+uniform mat4 InvView, PreviousProjection;
+uniform vec3 EyeDelta;
+uniform ivec2 ViewSize;
+uniform int HistoryValid;
+uniform float DeltaTime;
+uniform vec2 CurrentJitter, PreviousJitter;
+layout(std430, binding = 0) readonly buffer Bodies {
+    vec4 BodyData[];
+};
+vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
+    axis = normalize(axis);
+    float c = cos(angle), s = sin(angle);
+    return p * c + cross(axis, p) * s + axis * dot(axis, p) * (1. - c);
+}
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, ViewSize)))
+        return;
+    vec2 uv = (vec2(p) + .5) / vec2(ViewSize);
+    vec4 value = texelFetch(Current, p, 0);
+    vec2 geo = texelFetch(Geometry, p, 0).xy;
+    if (HistoryValid != 0 && geo.y >= 0.) {
+        vec4 q = InvView * vec4((uv + CurrentJitter / vec2(ViewSize)) * 2. - 1., 1, 1);
+        int body = int(geo.y);
+        vec3 center = BodyData[body * 5].xyz;
+        vec3 relative = normalize(q.xyz / q.w) * geo.x - center;
+        vec3 point = center +
+                     rotateAxis(relative, BodyData[body * 5 + 4].xyz,
+                                -BodyData[body * 5 + 3].w * DeltaTime) +
+                     EyeDelta - BodyData[body * 5 + 2].xyz * DeltaTime;
+        vec4 previous = PreviousProjection * vec4(point, 1);
+        vec2 oldUV = previous.xy / previous.w * .5 + .5 - PreviousJitter / vec2(ViewSize);
+        if (previous.w > 0. && all(greaterThan(oldUV, vec2(0))) && all(lessThan(oldUV, vec2(1)))) {
+            vec2 old = texture(HistoryGeometry, oldUV).xy;
+            float expected = length(point);
+            if (abs(old.x - expected) < max(.05, expected * .002) && abs(old.y - geo.y) < .25) {
+                vec3 lo = value.rgb, hi = value.rgb;
+                for (int y = -1; y <= 1; y++)
+                    for (int x = -1; x <= 1; x++) {
+                        vec3 c =
+                            texelFetch(Current, clamp(p + ivec2(x, y), ivec2(0), ViewSize - 1), 0)
+                                .rgb;
+                        lo = min(lo, c);
+                        hi = max(hi, c);
+                    }
+                vec3 history = clamp(texture(History, oldUV).rgb, lo, hi);
+                value.rgb = mix(value.rgb, history, .75);
+            }
+        }
+    }
+    imageStore(Output, p, value);
+}

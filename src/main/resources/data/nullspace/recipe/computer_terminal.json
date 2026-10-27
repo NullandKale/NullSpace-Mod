@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "BKB",
+    "CTC"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "K": "nullspace:computer_base",
+    "C": "minecraft:copper_ingot",
+    "T": "minecraft:redstone_torch",
+    "B": "nullspace:circuit_board"
+  },
+  "result": {
+    "id": "nullspace:computer_terminal",
+    "count": 1
+  }
+}

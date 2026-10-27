@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IPI",
+    "CHC",
+    "SFS"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "F": "minecraft:furnace",
+    "H": "nullspace:machine_casing",
+    "I": "minecraft:iron_ingot",
+    "P": "minecraft:piston",
+    "S": "#nullspace:rough_stone"
+  },
+  "result": {
+    "id": "nullspace:engine",
+    "count": 1
+  }
+}

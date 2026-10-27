@@ -1,0 +1,20 @@
+{
+    "variants": {
+        "facing=north": {
+            "model": "nullspace:block/ship_computer",
+            "y": 0
+        },
+        "facing=east": {
+            "model": "nullspace:block/ship_computer",
+            "y": 90
+        },
+        "facing=south": {
+            "model": "nullspace:block/ship_computer",
+            "y": 180
+        },
+        "facing=west": {
+            "model": "nullspace:block/ship_computer",
+            "y": 270
+        }
+    }
+}

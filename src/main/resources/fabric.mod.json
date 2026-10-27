@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "nullspace",
+  "version": "${version}",
+  "name": "NullSpace",
+  "description": "A Minecraft total conversion, built on vanilla Minecraft and Fabric.",
+  "authors": [
+    "NullandKale"
+  ],
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.nullandkale.nullspace.NullSpace"
+    ],
+    "client": [
+      "com.nullandkale.nullspace.client.NullSpaceClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": ">=0.164.0+26.3"
+  },
+  "mixins": [
+    "nullspace.mixins.json"
+  ]
+}

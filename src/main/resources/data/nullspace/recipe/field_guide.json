@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "Y",
+    "C"
+  ],
+  "key": {
+    "Y": "minecraft:book",
+    "C": "minecraft:copper_ingot"
+  },
+  "result": {
+    "id": "nullspace:field_guide",
+    "count": 1
+  }
+}

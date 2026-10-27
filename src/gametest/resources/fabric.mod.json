@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "nullspace-test",
+  "version": "1.0.0",
+  "name": "NullSpace Tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "com.nullandkale.nullspace.NullSpaceGameTest",
+      "com.nullandkale.nullspace.ship.ShipGameTests",
+      "com.nullandkale.nullspace.ship.CrashRecoveryGameTest",
+      "com.nullandkale.nullspace.ship.ShipGalleryGameTest",
+      "com.nullandkale.nullspace.ship.SphereGameTest",
+      "com.nullandkale.nullspace.ship.ShipSystemsGameTest",
+      "com.nullandkale.nullspace.ship.CombatGameTest",
+      "com.nullandkale.nullspace.ship.RecipeGameTest",
+      "com.nullandkale.nullspace.ship.SceneCacheGameTest",
+      "com.nullandkale.nullspace.ship.EngineeringGameTest",
+      "com.nullandkale.nullspace.ship.SpaceDefinitionGameTest",
+      "com.nullandkale.nullspace.ship.NavigationGameTest",
+      "com.nullandkale.nullspace.ship.PadAndHatchGameTest",
+      "com.nullandkale.nullspace.ship.BlockSupportGameTest",
+      "com.nullandkale.nullspace.ship.ExpansionGameTest",
+      "com.nullandkale.nullspace.ship.GuideGameTest",
+      "com.nullandkale.nullspace.ship.ProtocolBoundaryGameTest",
+      "com.nullandkale.nullspace.ship.PersistenceBoundaryGameTest",
+      "com.nullandkale.nullspace.ship.OwnershipGameTest",
+      "com.nullandkale.nullspace.ship.SaveCoordinatorGameTest",
+      "com.nullandkale.nullspace.ship.ComputerIntegrationGameTest",
+      "com.nullandkale.nullspace.ship.ComputerServiceBoundaryGameTest",
+      "com.nullandkale.nullspace.ship.PadLifecycleGameTest",
+      "com.nullandkale.nullspace.ship.ShipYardGameTest",
+      "com.nullandkale.nullspace.ship.ShipYardCrashGameTest"
+    ],
+    "fabric-client-gametest": [
+      "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+      "com.nullandkale.nullspace.ClientLifecycleGameTest",
+      "com.nullandkale.nullspace.ComputeClientGameTest",
+      "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+      "com.nullandkale.nullspace.AtmosphereClientGameTest",
+      "com.nullandkale.nullspace.NullSpaceClientGameTest",
+      "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+      "com.nullandkale.nullspace.SphereClientGameTest",
+      "com.nullandkale.nullspace.SystemsClientGameTest",
+      "com.nullandkale.nullspace.LabArrivalClientGameTest",
+      "com.nullandkale.nullspace.RecipeClientGameTest",
+      "com.nullandkale.nullspace.NavigationClientGameTest",
+      "com.nullandkale.nullspace.PadPreviewClientGameTest",
+      "com.nullandkale.nullspace.ExpansionClientGameTest",
+      "com.nullandkale.nullspace.GuideClientGameTest",
+      "com.nullandkale.nullspace.ShipYardClientGameTest"
+    ]
+  },
+  "depends": {
+    "nullspace": "*"
+  }
+}

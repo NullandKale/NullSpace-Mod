@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "runId": "20261026-220248-559f94",
+  "manifest": "../build/verification/20261026-220248-559f94/manifest.json",
+  "inputsSha256": "1aa325305d4a44e5a0532279c8682d94d290371341383f29ef54e5ff889c7b88",
+  "jar": {
+    "sha256": "8c5211bc463902154939256ea45f5bbff2873c97122f5d0e8f60f043cf8d6189",
+    "file": "nullspace-0.1.0.jar"
+  },
+  "unitTests": 316,
+  "modGameTests": 96,
+  "vanillaOptionalTests": 1,
+  "graphicalEntrypoints": 15,
+  "checks": [
+    "build",
+    "unit",
+    "server",
+    "assets",
+    "formatter",
+    "verification harness",
+    "graphics"
+  ],
+  "notRerun": [
+    "two-client multiplayer",
+    "fresh-process crash/restart matrix"
+  ],
+  "atmosphere": {
+    "transmittanceMaxAbsoluteError": 0.00048819780273456903,
+    "noonRadiance": 1.3685682299546897,
+    "nightRadiance": 0.0018708931877174312,
+    "rainRadiance": 0.56380461514022,
+    "stormRadiance": 0.23321595814518836,
+    "skyUpdates": 24
+  },
+  "nativePerformance": {
+    "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU/PCIe/SSE2",
+    "surfaceWidth": 960,
+    "surfaceHeight": 540,
+    "samples": 32,
+    "scope": "Native clear-weather scene: sky update, celestial surface, volume passes and CPU surface submission; excludes native terrain/GUI draws",
+    "atmosphere_ms_median": 0.001024,
+    "atmosphere_ms_p95": 1.588224,
+    "surface_ms_median": 0.513024,
+    "surface_ms_p95": 0.626688,
+    "volume_ms_median": 1.211392,
+    "volume_ms_p95": 1.455104,
+    "cpu_submission_ms_median": 0.3413,
+    "cpu_submission_ms_p95": 0.519
+  },
+  "populatedSpacePerformance": {
+    "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU/PCIe/SSE2",
+    "driver": "4.3.0 NVIDIA 610.62",
+    "width": 640,
+    "height": 360,
+    "samples": 50,
+    "fixture": "sun, planet with atmosphere, moon, rough rock, nebula, two 32-cube four-deck hulls, moving camera, two 320x180 monitor captures staggered one per frame",
+    "volume_width": 320,
+    "volume_height": 180,
+    "resident_bytes": 51838304,
+    "all_views_resident_bytes": 79482912,
+    "surface_ms_median": 1.795072,
+    "surface_ms_p95": 2.018304,
+    "volume_ms_median": 7.308288,
+    "volume_ms_p95": 7.545856,
+    "resolve_ms_median": 0.029696,
+    "resolve_ms_p95": 0.031744,
+    "cpu_submission_ms_median": 0.4176,
+    "cpu_submission_ms_p95": 0.6243,
+    "two_monitors_capture_ms_median": 6.781952,
+    "two_monitors_capture_ms_p95": 7.0492159999999995,
+    "scheduled_monitors_ms_median": 3.3822719999999995,
+    "scheduled_monitors_ms_p95": 3.569664,
+    "volume_integration_ms_median": 7.227392,
+    "volume_integration_ms_p95": 7.46496,
+    "volume_reconstruction_ms_median": 0.080896,
+    "volume_reconstruction_ms_p95": 0.08192,
+    "atmosphere_ms_median": 0.001024,
+    "atmosphere_ms_p95": 0.001024
+  },
+  "finishedUtc": "2026-10-27T05:08:03.8641619Z"
+}

@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-24",
+  "unit": {
+    "tests": 98,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "serverTests": 40,
+  "graphicalTests": 9,
+  "loopbackRun": "build/local-multiplayer/20261024-190617-31ce57",
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 555845,
+  "sha256": "930925132f97ffd1a5c462e3a43be3deab0d0ad852c21a6cd1b37e0714eda024",
+  "logs": [
+    "navigation-final-validation.log",
+    "navigation-loopback.log",
+    "navigation-package.log"
+  ]
+}

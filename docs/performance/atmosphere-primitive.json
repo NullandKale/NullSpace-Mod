@@ -1,0 +1,1 @@
+{"label":"primitive","java":"25.0.2","measurements":[{"scenario":"sealed-cabin","median_ms":0.6745,"p95_ms":1.7245,"allocated_bytes_per_op":448473},{"scenario":"multi-deck","median_ms":0.6718,"p95_ms":0.7969,"allocated_bytes_per_op":442680},{"scenario":"breached-cabin","median_ms":0.9061,"p95_ms":1.0365,"allocated_bytes_per_op":448472}]}

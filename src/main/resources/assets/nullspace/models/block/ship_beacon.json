@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "minecraft:block/beacon",
+    "side": "minecraft:block/cut_copper",
+    "front": "minecraft:block/redstone_lamp_on"
+  }
+}

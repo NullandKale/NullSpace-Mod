@@ -1,0 +1,165 @@
+[
+  {
+    "id": "sol_terra",
+    "system": "sol",
+    "systemName": "Sol",
+    "name": "Terra",
+    "seed": 79419843,
+    "color": 4280377770,
+    "moon": false,
+    "breathable": true,
+    "dimension": "minecraft:overworld"
+  },
+  {
+    "id": "sol_luna",
+    "system": "sol",
+    "systemName": "Sol",
+    "name": "Luna",
+    "seed": 12931,
+    "color": 4288256416,
+    "moon": true,
+    "breathable": false,
+    "dimension": "nullspace:sol_luna",
+    "surface": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    }
+  },
+  {
+    "id": "sol_ares",
+    "system": "sol",
+    "systemName": "Sol",
+    "name": "Ares",
+    "seed": 35917,
+    "color": 4290141237,
+    "moon": false,
+    "breathable": false,
+    "dimension": "nullspace:sol_ares",
+    "surface": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    }
+  },
+  {
+    "id": "vega_pelagos",
+    "system": "vega",
+    "systemName": "Vega",
+    "name": "Pelagos",
+    "seed": 52741,
+    "color": 4279663786,
+    "moon": false,
+    "breathable": true,
+    "dimension": "nullspace:vega_pelagos",
+    "surface": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    }
+  },
+  {
+    "id": "vega_cinder",
+    "system": "vega",
+    "systemName": "Vega",
+    "name": "Cinder",
+    "seed": 98171,
+    "color": 4288890660,
+    "moon": false,
+    "breathable": false,
+    "dimension": "nullspace:vega_cinder",
+    "surface": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:basalt_deltas",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:basalt"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:blackstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    }
+  }
+]

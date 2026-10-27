@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IGI",
+    "CKC",
+    "WLW"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "G": "minecraft:glass",
+    "I": "minecraft:iron_ingot",
+    "K": "nullspace:computer_base",
+    "L": "minecraft:lever",
+    "W": "#minecraft:planks"
+  },
+  "result": {
+    "id": "nullspace:helm",
+    "count": 1
+  }
+}

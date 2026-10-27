@@ -1,0 +1,245 @@
+[
+  {
+    "id": "machine_casing",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:iron_ingot"
+    }
+  },
+  {
+    "id": "circuit_board",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:redstone"
+    }
+  },
+  {
+    "id": "computer_base",
+    "kind": "block",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:circuit_board"
+    }
+  },
+  {
+    "id": "pad_computer",
+    "kind": "block",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "helm",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "navigation",
+      "controller"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "ship_computer",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "navigation",
+      "controller"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "systems_controller",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "controller"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "camera",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "monitor",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "engine",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "generator",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "battery",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "air_supply",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "door_control",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "weapon",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "space_helmet",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:iron_ingot"
+    }
+  },
+  {
+    "id": "space_chestplate",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:iron_ingot"
+    }
+  },
+  {
+    "id": "space_leggings",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:iron_ingot"
+    }
+  },
+  {
+    "id": "space_boots",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:iron_ingot"
+    }
+  },
+  {
+    "id": "computer_terminal",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "controller"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "local_scanner",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "long_range_scanner",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "equipment_menu",
+      "power_allocation"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "field_guide",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:book"
+    }
+  },
+  {
+    "id": "ship_beacon",
+    "kind": "block",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  }
+]

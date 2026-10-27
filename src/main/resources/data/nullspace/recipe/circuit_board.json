@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CTC",
+    "RWR",
+    "CTC"
+  ],
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "R": "minecraft:redstone",
+    "T": "minecraft:redstone_torch",
+    "W": "#minecraft:planks"
+  },
+  "result": {
+    "id": "nullspace:circuit_board",
+    "count": 4
+  }
+}

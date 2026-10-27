@@ -1,0 +1,28 @@
+{
+    "type": "minecraft:overworld",
+    "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+            "biome": "minecraft:basalt_deltas",
+            "layers": [
+                {
+                    "height": 1,
+                    "block": "minecraft:bedrock"
+                },
+                {
+                    "height": 124,
+                    "block": "minecraft:basalt"
+                },
+                {
+                    "height": 4,
+                    "block": "minecraft:blackstone"
+                }
+            ],
+            "lakes": false,
+            "features": false,
+            "structure_overrides": [
+                
+            ]
+        }
+    }
+}

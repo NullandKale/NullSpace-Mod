@@ -1,0 +1,20 @@
+{
+    "variants": {
+        "facing=north": {
+            "model": "nullspace:block/door_control",
+            "y": 0
+        },
+        "facing=east": {
+            "model": "nullspace:block/door_control",
+            "y": 90
+        },
+        "facing=south": {
+            "model": "nullspace:block/door_control",
+            "y": 180
+        },
+        "facing=west": {
+            "model": "nullspace:block/door_control",
+            "y": 270
+        }
+    }
+}

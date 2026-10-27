@@ -1,0 +1,261 @@
+package com.nullandkale.nullspace.pad;
+
+import com.google.gson.*;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import java.nio.file.*;
+import java.util.*;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.*;
+import net.minecraft.core.registries.*;
+import net.minecraft.resources.*;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.*;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+
+public final class PadComputers {
+  public static final Identifier ID = Identifier.parse("nullspace:pad_computer");
+  public static final Block BLOCK =
+      Registry.register(
+          BuiltInRegistries.BLOCK,
+          ID,
+          new PadComputerBlock(
+              BlockBehaviour.Properties.of()
+                  .strength(3)
+                  .setId(ResourceKey.create(Registries.BLOCK, ID))));
+  private static final com.nullandkale.nullspace.server.ServerContext.Key<Map<UUID, Long>> KEY =
+      new com.nullandkale.nullspace.server.ServerContext.Key<>();
+
+  private static Map<UUID, Long> requests(net.minecraft.server.MinecraftServer server) {
+    return com.nullandkale.nullspace.server.ServerContext.get(server).service(KEY, HashMap::new);
+  }
+
+  public static void initialize() {
+    Registry.register(
+        BuiltInRegistries.ITEM,
+        ID,
+        new BlockItem(
+            BLOCK,
+            new Item.Properties()
+                .setId(ResourceKey.create(Registries.ITEM, ID))
+                .useBlockDescriptionPrefix()));
+    PadStatusService.initialize();
+    PadRefreshService.initialize();
+    CommandRegistrationCallback.EVENT.register(
+        (dispatcher, access, environment) -> {
+          dispatcher.register(
+              Commands.literal("nullspace")
+                  .then(
+                      Commands.literal("reload-pads")
+                          .requires(
+                              source ->
+                                  source
+                                      .permissions()
+                                      .hasPermission(
+                                          net.minecraft.server.permissions.Permissions
+                                              .COMMANDS_GAMEMASTER))
+                          .executes(
+                              ctx -> {
+                                PadRepository.get(ctx.getSource().getServer()).reload();
+                                return 1;
+                              })));
+          var coordinates = Commands.argument("x", IntegerArgumentType.integer());
+          var y = Commands.argument("y", IntegerArgumentType.integer());
+          var z = Commands.argument("z", IntegerArgumentType.integer());
+          z.then(
+              Commands.literal("inspect")
+                  .executes(
+                      ctx -> action(ctx.getSource().getPlayerOrException(), position(ctx), null)));
+          z.then(
+              Commands.literal("register")
+                  .then(
+                      Commands.argument("name", StringArgumentType.greedyString())
+                          .executes(
+                              ctx ->
+                                  action(
+                                      ctx.getSource().getPlayerOrException(),
+                                      position(ctx),
+                                      StringArgumentType.getString(ctx, "name"))))
+                  .executes(
+                      ctx -> action(ctx.getSource().getPlayerOrException(), position(ctx), "")));
+          dispatcher.register(
+              Commands.literal("nullspace")
+                  .then(Commands.literal("pad").then(coordinates.then(y.then(z)))));
+        });
+  }
+
+  private static BlockPos position(
+      com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> ctx) {
+    return new BlockPos(
+        IntegerArgumentType.getInteger(ctx, "x"),
+        IntegerArgumentType.getInteger(ctx, "y"),
+        IntegerArgumentType.getInteger(ctx, "z"));
+  }
+
+  public static PadScanner.Result inspect(ServerPlayer player, BlockPos pos) {
+    return inspect(player.level(), pos);
+  }
+
+  public static PadScanner.Result inspect(
+      net.minecraft.server.level.ServerLevel level, BlockPos pos) {
+    var facing = level.getBlockState(pos).getValue(PadComputerBlock.FACING);
+    var result =
+        PadScanner.scan(
+            (x, y, z) -> {
+              BlockPos point = new BlockPos(x, y, z);
+              if (!level.hasChunkAt(point)) return PadScanner.Cell.UNLOADED;
+              var state = level.getBlockState(point);
+              if (state.is(Blocks.GRASS_BLOCK)) return PadScanner.Cell.GRASS;
+              if (state.is(Blocks.DIRT)) return PadScanner.Cell.DIRT;
+              if (state.is(Blocks.COBBLESTONE)) return PadScanner.Cell.BORDER;
+              return PadScanner.Cell.OTHER;
+            },
+            pos.getX(),
+            pos.getY(),
+            pos.getZ(),
+            facing.getStepX(),
+            facing.getStepZ());
+    if (result.valid()) {
+      int height = com.nullandkale.nullspace.ship.PadRegistry.buildHeight(level, result.pad());
+      return new PadScanner.Result(
+          result.pad(),
+          "Valid pad: "
+              + result.pad().width()
+              + " x "
+              + result.pad().depth()
+              + ", ship clearance "
+              + height
+              + " blocks"
+              + (height < 32
+                  ? ". The registered pad above limits this build area; launch still needs clear"
+                      + " sky."
+                  : "."));
+    }
+    return result;
+  }
+
+  public static int action(ServerPlayer player, BlockPos pos, String name) {
+    if (com.nullandkale.nullspace.ship.TravelService.busy(player)) return 0;
+    if (!player.level().hasChunkAt(pos)
+        || !player.level().getBlockState(pos).is(BLOCK)
+        || player.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) > 64
+        || !player.mayInteract(player.level(), pos)) {
+      open(
+          player,
+          pos,
+          "Cannot use this pad computer. Move within 8 blocks and check the computer still exists"
+              + " and is accessible.");
+      return 0;
+    }
+    long now = System.nanoTime();
+    Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
+    if (previous != null && now - previous < 500_000_000L) {
+      open(player, pos, "Please wait a moment before the next action");
+      return 0;
+    }
+    var result = inspect(player, pos);
+    String message = result.message();
+
+    if (name != null && result.valid()) {
+      try {
+        message = register(player.level(), pos, result.pad(), name);
+      } catch (Exception error) {
+        com.nullandkale.nullspace.NullSpace.LOGGER.error("Could not save pad", error);
+        message = "Could not save registration. No pad was registered.";
+      }
+    }
+    open(player, pos, message);
+    return result.valid() && (name == null || message.startsWith("Registered ")) ? 1 : 0;
+  }
+
+  public static String register(
+      net.minecraft.server.level.ServerLevel level, BlockPos pos, PadScanner.Pad pad, String name)
+      throws java.io.IOException {
+    return register(level, pos, pad, name, true);
+  }
+
+  /**
+   * Additive fixtures keep unavailable registrations so existing user test cases survive
+   * generation.
+   */
+  public static String register(
+      net.minecraft.server.level.ServerLevel level,
+      BlockPos pos,
+      PadScanner.Pad pad,
+      String name,
+      boolean pruneMissing)
+      throws java.io.IOException {
+    name = name.strip();
+    if (!name.matches("[A-Za-z0-9 _-]{1,32}"))
+      return "Use 1-32 letters, numbers, spaces, underscores or hyphens";
+    var repository = PadRepository.get(level.getServer());
+    var pads = new ArrayList<>(repository.all());
+    com.nullandkale.nullspace.ship.PadRegistry.Pad existing = null;
+    String dimension = level.dimension().identifier().toString();
+    for (var iterator = pads.iterator(); iterator.hasNext(); ) {
+      var entry = iterator.next();
+      if (pruneMissing
+          && entry.dimension().equals(dimension)
+          && level.hasChunkAt(entry.computer())
+          && !level.getBlockState(entry.computer()).is(BLOCK)) {
+        iterator.remove();
+        continue;
+      }
+      if (entry.dimension().equals(dimension) && entry.computer().equals(pos)) {
+        existing = entry;
+        continue;
+      }
+      if (entry.name().equalsIgnoreCase(name))
+        return "A pad already has that name. Choose another name, or rename that pad first.";
+      if (entry.dimension().equals(dimension) && pad.overlaps(entry.bounds()))
+        return "This ring overlaps another registered pad at the same height. Leave a gap between"
+            + " their cobblestone rings.";
+    }
+    if (existing != null) pads.remove(existing);
+    pads.add(
+        new com.nullandkale.nullspace.ship.PadRegistry.Pad(
+            existing == null ? UUID.randomUUID().toString() : existing.id(),
+            name,
+            dimension,
+            pos.immutable(),
+            pad));
+    repository.replace(pads);
+    com.nullandkale.nullspace.ship.PadRegistry.reconcileHeights(level);
+    PreviewService.registrationsChanged(level);
+    return "Registered " + name + " (" + pad.width() + " x " + pad.depth() + ")";
+  }
+
+  public static void open(ServerPlayer player, BlockPos pos, String message) {
+    String name =
+        com.nullandkale.nullspace.ship.PadRegistry.read(player.level().getServer()).stream()
+            .filter(
+                p ->
+                    p.dimension().equals(player.level().dimension().identifier().toString())
+                        && p.computer().equals(pos))
+            .map(com.nullandkale.nullspace.ship.PadRegistry.Pad::name)
+            .findFirst()
+            .orElse("");
+    com.nullandkale.nullspace.terminal.ComputerTerminal.send(
+        player,
+        pos,
+        message
+            + "\nPreviews: pad "
+            + (PreviewService.enabled(player, pos, false) ? "ON" : "OFF")
+            + " | ship "
+            + (PreviewService.enabled(player, pos, true) ? "ON" : "OFF"),
+        "pad",
+        name);
+  }
+
+  public static void preview(ServerPlayer player, BlockPos pos, boolean ship) {
+    try {
+      open(player, pos, PreviewService.toggle(player, pos, ship));
+    } catch (IllegalArgumentException invalid) {
+      open(player, pos, invalid.getMessage());
+    }
+  }
+
+  private PadComputers() {}
+}

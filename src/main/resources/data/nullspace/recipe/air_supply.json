@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IGI",
+    "CPC",
+    "BHB"
+  ],
+  "key": {
+    "B": "nullspace:circuit_board",
+    "C": "minecraft:copper_ingot",
+    "G": "minecraft:glass",
+    "H": "nullspace:machine_casing",
+    "I": "minecraft:iron_ingot",
+    "P": "minecraft:piston"
+  },
+  "result": {
+    "id": "nullspace:air_supply",
+    "count": 1
+  }
+}

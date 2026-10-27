@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-25",
+  "unit": {
+    "tests": 137,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "serverTests": 62,
+  "graphicalEntrypoints": 11,
+  "loopbackClients": 2,
+  "loopbackRun": "build/local-multiplayer/20261025-230426-e4fc80",
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 741343,
+  "sha256": "39b163795c63c02317451369b4fb0f20a7ba19bba7a684a7d70e345f3cddb952",
+  "logs": [
+    "visual-polish-validation.log",
+    "visual-polish-server-validation.log",
+    "visual-polish-package.log",
+    "visual-polish-final-multiplayer.log"
+  ],
+  "notes": [
+    "The first combined run passed unit and graphical checks but failed an existing flight fixture that retained old metadata. The fixture now queries current metadata by stable ID; the subsequent server run passes all 62 cases.",
+    "The final pilot target budget refinement is checked by both actual 4:3 clients after the graphical capture.",
+    "The physical process-halt matrix was not rerun. No player save was opened or edited.",
+    "Encounter/docking and rendering-workshop documents are proposals, not implemented gameplay."
+  ]
+}

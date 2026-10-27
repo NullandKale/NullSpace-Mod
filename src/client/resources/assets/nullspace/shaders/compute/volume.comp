@@ -1,0 +1,121 @@
+#version 430
+#include "space.glsl"
+layout(local_size_x = 8, local_size_y = 4) in;
+layout(rgba16f, binding = 0) writeonly uniform image2D Prefix;
+uniform sampler2D OpaqueDepth;
+uniform mat4 InvDepth;
+uniform int HasDepth, ZeroToOne;
+uniform float SamplePhase;
+layout(rgba32f, binding = 1) writeonly uniform image2D StopDepth;
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, ViewSize)))
+        return;
+    vec2 uv = (vec2(pixel) + .5) / vec2(ViewSize);
+    vec3 d = ray(pixel, ViewSize);
+    float stop = FAR;
+    if (HasDepth != 0) {
+        float depth = texture(OpaqueDepth, uv).r;
+        if (depth > 0.) {
+            vec4 pos = InvDepth * vec4(uv * 2. - 1., ZeroToOne != 0 ? depth : depth * 2. - 1., 1.);
+            stop = length(pos.xyz / pos.w);
+        }
+    }
+    vec2 spans[16];
+    float integrationEnd = 0.;
+    for (int i = 0; i < VolumeCount; i++) {
+        spans[i] = volumeInterval(d, i);
+        if (spans[i].y > 0. && spans[i].x < stop)
+            integrationEnd = max(integrationEnd, min(stop, spans[i].y));
+    }
+    // Sky/celestial pixels already contain full atmospheric transport in the HDR surface pass.
+    // Native opaque geometry instead receives only the segment in front of its actual depth.
+    vec2 celestial = trace(vec3(0), d, FAR);
+    bool aerial = HasAtmosphere != 0 && stop < FAR * .99 &&
+        (celestial.y < 0. || stop < celestial.x - max(.05, celestial.x * .0001));
+    if (aerial) {
+        vec2 atmosphere = atmoSpan(d, stop);
+        if (atmosphere.y > atmosphere.x) integrationEnd = max(integrationEnd, atmosphere.y);
+    }
+    imageStore(StopDepth, pixel, vec4(stop, integrationEnd, 0, 1));
+    vec3 airL = vec3(0), airT = vec3(1);
+    vec3 L = vec3(0);
+    float T = 1.;
+    float previous = 0.;
+    float lightVisibility[8];
+    for (int light = 0; light < 8; light++)
+        lightVisibility[light] = 1.;
+    for (int layer = 0; layer < SLICES; layer++) {
+        float end = min(stop, sliceDistance(layer));
+        float t = previous;
+        int samples = 0;
+        while (t < end && T > .002 && samples < 384) {
+            float enter = end, exit = 0.;
+            for (int i = 0; i < VolumeCount; i++)
+                if (spans[i].y > t && spans[i].x < end) {
+                    enter = min(enter, max(t, spans[i].x));
+                    exit = max(exit, min(end, spans[i].y));
+                }
+            if (exit <= enter)
+                break;
+            t = enter;
+            float stepSize = max(.03, min((exit - enter) / float(max(8, VolumeSteps)),
+                                          max(.1, t * (.28 / float(max(8, VolumeSteps))))));
+            stepSize = min(stepSize, end - t);
+            float midpoint = t + stepSize * SamplePhase;
+            vec3 p = d * midpoint;
+            float sigma = 0.;
+            vec3 source = vec3(0);
+            if (samples % 12 == 0)
+                for (int light = 0; light < LightCount; light++) {
+                    vec4 sun = BodyData[Lights[light] * 5];
+                    vec3 delta = sun.xyz - p;
+                    float distance = length(delta);
+                    vec3 direction = delta / distance;
+                    vec2 blocker =
+                        trace(p + direction * .01, direction, max(.001, distance - sun.w * 1.001));
+                    lightVisibility[light] = blocker.y < 0. ? 1. : 0.;
+                }
+            if (!cabin(p))
+                for (int i = 0; i < VolumeCount; i++) {
+                    float density = volumeDensity(p, i);
+                    if (density <= 0.)
+                        continue;
+                    vec4 color = scene(i * 5 + 2), emission = scene(i * 5 + 3);
+                    float extinction = density * color.w;
+                    vec3 light = vec3(.015);
+                    int count = 0;
+                    for (int li = 0; li < LightCount; li++) {
+                        int j = Lights[li];
+                        count++;
+                        vec3 toSun = BodyData[j * 5].xyz - p;
+                        float dd = dot(toSun, toSun);
+                        vec3 dir = normalize(toSun);
+                        float g = emission.w, cosine = dot(dir, -d);
+                        float phase =
+                            (1. - g * g) / max(.05, pow(1. + g * g - 2. * g * cosine, 1.5));
+                        light += pow(BodyData[j * 5 + 1].rgb, vec3(2.2)) * lightVisibility[li] *
+                                 min(4., BodyData[j * 5 + 1].w * BodyData[j * 5].w *
+                                             BodyData[j * 5].w / max(1., dd) * 20.) *
+                                 phase;
+                    }
+                    sigma += extinction;
+                    source += extinction * (pow(color.rgb, vec3(2.2)) * light + emission.rgb);
+                }
+            if (sigma > 0.) {
+                float attenuation = exp(-sigma * stepSize);
+                L += T * (source / sigma) * (1. - attenuation);
+                T *= attenuation;
+            }
+            t += stepSize;
+            samples++;
+        }
+        if (aerial) atmoIntegrate(d, previous, end, 4, 8, airL, airT);
+        previous = end;
+        // The native optical-prefix contract uses scalar transmission. Preserve RGB in-scattering;
+        // use luminance extinction for native terrain/glass; celestial transport remains RGB.
+        float airTransmission = dot(airT, vec3(.2126, .7152, .0722));
+        imageStore(Prefix, ivec2(pixel.x, pixel.y + layer * ViewSize.y),
+                   vec4(airL + airT * L, T * airTransmission));
+    }
+}

@@ -1,0 +1,36 @@
+{
+  "required": true,
+  "package": "com.nullandkale.nullspace.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "TransitPlayerMixin",
+    "TransitEntityMixin",
+    "TransitDamageMixin",
+    "CreeperStateMixin",
+    "ServerLevelEntitiesAccessor",
+    "EntitySectionsAccessor",
+    "TransitBlocksMixin",
+    "ShipExplosionMixin",
+    "SceneLightMixin",
+    "TransitBlockEntityMixin",
+    "ShipBlockEventsAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "GlContextRequestMixin",
+    "ScenePassBoundaryMixin",
+    "NativeVolumeShaderMixin",
+    "NativeVolumeProgramMixin",
+    "SceneGameRendererMixin",
+    "SceneLevelRendererMixin",
+    "SceneEntityRendererMixin",
+    "SpaceOptionsMixin",
+    "PlanetSkyMixin",
+    "PlanetCloudMixin",
+    "PlanetFogMixin",
+    "GuideBookAccessMixin",
+    "GuideBookScreenMixin"
+  ]
+}

@@ -1,0 +1,42 @@
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+
+// Own only repetitive wrappers. Recipes, textures and block models stay authored resources.
+def resourcesRoot = layout.projectDirectory.dir('src/main/resources').asFile
+def generatedContent = { ->
+    def parser = new JsonSlurper()
+    def equipment = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/equipment.json'))
+    def planets = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/planets.json'))
+    def outputs = [:]
+    def blocks = equipment.findAll { it.kind == 'block' }
+    blocks.each { definition ->
+        def id = definition.id
+        def variants = [:]
+        ['north','east','south','west'].eachWithIndex { facing, index -> variants["facing=$facing"] = [model:"nullspace:block/$id", y:index*90] }
+        outputs["assets/nullspace/blockstates/${id}.json"] = [variants:variants]
+        outputs["assets/nullspace/items/${id}.json"] = [model:[type:'minecraft:model',model:"nullspace:block/$id"]]
+        outputs["data/nullspace/loot_table/blocks/${id}.json"] = [type:'minecraft:block',pools:[[rolls:1,entries:[[type:'minecraft:item',name:"nullspace:$id"]],conditions:[[condition:'minecraft:survives_explosion']]]]]
+    }
+    equipment.each { definition ->
+        def recipe="nullspace:${definition.id}"
+        outputs["data/nullspace/advancement/recipes/ship/${definition.id}.json"] = [parent:'minecraft:recipes/root',criteria:[has_component:[trigger:'minecraft:inventory_changed',conditions:[items:[definition.unlock]]],has_the_recipe:[trigger:'minecraft:recipe_unlocked',conditions:[recipes:recipe]]],requirements:[['has_component','has_the_recipe']],rewards:[recipes:[recipe]]]
+    }
+    outputs['data/minecraft/tags/block/mineable/pickaxe.json'] = [replace:false,values:blocks.collect { "nullspace:${it.id}" }]
+    planets.findAll { it.surface != null }.each { outputs["data/nullspace/dimension/${it.id}.json"] = it.surface }
+    outputs
+}
+
+tasks.register('generateContentAssets') {
+    notCompatibleWithConfigurationCache('Explicit maintenance task reads the content catalogs')
+    doLast { generatedContent().each { path, value -> new File(resourcesRoot,path).text = JsonOutput.prettyPrint(JsonOutput.toJson(value)) + '\n' } }
+}
+tasks.register('verifyContentAssets') {
+    notCompatibleWithConfigurationCache('Checks authored catalogs against checked-in generated wrappers')
+    doLast {
+        def parser = new JsonSlurper()
+        def mismatches = generatedContent().findAll { path, value -> def file=new File(resourcesRoot,path); !file.exists() || parser.parse(file) != parser.parseText(JsonOutput.toJson(value)) }.keySet()
+        if (!mismatches.empty) throw new GradleException("Generated content differs: $mismatches. Run generateContentAssets.")
+        logger.lifecycle('Verified generated block wrappers, mining tags and planet dimensions')
+    }
+}
+
