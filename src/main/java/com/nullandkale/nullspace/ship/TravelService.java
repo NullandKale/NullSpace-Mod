@@ -657,9 +657,9 @@ public final class TravelService {
         && !detaching
         && !com.nullandkale.nullspace.systems.FuelSystem.spend(source, fuelShip, fuelCost))
       return Result.rejected(
-          "Not enough shared fuel for travel ("
-              + fuelCost
-              + " burn units). Load furnace fuel into a connected generator.");
+          "Not enough fuel for travel: needs "
+              + com.nullandkale.nullspace.systems.FuelSystem.display(fuelCost)
+              + ". Load furnace fuel into a connected generator.");
     StructureTemplate template = new StructureTemplate();
     BlockPos min = scan.bounds().min(), max = scan.bounds().max();
     template.fillFromWorld(

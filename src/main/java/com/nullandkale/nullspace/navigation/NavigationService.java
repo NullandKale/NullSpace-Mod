@@ -511,7 +511,9 @@ public final class NavigationService {
                 : 8000);
     if (com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s) < cost)
       throw new IllegalArgumentException(
-          "Not enough shared fuel for this jump: " + cost + " burn units. Load the generator.");
+          "Not enough fuel for this jump: needs "
+              + com.nullandkale.nullspace.systems.FuelSystem.display(cost)
+              + ". Load the generator.");
     PlanetSurfaces.ensureLanding(server, destination);
     SceneCatalog.region(server, destination);
     var selected = ShipDestination.selected(s);

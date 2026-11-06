@@ -528,9 +528,9 @@ public final class ShipControl {
     return FuelSystem.available(p.level(), ship) >= cost
         ? ""
         : "Fuel "
-            + FuelSystem.available(p.level(), ship)
+            + FuelSystem.display(FuelSystem.available(p.level(), ship))
             + "/"
-            + cost
+            + FuelSystem.display(cost)
             + ": load furnace fuel in a generator";
   }
 
@@ -619,19 +619,21 @@ public final class ShipControl {
             : "Setup incomplete: connect a generator and an Air Supply";
     int transferCost =
         FuelSystem.travelCost(p.level(), ship, 400 + ShipSystems.connected(p.level(), ship).size());
-    String costs = "Fuel costs: Launch/Land " + transferCost;
+    String costs = "Fuel costs: Launch/Land " + FuelSystem.display(transferCost);
     if (JourneyService.active(ship)) costs += " | Jump already paid; Resume has no jump fee";
     else if (target != null)
       costs +=
           " | Jump "
-              + FuelSystem.travelCost(
-                  p.level(),
-                  ship,
-                  LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship))
-                          .system()
-                          .equals(LocalSpaces.get(p.level().getServer(), target.region()).system())
-                      ? 2000
-                      : 8000);
+              + FuelSystem.display(
+                  FuelSystem.travelCost(
+                      p.level(),
+                      ship,
+                      LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship))
+                              .system()
+                              .equals(
+                                  LocalSpaces.get(p.level().getServer(), target.region()).system())
+                          ? 2000
+                          : 8000));
     costs += " | Dock: burns while moving";
     if (target != null
         && !JourneyService.active(ship)
@@ -683,10 +685,10 @@ public final class ShipControl {
         CourseService.active(ship) ? CourseService.summary(ship) : connection(p, ship),
         CourseService.preview(p, ship, target)
             + "\nMinimum fuel: "
-            + CourseService.minimumFuel(p, ship, target)
+            + FuelSystem.display(CourseService.minimumFuel(p, ship, target))
             + " + docking reserve\nFuel aboard: "
-            + FuelSystem.available(p.level(), ship)
-            + " burn units\n"
+            + FuelSystem.display(FuelSystem.available(p.level(), ship))
+            + "\n"
             + costs
             + "\n"
             + resources);

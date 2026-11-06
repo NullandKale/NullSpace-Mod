@@ -158,10 +158,11 @@ public final class StationService {
         .append(power[1])
         .append(" demand | Charging: ")
         .append(power[2])
-        // Fuel is stored in furnace burn units (1600 per coal); show it in coal players know.
-        .append("\nFuel: about ")
-        .append(com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s) / 1600)
-        .append(" coal | Battery: ")
+        .append("\nFuel: ")
+        .append(
+            com.nullandkale.nullspace.systems.FuelSystem.display(
+                com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s)))
+        .append(" | Battery: ")
         .append(power[3])
         .append("\nAir: ")
         .append(supplies == 0 ? "No active supply" : oxygen + "% at outlets")

@@ -42,6 +42,17 @@ public final class FuelSystem {
     return 1200 * (1 + tier(level, at));
   }
 
+  /**
+   * Internal fuel is furnace burn time x 8, so one coal is 12,800 units. Players see fuel where
+   * one coal is 1.00 (playtest 2 decision); internal amounts stay integers.
+   */
+  public static final int UNITS_PER_FUEL = 1600 * 8;
+
+  /** Fuel as players see it: coal-equivalents with two decimals, e.g. "1.25". */
+  public static String display(long units) {
+    return String.format(java.util.Locale.ROOT, "%.2f", units / (double) UNITS_PER_FUEL);
+  }
+
   public static int travelCost(ServerLevel level, CompoundTag ship, int base) {
     int best =
         ShipSystems.equipment(level, ship).stream()

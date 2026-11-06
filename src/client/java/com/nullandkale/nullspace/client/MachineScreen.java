@@ -616,14 +616,15 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
       String values =
           mode.equals("generator")
               ? "Fuel aboard: "
-                  + data.getIntOr("fuel", 0)
+                  + com.nullandkale.nullspace.systems.FuelSystem.display(data.getIntOr("fuel", 0))
                   + " | Unit limit: "
                   + data.getIntOr("outputMax", 8)
                   + "/tick"
               : mode.equals("battery")
                   ? "Charge/discharge limit: " + data.getIntOr("rate", 4) + "/tick"
                   : "Fuel aboard: "
-                      + data.getIntOr("fuel", 0)
+                      + com.nullandkale.nullspace.systems.FuelSystem.display(
+                          data.getIntOr("fuel", 0))
                       + " | "
                       + data.getStringOr("facing", "");
       text(g, values, 8, 36, 232);

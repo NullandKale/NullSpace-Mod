@@ -191,9 +191,9 @@ public final class CourseService {
     int cost = minimumFuel(player, ship, target);
     if (FuelSystem.available(player.level(), ship) < cost)
       return "Fuel "
-          + FuelSystem.available(player.level(), ship)
+          + FuelSystem.display(FuelSystem.available(player.level(), ship))
           + "/"
-          + cost
+          + FuelSystem.display(cost)
           + ": load furnace fuel in a generator (docking also uses fuel)";
     return "";
   }

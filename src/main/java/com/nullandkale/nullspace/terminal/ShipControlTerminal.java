@@ -441,9 +441,9 @@ public final class ShipControlTerminal implements TerminalDevice {
             .orElse("Choose a course, then Engage")
             .replaceFirst("^Trip: ", "");
     var fuel =
-        java.util.regex.Pattern.compile("Minimum fuel: (\\d+)")
+        java.util.regex.Pattern.compile("Minimum fuel: ([0-9.]+)")
             .matcher(view.details());
-    if (fuel.find() && !fuel.group(1).equals("0")) trip += " - needs " + fuel.group(1) + " fuel";
+    if (fuel.find() && !fuel.group(1).equals("0.00")) trip += " - needs " + fuel.group(1) + " fuel";
     text(2, 8, trip, TerminalTheme.TEXT);
     button(2, 10, 20, "Engage", ShipControl.Action.ENGAGE);
     String blocker =
