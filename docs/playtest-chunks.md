@@ -18,6 +18,8 @@ This breaks [the recovery, station and ship design](recovery-stations-and-ship-d
 
 ## UI refinement added after the navigation playtest
 
+Camera/flight checkpoint: Camera and Monitor now center the video; Monitor has Previous camera and Next camera directly below it. Fullscreen fills the display at its actual aspect ratio, with keyboard aiming, wheel zoom and compact overlays. Space Graphics exposes Camera resolution independently of sky resolution. Flight controls use small H/R/F buttons with tooltips. [Focused verification and screenshot paths](camera-flight-ui-verification.json) cover real camera changes, drafts surviving fullscreen return, player/entity rendering and manual flight. This candidate is separate from the deployed navigation/recovery/title baseline.
+
 The [interactive UI audit](ui-audit-notes.md) is part of this batch. The navigation mechanics have focused verification; their presentation is not considered finished or approved. Start with 1a, then hand back each small UI group for playtesting. Rescue, respawn, titles and station work remain in the plan.
 
 - Establish the shared design language using the Delivery Beacon as a positive reference. Apply the audit's hierarchy, grouping, spacing, scale and overlap requirements to all screens, including those called "fine".

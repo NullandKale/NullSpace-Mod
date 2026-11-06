@@ -74,9 +74,13 @@ jobs:
       - name: Create or update the draft release
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
+            [ "$(gh release view "$TAG" --json isDraft -q .isDraft)" = true ] || {
+              echo "::error::Published releases are immutable. Create a new version as a draft instead."; exit 1;
+            }
             gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --draft --prerelease --latest=false
           else
-            gh release create "$TAG" dist/* --draft --prerelease --title "NullSpace $VERSION (alpha)" \
+            gh release create "$TAG" dist/* --draft --prerelease --latest=false --title "NullSpace $VERSION (alpha)" \
               --generate-notes --notes "Alpha build for Minecraft 26.3 with Fabric Loader 0.19.5 and Fabric API 0.164.0+26.3. Install on both client and server. Verify the download against SHA256SUMS.txt."
           fi
           echo "Draft release: $(gh release view "$TAG" --json url -q .url)" >> "$GITHUB_STEP_SUMMARY"
