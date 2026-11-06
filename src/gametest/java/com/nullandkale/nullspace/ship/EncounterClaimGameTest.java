@@ -20,25 +20,38 @@ public final class EncounterClaimGameTest {
     return total;
   }
 
-  @GameTest(environment = "nullspace:ship_recall", maxTicks = 900)
+  @GameTest(environment = "nullspace:ship_recall", maxTicks = 3000)
   public void aPlayerAboardAnUnclaimedDerelictClaimsTheSameShipWithItsSuppliesAsFound(
       GameTestHelper ctx) throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 46);
+    var f = new ShipRecallGameTest.Fixture(ctx, 216);
     var server = f.surface.getServer();
     var space = f.space;
-    var derelict =
-        StationService.queue(
-            server,
-            UUID.randomUUID().toString(),
-            "Claim fixture",
-            LocalSpaces.HOME,
-            new net.minecraft.world.phys.Vec3(0, 0, 9000),
-            "",
-            EncounterSites.plan(1, 3),
-            false);
+    // Built synchronously, like StationGameTest.fixture: the shared construction queue is also
+    // used by tests that inject construction failures, which would only delay this check.
+    var plan = EncounterSites.plan(1, 3);
+    var base = f.base.offset(0, 0, 1024);
+    var derelict = new CompoundTag();
+    derelict.putString("id", UUID.randomUUID().toString());
+    derelict.putString("dimension", space.dimension().identifier().toString());
+    derelict.putLong("base", base.asLong());
+    derelict.putLong("controller", base.offset(plan.core()).asLong());
+    derelict.putString("home", "Claim fixture");
+    derelict.putString("localSpace", LocalSpaces.HOME);
+    derelict.putString("kind", "station");
+    derelict.putString("owner", "");
+    derelict.putString("access", "public");
+    derelict.put("crew", new net.minecraft.nbt.ListTag());
+    derelict.putDouble("simX", 31000);
+    derelict.putDouble("simZ", 31000);
     derelict.putBoolean("salvage", true);
     derelict.putInt("encounterKind", 1);
     derelict.putLong("encounterSeed", 3);
+    for (int x = -16; x < 48; x += 16)
+      for (int z = -16; z < 48; z += 16)
+        space.setChunkForced(base.offset(x, 0, z).getX() >> 4, base.offset(x, 0, z).getZ() >> 4, true);
+    for (var e : plan.blocks().entrySet()) space.setBlock(base.offset(e.getKey()), e.getValue(), 18);
+    ShipStore.get(server).ships().add(derelict);
+    EncounterSites.stock(space, derelict);
     String id = derelict.getStringOr("id", "");
     Runnable[] poll = {null};
     poll[0] =
@@ -63,6 +76,7 @@ public final class EncounterClaimGameTest {
           f.player.teleportTo(space, center.x, center.y, center.z, Set.of(), 0, 0, true);
           String result = EncounterClaims.claim(f.player, derelict);
           ctx.assertTrue(result.startsWith("You claimed"), result);
+          // Verify the authoritative repository, not just a possibly detached fixture object.
           var claimed = ShipStore.get(server).repository().find(id);
           ctx.assertTrue(
               claimed != null

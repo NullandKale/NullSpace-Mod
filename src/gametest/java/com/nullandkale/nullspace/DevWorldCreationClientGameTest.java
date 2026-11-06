@@ -120,6 +120,9 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
                                           new AssertionError(
                                               "Flat world has no Terra landing destination"));
                           var floor = pad.bounds();
+                          // Load the sampled column first: an unloaded chunk reports the
+                          // minimum build height, which made this check fail under load.
+                          server.overworld().getChunk((floor.minX() - 2) >> 4, (floor.minZ() - 2) >> 4);
                           int terrain =
                               server
                                   .overworld()

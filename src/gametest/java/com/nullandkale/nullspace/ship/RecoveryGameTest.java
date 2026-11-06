@@ -27,7 +27,7 @@ public final class RecoveryGameTest {
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 400)
   public void rescueMovesOnlyThePlayerKeepsTheirInventoryAndLeavesTheShipBehind(GameTestHelper ctx)
       throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 31);
+    var f = new ShipRecallGameTest.Fixture(ctx, 201);
     var server = f.surface.getServer();
     var access = new MinecraftServerAccess(server);
     f.player.getInventory().add(new ItemStack(Items.DIAMOND, 5));
@@ -65,7 +65,7 @@ public final class RecoveryGameTest {
 
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 300)
   public void cancellingRescueLeavesThePlayerWhereTheyAre(GameTestHelper ctx) throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 32);
+    var f = new ShipRecallGameTest.Fixture(ctx, 202);
     var server = f.surface.getServer();
     var start = f.player.position();
     PlayerRecovery.request(f.player, false);
@@ -95,7 +95,7 @@ public final class RecoveryGameTest {
   public void rescueNeedsNoShipPowerFuelOrDestination(GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();
     var access = new MinecraftServerAccess(server);
-    var player = ShipRecallGameTest.player(ctx, 33);
+    var player = ShipRecallGameTest.player(ctx, 203);
     player.teleportTo(ctx.getLevel(), ctx.absolutePos(BlockPos.ZERO).getX() + .5, ctx.absolutePos(BlockPos.ZERO).getY() + 2, ctx.absolutePos(BlockPos.ZERO).getZ() + .5, Set.of(), 0, 0, true);
     PlayerRecovery.request(player, false);
     ctx.runAfterDelay(
@@ -144,7 +144,7 @@ public final class RecoveryGameTest {
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
   public void aBedAboardTheShipRespawnsThePlayerThereUntilItIsLostOrTheShipIsStored(
       GameTestHelper ctx) throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 34);
+    var f = new ShipRecallGameTest.Fixture(ctx, 204);
     var server = f.surface.getServer();
     var ship = f.ship();
     var foot = bedSpot(f.space, ship);
@@ -183,7 +183,7 @@ public final class RecoveryGameTest {
 
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
   public void playersWithoutAShipBedKeepVanillaRespawn(GameTestHelper ctx) {
-    var player = ShipRecallGameTest.player(ctx, 35);
+    var player = ShipRecallGameTest.player(ctx, 205);
     ctx.assertTrue(
         VesselRespawns.resolve(player, TeleportTransition.DO_NOTHING) == null,
         "No binding means ordinary Minecraft respawn");

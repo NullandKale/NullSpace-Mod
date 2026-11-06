@@ -29,7 +29,7 @@ public final class ShipTitleGameTest {
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 600)
   public void storingClearsThePadAndDeployReturnsTheSameShipOnlyWithItsTitle(GameTestHelper ctx)
       throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 41);
+    var f = new ShipRecallGameTest.Fixture(ctx, 211);
     var cargo = f.base.offset(3, 1, 7);
     f.space.setBlock(cargo, Blocks.CHEST.defaultBlockState(), 18);
     ((ChestBlockEntity) f.space.getBlockEntity(cargo)).setItem(0, new ItemStack(Items.DIAMOND, 7));
@@ -121,8 +121,8 @@ public final class ShipTitleGameTest {
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
   public void handingOverASignedTitleTransfersTheSameShipAndRetiresEveryOlderCopy(
       GameTestHelper ctx) throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 44);
-    var friend = ShipRecallGameTest.player(ctx, 45);
+    var f = new ShipRecallGameTest.Fixture(ctx, 214);
+    var friend = ShipRecallGameTest.player(ctx, 215);
     friend.teleportTo(
         f.surface, f.computer.getX() + .5, f.computer.getY(), f.computer.getZ() + 1.5, Set.of(), 0, 0, true);
     ShipTitles.ensureHeld(f.player, f.ship());
@@ -162,8 +162,8 @@ public final class ShipTitleGameTest {
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
   public void aShipInSpaceIsStoredWhereItIsAndOnlyItsOwnerCanStoreIt(GameTestHelper ctx)
       throws Exception {
-    var f = new ShipRecallGameTest.Fixture(ctx, 42);
-    var stranger = ShipRecallGameTest.player(ctx, 43);
+    var f = new ShipRecallGameTest.Fixture(ctx, 212);
+    var stranger = ShipRecallGameTest.player(ctx, 213);
     stranger.teleportTo(
         f.surface, f.computer.getX() + .5, f.computer.getY(), f.computer.getZ() + 1.5, Set.of(), 0, 0, true);
     String key = f.selection();

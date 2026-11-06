@@ -85,6 +85,7 @@ try {
         $manifest.windowGrid = @{area=$graphicsArea;columns=$layout.columns;rows=$layout.rows}
         Write-Host ("Graphical windows: {0} columns x {1} rows on the active monitor" -f $layout.columns,$layout.rows)
     }
+    $lastClientStart = $null
     foreach ($job in $jobs) {
         $work = Join-Path $runRoot $job.name
         $null = New-Item -ItemType Directory -Path $work
@@ -117,7 +118,12 @@ try {
         else { $arguments += @('--universe',$work) }
         $argFile = Join-Path $work 'launch.args'
         Write-JavaArguments $argFile $arguments
+        if ($job.kind -eq 'client' -and $null -ne $lastClientStart) {
+            $remaining = 15000 - ([DateTime]::UtcNow - $lastClientStart).TotalMilliseconds
+            if ($remaining -gt 0) { Start-Sleep -Milliseconds ([int][Math]::Ceiling($remaining)) }
+        }
         $process = Start-Process -FilePath $spec.executable -ArgumentList ('@"'+$argFile+'"') -WorkingDirectory $work -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work 'test.log') -RedirectStandardError (Join-Path $work 'test.err.log')
+        if ($job.kind -eq 'client') { $lastClientStart = [DateTime]::UtcNow }
         $null = $process.Handle
         $processes += [pscustomobject]@{job=$job;process=$process;work=$work;windowHandle=0L}
         $manifest.jobs += [ordered]@{name=$job.name;kind=$job.kind;pid=$process.Id;startedUtc=[DateTime]::UtcNow.ToString('o');expected=@($job.expected);status='running'}
