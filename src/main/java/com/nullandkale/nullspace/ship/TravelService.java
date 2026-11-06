@@ -151,8 +151,8 @@ public final class TravelService {
 
   public static boolean locked(ServerLevel level, BlockPos pos) {
     if (worldMutation()) return false;
-    return TerraHarbor.protectedAt(level,pos)
-        || ShipRecall.locked(level, pos)
+    // Terra Harbor is not a transit area: its shell has its own player protection.
+    return ShipRecall.locked(level, pos)
         || com.nullandkale.nullspace.station.StationService.buildingAt(level, pos)
         || com.nullandkale.nullspace.navigation.NavigationService.locked(level, pos)
         || physicalAreaBusy(level, new ShipScan.Bounds(pos, pos), null);

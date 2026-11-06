@@ -26,6 +26,7 @@ public final class NullSpace implements ModInitializer {
     com.nullandkale.nullspace.ship.PlayerRecovery.initialize();
     com.nullandkale.nullspace.ship.VesselRespawns.initialize();
     com.nullandkale.nullspace.ship.ShipTitles.initialize();
+    com.nullandkale.nullspace.ship.TerraHarbor.initialize();
     com.nullandkale.nullspace.systems.AirEffects.initialize();
     com.nullandkale.nullspace.systems.ShipSystems.initialize();
     com.nullandkale.nullspace.scene.SceneService.initialize();

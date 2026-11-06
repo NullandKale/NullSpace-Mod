@@ -119,9 +119,30 @@ public final class RecoveryGameTest {
     ctx.assertTrue(level.getBlockState(feet).isAir() && level.getBlockState(feet.above()).isAir(),
         "Arrival has headroom");
     ctx.assertTrue(TerraHarbor.protectedAt(level, base), "The harbor floor is protected");
-    ctx.assertTrue(TerraHarbor.protectedAt(level, base.offset(5, 2, 10)), "Its walls are protected");
+    ctx.assertTrue(TerraHarbor.protectedAt(level, base.offset(0, 2, 10)), "Its walls are protected");
     ctx.assertTrue(!TerraHarbor.protectedAt(level, base.offset(3, 1, 30)), "The garden stays harvestable");
+    ctx.assertTrue(
+        !TerraHarbor.protectedAt(level, base.offset(1, 1, 5)),
+        "Workstations are ordinary blocks anyone can use");
+    ctx.assertTrue(
+        !TravelService.locked(level, base.offset(1, 1, 5)),
+        "The harbor is not a frozen transit area: furnaces smelt and blocks update");
     ctx.assertTrue(!TerraHarbor.protectedAt(level, base.offset(200, 1, 200)), "Unrelated terrain is not protected");
+    var furnace = level.getBlockState(base.offset(1, 1, 5));
+    ctx.assertTrue(
+        furnace.is(Blocks.FURNACE)
+            && furnace.getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.FACING)
+                == Direction.EAST,
+        "The furnace faces into the hall, not the wall");
+    var pane = level.getBlockState(base.offset(0, 2, 10));
+    ctx.assertTrue(
+        pane.getValue(net.minecraft.world.level.block.CrossCollisionBlock.NORTH)
+            && pane.getValue(net.minecraft.world.level.block.CrossCollisionBlock.SOUTH),
+        "Window panes connect along the wall instead of standing as spikes");
+    var padArea = base.offset(20, 0, 10);
+    ctx.assertTrue(
+        TerraHarbor.conflicts(server, padArea, null),
+        "A harbor site next to a registered landing pad (its own) is rejected");
     ctx.succeed();
   }
 
