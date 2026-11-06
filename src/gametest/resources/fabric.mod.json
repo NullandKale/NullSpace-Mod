@@ -31,6 +31,7 @@
       "com.nullandkale.nullspace.ship.RecoveryGameTest",
       "com.nullandkale.nullspace.ship.ShipTitleGameTest",
       "com.nullandkale.nullspace.ship.BlueprintOrientationGameTest",
+      "com.nullandkale.nullspace.ship.OxygenGameTest",
       "com.nullandkale.nullspace.ship.EncounterClaimGameTest",
       "com.nullandkale.nullspace.ship.ShipGalleryGameTest",
       "com.nullandkale.nullspace.ship.SphereGameTest",

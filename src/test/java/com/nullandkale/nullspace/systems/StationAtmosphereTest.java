@@ -47,8 +47,8 @@ class StationAtmosphereTest {
     assertEquals(1, topology.rooms().size());
     assertEquals(1, topology.rooms().getFirst().leaks());
     var result = SpatialAir.step(air, topology, seals, Map.of(), Map.of(), 1, 0);
-    assertTrue(result.escaped() > 0);
-    assertEquals(1000, air[grid.index(31, 3, 40)]);
+    // Only the outer boundary leaks: one face's worth for this 34-block room, not the section edge.
+    assertEquals(34L * Atmosphere.FULL / SpatialAir.HOLE_TICKS, result.escaped());
   }
 
   @Test

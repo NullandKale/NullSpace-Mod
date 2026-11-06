@@ -49,15 +49,17 @@ final class AirSystem {
           var front =
               p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING));
           if (ShipStore.bounds(ship).contains(front)) {
-            int used = Math.min(2, power);
-            supplies.merge(local(ship, front), used * 2000, Integer::sum);
+            // Each Air Supply draws up to SUPPLY_POWER units; output scales with what it gets.
+            int used = Math.min(SpatialAir.SUPPLY_POWER, power);
+            supplies.merge(local(ship, front), used, Integer::sum);
             power -= used;
           }
         }
       var occupants = new HashMap<Integer, Integer>();
       for (var p : level.players())
         if (ShipStore.bounds(ship).contains(BlockPos.containing(p.getEyePosition())))
-          occupants.merge(local(ship, BlockPos.containing(p.getEyePosition())), 20, Integer::sum);
+          // Breathing is a small, steady draw; leaks and supplies dominate the balance.
+          occupants.merge(local(ship, BlockPos.containing(p.getEyePosition())), 1, Integer::sum);
       boolean vacuum = com.nullandkale.nullspace.navigation.PlanetSurfaces.vacuum(level);
       var flow =
           SpatialAir.step(

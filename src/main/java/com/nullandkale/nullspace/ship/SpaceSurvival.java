@@ -46,6 +46,38 @@ public final class SpaceSurvival {
         && p.getItemBySlot(EquipmentSlot.FEET).is(ShipBlocks.BOOTS);
   }
 
+  /** Suited and tethered, the meter never falls below this (player's spec). */
+  public static final int SUIT_TETHER_FLOOR = 20;
+
+  /**
+   * The oxygen meter, 0-100 (stored in tenths). It drifts toward the air where the player's head
+   * is: 10 points a second down, 20 up. Vanilla air bubbles show it; at 0 the player drowns at 2
+   * health a second, so an unsuited player in vacuum lasts about 20 seconds in total.
+   */
+  static int breathe(ServerPlayer player, int target, CompoundTag saved) {
+    var meters = air(player.level().getServer());
+    String key = player.getUUID().toString();
+    int meter = meters.getOrDefault(player.getUUID(), saved.getIntOr(key, 1000));
+    int goal = Math.clamp(target, 0, 100) * 10;
+    meter = goal < meter ? meter - Math.min(5, meter - goal) : meter + Math.min(10, goal - meter);
+    meters.put(player.getUUID(), meter);
+    saved.putInt(key, meter);
+    if (player.isUnderWater()) return meter; // vanilla owns air bubbles underwater
+    player.setAirSupply(meter * player.getMaxAirSupply() / 1000);
+    if (meter == 0 && player.level().getServer().getTickCount() % 20 == 0)
+      player.hurtServer(player.level(), player.damageSources().drown(), 2);
+    return meter;
+  }
+
+  /** Oxygen at the player's head inside this vessel (legacy vessels: breathable or not). */
+  private static int localOxygen(ServerPlayer player, CompoundTag ship, boolean breathableLegacy) {
+    if (ship == null) return 0;
+    if (com.nullandkale.nullspace.systems.ShipSystems.enabled(ship))
+      return com.nullandkale.nullspace.systems.ShipSystems.oxygen(
+          player.level(), ship, BlockPos.containing(player.getEyePosition()));
+    return breathableLegacy ? 100 : 0;
+  }
+
   private static void surfaceAir(ServerPlayer player, ShipStore store, CompoundTag savedAir) {
     if (!player.isAlive()
         || TravelService.busy(player)
@@ -67,25 +99,14 @@ public final class SpaceSurvival {
         cabin = pressure.breathable(BlockPos.containing(player.getEyePosition()));
       }
     }
-    int air =
-        air(player.level().getServer())
-            .getOrDefault(
-                player.getUUID(),
-                savedAir.getIntOr(player.getUUID().toString(), player.getAirSupply()));
-    air = cabin || source ? Math.min(player.getMaxAirSupply(), air + 4) : air - 1;
-    if (air <= -20) {
-      player.hurtServer(player.level(), player.damageSources().drown(), 4);
-      air = 0;
-    }
-    air(player.level().getServer()).put(player.getUUID(), air);
-    player.setAirSupply(Math.max(-20, air));
-    savedAir.putInt(player.getUUID().toString(), air);
+    int local = localOxygen(player, ship, cabin);
+    int meter = breathe(player, source ? Math.max(local, SUIT_TETHER_FLOOR) : local, savedAir);
     if (player.level().getServer().getTickCount() % 20 == 0)
       player.sendOverlayMessage(
           net.minecraft.network.chat.Component.literal(
               (cabin ? "CABIN AIR" : source ? "SUIT / TETHER AIR" : "AIRLESS SURFACE")
                   + " | Oxygen "
-                  + Math.max(0, air)));
+                  + meter / 10));
   }
 
   public static void initialize() {
@@ -95,7 +116,7 @@ public final class SpaceSurvival {
           Map<String, ShipScan.LivePressure> rooms = new HashMap<>();
           var store = ShipStore.get(server);
 
-          var savedAir = store.section("air");
+          var savedAir = store.section("oxygen");
           for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!player.level().dimension().equals(TravelService.SPACE)) {
               if (com.nullandkale.nullspace.navigation.PlanetSurfaces.vacuum(player.level())) {
@@ -187,9 +208,9 @@ public final class SpaceSurvival {
                                     .FACING)));
               cabin = pressure.breathable(BlockPos.containing(player.getEyePosition()));
             }
-            boolean protection = suited(player) && source;
-            protection |=
+            boolean construction =
                 com.nullandkale.nullspace.station.DockingService.constructionAir(player, vessel);
+            boolean protection = suited(player) && source || construction;
             if (!player.isSpectator()) {
               boolean vacuumFlight = (player.isCreative() || suited(player)) && !cabin;
               // Vanilla lands the client on contact with a floor. Respect that state
@@ -204,42 +225,12 @@ public final class SpaceSurvival {
               }
             }
             if (!player.isCreative() && !player.isSpectator()) {
-              if (!cabin && !protection) {
-                int air =
-                    air(player.level().getServer())
-                            .getOrDefault(
-                                player.getUUID(),
-                                savedAir.getIntOr(
-                                    player.getUUID().toString(), player.getAirSupply()))
-                        - 1;
-                air(player.level().getServer()).put(player.getUUID(), air);
-                player.setAirSupply(Math.max(-20, air));
-                if (air <= -20) {
-                  player.hurtServer(player.level(), player.damageSources().drown(), 4);
-                  air(player.level().getServer()).put(player.getUUID(), 0);
-                }
-              } else if (!player.isUnderWater()) {
-                int air =
-                    Math.min(
-                        player.getMaxAirSupply(),
-                        air(player.level().getServer())
-                                .getOrDefault(
-                                    player.getUUID(),
-                                    savedAir.getIntOr(
-                                        player.getUUID().toString(), player.getAirSupply()))
-                            + 4);
-                air(player.level().getServer()).put(player.getUUID(), air);
-                player.setAirSupply(air);
-              } else {
-                // Vanilla owns underwater air. Keep the vacuum ledger synchronized so
-                // leaving water into a breach cannot restore a stale dry-cabin reserve.
-                air(player.level().getServer()).put(player.getUUID(), player.getAirSupply());
-              }
+              int local = localOxygen(player, vessel, cabin);
+              breathe(
+                  player,
+                  construction ? 100 : protection ? Math.max(local, SUIT_TETHER_FLOOR) : local,
+                  savedAir);
             }
-            savedAir.putInt(
-                player.getUUID().toString(),
-                air(player.level().getServer())
-                    .getOrDefault(player.getUUID(), player.getAirSupply()));
             if (server.getTickCount() % 20 == 0) {
               player.sendOverlayMessage(
                   net.minecraft.network.chat.Component.literal(
@@ -248,11 +239,9 @@ public final class SpaceSurvival {
                               : protection ? "SUIT / TETHER AIR" : "VACUUM - NO AIR")
                           + " | Tether "
                           + (int) tetherDistance(vessel, player.position())
-                          + "/72 | Air "
-                          + Math.max(
-                              0,
-                              air(player.level().getServer())
-                                  .getOrDefault(player.getUUID(), 300))));
+                          + "/72 | Oxygen "
+                          + air(player.level().getServer()).getOrDefault(player.getUUID(), 1000)
+                              / 10));
               // Record offline crew offsets without replacing or refilling their inventories or
               // air.
               var members = vessel.getListOrEmpty("crew");
@@ -359,7 +348,7 @@ public final class SpaceSurvival {
                 .list("targets")
                 .removeIf(
                     t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
-            store.section("air").remove(p.getUUID().toString());
+            store.section("oxygen").remove(p.getUUID().toString());
             air(p.level().getServer()).remove(p.getUUID());
             last(p.level().getServer()).remove(p.getUUID());
             store.save();

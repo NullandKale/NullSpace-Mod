@@ -597,6 +597,8 @@ public final class ShipGameTests {
     player.connection.handleAcceptPlayerLoad(
         new net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket());
     player.setAirSupply(0);
+    // The oxygen meter, not vanilla air, decides suffocation: start this player out of oxygen.
+    ShipStore.get(server).section("oxygen").putInt(player.getUUID().toString(), 0);
     player.setHealth(20);
     player.getFoodData().setFoodLevel(20);
     player.getFoodData().setSaturation(20);
@@ -648,9 +650,16 @@ public final class ShipGameTests {
                 ctx.runAfterDelay(
                     10,
                     () -> {
+                      // Playtest 2 spec: a suited, tethered player outside the cabin is held at the
+                      // 20 floor rather than refilled.
                       ctx.assertTrue(
-                          player.getAirSupply() > suppliedAir,
-                          "Sealed controller cabin must supply EVA oxygen");
+                          player.getAirSupply()
+                              >= player.getMaxAirSupply() * SpaceSurvival.SUIT_TETHER_FLOOR / 100,
+                          "The tether keeps an EVA player at the oxygen floor (was "
+                              + suppliedAir
+                              + ", now "
+                              + player.getAirSupply()
+                              + ")");
                       ctx.assertTrue(
                           player.getAbilities().mayfly && player.getAbilities().flying,
                           "Leaving the cabin must automatically activate suit flight");

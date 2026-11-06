@@ -3,8 +3,18 @@ package com.nullandkale.nullspace.systems;
 import java.util.*;
 
 /**
- * Conservative finite-volume diffusion on the ship's 32-cube lattice. One update exchanges face
- * fluxes.
+ * Room air on the ship's 32-cube lattice, tuned for play rather than fluid accuracy.
+ *
+ * <p>Air is 0-1000 per block ({@link Atmosphere#FULL}; shown to players as 0-100) and is shared
+ * evenly within a sealed room. Rates are relative to the room, so a cabin and a station behave the
+ * same (player's balance spec, playtest 2):
+ *
+ * <ul>
+ *   <li>Each open face of a room (its leak area) moves {@code cells * FULL / 600} per tick toward
+ *       the outside pressure: one hole empties a full room in 30 s, a 5x5 breach in about 1.2 s.
+ *   <li>An Air Supply at full power (2 units) adds {@code cells * FULL / 1200} per tick, so two of
+ *       them exactly hold one hole and a large breach stays empty until it is patched.
+ * </ul>
  */
 public final class SpatialAir {
   public record Flow(int cell, int dx, int dy, int dz, int amount, boolean exterior) {}
@@ -12,10 +22,23 @@ public final class SpatialAir {
   public record Result(
       long supplied, long consumed, long escaped, long entered, List<Flow> flows) {}
 
+  /** Ticks for one open face to empty a full room. */
+  public static final int HOLE_TICKS = 30 * 20;
+
+  /** Ticks for one full-power Air Supply to fill an empty sealed room. */
+  public static final int SUPPLY_TICKS = 60 * 20;
+
+  /** Power units an Air Supply draws at full output. */
+  public static final int SUPPLY_POWER = 2;
+
   private static final int[] DX = {-1, 1, 0, 0, 0, 0},
       DY = {0, 0, -1, 1, 0, 0},
       DZ = {0, 0, 0, 0, -1, 1};
 
+  /**
+   * @param pumps outlet cell to Air Supply power units (0..{@link #SUPPLY_POWER}) feeding it
+   * @param consumers cell to air used per tick (crew breathing)
+   */
   public static Result step(
       int[] air,
       Atmosphere.Topology topology,
@@ -25,7 +48,6 @@ public final class SpatialAir {
       int ticks,
       int exteriorPressure) {
     var grid = topology.grid();
-    var offsets = grid.offsets();
     if (air.length != grid.cells()
         || seals.length != grid.cells()
         || topology.roomAt().length != grid.cells()
@@ -34,100 +56,91 @@ public final class SpatialAir {
         || exteriorPressure < 0
         || exteriorPressure > Atmosphere.FULL)
       throw new IllegalArgumentException("Invalid spatial air step");
+    int rooms = topology.rooms().size();
+    long[] power = new long[rooms], breathing = new long[rooms];
+    for (var entry : pumps.entrySet()) {
+      check(entry.getKey(), entry.getValue(), grid.cells());
+      int room = topology.roomAt()[entry.getKey()];
+      if (room >= 0) power[room] += Math.min(SUPPLY_POWER, entry.getValue());
+    }
+    for (var entry : consumers.entrySet()) {
+      check(entry.getKey(), entry.getValue(), grid.cells());
+      int room = topology.roomAt()[entry.getKey()];
+      if (room >= 0) breathing[room] += entry.getValue();
+    }
     long supplied = 0, consumed = 0, escaped = 0, entered = 0;
-    var flows = new ArrayList<Flow>();
-    int[] delta = new int[grid.cells()];
-    boolean[] visible = new boolean[topology.rooms().size()];
-    for (int tick = 0; tick < ticks; tick++) {
-      long[] capacity = new long[topology.rooms().size()];
-      for (int r = 0; r < capacity.length; r++) {
-        var room = topology.rooms().get(r);
-        long total = quantity(air, room);
-        capacity[r] = Math.max(0, room.cells().length * (long) Atmosphere.FULL - total);
-        visible[r] =
-            room.leaks() > 0 && exteriorPressure < Atmosphere.FULL
-                || total < room.cells().length * (long) Atmosphere.FULL * 99 / 100;
-      }
-      for (var entry : pumps.entrySet()) {
-        int cell = entry.getKey(), rate = entry.getValue();
-        check(cell, rate, grid.cells());
-        int room = topology.roomAt()[cell];
-        if (room < 0) continue;
-        int add =
-            (int)
-                Math.min(
-                    Math.min(rate, capacity[room]), Math.max(0, Atmosphere.FULL * 4 - air[cell]));
-        air[cell] += add;
-        capacity[room] -= add;
-        supplied += add;
-        if (tick == ticks - 1 && add > 0 && visible[room] && flows.size() < 128)
-          flows.add(new Flow(cell, 0, 0, 0, add, false));
-      }
-      for (var entry : consumers.entrySet()) {
-        int cell = entry.getKey(), rate = entry.getValue();
-        check(cell, rate, grid.cells());
-        if (air[cell] >= 0) {
-          int used = Math.min(rate, air[cell]);
-          air[cell] -= used;
-          consumed += used;
-        }
-      }
-      Arrays.fill(delta, 0);
-      for (var room : topology.rooms())
-        for (int cell : room.cells()) {
-          int x = grid.x(cell), y = grid.y(cell), z = grid.z(cell);
-          for (int d = 0; d < 6; d++) {
-            boolean inside = grid.contains(x + DX[d], y + DY[d], z + DZ[d]);
-            int other = inside ? cell + offsets[d] : -1;
-            if (inside && seals[other]) continue;
-            boolean exterior = !inside || topology.roomAt()[other] < 0;
-            if (!exterior && cell > other) continue;
-            int wanted =
-                (int)
-                    (((long) Math.max(0, air[cell])
-                            - (exterior ? exteriorPressure : Math.max(0, air[other])))
-                        / 12);
-            if (wanted == 0) continue;
-            delta[cell] -= wanted;
-            if (exterior) {
-              if (wanted > 0) escaped += wanted;
-              else entered -= wanted;
-            } else delta[other] += wanted;
-            // Crew consumption creates small local gradients even in underfilled rooms.
-            // Keep those invisible, while retaining faint exterior leak effects.
-            if (tick == ticks - 1
-                && Math.abs(wanted) >= (exterior ? 4 : 25)
-                && (exterior || visible[topology.roomAt()[cell]])
-                && flows.size() < 128)
-              flows.add(
-                  wanted > 0
-                      ? new Flow(cell, DX[d], DY[d], DZ[d], wanted, exterior)
-                      : new Flow(
-                          exterior ? cell : other, -DX[d], -DY[d], -DZ[d], -wanted, exterior));
-          }
-        }
-      for (var room : topology.rooms())
-        for (int cell : room.cells()) {
-          long next = (long) Math.max(0, air[cell]) + delta[cell];
-          if (next < 0 || next > Integer.MAX_VALUE)
-            throw new IllegalStateException("Air solver conservation invariant failed");
-          air[cell] = (int) next;
-        }
-    }
-    for (int r = 0; r < visible.length; r++) {
+    long[] pumped = new long[rooms], leaked = new long[rooms];
+    for (int r = 0; r < rooms; r++) {
       var room = topology.rooms().get(r);
-      visible[r] =
-          room.leaks() > 0 && exteriorPressure < Atmosphere.FULL
-              || quantity(air, room) < room.cells().length * (long) Atmosphere.FULL * 99 / 100;
+      long cells = room.cells().length, capacity = cells * Atmosphere.FULL;
+      long outside = cells * exteriorPressure;
+      long quantity = 0;
+      for (int cell : room.cells()) quantity += Math.max(0, air[cell]);
+      for (int tick = 0; tick < ticks; tick++) {
+        long leak = capacity * room.leaks() / HOLE_TICKS;
+        if (quantity > outside) {
+          long out = Math.min(leak, quantity - outside);
+          quantity -= out;
+          escaped += out;
+          leaked[r] += out;
+        } else if (quantity < outside) {
+          long in = Math.min(leak, outside - quantity);
+          quantity += in;
+          entered += in;
+          leaked[r] -= in;
+        }
+        long add = Math.min(capacity * power[r] / (SUPPLY_POWER * (long) SUPPLY_TICKS), Math.max(0, capacity - quantity));
+        quantity += add;
+        supplied += add;
+        pumped[r] += add;
+        long used = Math.min(breathing[r], quantity);
+        quantity -= used;
+        consumed += used;
+      }
+      int share = Math.toIntExact(quantity / cells), extra = (int) (quantity % cells);
+      for (int n = 0; n < cells; n++) air[room.cells()[n]] = share + (n < extra ? 1 : 0);
     }
-    flows.removeIf(f -> !f.exterior() && !visible[topology.roomAt()[f.cell()]]);
-    return new Result(supplied, consumed, escaped, entered, List.copyOf(flows));
+    return new Result(supplied, consumed, escaped, entered, flows(topology, seals, pumps, pumped, leaked, ticks));
   }
 
-  private static long quantity(int[] air, Atmosphere.Room room) {
-    long total = 0;
-    for (int cell : room.cells()) total += Math.max(0, air[cell]);
-    return total;
+  /** Particles for the visualization: outlets that are filling and the faces air escapes through. */
+  private static List<Flow> flows(
+      Atmosphere.Topology topology,
+      boolean[] seals,
+      Map<Integer, Integer> pumps,
+      long[] pumped,
+      long[] leaked,
+      int ticks) {
+    var grid = topology.grid();
+    var flows = new ArrayList<Flow>();
+    for (var entry : pumps.entrySet()) {
+      int room = topology.roomAt()[entry.getKey()];
+      if (room >= 0 && pumped[room] > 0 && flows.size() < 128)
+        flows.add(new Flow(entry.getKey(), 0, 0, 0, (int) Math.min(Integer.MAX_VALUE, pumped[room] / Math.max(1, ticks)), false));
+    }
+    for (int r = 0; r < topology.rooms().size(); r++) {
+      var room = topology.rooms().get(r);
+      if (leaked[r] == 0 || room.leaks() == 0) continue;
+      int perFace = (int) Math.min(Integer.MAX_VALUE, Math.abs(leaked[r]) / Math.max(1, ticks) / room.leaks());
+      for (int cell : room.cells()) {
+        int x = grid.x(cell), y = grid.y(cell), z = grid.z(cell);
+        for (int d = 0; d < 6 && flows.size() < 128; d++) {
+          boolean inside = grid.contains(x + DX[d], y + DY[d], z + DZ[d]);
+          int other = inside ? cell + grid.offsets()[d] : -1;
+          if (inside && (seals[other] || topology.roomAt()[other] >= 0)) continue;
+          flows.add(
+              leaked[r] > 0
+                  ? new Flow(cell, DX[d], DY[d], DZ[d], perFace, true)
+                  : new Flow(cell, -DX[d], -DY[d], -DZ[d], perFace, true));
+        }
+      }
+    }
+    return List.copyOf(flows);
+  }
+
+  /** Air as players see it: 0-100. */
+  public static int percent(int cellAir) {
+    return Math.clamp(Math.max(0, cellAir) / 10, 0, 100);
   }
 
   private static void check(int cell, int rate, int cells) {

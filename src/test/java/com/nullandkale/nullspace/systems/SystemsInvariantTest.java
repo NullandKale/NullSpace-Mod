@@ -82,8 +82,10 @@ class SystemsInvariantTest {
                       air[cell] = 1000;
                       var topology = Atmosphere.rebuild(seals, air, false);
                       var result = SpatialAir.step(air, topology, seals, Map.of(), Map.of(), 1, 0);
-                      assertEquals(83, result.escaped());
-                      assertEquals(917, air[cell]);
+                      // One open face moves FULL / HOLE_TICKS per tick from a one-block room.
+                      long perFace = Atmosphere.FULL / SpatialAir.HOLE_TICKS;
+                      assertEquals(perFace, result.escaped());
+                      assertEquals(Atmosphere.FULL - perFace, air[cell]);
                       assertEquals(1, topology.rooms().getFirst().leaks());
                       assertTrue(result.flows().stream().allMatch(SpatialAir.Flow::exterior));
                     }));

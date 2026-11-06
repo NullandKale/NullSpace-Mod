@@ -281,6 +281,18 @@ public final class ShipSystems {
     return r.air[local(ship, pos)] >= Atmosphere.BREATHABLE;
   }
 
+  /** Oxygen at a block, 0-100 as players see it; 0 outside the vessel's air volume. */
+  public static int oxygen(ServerLevel level, CompoundTag ship, BlockPos pos) {
+    if (com.nullandkale.nullspace.station.DockingService.sealedMate(level, pos)) {
+      var state = level.getBlockState(pos);
+      return oxygen(level, ship, pos.relative(state.getValue(DoorBlock.FACING).getOpposite()));
+    }
+    if (!ShipStore.bounds(ship).contains(pos)) return 0;
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    return SpatialAir.percent(r.air[local(ship, pos)]);
+  }
+
   public static int pressure(ServerLevel level, CompoundTag ship, int x, int y, int z) {
     if (!grid(ship).contains(x, y, z))
       throw new IllegalArgumentException("Cell coordinates are outside this vessel");

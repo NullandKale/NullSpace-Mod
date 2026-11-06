@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
+/** The playtest 2 oxygen balance, measured: drain, breach, supply and refill times. */
 class SpatialAirTest {
   static boolean[] solid() {
     var a = new boolean[Atmosphere.CELLS];
@@ -22,169 +23,147 @@ class SpatialAirTest {
     return Arrays.stream(a).filter(n -> n >= 0).asLongStream().sum();
   }
 
-  @Test
-  void gasMovesLocallyRatherThanInstantlyFillingTheRoom() {
+  /** Seals of a 4x3x5 room (60 blocks) and, optionally, a hole channel through its west wall. */
+  static boolean[] room(int holeWidth, int holeHeight) {
     var s = solid();
-    var a = empty();
-    for (int x = 3; x < 14; x++) s[Atmosphere.index(x, 5, 5)] = false;
-    var t = Atmosphere.rebuild(s, a, false);
-    int source = Atmosphere.index(3, 5, 5);
-    a[source] = 1000;
-    var flow = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
-    assertEquals(1000, total(a));
-    assertTrue(a[source + 1] > 0);
-    assertEquals(0, a[source + 4]);
-    assertFalse(flow.flows().isEmpty());
+    for (int x = 10; x < 14; x++)
+      for (int y = 10; y < 13; y++) for (int z = 10; z < 15; z++) s[Atmosphere.index(x, y, z)] = false;
+    for (int w = 0; w < holeWidth; w++)
+      for (int h = 0; h < holeHeight; h++)
+        for (int x = 0; x < 10; x++) s[Atmosphere.index(x, 10 + h, 10 + w)] = false;
+    return s;
   }
 
-  @Test
-  void randomClosedGridConservesGasWithoutNegativeCells() {
-    var s = solid();
-    var a = empty();
-    var random = new Random(42);
-    for (int y = 2; y < 12; y++)
-      for (int z = 2; z < 12; z++)
-        for (int x = 2; x < 12; x++) s[Atmosphere.index(x, y, z)] = false;
-    var t = Atmosphere.rebuild(s, a, false);
-    for (var r : t.rooms()) for (int i : r.cells()) a[i] = random.nextInt(5000);
-    long expected = total(a);
-    for (int n = 0; n < 100; n++) {
-      SpatialAir.step(a, t, s, Map.of(), Map.of(), 5, 0);
-      assertEquals(expected, total(a));
-      for (var r : t.rooms()) for (int i : r.cells()) assertTrue(a[i] >= 0);
+  /**
+   * A room that existed sealed (full, or empty) and then had a hole opened: breaching an existing
+   * room is what makes leak faces, exactly as in play.
+   */
+  static Atmosphere.Topology breached(boolean[] seals, int[] air, boolean full) {
+    Atmosphere.rebuild(room(0, 0), air, full);
+    return Atmosphere.rebuild(seals, air, false);
+  }
+
+  static long capacity(Atmosphere.Topology t) {
+    return t.rooms().stream().mapToLong(r -> r.cells().length * (long) Atmosphere.FULL).sum();
+  }
+
+  /** Ticks until the room total reaches {@code target}, stepping one tick at a time. */
+  static int ticksUntil(
+      int[] a, Atmosphere.Topology t, boolean[] s, Map<Integer, Integer> pumps, int exterior, long target, boolean rising) {
+    for (int tick = 1; tick <= 5000; tick++) {
+      SpatialAir.step(a, t, s, pumps, Map.of(), 1, exterior);
+      if (rising ? total(a) >= target : total(a) <= target) return tick;
     }
+    return -1;
   }
 
   @Test
-  void refillMassAndCrewConsumptionAreAccounted() {
-    var s = solid();
+  void oneHoleEmptiesAFullRoomInAboutThirtySeconds() {
+    var s = room(1, 1);
     var a = empty();
-    int one = Atmosphere.index(5, 5, 5);
-    s[one] = s[one + 1] = false;
+    var t = breached(s, a, true);
+    assertEquals(1, t.rooms().size());
+    assertEquals(1, t.rooms().getFirst().leaks(), "one open face");
+    int ticks = ticksUntil(a, t, s, Map.of(), 0, 0, false);
+    assertTrue(ticks >= 590 && ticks <= 610, "one hole: 100 to 0 in about 30 s, took " + ticks);
+  }
+
+  @Test
+  void drainScalesWithTotalHoleAreaAndABigBreachIsAlmostInstant() {
+    var two = room(2, 1);
+    var a = empty();
+    var t = breached(two, a, true);
+    int ticks = ticksUntil(a, t, two, Map.of(), 0, 0, false);
+    assertTrue(ticks >= 295 && ticks <= 305, "two holes drain twice as fast, took " + ticks);
+    var breach = room(5, 3);
+    a = empty();
+    t = breached(breach, a, true);
+    ticks = ticksUntil(a, t, breach, Map.of(), 0, 0, false);
+    assertTrue(ticks <= 45, "a 5x3 breach empties the room in about 2 s, took " + ticks);
+  }
+
+  @Test
+  void twoFullPowerAirSuppliesExactlyHoldOneHole() {
+    var s = room(1, 1);
+    var a = empty();
+    var t = breached(s, a, true);
+    long full = capacity(t);
+    var pumps = Map.of(Atmosphere.index(11, 10, 11), 2, Atmosphere.index(12, 10, 12), 2);
+    for (int tick = 0; tick < 1200; tick++) SpatialAir.step(a, t, s, pumps, Map.of(), 1, 0);
+    assertTrue(total(a) >= full * 99 / 100, "two supplies hold a one-block leak");
+    // With a supply running the room settles at a trace of air, shown to players as 0.
+    var one = Map.of(Atmosphere.index(11, 10, 11), 2);
+    int ticks = ticksUntil(a, t, s, one, 0, full / 100, false);
+    assertTrue(ticks >= 1150 && ticks <= 1250, "one supply only halves the leak, took " + ticks);
+  }
+
+  @Test
+  void suppliesCannotRefillABreachUntilItIsPatched() {
+    var s = room(5, 3);
+    var a = empty();
+    var t = breached(s, a, true);
+    var pumps = Map.of(Atmosphere.index(11, 10, 11), 2, Atmosphere.index(12, 10, 12), 2);
+    for (int tick = 0; tick < 200; tick++) SpatialAir.step(a, t, s, pumps, Map.of(), 1, 0);
+    assertTrue(total(a) < capacity(t) / 100, "a large breach stays empty (0 to players) while open");
+  }
+
+  @Test
+  void oneAirSupplyFillsAnEmptySealedRoomInAboutAMinute() {
+    var s = room(0, 0);
+    var a = empty();
     var t = Atmosphere.rebuild(s, a, false);
-    var r = SpatialAir.step(a, t, s, Map.of(one, 100), Map.of(one + 1, 5), 5, 0);
-    assertEquals(r.supplied() - r.consumed(), total(a));
-    assertTrue(a[one] > a[one + 1]);
-  }
-
-  @Test
-  void breachLossAndAmbientRefillHaveFiniteRates() {
-    var s = solid();
-    var a = empty();
-    for (int x = 1; x < 10; x++) s[Atmosphere.index(x, 5, 5)] = false;
-    var t = Atmosphere.rebuild(s, a, true);
-    s[Atmosphere.index(0, 5, 5)] = false;
-    t = Atmosphere.rebuild(s, a, false);
+    long full = capacity(t);
+    int ticks = ticksUntil(a, t, s, Map.of(Atmosphere.index(11, 10, 11), 2), 0, full, true);
+    assertTrue(ticks >= 1190 && ticks <= 1210, "one supply: 0 to 100 in about 60 s, took " + ticks);
     long before = total(a);
-    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
-    assertTrue(r.escaped() > 0);
-    assertEquals(before - r.escaped(), total(a));
-    assertTrue(total(a) > 0);
-    for (var room : t.rooms()) for (int cell : room.cells()) a[cell] = 0;
-    var fill = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 1000);
-    assertTrue(fill.entered() > 0);
-    assertEquals(fill.entered(), total(a));
+    SpatialAir.step(a, t, s, Map.of(Atmosphere.index(11, 10, 11), 2), Map.of(), 5, 0);
+    assertEquals(before, total(a), "a full sealed room is never overfilled");
   }
 
   @Test
-  void equilibriumDoesNotEmitFlowAndSolidWallsBlockIt() {
-    var s = solid();
+  void anOpenRoomOnABreathablePlanetRefillsFromOutside() {
+    var s = room(1, 1);
     var a = empty();
-    int one = Atmosphere.index(4, 4, 4), two = one + 2;
-    s[one] = s[two] = false;
-    var t = Atmosphere.rebuild(s, a, true);
-    a[two] = 0;
-    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 5, 0);
-    assertEquals(1000, a[one]);
-    assertEquals(0, a[two]);
-    assertTrue(r.flows().isEmpty());
+    var t = breached(s, a, false);
+    long full = capacity(t);
+    int ticks = ticksUntil(a, t, s, Map.of(), Atmosphere.FULL, full, true);
+    assertTrue(ticks >= 590 && ticks <= 610, "outside air flows in through the hole, took " + ticks);
   }
 
   @Test
-  void fullOccupiedRoomSuppressesMaintenanceHazeWithoutStoppingGas() {
-    var s = solid();
+  void gasIsAccountedAndRoomsStayEven() {
+    var s = room(1, 1);
     var a = empty();
-    int one = Atmosphere.index(4, 4, 4);
-    s[one] = s[one + 1] = false;
-    var t = Atmosphere.rebuild(s, a, true);
-    for (int i = 0; i < 30; i++) {
-      var r = SpatialAir.step(a, t, s, Map.of(one, 100), Map.of(one + 1, 20), 5, 0);
-      assertTrue(r.supplied() > 0);
-      assertEquals(100, r.consumed());
-      assertEquals(1980, total(a));
-      assertTrue(r.flows().isEmpty(), "Routine crew top-ups in a full room should be invisible");
+    var t = breached(s, a, true);
+    long before = total(a);
+    var r = SpatialAir.step(a, t, s, Map.of(Atmosphere.index(11, 10, 11), 1), Map.of(Atmosphere.index(12, 11, 12), 3), 5, 0);
+    assertEquals(before + r.supplied() - r.escaped() - r.consumed(), total(a));
+    var cells = t.rooms().getFirst().cells();
+    int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
+    for (int c : cells) {
+      min = Math.min(min, a[c]);
+      max = Math.max(max, a[c]);
     }
+    assertTrue(max - min <= 1, "air is shared evenly within a sealed room");
   }
 
   @Test
-  void breathingInAnUnderfilledRoomDoesNotProduceFollowingParticles() {
-    var s = solid();
+  void leaksShowParticlesAtTheHoleAndAFullSealedRoomShowsNone() {
+    var s = room(1, 1);
     var a = empty();
-    for (int x = 4; x < 12; x++) s[Atmosphere.index(x, 4, 4)] = false;
-    var t = Atmosphere.rebuild(s, a, false);
-    for (var room : t.rooms()) for (int cell : room.cells()) a[cell] = 800;
-    long expected = total(a);
-    for (int i = 0; i < 30; i++) {
-      int occupant = Atmosphere.index(4 + i % 8, 4, 4);
-      var r = SpatialAir.step(a, t, s, Map.of(), Map.of(occupant, 20), 5, 0);
-      expected -= r.consumed();
-      assertEquals(100, r.consumed());
-      assertEquals(expected, total(a));
-      assertTrue(r.flows().isEmpty(), "Breathing should not draw clouds along the crew's path");
-    }
-  }
-
-  @Test
-  void significantInternalTransferStillProducesParticles() {
-    var s = solid();
-    var a = empty();
-    int one = Atmosphere.index(4, 4, 4);
-    s[one] = s[one + 1] = false;
-    var t = Atmosphere.rebuild(s, a, false);
-    a[one] = 900;
-    a[one + 1] = 300;
+    var t = breached(s, a, true);
     var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
-    assertEquals(1200, total(a));
-    assertTrue(r.flows().stream().anyMatch(f -> !f.exterior() && f.amount() == 50));
+    assertTrue(r.flows().stream().anyMatch(SpatialAir.Flow::exterior), "the hole shows escaping air");
+    var sealed = room(0, 0);
+    var b = empty();
+    var u = Atmosphere.rebuild(sealed, b, true);
+    assertTrue(SpatialAir.step(b, u, sealed, Map.of(), Map.of(), 5, 0).flows().isEmpty());
   }
 
   @Test
-  void faintExteriorLeakStillProducesParticles() {
-    var s = solid();
-    var a = empty();
-    int cell = Atmosphere.index(0, 4, 4);
-    s[cell] = false;
-    a[cell] = 120;
-    var t = Atmosphere.rebuild(s, a, false);
-    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
-    assertEquals(10, r.escaped());
-    assertEquals(110, total(a));
-    assertTrue(r.flows().stream().anyMatch(f -> f.exterior() && f.amount() == 10));
-  }
-
-  @Test
-  void lastFillUpdateHasNoResidualPumpParticles() {
-    var s = solid();
-    var a = empty();
-    int one = Atmosphere.index(4, 4, 4);
-    s[one] = false;
-    var t = Atmosphere.rebuild(s, a, false);
-    var r = SpatialAir.step(a, t, s, Map.of(one, 1000), Map.of(), 1, 0);
-    assertEquals(1000, r.supplied());
-    assertEquals(1000, a[one]);
-    assertTrue(r.flows().isEmpty());
-  }
-
-  @Test
-  void fullRoomStillShowsRealVacuumEscape() {
-    var s = solid();
-    var a = empty();
-    for (int x = 1; x < 10; x++) s[Atmosphere.index(x, 5, 5)] = false;
-    var t = Atmosphere.rebuild(s, a, true);
-    s[Atmosphere.index(0, 5, 5)] = false;
-    t = Atmosphere.rebuild(s, a, false);
-    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
-    assertTrue(r.escaped() > 0);
-    assertTrue(r.flows().stream().anyMatch(SpatialAir.Flow::exterior));
+  void playersSeeAirFromZeroToOneHundred() {
+    assertEquals(100, SpatialAir.percent(Atmosphere.FULL));
+    assertEquals(25, SpatialAir.percent(Atmosphere.BREATHABLE));
+    assertEquals(0, SpatialAir.percent(-1));
   }
 }
