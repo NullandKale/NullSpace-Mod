@@ -69,6 +69,52 @@ public final class OxygenGameTest {
     ctx.succeed();
   }
 
+  /** Armor the equipped items grant (the player's own value only updates when it ticks). */
+  private static double armor(net.minecraft.server.level.ServerPlayer player) {
+    double total = 0;
+    for (var slot :
+        new net.minecraft.world.entity.EquipmentSlot[] {
+          net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+          net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET
+        }) {
+      var modifiers =
+          player.getItemBySlot(slot).getOrDefault(
+              net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS,
+              net.minecraft.world.item.component.ItemAttributeModifiers.EMPTY);
+      for (var entry : modifiers.modifiers())
+        if (entry.attribute().equals(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR))
+          total += entry.modifier().amount();
+    }
+    return total;
+  }
+
+  @GameTest(environment = "nullspace:ship_recall", maxTicks = 40)
+  public void thePlainSuitHasAlmostNoArmorAndTheArmoredSuitIsCraftedFromIt(GameTestHelper ctx) {
+    var player = ShipRecallGameTest.player(ctx, 224);
+    suit(player);
+    ctx.assertTrue(SpaceSurvival.suited(player), "The plain suit protects against vacuum");
+    double plain = armor(player);
+    ctx.assertTrue(plain <= 5, "The starting suit is not iron armor, armor " + plain);
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(ShipBlocks.ARMORED_CHEST));
+    ctx.assertTrue(SpaceSurvival.suited(player), "Plain and armored pieces mix into a full suit");
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(ShipBlocks.ARMORED_HELMET));
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(ShipBlocks.ARMORED_LEGS));
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(ShipBlocks.ARMORED_BOOTS));
+    double armored = armor(player);
+    ctx.assertTrue(armored >= 15, "The armored suit gives real armor, armor " + armored);
+    var server = ctx.getLevel().getServer();
+    for (var piece : new String[] {"helmet", "chestplate", "leggings", "boots"}) {
+      var recipe = com.nullandkale.nullspace.dev.RecipeLab.recipe(server, "armored_space_" + piece);
+      var result = recipe.assemble(net.minecraft.world.item.crafting.CraftingInput.EMPTY);
+      ctx.assertTrue(
+          net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(result.getItem()).getPath()
+              .equals("armored_space_" + piece),
+          "Armored " + piece + " is craftable");
+    }
+    server.getPlayerList().remove(player);
+    ctx.succeed();
+  }
+
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 700)
   public void withoutAirOrASuitAPlayerDiesInAboutTwentySeconds(GameTestHelper ctx) {
     var player = ShipRecallGameTest.player(ctx, 222);

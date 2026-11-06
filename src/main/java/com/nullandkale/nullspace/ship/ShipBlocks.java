@@ -45,10 +45,49 @@ public final class ShipBlocks {
   public static final Block CAMERA = machine("camera");
   public static final Block MONITOR = machine("monitor");
   public static final Block WEAPON = machine("weapon");
-  public static final Item HELMET = suit("space_helmet", ArmorType.HELMET);
-  public static final Item CHEST = suit("space_chestplate", ArmorType.CHESTPLATE);
-  public static final Item LEGS = suit("space_leggings", ArmorType.LEGGINGS);
-  public static final Item BOOTS = suit("space_boots", ArmorType.BOOTS);
+  /**
+   * The starting space suit: vacuum and air protection with almost no armor, so new players do
+   * not begin in the equivalent of iron armor. Keeps the familiar iron look.
+   */
+  public static final net.minecraft.world.item.equipment.ArmorMaterial PLAIN_SUIT =
+      new net.minecraft.world.item.equipment.ArmorMaterial(
+          15,
+          java.util.Map.of(
+              ArmorType.BOOTS, 1, ArmorType.LEGGINGS, 1, ArmorType.CHESTPLATE, 2,
+              ArmorType.HELMET, 1, ArmorType.BODY, 1),
+          9,
+          net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_IRON,
+          0,
+          0,
+          net.minecraft.tags.ItemTags.REPAIRS_IRON_ARMOR,
+          net.minecraft.world.item.equipment.EquipmentAssets.IRON);
+
+  /** The crafted armored suit: iron-level protection with a little toughness, darker look. */
+  public static final net.minecraft.world.item.equipment.ArmorMaterial ARMORED_SUIT =
+      new net.minecraft.world.item.equipment.ArmorMaterial(
+          25,
+          java.util.Map.of(
+              ArmorType.BOOTS, 2, ArmorType.LEGGINGS, 5, ArmorType.CHESTPLATE, 6,
+              ArmorType.HELMET, 2, ArmorType.BODY, 5),
+          9,
+          net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_NETHERITE,
+          1,
+          0,
+          net.minecraft.tags.ItemTags.REPAIRS_IRON_ARMOR,
+          net.minecraft.world.item.equipment.EquipmentAssets.NETHERITE);
+
+  public static final Item HELMET = suit("space_helmet", ArmorType.HELMET, PLAIN_SUIT);
+  public static final Item CHEST = suit("space_chestplate", ArmorType.CHESTPLATE, PLAIN_SUIT);
+  public static final Item LEGS = suit("space_leggings", ArmorType.LEGGINGS, PLAIN_SUIT);
+  public static final Item BOOTS = suit("space_boots", ArmorType.BOOTS, PLAIN_SUIT);
+  public static final Item ARMORED_HELMET =
+      suit("armored_space_helmet", ArmorType.HELMET, ARMORED_SUIT);
+  public static final Item ARMORED_CHEST =
+      suit("armored_space_chestplate", ArmorType.CHESTPLATE, ARMORED_SUIT);
+  public static final Item ARMORED_LEGS =
+      suit("armored_space_leggings", ArmorType.LEGGINGS, ARMORED_SUIT);
+  public static final Item ARMORED_BOOTS =
+      suit("armored_space_boots", ArmorType.BOOTS, ARMORED_SUIT);
 
   private static Block machine(String name) {
     if (!com.nullandkale.nullspace.content.ContentCatalog.equipment(name)
@@ -120,7 +159,8 @@ public final class ShipBlocks {
     return Registry.register(BuiltInRegistries.ITEM, id, new Item(properties));
   }
 
-  private static Item suit(String name, ArmorType type) {
+  private static Item suit(
+      String name, ArmorType type, net.minecraft.world.item.equipment.ArmorMaterial material) {
     var id = Identifier.parse("nullspace:" + name);
     return Registry.register(
         BuiltInRegistries.ITEM,
@@ -128,7 +168,7 @@ public final class ShipBlocks {
         new Item(
             new Item.Properties()
                 .setId(ResourceKey.create(Registries.ITEM, id))
-                .humanoidArmor(ArmorMaterials.IRON, type)));
+                .humanoidArmor(material, type)));
   }
 
   public static void initialize() {}

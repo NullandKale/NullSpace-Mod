@@ -40,10 +40,20 @@ public final class SpaceSurvival {
   }
 
   public static boolean suited(ServerPlayer p) {
-    return p.getItemBySlot(EquipmentSlot.HEAD).is(ShipBlocks.HELMET)
-        && p.getItemBySlot(EquipmentSlot.CHEST).is(ShipBlocks.CHEST)
-        && p.getItemBySlot(EquipmentSlot.LEGS).is(ShipBlocks.LEGS)
-        && p.getItemBySlot(EquipmentSlot.FEET).is(ShipBlocks.BOOTS);
+    // Plain and armored suit pieces protect the same way; any mix counts as a full suit.
+    return piece(p, EquipmentSlot.HEAD, ShipBlocks.HELMET, ShipBlocks.ARMORED_HELMET)
+        && piece(p, EquipmentSlot.CHEST, ShipBlocks.CHEST, ShipBlocks.ARMORED_CHEST)
+        && piece(p, EquipmentSlot.LEGS, ShipBlocks.LEGS, ShipBlocks.ARMORED_LEGS)
+        && piece(p, EquipmentSlot.FEET, ShipBlocks.BOOTS, ShipBlocks.ARMORED_BOOTS);
+  }
+
+  private static boolean piece(
+      ServerPlayer p,
+      EquipmentSlot slot,
+      net.minecraft.world.item.Item plain,
+      net.minecraft.world.item.Item armored) {
+    var stack = p.getItemBySlot(slot);
+    return stack.is(plain) || stack.is(armored);
   }
 
   /** Suited and tethered, the meter never falls below this (player's spec). */

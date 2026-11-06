@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "IHI",
+    "I I"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "H": "nullspace:space_boots"
+  },
+  "result": {
+    "id": "nullspace:armored_space_boots",
+    "count": 1
+  }
+}

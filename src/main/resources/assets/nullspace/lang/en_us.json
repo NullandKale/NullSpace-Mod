@@ -31,5 +31,9 @@
   "block.nullspace.docking_base": "Docking Base",
   "item.nullspace.system_upgrade": "System Upgrade",
   "item.nullspace.ship_title": "Ship Title",
-  "item.nullspace.air_canister": "Air Canister"
+  "item.nullspace.air_canister": "Air Canister",
+  "item.nullspace.armored_space_helmet": "Armored Space Helmet",
+  "item.nullspace.armored_space_chestplate": "Armored Space Chestplate",
+  "item.nullspace.armored_space_leggings": "Armored Space Leggings",
+  "item.nullspace.armored_space_boots": "Armored Space Boots"
 }

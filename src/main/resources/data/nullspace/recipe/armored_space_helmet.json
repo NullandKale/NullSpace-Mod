@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "III",
+    "IHI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "H": "nullspace:space_helmet"
+  },
+  "result": {
+    "id": "nullspace:armored_space_helmet",
+    "count": 1
+  }
+}
