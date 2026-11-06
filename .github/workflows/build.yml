@@ -1,6 +1,7 @@
 name: Build and test
 
-on: [push, pull_request, workflow_dispatch]
+# Manual only: builds and tests run automatically for release tags (release.yml).
+on: [workflow_dispatch]
 
 concurrency:
   group: build-${{ github.ref }}
