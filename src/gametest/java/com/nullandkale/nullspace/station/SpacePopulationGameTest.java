@@ -194,6 +194,9 @@ public final class SpacePopulationGameTest {
       old.putDouble("simX", 9876);
       store.ships().add(old);
     }
+    // Simulate a save from before orbital population: other tests in the same run may already
+    // have discovered this region, which would make discover() a no-op.
+    store.section("spacePopulation").remove(address);
     SpacePopulation.discover(server, address);
     var manifest =
         store.section("spacePopulation").getCompoundOrEmpty(address).getListOrEmpty("sites");
