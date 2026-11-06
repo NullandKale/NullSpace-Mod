@@ -44,6 +44,9 @@ class ShipRecallTerminalTest {
     assertNull(t.pollAction(), "Removal must not select a different ship automatically");
     t.input(new TerminalInput.Pointer(58, 16));
     assertNull(t.pollAction(), "Cancel is absent without an active recovery");
+    assertFalse(t.closeRequested());
+    t.input(TerminalInput.Key.ESCAPE);
+    assertTrue(t.closeRequested(), "Escape closes My ships locally, without the server");
     t.input(new TerminalInput.Pointer(4, 24));
     assertEquals("recall_back", t.pollAction().verb());
   }

@@ -9,7 +9,7 @@ public final class ShipRecallTerminal implements ControllerApplication {
   private List<ComputerTerminal.Destination> ships;
   private String status, selected = "";
   private int page, selection, scroll;
-  private boolean active, waiting;
+  private boolean active, waiting, close;
   private String padName = "this pad";
 
   public ShipRecallTerminal(String status, List<ComputerTerminal.Destination> ships) {
@@ -199,6 +199,11 @@ public final class ShipRecallTerminal implements ControllerApplication {
     return buffer;
   }
 
+  @Override
+  public boolean closeRequested() {
+    return close;
+  }
+
   public void input(TerminalInput input) {
     if (input instanceof TerminalInput.Pointer p) {
       int r = p.row(), c = p.column();
@@ -218,7 +223,8 @@ public final class ShipRecallTerminal implements ControllerApplication {
         case UP, LEFT -> selection = Math.floorMod(selection - 1, 17);
         case DOWN, RIGHT, TAB -> selection = (selection + 1) % 17;
         case ENTER -> activate(selection);
-        case ESCAPE -> activate(16);
+        // Escape always closes locally, so a lost server session can never trap the player.
+        case ESCAPE -> close = true;
         case PAGE_UP -> scroll = Math.max(0, scroll - 3);
         case PAGE_DOWN -> scroll += 3;
         default -> {}

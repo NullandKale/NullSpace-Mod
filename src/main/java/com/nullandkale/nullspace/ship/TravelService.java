@@ -758,7 +758,8 @@ public final class TravelService {
       next.putString("homeId", home.id());
     }
     ShipRecall.authorize(next, actor);
-    if (recall) {
+    // Recall lands an empty ship on a planet pad; storing moves one into space instead.
+    if (recall && !target.dimension().equals(SPACE)) {
       String region = com.nullandkale.nullspace.navigation.PlanetSurfaces.address(target);
       if (region != null) next.putString("localSpace", region);
       com.nullandkale.nullspace.navigation.NavigationService.stop(next);
@@ -869,9 +870,12 @@ public final class TravelService {
     Path file =
         store.directory.resolve("transfers").resolve(journal.getStringOr("id", "") + ".nbt");
     checkpoint(file, journal, "PREPARED");
-    // Force close any menus retaining references to source containers.
+    // Force close any menus retaining references to source containers. Only real container
+    // menus need closing: a terminal screen (for example My ships beside the pad) holds no
+    // ship container, and closing it mid-session left players stuck (playtest 2).
     for (ServerPlayer player : source.players())
-      if (scan.bounds().box().inflate(8).contains(player.position())) player.closeContainer();
+      if (scan.bounds().box().inflate(8).contains(player.position())
+          && player.containerMenu != player.inventoryMenu) player.closeContainer();
     var destinationSnapshot =
         ShipBlockSupport.destinationTemplate(
             ShipBlockSupport.connectedTemplate(

@@ -157,6 +157,40 @@ public final class ShipRecallClientGameTest implements FabricClientGameTest {
                     != 1) throw new AssertionError("Recall duplicated the ship");
               });
       c.takeScreenshot("nullspace-ship-recalled");
+      // Playtest 2 bug: storing the ship from beside its pad closed and reopened My ships and
+      // left the player stuck in it. Store, then check the screen stays usable and closes.
+      c.runOnClient(
+          mc -> {
+            var screen = (TerminalScreen) mc.gui.screen();
+            ShipControlTestUi.click(screen, 4, 6);
+            ShipControlTestUi.click(screen, 21, 18);
+          });
+      world
+          .getServer()
+          .waitFor(
+              server ->
+                  ShipStore.get(server).repository().find(id[0]).getBooleanOr("stored", false),
+              400);
+      c.waitFor(
+          mc ->
+              mc.gui.screen() instanceof TerminalScreen t
+                  && t.buffer().row(1).contains("MY SHIPS")
+                  && t.status().contains("stored"),
+          200);
+      c.takeScreenshot("nullspace-ship-stored");
+      c.runOnClient(
+          mc ->
+              mc.gui.screen()
+                  .keyPressed(
+                      new net.minecraft.client.input.KeyEvent(InputConstants.KEY_ESCAPE, 0, 0)));
+      c.waitFor(mc -> mc.gui.screen() == null, 60);
+      c.waitTicks(60);
+      c.runOnClient(
+          mc -> {
+            if (mc.gui.screen() != null)
+              throw new AssertionError(
+                  "My ships reopened after closing: " + mc.gui.screen().getClass().getSimpleName());
+          });
       ClientTestEvidence.passed(getClass());
     }
   }
