@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -26,17 +26,23 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/ci-diagnostics
+          # Native-suite runs have varied from 7 to 20+ minutes. Snapshot every JVM every
+          # 4 minutes so a stall shows where the server thread sits over time.
           (
-            sleep 180
-            for pid in $(jps -q); do
-              jcmd "$pid" Thread.print > "build/ci-diagnostics/threads-$pid.txt" 2>/dev/null || true
-              jcmd "$pid" GC.heap_info > "build/ci-diagnostics/heap-$pid.txt" 2>/dev/null || true
-              sed -n '/^"Server thread"/,/^$/p' "build/ci-diagnostics/threads-$pid.txt"
+            n=0
+            while sleep 240; do
+              n=$((n + 1))
+              for pid in $(jps -q); do
+                jcmd "$pid" Thread.print > "build/ci-diagnostics/threads-$pid-$n.txt" 2>/dev/null || true
+                jcmd "$pid" GC.heap_info > "build/ci-diagnostics/heap-$pid-$n.txt" 2>/dev/null || true
+                echo "== snapshot $n pid $pid"
+                sed -n '/^"Server thread"/,/^$/p' "build/ci-diagnostics/threads-$pid-$n.txt" | head -12
+              done
             done
           ) &
           monitor=$!
           trap 'kill "$monitor" 2>/dev/null || true' EXIT
-          timeout --signal=QUIT --kill-after=30s 20m ./gradlew build verifyContentAssets -Pcoverage=true --no-daemon
+          timeout --signal=QUIT --kill-after=30s 40m ./gradlew build verifyContentAssets -Pcoverage=true --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: nullspace
