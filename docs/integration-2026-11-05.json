@@ -1,0 +1,23 @@
+{
+    "date":  "2026-11-05",
+    "status":  "passed-with-focused-repair",
+    "sweep":  "build/parallel-verification/20261105-225200-5fbdac",
+    "focusedRepair":  "build/focused-tests/20261105-230553-EncounterClaimGameTest-ec52",
+    "unit":  {
+                 "tests":  538,
+                 "failures":  0,
+                 "errors":  0,
+                 "skipped":  0
+             },
+    "nativeChecks":  204,
+    "repairedCases":  [
+                          "nullspace-test:encounter_claim_game_test_a_player_aboard_an_unclaimed_derelict_claims_the_same_ship_with_its_supplies_as_found"
+                      ],
+    "focusedChecks":  18,
+    "graphicalClasses":  28,
+    "artifact":  {
+                     "sha256":  "b5a6be8d52ea85d796ee291447499091bf1c48e93fb997d0f3fa68ab2e3576e4",
+                     "path":  "build/parallel-verification/20261105-225200-5fbdac/nullspace-0.1.0.jar"
+                 },
+    "qualification":  "Full sweep had one stale test-fixture reference. Fixed only that test; authoritative claim plus recovery/recall/title group passed. All other sweep results retained. Production JAR unchanged. Disposable worlds removed."
+}

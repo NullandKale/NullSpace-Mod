@@ -56,25 +56,29 @@ public final class EncounterClaimGameTest {
     Runnable[] poll = {null};
     poll[0] =
         () -> {
-          if (!StationService.ready(derelict)) {
+          // Other fixtures commit real transfers between ticks, replacing repository records.
+          // A player action resolves its vessel at execution time; the test must do the same.
+          var current = ShipStore.get(server).repository().find(id);
+          ctx.assertTrue(current != null, "The derelict remains registered before the claim");
+          if (!StationService.ready(current)) {
             ctx.runAfterDelay(5, poll[0]);
             return;
           }
-          ctx.assertTrue(EncounterClaims.claimable(derelict), "An unclaimed derelict can be claimed");
+          ctx.assertTrue(EncounterClaims.claimable(current), "An unclaimed derelict can be claimed");
           // A world-generated service station is an ownerless record without the salvage flag.
           // Check the record only: a second physical station would share other tests' space.
-          var publicStation = derelict.copy();
+          var publicStation = current.copy();
           publicStation.remove("salvage");
           ctx.assertTrue(
               !EncounterClaims.claimable(publicStation),
               "A public service station is never claimable just because it has no owner");
           ctx.assertTrue(
-              EncounterClaims.claim(f.player, derelict).startsWith("Step aboard"),
+              EncounterClaims.claim(f.player, current).startsWith("Step aboard"),
               "Claiming needs the player physically aboard");
-          int supplies = items(space, derelict);
-          var center = ShipStore.bounds(derelict).box().getCenter();
+          int supplies = items(space, current);
+          var center = ShipStore.bounds(current).box().getCenter();
           f.player.teleportTo(space, center.x, center.y, center.z, Set.of(), 0, 0, true);
-          String result = EncounterClaims.claim(f.player, derelict);
+          String result = EncounterClaims.claim(f.player, current);
           ctx.assertTrue(result.startsWith("You claimed"), result);
           // Verify the authoritative repository, not just a possibly detached fixture object.
           var claimed = ShipStore.get(server).repository().find(id);
