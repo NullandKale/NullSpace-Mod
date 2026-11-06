@@ -11,7 +11,10 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 public final class StationBlueprint {
   public record Plan(Map<BlockPos, BlockState> blocks, BlockPos core, List<BlockPos> docks) {
     public Plan {
-      blocks = Collections.unmodifiableMap(new LinkedHashMap<>(blocks));
+      // Every generated station or encounter gets settled facing and connections.
+      var settled = new LinkedHashMap<>(blocks);
+      com.nullandkale.nullspace.shipyard.BlueprintOrientation.fix(settled);
+      blocks = Collections.unmodifiableMap(settled);
       docks = List.copyOf(docks);
     }
   }

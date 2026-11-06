@@ -253,7 +253,15 @@ public final class ShipBlueprints {
         pad.minZ() + (pad.depth() - ship.depth()) / 2);
   }
 
+  /** The preset's blocks, with facing and connections settled (see BlueprintOrientation). */
   public static Map<BlockPos, BlockState> blocks(Preset p) {
+    var out = new LinkedHashMap<>(rawBlocks(p));
+    BlueprintOrientation.fix(out);
+    return out;
+  }
+
+  /** Unsettled blocks as authored; use blocks() for anything placed in the world. */
+  public static Map<BlockPos, BlockState> rawBlocks(Preset p) {
     if (ManufacturerShips.contains(p.id())) return ManufacturerShips.build(p);
     var out = new LinkedHashMap<BlockPos, BlockState>();
     Block hull =
