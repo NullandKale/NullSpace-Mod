@@ -49,6 +49,71 @@ public final class SpaceSurvival {
   /** Suited and tethered, the meter never falls below this (player's spec). */
   public static final int SUIT_TETHER_FLOOR = 20;
 
+  /** Ticks of full suit air in one Air Canister (2 minutes). */
+  public static final int CANISTER_TICKS = 2 * 60 * 20;
+
+  /** Uses one tick from the emptiest canister that still holds air; false if none do. */
+  static boolean drawCanister(ServerPlayer player) {
+    var inventory = player.getInventory();
+    net.minecraft.world.item.ItemStack best = null;
+    for (int i = 0; i < inventory.getContainerSize(); i++) {
+      var stack = inventory.getItem(i);
+      if (stack.is(ShipBlocks.AIR_CANISTER)
+          && stack.getDamageValue() < stack.getMaxDamage()
+          && (best == null || stack.getDamageValue() > best.getDamageValue())) best = stack;
+    }
+    if (best == null) return false;
+    best.setDamageValue(best.getDamageValue() + 1);
+    return true;
+  }
+
+  /** Air left in all carried canisters, as a percentage of one full canister. */
+  static int canisterPercent(ServerPlayer player) {
+    long left = 0;
+    var inventory = player.getInventory();
+    for (int i = 0; i < inventory.getContainerSize(); i++) {
+      var stack = inventory.getItem(i);
+      if (stack.is(ShipBlocks.AIR_CANISTER)) left += stack.getMaxDamage() - stack.getDamageValue();
+    }
+    return (int) (left * 100 / CANISTER_TICKS);
+  }
+
+  /**
+   * What the meter drifts toward: breathable air where the player stands; otherwise, with the full
+   * suit, a carried canister (full air) or the ship tether (the 20 floor); otherwise the local air.
+   */
+  static int suitTarget(ServerPlayer player, int local, boolean tethered) {
+    if (local >= com.nullandkale.nullspace.systems.SpatialAir.percent(
+        com.nullandkale.nullspace.systems.Atmosphere.BREATHABLE) || !suited(player)) return local;
+    if (drawCanister(player)) return 100;
+    return tethered ? Math.max(local, SUIT_TETHER_FLOOR) : local;
+  }
+
+  /** Refills a held canister from a powered Air Supply. */
+  public static net.minecraft.world.InteractionResult fillCanister(
+      ServerPlayer player, net.minecraft.world.InteractionHand hand, BlockPos at) {
+    var stack = player.getItemInHand(hand);
+    if (!stack.is(ShipBlocks.AIR_CANISTER)
+        || !player.level().getBlockState(at).is(ShipBlocks.AIR_SUPPLY))
+      return net.minecraft.world.InteractionResult.PASS;
+    var ship = ShipStore.get(player.level().getServer()).at(player.level(), at);
+    boolean powered =
+        ship != null
+            && com.nullandkale.nullspace.systems.ShipSystems.enabled(ship)
+            && com.nullandkale.nullspace.systems.ShipSystems.active(ship, at)
+            && com.nullandkale.nullspace.systems.ShipSystems.power(
+                    player.level(), ship, com.nullandkale.nullspace.systems.PowerBus.System.AIR)
+                > 0;
+    if (!powered) {
+      player.sendOverlayMessage(
+          net.minecraft.network.chat.Component.literal("This Air Supply needs power to fill a canister"));
+      return net.minecraft.world.InteractionResult.SUCCESS;
+    }
+    stack.setDamageValue(0);
+    player.sendOverlayMessage(net.minecraft.network.chat.Component.literal("Air canister filled"));
+    return net.minecraft.world.InteractionResult.SUCCESS;
+  }
+
   /**
    * The oxygen meter, 0-100 (stored in tenths). It drifts toward the air where the player's head
    * is: 10 points a second down, 20 up. Vanilla air bubbles show it; at 0 the player drowns at 2
@@ -100,16 +165,22 @@ public final class SpaceSurvival {
       }
     }
     int local = localOxygen(player, ship, cabin);
-    int meter = breathe(player, source ? Math.max(local, SUIT_TETHER_FLOOR) : local, savedAir);
+    int meter = breathe(player, suitTarget(player, local, source), savedAir);
     if (player.level().getServer().getTickCount() % 20 == 0)
       player.sendOverlayMessage(
           net.minecraft.network.chat.Component.literal(
               (cabin ? "CABIN AIR" : source ? "SUIT / TETHER AIR" : "AIRLESS SURFACE")
                   + " | Oxygen "
-                  + meter / 10));
+                  + meter / 10
+                  + (suited(player) && !cabin ? " | Canister " + canisterPercent(player) + "%" : "")));
   }
 
   public static void initialize() {
+    net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(
+        (player, level, hand, hit) ->
+            player instanceof ServerPlayer p
+                ? fillCanister(p, hand, hit.getBlockPos())
+                : net.minecraft.world.InteractionResult.PASS);
     com.nullandkale.nullspace.server.ServerContext.tick(
         com.nullandkale.nullspace.server.ServerContext.Phase.SURVIVAL,
         server -> {
@@ -226,10 +297,7 @@ public final class SpaceSurvival {
             }
             if (!player.isCreative() && !player.isSpectator()) {
               int local = localOxygen(player, vessel, cabin);
-              breathe(
-                  player,
-                  construction ? 100 : protection ? Math.max(local, SUIT_TETHER_FLOOR) : local,
-                  savedAir);
+              breathe(player, construction ? 100 : suitTarget(player, local, source), savedAir);
             }
             if (server.getTickCount() % 20 == 0) {
               player.sendOverlayMessage(

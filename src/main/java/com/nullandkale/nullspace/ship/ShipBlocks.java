@@ -32,6 +32,8 @@ public final class ShipBlocks {
   public static final Item MACHINE_CASING = component("machine_casing");
   public static final Item CIRCUIT_BOARD = component("circuit_board");
   public static final Item SHIP_TITLE = component("ship_title");
+  /** Breathable air for a suited player away from ship air; durability is the air left. */
+  public static final Item AIR_CANISTER = component("air_canister");
   public static final Block COMPUTER = machine("ship_computer");
   public static final Block HELM = machine("helm");
   public static final Block SYSTEMS_CONTROLLER = machine("systems_controller");
@@ -99,6 +101,15 @@ public final class ShipBlocks {
     var id = Identifier.parse("nullspace:" + name);
     var properties = new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id));
     if (name.equals("ship_title")) properties.stacksTo(1);
+    if (name.equals("air_canister"))
+      properties
+          .durability(com.nullandkale.nullspace.ship.SpaceSurvival.CANISTER_TICKS)
+          .component(
+              DataComponents.LORE,
+              new ItemLore(
+                  java.util.List.of(
+                      Component.literal("Suit air away from the ship: 2 minutes when full"),
+                      Component.literal("Refill: use on a powered Air Supply"))));
     if (name.equals("system_upgrade"))
       properties.component(
           DataComponents.LORE,

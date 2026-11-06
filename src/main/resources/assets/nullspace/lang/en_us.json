@@ -30,5 +30,6 @@
   "item.nullspace.station_module": "Station Module Kit",
   "block.nullspace.docking_base": "Docking Base",
   "item.nullspace.system_upgrade": "System Upgrade",
-  "item.nullspace.ship_title": "Ship Title"
+  "item.nullspace.ship_title": "Ship Title",
+  "item.nullspace.air_canister": "Air Canister"
 }

@@ -26,6 +26,49 @@ public final class OxygenGameTest {
     ctx.succeed();
   }
 
+  private static void suit(net.minecraft.server.level.ServerPlayer player) {
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(ShipBlocks.HELMET));
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(ShipBlocks.CHEST));
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(ShipBlocks.LEGS));
+    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(ShipBlocks.BOOTS));
+  }
+
+  @GameTest(environment = "nullspace:ship_recall", maxTicks = 200)
+  public void aCanisterGivesASuitedPlayerTwoMinutesOfAirAndRefillsAtAPoweredAirSupply(
+      GameTestHelper ctx) throws Exception {
+    var f = new ShipRecallGameTest.Fixture(ctx, 223);
+    var player = f.player;
+    var canister = new net.minecraft.world.item.ItemStack(ShipBlocks.AIR_CANISTER);
+    player.getInventory().add(canister);
+    ctx.assertTrue(
+        SpaceSurvival.suitTarget(player, 0, false) == 0,
+        "Without the full suit a canister cannot be used");
+    suit(player);
+    ctx.assertTrue(
+        SpaceSurvival.suitTarget(player, 80, false) == 80 && canister.getDamageValue() == 0,
+        "Breathable air is used first; the canister is not drawn");
+    int full = 0;
+    for (int tick = 0; tick < SpaceSurvival.CANISTER_TICKS; tick++)
+      if (SpaceSurvival.suitTarget(player, 0, false) == 100) full++;
+    ctx.assertTrue(
+        full == SpaceSurvival.CANISTER_TICKS,
+        "A full canister gives exactly 2 minutes of full air, gave " + full / 20 + " s");
+    ctx.assertTrue(
+        SpaceSurvival.suitTarget(player, 0, true) == SpaceSurvival.SUIT_TETHER_FLOOR,
+        "With the canister empty, the tether floor remains");
+    var supply =
+        com.nullandkale.nullspace.systems.ShipSystems.connected(f.space, f.ship()).stream()
+            .filter(p -> f.space.getBlockState(p).is(ShipBlocks.AIR_SUPPLY))
+            .findFirst()
+            .orElseThrow();
+    player.teleportTo(f.space, supply.getX() + .5, supply.getY(), supply.getZ() + 1.5, java.util.Set.of(), 0, 0, true);
+    player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, canister);
+    SpaceSurvival.fillCanister(player, net.minecraft.world.InteractionHand.MAIN_HAND, supply);
+    ctx.assertTrue(canister.getDamageValue() == 0, "A powered Air Supply refills the canister");
+    f.close();
+    ctx.succeed();
+  }
+
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 700)
   public void withoutAirOrASuitAPlayerDiesInAboutTwentySeconds(GameTestHelper ctx) {
     var player = ShipRecallGameTest.player(ctx, 222);
