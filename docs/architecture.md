@@ -44,7 +44,7 @@ The server sends block states, light and bounded visual update tags. It does not
 
 ## Content and maintenance
 
-`ContentCatalog` reads typed equipment capabilities and planet definitions from `data/nullspace/catalog/`. The catalogs supply equipment discovery/menu capabilities, guide recipe ordering, navigation metadata and surface atmosphere/dimension links. Item IDs, recipes, addresses and generated planet terrain remain compatible.
+`ContentCatalog` reads typed equipment capabilities and planet definitions from `data/nullspace/catalog/`. The catalogs supply equipment discovery/menu capabilities, active guide recipe ordering, navigation metadata and surface atmosphere/dimension links. Removed block IDs remain registered so saved chunks can decode them, but have no crafting recipes or guide entries. `LegacyHardware` snapshots removed blocks at chunk load and replaces them with solid iron in bounded server-tick batches. It preserves installed inventory as drops, waits for transfer locks, and removes pending work when chunks unload. Planet addresses and generated terrain remain compatible.
 
 `generateContentAssets` produces repetitive blockstates, item wrappers, self-drops, mining tags, recipe-unlock advancements and flat planet dimensions. `verifyContentAssets` compares those checked-in wrappers with the definitions. Block models, textures, shaders and shaped recipes remain authored resources; recipe tests retain independently specified expectations and exercise the real server recipe manager.
 

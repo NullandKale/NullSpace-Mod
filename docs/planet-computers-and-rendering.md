@@ -8,24 +8,24 @@ Implemented behavior and limits, October 25, 2026. Validation results are record
 - All normal ship actions are exposed, with existing power, connectivity, collision, recharge and transit rules.
 - Normal jobs pause without a viewer or available equipment. Explicitly detached jobs persist and keep computing without loading chunks; world actions wait for a fully loaded hull and valid equipment.
 - Spatial gas movement over the ship's 32 x 32 x 32 grid, with local refilling and visible flow.
-- Local scanners report the local encounter; long-range scanners report jump targets.
+- The Scanner reports local contacts; a System Upgrade unlocks distant destinations.
 - Remote cameras load terrain without simulating its machines or entities.
 - Planetary day/night rotation is included.
 - One starter pad per planet is the default for the unanswered landing preference. Additional pads are player-built and registered normally.
 
 ## Computers and scripts
 
-Craft and place a Computer Terminal, then right-click it. It uses the existing 80-column character display and real byte-stream input/output adapter. The [NullOS manual](nullos.md) documents commands, both script syntaxes, native functions, execution limits, persistence and controls. Existing helm and equipment interfaces retain their roles.
+Craft and place a Computer Terminal, then right-click it. It uses the existing 80-column character display and real byte-stream input/output adapter. The [NullOS manual](nullos.md) documents commands, both script syntaxes, native functions, execution limits, persistence and controls. Existing ship controller and equipment interfaces retain their roles.
 
 Guest files and detached jobs are serialized into the Minecraft save. Files travel in ship metadata and its before/after journal; standalone consoles are adopted when their ship is registered. Guests have no API for host files, commands, sockets, reflection, native calls or Java evaluation. This is a custom language/runtime, with explicitly documented subsets of Bash-style and Python-style syntax, not compatibility with every Bash/Python program.
 
-The runtime is cooperative and bounded at both computer and server levels. Native functions cover power, doors, equipment, cameras, scanners, weapon fire, bounded local flight and travel. An online crew member must board the helm for the existing travel-readiness handshake. Detached jobs can wait for that condition; they do not manufacture a fake player or bypass arrival safeguards.
+The runtime is cooperative and bounded at both computer and server levels. Native functions cover power, doors, equipment, cameras, scanners, weapon fire, bounded local flight and travel. An online crew member must board the ship controller for the existing travel-readiness handshake. Detached jobs can wait for that condition; they do not manufacture a fake player or bypass arrival safeguards.
 
 ## Scanners
 
-Local Scanner and Long-Range Scanner have distinct recipes, block faces and equipment menus. Both use the cameras/sensors bus. Enabled cameras occupy the first power slots; enabled scanners follow in position order, with one unit per device. Disabling hardware releases its slot. Unpowered scanners explain that fresh readings are unavailable.
+One Scanner has three System Upgrade slots and uses the cameras/sensors bus. Enabled cameras occupy the first power slots; enabled scanners follow in position order, with one unit per device. Disabling hardware releases its slot. Unpowered scanners explain that fresh readings are unavailable.
 
-The local scanner reports the current region, celestial bodies and bounded nearby ship contacts. The long-range scanner reports the five implemented planetary jump addresses. `ship.contacts()` and `ship.targets()` return structured data for scripts; `ship.scan("local")` and `ship.scan("long")` provide readable reports. Scanners do not expose another ship's private interior or force-load distant ships. Existing known helm routes remain available; scanners provide the sensor interface rather than hiding those previously known destinations.
+The local scanner reports the current region, celestial bodies and bounded nearby ship contacts. With a System Upgrade, the Scanner also reports the five implemented planetary jump addresses. `ship.contacts()` and `ship.targets()` return structured data for scripts; `ship.scan("local")` and `ship.scan("long")` provide readable reports. Scanners do not expose another ship's private interior or force-load distant ships. Existing known ship controller routes remain available; scanners provide the sensor interface rather than hiding those previously known destinations.
 
 ## Planet surfaces and travel
 
@@ -39,9 +39,9 @@ The local scanner reports the current region, celestial bodies and bounded nearb
 
 The four new surfaces end at Y64 and use native flat generation and vanilla materials. Each has its own saved dimension. First visiting its orbital region creates a clear starter pad if no surface pad/site already exists. Initialization is idempotent, searches for a clear area, and does not repair over player construction. A deliberately removed starter pad is not silently respawned. A conflicting starter name is rejected before terrain construction.
 
-Jump to a planet through the helm, then use its landing destinations. Landing rejects pads on another planet before preparation. Launching from a surface restores that planet's local-space address. Physical travel uses the existing journal, passenger/cargo checks, chunk/entity readiness and client arrival handshake. Terra pads and existing worlds remain the home surface.
+Jump to a planet through the ship controller, then use its landing destinations. Landing rejects pads on another planet before preparation. Launching from a surface restores that planet's local-space address. Physical travel uses the existing journal, passenger/cargo checks, chunk/entity readiness and client arrival handshake. Terra pads and existing worlds remain the home surface.
 
-Airless surfaces use the same oxygen ledger and cabin/suit supply rules. Their gravity remains normal; automatic space flight and the space tether are confined to the space dimension. There is no seamless planetary descent, curved terrain, ore progression, planetary geographic map, or full climate simulation in this implementation. The administrator-only `/nullspace surface <address>` command can visit an initial surface for inspection; normal play uses the helm and pads.
+Airless surfaces use the same oxygen ledger and cabin/suit supply rules. Their gravity remains normal; automatic space flight and the space tether are confined to the space dimension. There is no seamless planetary descent, curved terrain, ore progression, planetary geographic map, or full climate simulation in this implementation. The administrator-only `/nullspace surface <address>` command can visit an initial surface for inspection; normal play uses the ship controller and pads.
 
 ## Shared space skies
 
@@ -71,11 +71,11 @@ Higher presets spend more GPU time and image memory. Tests record compute timing
 
 Upgraded ships now exchange gas across neighboring grid-cell faces. Pumps add gas at their outlet cells, crew consumes it locally, pressure differences move it through the room, and open exterior edges exchange gas with the planet atmosphere or vacuum. Updates conserve mass between cells and separately account for supply, use, escape and entry. They do not instantly average the whole connected room. Existing topology history preserves stored air after a breach and displaces/compresses air during construction.
 
-Particles derive from the solver's actual flow records. Filling, internal equalization and decompression remain visible while flow is significant; effects stop at equilibrium or exhaustion. Flow samples and particles are capped. A pump supplying an open breach can produce a continuing stream. The client air-particle preference affects visuals only.
+Particles derive from the solver's actual flow records. Filling, internal equalization and decompression remain visible while flow is significant; effects stop at equilibrium or exhaustion. Small internal flows caused by crew breathing stay invisible even in underfilled rooms, so clouds do not follow players. Exterior leaks retain a lower visual threshold. Flow samples and particles are capped. A pump supplying an open breach can produce a continuing stream. The client air-particle preference affects visuals only.
 
 The [visual-fix pass](visual-polish-2026-10-25.md) suppresses routine maintenance haze in full sealed rooms and actively clears owned particles when flow ends. A continuing vacuum leak remains visible. The same pass corrects default companion spacing and removes the pilot view's large letterbox.
 
-This is a finite-volume pressure/density diffusion model over air cells, with exterior reservoirs at openings. It does not solve momentum, turbulence, temperature, or variable gas mixtures. The pressure and oxygen ledgers are currently one breathable-gas quantity. Legacy ships retain their existing opt-in upgrade behavior; upgrade at the systems controller to enable finite air, powered equipment and these flow effects.
+This is a finite-volume pressure/density diffusion model over air cells, with exterior reservoirs at openings. It does not solve momentum, turbulence, temperature, or variable gas mixtures. The pressure and oxygen ledgers are currently one breathable-gas quantity. Legacy ships retain their existing opt-in upgrade behavior; upgrade at the engineering access to enable finite air, powered equipment and these flow effects.
 
 ## Verification
 

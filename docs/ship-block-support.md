@@ -6,7 +6,7 @@ The current policy makes **1,258 block IDs eligible**: 674 have no additional bl
 
 ## Common rules
 
-Every captured block must connect to the ship by a face, stay inside its bounded build area, and pass preflight. The ship still needs exactly one helm/ship computer, an engine with clear exhaust, a usable exit, a sealed boarding cabin, and clear launch/landing columns. The pad's grass/dirt floor and cobblestone ring remain on the planet. Grass and dirt **above** that floor can now be part of the ship, including gardens, previews, and equipment topology.
+Every captured block must connect to the ship by a face, stay inside its bounded build area, and pass preflight. The ship still needs exactly one ship controller/ship computer, an engine with clear exhaust, a usable exit, a sealed boarding cabin, and clear launch/landing columns. The pad's grass/dirt floor and cobblestone ring remain on the planet. Grass and dirt **above** that floor can now be part of the ship, including gardens, previews, and equipment topology.
 
 Airtightness is separate from transport. Full collision cubes generally seal; leaves, plants, stairs, slabs, fences, panes, rails and other partial shapes do not. Doors retain their closed matching-half/frame rules. A closed framed trapdoor seals a floor/ceiling hatch; unframed trapdoors may travel as decorative panels without sealing or counting as the required exit. An open framed hatch still needs closing before launch.
 
@@ -32,7 +32,7 @@ All mechanisms must finish pending scheduled block ticks and queued block events
 | Cauldrons | Empty, water, lava, and powder-snow cauldrons | Contents are block-state levels, so these are portable; they are not free fluid cells. |
 | Special equipment | Beacons, dry conduits | Saved configuration travels; power/effects recalculate from destination conditions and native structure requirements. A dry conduit can travel but cannot operate without its vanilla water/frame arrangement. |
 | Sculk | Idle sensors/calibrated sensors, inactive catalysts, player-placed non-summoning shriekers | No pending vibration, scheduled action, or spreading cursors. Naturally summoning shriekers are excluded. |
-| NullSpace equipment | Helm/legacy ship computer, systems controller, supply, air, engine, door-control, camera, monitor, cannon and other ship equipment | Existing shared ship systems and device IDs remain supported. The pad computer normally stays on the uncaptured cobblestone ring. Travel equipment requirements still apply. |
+| NullSpace equipment | Ship Controller, generator, battery, Air Supply, engine, Scanner, Docking Base, camera, monitor and cannon | Existing shared ship systems and device IDs remain supported. The pad computer normally stays on the uncaptured cobblestone ring. Travel equipment requirements still apply. |
 
 Vanilla dimension/environment rules still apply. Beds and respawn anchors do not retarget an existing player's saved respawn location when moved. Existing lodestone compasses keep their original dimension and position. This feature does not make beds safe in dimensions where vanilla makes them explode.
 

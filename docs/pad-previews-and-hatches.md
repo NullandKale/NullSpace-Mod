@@ -6,14 +6,14 @@ Implemented October 25, 2026. This extends the [ship plan](ship-and-space-plan.m
 
 Place the computer **on top of any cobblestone ring block**, including a corner. Its facing only controls the screen direction. You can stand outside the pad when placing it. The scanner checks grass or dirt beside the supporting ring, validates the full rectangle, and requires an interior no larger than 32 x 32. It scans the layer directly beneath the computer; it cannot fall through to a lower pad. A computer touching two valid pads asks you to move it to an unambiguous outer edge.
 
-Pads at different heights may share a footprint. A ship belongs to the nearest registered floor below its helm, rather than the first registration in the file. Prelaunch ownership and preview allocations end below the next registered overlapping pad. Adding a higher pad updates existing lower allocations. **Vertical launch and landing still require a clear column to the sky**: a stacked pad overhead is an obstruction, not an elevator or permission to fly through it. Same-height rings still cannot overlap.
+Pads at different heights may share a footprint. A ship belongs to the nearest registered floor below its ship controller, rather than the first registration in the file. Prelaunch ownership and preview allocations end below the next registered overlapping pad. Adding a higher pad updates existing lower allocations. **Vertical launch and landing still require a clear column to the sky**: a stacked pad overhead is an obstruction, not an elevator or permission to fly through it. Same-height rings still cannot overlap.
 
 ## Previews
 
 Open the pad computer and select **Pad preview** or **Ship preview** with arrows and Enter, or click the action. Select again to turn that mode off. Both modes can be active together, including before registration. Close the terminal to inspect the highlights.
 
 - Cyan highlights show the pad interior and cobblestone ring.
-- Amber outlines show blocks connected to a helm or ship computer within the pad's build allocation. Disconnected blocks are excluded. Invalid machinery remains visible for repair; a preview is not travel approval. Multiple helms are shown if present, while launch still requires exactly one.
+- Amber outlines show blocks connected to a ship controller or ship computer within the pad's build allocation. Disconnected blocks are excluded. Invalid machinery remains visible for repair; a preview is not travel approval. Multiple ship controllers are shown if present, while launch still requires exactly one.
 - Highlights remain visible through the hull and fade over approximately 30 seconds. Geometry refreshes after block edits, at most twice per second, without restarting the fade. Each mode requires another explicit activation after expiration.
 - Previews belong to the requesting player. Closing the terminal leaves them on; disconnecting, dying, changing dimensions, removing the computer, invalidating the pad, or moving more than 160 blocks away clears them.
 

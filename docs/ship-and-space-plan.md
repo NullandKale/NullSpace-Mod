@@ -2,7 +2,7 @@
 
 **Status: the accepted review changes are implemented. Unit/server, graphical, local multiplayer, and seven real crash/restart checks passed.**
 
-**Implemented extensions:** shared ship power, finite oxygen, equipment controls, native hull damage, ship-to-ship combat, remote monitors, and compute-rendered surroundings are described in [ship systems and viewports](ship-systems-and-viewports.md) and [the compute renderer record](space-compute-renderer-plan.md). [Ship navigation](ship-navigation.md) adds third-person local piloting and helm-only fast travel between planet/system regions. Baseline air and void-only descriptions below record the original loop; upgraded ships and the linked extension records define the expanded behavior.
+**Implemented extensions:** shared ship power, finite oxygen, equipment controls, native hull damage, ship-to-ship combat, remote monitors, and compute-rendered surroundings are described in [ship systems and viewports](ship-systems-and-viewports.md) and [the compute renderer record](space-compute-renderer-plan.md). [Ship navigation](ship-navigation.md) adds third-person local piloting and ship controller-only fast travel between planet/system regions. Baseline air and void-only descriptions below record the original loop; upgraded ships and the linked extension records define the expanded behavior.
 
 [Automatic pad resizing](pad-and-sky-fixes-2026-10-26.md) now refreshes completed ring edits and the landed ship's build allocation without manual re-registration. [Fuel, engines, generation, and battery levels](ship-fuel-and-power-design.md) are the next design proposal, with a Q&A for review.
 
@@ -39,7 +39,7 @@ The ship stays ordinary, stationary Minecraft blocks in space. The implemented l
 | Occupants | Include contained entities, including hidden hostile mobs, when transferring the ship. |
 | EVA | Players remain tethered to their ship in space. Start without tank inventory, consumable tank oxygen, or rope physics. |
 | Destinations | Named, registered pads can be landing destinations. Public/private access is later work. |
-| Space | Static physical ship blocks, simulated local piloting, and helm-only planet/system jumps. Normal cabin gravity and automatic suit flight remain. Gravity/orbit integration is later work. |
+| Space | Static physical ship blocks, simulated local piloting, and ship controller-only planet/system jumps. Normal cabin gravity and automatic suit flight remain. Gravity/orbit integration is later work. |
 | Controls | Block-based computer interfaces with a small shared interface API used by pad and ship controls. |
 
 ### Interpretations used in implementation
@@ -85,7 +85,7 @@ The supporting ring fixes the floor elevation. Adjacent grass/dirt identifies th
 2. Check the eight horizontal neighbors on that same layer for grass/dirt candidate seeds. Diagonal seeds support ring corners.
 3. Scan four bounded horizontal rays from each seed to cobblestone, propose a rectangle, and validate every floor and ring block. Accept mixed grass/dirt interiors and reject holes or spans over 32 x 32.
 4. Require the computer to sit on the candidate perimeter. Collapse duplicate candidates; if multiple valid pads touch it, ask the player to move to an unambiguous outer edge. Facing is cosmetic.
-5. Reject overlapping same-height registrations. Different floor heights may share a footprint; associate the ship with the nearest registered floor below its helm and cap prelaunch ownership below the next registered overlapping pad.
+5. Reject overlapping same-height registrations. Different floor heights may share a footprint; associate the ship with the nearest registered floor below its ship controller and cap prelaunch ownership below the next registered overlapping pad.
 6. Report the footprint and available build height, and offer independent cyan pad / amber ship previews fading over 30 seconds. Register only after validation and naming succeed. A stacked pad overhead still obstructs vertical travel.
 
 Use fixed constants for the first materials and limits. A small surface predicate can recognize grass/dirt during discovery without becoming a material-tag or configuration subsystem.
@@ -289,7 +289,7 @@ Crew on the same ship share its frame. Different ships need their own state; one
 
 The completed first-loop gates did not require solar-system scenery, planets, asteroids, orbital mechanics, docking, or collisions across reference frames. Gravitational dynamics and docking remain later mechanics. No placeholder simulation framework was needed just to enter an empty dimension.
 
-[Ship navigation](ship-navigation.md) adds third-person piloting within a local encounter space and helm-only jumps between planet and system addresses. Jumping changes the scene definition while preserving physical blocks and crew. Existing surface pads remain associated with Terra.
+[Ship navigation](ship-navigation.md) adds third-person piloting within a local encounter space and ship controller-only jumps between planet and system addresses. Jumping changes the scene definition while preserving physical blocks and crew. Existing surface pads remain associated with Terra.
 
 The selected viewport extension defines the presentation layer: stars, planets, moons, ships, and other space objects share an observer-relative scene and source-provider API. Block-built subjects use live remote regions; celestial subjects can use procedural/asset representations without giant block builds or planetary chunk loads. V4 in [the extension plan](ship-systems-and-viewports.md) covers their appearance, occlusion, scale, and consistency between observers/monitors. Full orbital dynamics and surface transitions remain separate from rendering those objects.
 
@@ -431,7 +431,7 @@ Suffocation and compartment isolation remain core gameplay. Stairs must work wit
 
 ## Powered systems and scene implementation
 
-The [systems and viewport extension](ship-systems-and-viewports.md) now records the implemented shared bus, finite room air, separate helm/engineering terminals, door groups, GPU monitors, simulated space scene, and initial server-mapped damage, alongside remaining acceptance gaps. Legacy ships remain opt-in. Additive powered fixtures are plots 23-24 (`/nullspace lab systems`); earlier plots and player builds are preserved. The extension's acceptance gates remain authoritative; the scene renderer includes players while other animated entities and some block-entity visuals remain pending, and combat damage does not yet have a crash-atomic damage journal.
+The [systems and viewport extension](ship-systems-and-viewports.md) now records the implemented shared bus, finite room air, separate ship controller/engineering terminals, door groups, GPU monitors, simulated space scene, and initial server-mapped damage, alongside remaining acceptance gaps. Legacy ships remain opt-in. Additive powered fixtures are plots 23-24 (`/nullspace lab systems`); earlier plots and player builds are preserved. The extension's acceptance gates remain authoritative; the scene renderer includes players while other animated entities and some block-entity visuals remain pending, and combat damage does not yet have a crash-atomic damage journal.
 
 Equipment now opens local 80 x 25 diagnostic applications with live connection/power readings and explicit switches/actions. Generator and battery recovery uses Manual restart. Monitors offer Next camera and View feed, preserving the chosen channel in fullscreen video. Placed video uses the native world projection, including view bobbing and hurt/portal effects, to stay aligned with its block. See the extension's equipment table for controls and the local verification record for coverage.
 

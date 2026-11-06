@@ -42,7 +42,7 @@ Client display/input calls run on their owning UI thread. The implemented [NullO
 
 ## Controller network sessions
 
-`ComputerTerminal.Open` supplies a server-owned session UUID, controller mode/location, feedback, default field value, and up to 128 destination aliases (ID/name/state). `Request` carries that UUID, a typed action, a bounded argument, the selected destination ID, and the current engineering configuration revision (-1 for pad/helm actions). `Close` closes only the sender's matching session; `Rejected` reports an error only to its matching screen. Opening and response updates reuse a valid session; closing/reopening issues a new one.
+`ComputerTerminal.Open` supplies a server-owned session UUID, controller mode/location, feedback, default field value, and up to 128 destination aliases (ID/name/state). `Request` carries that UUID, a typed action, a bounded argument, the selected destination ID, and the current engineering configuration revision (-1 for pad/ship controller actions). `Close` closes only the sender's matching session; `Rejected` reports an error only to its matching screen. Opening and response updates reuse a valid session; closing/reopening issues a new one.
 
 The server binds each session to player UUID, controller block position/type, and dimension. It validates life, interaction permission, loaded controller, eight-block range, action compatibility, and travel state. Sessions expire after 1,200 server ticks without a valid action; disconnect, invalidation, and server shutdown clean them up. A stale request cannot revive a session. Packet actions have a two-tick minimum interval; controller operations also retain their existing 500 ms throttle.
 
@@ -55,9 +55,9 @@ The GUI submits typed controller packets with bounded arguments; engineering par
 Pure JUnit tests cover the 80th column, split escapes, cursor addressing/clamping, colors/attributes, erase semantics, wrapping, bounded scrollback, input encoding, and editing/action behavior. Graphical tests verify native text-input lifecycle, generic stream-device routing, column 80/row 25 access, pad naming/persistence, and the ship launch/landing workflow.
 
 
-## Helm and engineering applications
+## Ship Controller and engineering applications
 
-`nullspace:helm` provides the travel/weapons application; `nullspace:systems_controller` opens engineering directly. Multiple engineering controllers share one server-owned ship bus. The legacy ship computer remains compatible and can open engineering too. These text applications use the same 80 x 25 cell buffer; camera video is rendered on a separate monitor.
+`nullspace:ship_computer` is the Ship Controller for travel, weapons and Advanced engineering on the shared server-owned bus. These text applications use the same 80 x 25 cell buffer; camera video is rendered on a separate monitor.
 
 Engineering has arrow-key actions for refresh, explicit upgrade, open/close all doors, and common power changes. Typing selects its Command field; Enter advances to Execute and Enter submits a typed `CONFIGURE` action with the current server revision. `help` lists bounded commands for every subsystem allocation, priority ordering, device on/off, door listings, individual doors, and named groups. Ctrl+A replaces a command. Stale configuration packets are rejected; Refresh obtains the current revision. The server validates the session, real controller, distance, access, ship membership, transfer state, and power before mutation. Closing or losing the controlling terminal cancels queued door work.
 
@@ -65,7 +65,7 @@ Engineering has arrow-key actions for refresh, explicit upgrade, open/close all 
 
 Engineering overview readings update once per second over a separate session-bound update packet. Updates do not open screens, overwrite an in-progress command, or reset diagnostic scrolling. Command replies/errors remain visible briefly; help/device/door-list pages stay static until Refresh. Configuration revisions still come from the server.
 
-Every equipment block also opens a local 80 x 25 application with multiline live readings, explicit enable/disable switches, and actions suited to that hardware. These menus have no text field. Arrows/Enter and pointer selection use the same terminal input adapter; PgUp/PgDn scroll readings. A generator or battery offers Manual restart instead of resetting merely on inspection. Monitors offer Next camera and View feed; cameras offer their own View feed. Equipment sessions cannot acquire helm or engineering privileges. See the [equipment controls table](ship-systems-and-viewports.md#implementation-record) for the readings and actions.
+Every equipment block also opens a local 80 x 25 application with multiline live readings, explicit enable/disable switches, and actions suited to that hardware. These menus have no text field. Arrows/Enter and pointer selection use the same terminal input adapter; PgUp/PgDn scroll readings. A generator or battery offers Manual restart instead of resetting merely on inspection. Monitors offer Next camera and View feed; cameras offer their own View feed. Equipment sessions cannot acquire ship controller or engineering privileges. See the [equipment controls table](ship-systems-and-viewports.md#implementation-record) for the readings and actions.
 
 Equipment panels use a compact six-line readings area and keep the block name only in the header. They omit coordinates, UUIDs, tutorial text, the static legend, and descriptions that merely repeat an action label. Engineering retains detailed diagnostics. The controller application caches its cells and status coloring until content or selection changes; cursor blinking remains handled by the screen adapter.
 

@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-02",
+  "status": "passed-with-unit-skips",
+  "unit": {
+    "tests": 497,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12
+  },
+  "serverTests": 155,
+  "graphicalTests": 22,
+  "parallelRun": "build/parallel-verification/20261102-233445-b6586a",
+  "elapsedSeconds": 347.3,
+  "workers": [
+    {
+      "name": "server",
+      "tests": 155,
+      "exitCode": 0
+    },
+    {
+      "name": "graphics-1",
+      "tests": 11,
+      "exitCode": 0
+    },
+    {
+      "name": "graphics-2",
+      "tests": 11,
+      "exitCode": 0
+    }
+  ],
+  "coverage": [
+    "A captured connection accepts travel with controls power at zero on both vessels, in both directions.",
+    "Physical collar floors, walls, emergency lighting and invisible end stops protect the short storage-frame handoff.",
+    "Passengers remain on an interior floor during boarding; blocked entry returns them inside.",
+    "Tunnel occupancy prevents retraction; retraction preserves pre-existing hull blocks and flushes removal before dropping the recovery plan.",
+    "Docked inspection excludes owned temporary collar blocks from hull capture and obstruction checks.",
+    "Exterior collars render outside the original ship/station sections while respecting the shared 64-section budget.",
+    "All 15 deliverable hulls still clamp and begin departure; full graphical trips include the large station and a purchased ship landing home.",
+    "All 15 active block models and nine inventory icons have authored mod textures; graphical loading reported no missing-model or missing-texture warnings.",
+    "The parallel runner compiled once, ran server and two disjoint graphical inventories concurrently, and verified unchanged input fingerprints and exact test completion."
+  ],
+  "assetReview": "images/machine-designs-industrial.png",
+  "blackoutScreenshot": "images/docked-blackout-arrival.png",
+  "artifact": {
+    "path": "build/libs/nullspace-0.1.0.jar",
+    "bytes": 1266113,
+    "sha256": "7847a073b0ac0e54de76a48fbc94f0e142ad125c10574e0994552ae8a6ef9568"
+  }
+}

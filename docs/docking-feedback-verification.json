@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-02",
+  "status": "passed-with-known-unit-skips",
+  "unit": {
+    "tests": 497,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 485
+  },
+  "serverTests": 154,
+  "coverage": [
+    "Disabled mouse and keyboard travel controls send EXPLAIN instead of a movement action.",
+    "The server recomputes a blocked control reason, reports it to chat and logs it with ship, controller and destination context.",
+    "An explanation cannot start a newly available action; the player must press it again.",
+    "Explicit controller actions are logged, and actual Dock refusals have a Dock blocked prefix.",
+    "Docking phase changes, completion, release and asynchronous failure are logged once per status change; the pilot receives chat feedback without needing an open controller.",
+    "Ordinary doors may face inward or outward on the same axis; the Docking Base defines cabin anchors, approach and boarding direction.",
+    "All 15 deliverable hulls still clamp and begin safe backoff.",
+    "Full graphical StationClientGameTest uses an inward-facing source door and completes automatic docking, walk aboard and back, and full departure.",
+    "Full graphical suite also completes the 128-block station far-berth trip and purchased Bastion Pioneer launch, empty-list discovery, docking, station visit, return, undocking and home landing."
+  ],
+  "savedWorldObservation": {
+    "world": "World 5",
+    "inspection": "read-only",
+    "ship": "Yard Delivery 2",
+    "dockingBase": [
+      9,
+      96,
+      21
+    ],
+    "baseFacing": "south",
+    "doorFacing": "north",
+    "previousBehavior": "Port validation looked south for interior walking space, outside the hull, because it used the inward-facing door direction.",
+    "newBehavior": "Base direction determines the exterior. Interior anchors are north of the door, inside the cabin.",
+    "stationRegeneration": "Waypoint has completed its previous rebuild and contains two current Docking Bases. No additional rebuild queued.",
+    "shipsMetadataSha256": "d219aebad9468e43c8acc5a2803617e6f33be0410404465ae7ae27b1487bb957"
+  },
+  "logs": [
+    "build/docking-feedback-server-verified.log",
+    "build/docking-feedback-client.log"
+  ],
+  "artifact": {
+    "path": "build/libs/nullspace-0.1.0.jar",
+    "bytes": 1235186,
+    "sha256": "953993ce3c99148a0c680eab76a3a12d0d3abc21390b4faca91185abb47dc04c"
+  },
+  "graphicalCompleted": [
+    "com.nullandkale.nullspace.StationExpansionClientGameTest",
+    "com.nullandkale.nullspace.ManufacturerRoleClientGameTest",
+    "com.nullandkale.nullspace.ManufacturerClientGameTest",
+    "com.nullandkale.nullspace.ShipRecallClientGameTest",
+    "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+    "com.nullandkale.nullspace.StationClientGameTest",
+    "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+    "com.nullandkale.nullspace.ClientLifecycleGameTest",
+    "com.nullandkale.nullspace.ComputeClientGameTest",
+    "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+    "com.nullandkale.nullspace.AtmosphereClientGameTest",
+    "com.nullandkale.nullspace.NullSpaceClientGameTest",
+    "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+    "com.nullandkale.nullspace.SphereClientGameTest",
+    "com.nullandkale.nullspace.SystemsClientGameTest",
+    "com.nullandkale.nullspace.LabArrivalClientGameTest",
+    "com.nullandkale.nullspace.RecipeClientGameTest",
+    "com.nullandkale.nullspace.NavigationClientGameTest",
+    "com.nullandkale.nullspace.PadPreviewClientGameTest",
+    "com.nullandkale.nullspace.ExpansionClientGameTest",
+    "com.nullandkale.nullspace.GuideClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ]
+}

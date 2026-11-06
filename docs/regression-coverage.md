@@ -2,7 +2,9 @@
 
 This pass expands tests around observable behavior and failure boundaries. Seeded simulations are repeatable; they check conservation, bounded work and independent coordinate frames. Native GameTests use Minecraft's real blocks, registries, serializers and server services. Graphical tests use the actual OpenGL client. Local multiplayer uses two separate client JVMs and a loopback dedicated server.
 
-The suite contains **303 unit scenarios**, **94 server scenarios (93 mod GameTests plus Minecraft's optional smoke test)** and **14 graphical entrypoints**. The test-review follow-up adds nine unit scenarios, eleven native tests, real resource/datapack reload checks and a repeated world/GPU lifecycle scenario. The separate physical crash matrix now runs seven boundaries in each direction: **14 launch/landing cases**. Counts describe scenarios, not a coverage percentage.
+The November 5 docking hotfix passes **534 unit scenarios**, **188 mod-native scenarios**, four worker smoke tests, all **25 graphical entrypoints**, both loopback client roles and a standalone package boot/save. Combined execution covers **88.20% of main-source lines** and **75.68% of branches**; client-only sources are outside that denominator. [Current receipt](playtest-hotfix-verification.json).
+
+The earlier November 4 baseline separately passes all **14 travel** and **seven shipyard** physical crash/restart cases. Those matrices were not repeated after the docking hotfix. Current receipts and limitations are in [release-readiness.md](release-readiness.md). Older counts below describe their dated verification passes.
 
 ## Added coverage
 
@@ -12,11 +14,11 @@ The suite contains **303 unit scenarios**, **94 server scenarios (93 mod GameTes
 | Spatial air | Repeated bulkhead opening/closing along all six directions conserves mass; equal vacuum escape on each grid face; zero-time and solid-source behavior; overpressure retention; disconnected pump capacities; invalid source bounds |
 | Shared power | Grants capped by actual hardware and requested allocation; duplicate subsystem rejection; invalid supplies and overflow rejection; existing randomized brownout/charge conservation remains enabled |
 | Terminals | ANSI output split across arbitrary packet boundaries; late-viewer snapshots preserve all 16 colors including inverted defaults; malformed escape floods recover; reset clears parser/style/history; every cell of an RGB screen survives the actual network codec |
-| Flight | Long seeded flights at every power level remain finite and speed-limited; integration and pose round trips agree; brakes dissipate motion at eight orientations; opposing controls cancel; non-finite helm angles reject |
+| Flight | Long seeded flights at every power level remain finite and speed-limited; integration and pose round trips agree; brakes dissipate motion at eight orientations; opposing controls cancel; non-finite ship controller angles reject |
 | Landing pads | Rectangles from 1 x 1 through 32 x 32 at positive and negative chunk boundaries; each possible missing ring block; unloaded floor/ring handling; overlap symmetry and vertical independence |
 | Space scene data | Full motion/volume/asteroid-field serialization; stale revision rejection; invalid updates preserve the current scene; new regions have independent revisions; accepted input tags are copied; non-finite parameters, malformed contributors and identity collisions reject |
 | Network protocol | Every terminal action; maximum legal destination catalog and text sizes; forged action ordinals; invalid catalog lengths; oversized keyboard input; exact packet consumption |
-| Server authorization | Cross-player use and close rejection; pad controllers cannot invoke helm, weapon or engineering actions; invalid arguments leave legitimate sessions usable; block replacement, moving away, closing and dimension changes revoke access |
+| Server authorization | Cross-player use and close rejection; pad controllers cannot invoke ship controller, weapon or engineering actions; invalid arguments leave legitimate sessions usable; block replacement, moving away, closing and dimension changes revoke access |
 | Graphical recipes | All 23 snapshots match every loaded server ingredient alternative and output; displayed grids really craft; persistent and inventory serialization; hand reader, ordinary-book isolation, ingredient click navigation, lectern rendering and batch counts |
 | Journal replay | Replaying a full ship in place preserves exact device IDs, battery energy, allocations and stored air; rebuilding runtime caches preserves that state; real destruction still removes device records |
 | Real multiplayer | Both clients receive graphical recipes from the dedicated server and navigate ingredient links. The existing scenario also verifies shared power revisions, independent viewers, camera captures, keyboard-driven guest files, launch, piloting, jumps, offline crew return and reconnect |
@@ -28,7 +30,7 @@ The suite contains **303 unit scenarios**, **94 server scenarios (93 mod GameTes
 - Terminal snapshots mapped an inverted default foreground/background to the wrong color. Snapshots now preserve RGB colors, and the parser accepts the corresponding ANSI RGB sequences.
 - A densely colored terminal could exceed the old 16,384-character screen packet. Screen snapshots have a bounded 131,072-character allowance; keyboard input retains its separate 2,048-character limit.
 - Crash recovery cleared the physical source before replay and treated that temporary clearing as equipment destruction, deleting saved device IDs and battery energy. Journal mutation now preserves authoritative device records; ordinary destruction still invalidates them.
-- NaN/infinite helm yaw could enter flight calculations. Such input now rejects before updating the simulation.
+- NaN/infinite ship controller yaw could enter flight calculations. Such input now rejects before updating the simulation.
 
 ## Running the checks
 
@@ -43,11 +45,11 @@ The suite contains **303 unit scenarios**, **94 server scenarios (93 mod GameTes
 .\crash-test.ps1
 ```
 
-The local JDK wrapper supplies Java 25. Run these commands sequentially. Before another Gradle invocation, copy graphical evidence out of `build/run/clientGameTest`: the next test configuration recreates that directory. Reports live in `build/reports/tests/test`, `build/test-results/test` and the individual native test logs. All worlds used by these harnesses are disposable; player saves are untouched.
+The local JDK wrapper supplies Java 25. Use `./parallel-test.ps1 -Graphics -GraphicsWorkers 2 -ServerWorkers 4 -Coverage` to compile once, run isolated Minecraft JVMs concurrently, and merge their coverage with the unit tests. Each worker owns its world, logs and coverage file. Do not edit sources while a verification run is active; the harness checks its input fingerprint. Separate complete harness invocations should run sequentially. Before another Gradle invocation, copy graphical evidence out of `build/run/clientGameTest`: the next test configuration recreates that directory. Reports live in `build/reports/tests/test`, `build/test-results/test` and the individual native test logs. All worlds used by these harnesses are disposable; player saves are untouched.
 
 ## Limits
 
-Test counts describe scenarios, not a percentage of code coverage. These checks do not prove the absence of bugs. GPU results apply to the local driver/device; alternative GPUs, resource packs and arbitrary data packs need their own runs. The separate physical process-halt crash matrix remains available through `crash-test.ps1`. Proposed docking, encounters and rendering-workshop features have no implementation to test yet.
+Test counts describe scenarios, not a percentage of code coverage. These checks do not prove the absence of bugs. GPU results apply to the local driver/device; alternative GPUs, resource packs and arbitrary data packs need their own runs. The separate physical process-halt crash matrix remains available through `crash-test.ps1`. Docking, boarding, finite fuel/power, journeys, procedural systems, encounter resources and world starts now have native coverage; graphical and two-client checks exercise their actual interfaces. A scenario inventory still does not prove every branch, hostile-client behavior or public-server operation is covered.
 
 
 ## Previous coverage-pass result
@@ -208,3 +210,10 @@ The [shipyard implementation](shipyard.md) adds four unit cases, eleven native c
 `shipyard-crash-test.ps1` terminates a real JVM at seven delivery checkpoints and starts a second JVM on each disposable save. Recovery must complete automatically without clicking the beacon, preserve committed ship/device identities and saved cargo, leave outside blocks unchanged, and produce one complete launchable ship. `multiplayer-test.ps1` now ends with two authenticated graphical clients racing to purchase onto the same empty pad: one delivery, one occupied-pad response, one persisted ship, no leftover order and no charge to either player.
 
 Final frozen-source result: 454 unit tests passed with the same 12 known-bug skips; all 112 discovered server tests, all 16 graphical entrypoints, all seven physical delivery crash/restart checkpoints and the two-client multiplayer scenario passed, plus assembly, assets and formatting. [Receipt, hashes and retained evidence](shipyard-verification.json). All evidence uses fingerprint `35cdfa7fafbfcb7973cfe2ddbf563cf2abcc74cb0da8aea05a1950c49c7c0e66`. The separate fourteen-case launch/landing crash matrix was not rerun. The strict no-skipped-tests gate remains unsatisfied.
+
+
+## Measured coverage
+
+`./scripts/Invoke-Gradle.ps1 test -Pcoverage=true` records JaCoCo coverage from JUnit and writes HTML/XML under `build/reports/jacoco/test`. Normal tests do not run the coverage agent. `./parallel-test.ps1 -Graphics -GraphicsWorkers 2 -ServerWorkers 4 -Coverage` also records each Minecraft JVM separately and writes a combined report inside that run's `coverage/` directory. The combined report measures main production sources; client-only source coverage is not included in that denominator. Graphical entrypoint receipts separately establish which real client scenarios completed.
+
+Do not compare unit-only and combined percentages as if they covered the same execution. Keep the report, exact scenario inventories, source fingerprint and packaged artifact hash together. The initial unit baseline and final measured release results are recorded in [release-readiness.md](release-readiness.md).

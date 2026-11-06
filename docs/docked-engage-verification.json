@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-05",
+  "scope": "Engage from a docked encounter continues the original paid journey",
+  "status": "passed-focused-checks",
+  "artifact": {
+    "path": "build/libs/nullspace-0.1.0.jar",
+    "sha256": "f11bb9f5e603fa9e27bac370864c5d9c4e968c8b1056dec9980594f892beae75"
+  },
+  "behavior": "Controller displays the original journey destination and departure preview while docked at the encounter. Engage accepts a completed docking course, undocks, resumes without another jump fee and arrives at the original destination. A different explicitly selected destination is preserved. Legacy journeys without saved selection fall back to their paid destination region.",
+  "unit": {
+    "class": "ShipControlTerminalTest",
+    "tests": 14,
+    "log": "build/docked-engage-unit-build.log"
+  },
+  "native": {
+    "tests": 1,
+    "log": "build/docking-regression/docked-engage-return-3/test.log",
+    "coverage": "Real FTL/boarding handshakes, docking, cargo collection, return boarding, controller destination/readiness preview, one Engage packet, automatic undock/resume/arrival, no second jump fee, depleted cargo preserved",
+    "fixture": "Uses the original deterministic clear approach position so randomized encounter routing does not confound this departure regression."
+  },
+  "qualification": "Only affected checks run; full batch integration remains pending."
+}

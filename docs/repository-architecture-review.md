@@ -45,7 +45,7 @@ Retain the existing durable journal/checkpoint semantics. Extract a transfer pla
 
 ### R03 — P1: pad lookup mixes registry I/O with expensive synchronous world inspection
 
-[PadRegistry.java](../src/main/java/com/nullandkale/nullspace/ship/PadRegistry.java), line 38, rereads and parses `nullspace-pads.json` for each query. `below`, `buildHeight` and `reconcileHeights` compose those reads. [ComputerTerminal.java](../src/main/java/com/nullandkale/nullspace/terminal/ComputerTerminal.java) inspects destination states while issuing a helm menu; `PadRegistry.state` can scan an entire 32 x 32 column to world height for each pad. A catalog can contain 128 destinations. This is substantial server-thread work even before drawing the UI.
+[PadRegistry.java](../src/main/java/com/nullandkale/nullspace/ship/PadRegistry.java), line 38, rereads and parses `nullspace-pads.json` for each query. `below`, `buildHeight` and `reconcileHeights` compose those reads. [ComputerTerminal.java](../src/main/java/com/nullandkale/nullspace/terminal/ComputerTerminal.java) inspects destination states while issuing a ship controller menu; `PadRegistry.state` can scan an entire 32 x 32 column to world height for each pad. A catalog can contain 128 destinations. This is substantial server-thread work even before drawing the UI.
 
 **Refactor:** a server-owned `PadRepository` should load once, index by ID/controller/dimension and write only on registration changes. Separate cheap catalog lookup from bounded occupancy inspection. Queue/cache status work with terrain/registration revisions; report UNKNOWN while inspection is pending. Landing must retain its final authoritative revalidation. Define whether external JSON edits require an explicit reload.
 

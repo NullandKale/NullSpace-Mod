@@ -1,0 +1,209 @@
+{
+  "format": 1,
+  "status": "layout_reference",
+  "id": "nullspace:waypoint_station",
+  "name": "Waypoint Station",
+  "sectionSize": [
+    32,
+    32,
+    32
+  ],
+  "pieceSize": [
+    16,
+    16,
+    16
+  ],
+  "pieces": [
+    {
+      "id": "arrival",
+      "template": "arrival",
+      "origin": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "workshop",
+      "template": "workshop",
+      "origin": [
+        16,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "habitation",
+      "template": "habitation",
+      "origin": [
+        0,
+        0,
+        16
+      ]
+    },
+    {
+      "id": "engineering",
+      "template": "engineering",
+      "origin": [
+        16,
+        0,
+        16
+      ]
+    }
+  ],
+  "templates": {
+    "arrival": {
+      "sockets": [
+        {
+          "id": "east",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            15,
+            3,
+            8
+          ],
+          "facing": "east"
+        },
+        {
+          "id": "south",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            8,
+            3,
+            15
+          ],
+          "facing": "south"
+        },
+        {
+          "id": "dock_west",
+          "kind": "dock",
+          "profile": "door_1x2",
+          "position": [
+            0,
+            2,
+            8
+          ],
+          "facing": "west"
+        }
+      ]
+    },
+    "workshop": {
+      "sockets": [
+        {
+          "id": "west",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            0,
+            3,
+            8
+          ],
+          "facing": "west"
+        },
+        {
+          "id": "south",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            8,
+            3,
+            15
+          ],
+          "facing": "south"
+        },
+        {
+          "id": "dock_east",
+          "kind": "dock",
+          "profile": "door_1x2",
+          "position": [
+            15,
+            2,
+            8
+          ],
+          "facing": "east"
+        }
+      ]
+    },
+    "habitation": {
+      "sockets": [
+        {
+          "id": "north",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            8,
+            3,
+            0
+          ],
+          "facing": "north"
+        },
+        {
+          "id": "east",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            15,
+            3,
+            8
+          ],
+          "facing": "east"
+        }
+      ]
+    },
+    "engineering": {
+      "sockets": [
+        {
+          "id": "north",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            8,
+            3,
+            0
+          ],
+          "facing": "north"
+        },
+        {
+          "id": "west",
+          "kind": "passage",
+          "profile": "door_1x2",
+          "position": [
+            0,
+            3,
+            8
+          ],
+          "facing": "west"
+        }
+      ]
+    }
+  },
+  "joints": [
+    {
+      "a": "arrival.east",
+      "b": "workshop.west",
+      "doorOwner": "arrival.east"
+    },
+    {
+      "a": "arrival.south",
+      "b": "habitation.north",
+      "doorOwner": "arrival.south"
+    },
+    {
+      "a": "habitation.east",
+      "b": "engineering.west",
+      "doorOwner": "habitation.east"
+    },
+    {
+      "a": "workshop.south",
+      "b": "engineering.north",
+      "doorOwner": "workshop.south"
+    }
+  ],
+  "berths": [
+    "arrival.dock_west",
+    "workshop.dock_east"
+  ],
+  "coordinateConvention": "Passage positions identify ordinary door lower halves. Dock positions identify the Docking Base one block below the door. Internal joints own one framed door; the other tile contributes its matching opening. Door nodes are derived from placed blocks. This reference omits block templates and compartment flood fills."
+}

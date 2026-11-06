@@ -1,8 +1,8 @@
 # Ship systems, power, and remote viewports
 
-**Status: systems and scene implementation in progress. Shared power, finite atmosphere, separate controllers, door commands, GPU cameras/monitors, celestial rendering, and mapped hull damage are implemented. The acceptance gates below remain the completion criteria; the implementation record lists the remaining gaps.**
+**Status: core systems and scene implementation is available. Shared power, finite atmosphere, the consolidated controller, real furnace fuel, upgrade inventories, compact docking, door commands, GPU cameras/monitors, celestial rendering, and mapped hull damage are implemented. The [current equipment reference](ship-block-ui-design.md) and [fuel rules](ship-systems-redesign.md) supersede older hardware proposals below.**
 
-Next proposed extensions are [sensor encounters and docking](space-encounters-and-docking.md) and the [rendering workshop](space-rendering-workshop.md). The accepted initial choices are short airlock boarding transfers, exploration encounters before hostile AI, and stylized Minecraft space visuals. These proposals do not mark their features implemented.
+[Stations and automatic docking](stations.md) now implement the first station/boarding loop. The broader [encounter design](space-encounters-and-docking.md) and [rendering workshop](space-rendering-workshop.md) retain future work: random encounters, larger stations and the rendering edit loop.
 
 The user selected a shared ship power bus with FTL-style allocation. The viewport system must support live camera monitors, other ships at simulated positions, and the space scene itself: stars, planets, moons, and other space objects. These share a scene/viewport service with different source providers. They have separate acceptance gates; none replaces the others.
 
@@ -10,41 +10,39 @@ This extends [the ship and space plan](ship-and-space-plan.md). It defines the s
 
 The [space compute renderer implementation](space-compute-renderer-plan.md) now supplies the default OpenGL 4.3 path: client-generated celestial surfaces, deterministic fields, atmospheres, nebulae, comet tails, per-view acceleration/reconstruction, and native depth/transparency integration. Versioned definitions travel separately from ship geometry and pose/time updates. Physical hulls and players remain rasterized. The implementation record documents the legacy switch, GPU preference helper, verification, and native HDR/quality limits.
 
-The [ship recipes](ship-recipes.md) implement shaped crafting using common materials, redstone torches, and native mechanical parts. Machine casings and circuit boards feed into a craftable computer base block, which is then crafted into a specialized controller. The unconfigured base does not count as an active helm. Hulls and fittings use ordinary vanilla materials. `/nullspace lab recipes` visits nineteen labeled chests showing the loaded ingredient patterns and outputs. Construction recipes are implemented; operating fuel costs remain separate work.
+The [ship recipes](ship-recipes.md) implement shaped crafting using common materials, redstone torches, and native mechanical parts. Machine casings and circuit boards feed into a craftable computer base block, which is then crafted into a specialized controller. The unconfigured base does not count as an active ship controller. Hulls and fittings use ordinary vanilla materials. `/nullspace lab recipes` visits nineteen labeled chests showing the loaded ingredient patterns and outputs. Construction recipes are implemented; shared furnace fuel and upgrade inventories are implemented.
 
 ## Implementation record
 
-The next resource-system proposal is [ship fuel, engines, generation, and batteries](ship-fuel-and-power-design.md). It separates combustible propulsion from electrical allocation, proposes clean/dirty fuel and reusable combustion products, and ends with decisions for critique. It is a design draft; current generators still supply development power without fuel.
+The next resource-system proposal is [ship fuel, engines, generation, and batteries](ship-fuel-and-power-design.md). It separates combustible propulsion from electrical allocation, proposes clean/dirty fuel and reusable combustion products, and ends with decisions for critique. It is a design draft; generators now consume real furnace fuel for electrical work.
 
 The [extended improvement record](improvement-pass-2026-10-23.md) documents the atmosphere benchmark, compressed/cached camera sources, regression tests, and engineering additions. Engineering now supports `rooms <page>`, `room here`, `air audit`, and `profile cruise|combat|emergency`. Readings remain available during a blackout and each player retains an independent live page. Presets respect physical hardware and device switches; power previews refresh immediately without spending battery energy. Construction displaces gas through newly filled volumes; filling an entire compartment with no surviving recipient removes its gas and records the loss, and reopening does not refill it.
 
-The original computer remains compatible. The new controller roles are:
+The current equipment roles are:
 
 | Block | Role |
 | --- | --- |
-| `nullspace:helm` | Primary ship controller: inspect, launch, destinations, land, engineering application, and fire the mounted cannon. Exactly one helm **or** legacy ship computer is required for travel. |
-| `nullspace:systems_controller` | Additional engineering terminals sharing the ship's power, air, equipment, and door state. Several may be installed on different decks. They do not count as additional helms. |
-| `nullspace:door_control` | Hardware enabling remote door movement. It does not replace the engineering terminal or the real doors. |
+| `nullspace:ship_computer` | Ship Controller: flight, destinations, launch, land, docking, weapons and Advanced engineering. Install exactly one. |
 | `nullspace:camera` / `nullspace:monitor` | Camera source and video display. The display surface is separate from the 80 x 25 text terminal. |
 
-Supply, air, engine, camera, monitor, door-control, and cannon blocks are ordinary stateless blocks. Stable device IDs and resources belong to the ship metadata and are included in the existing transfer journal. This implementation needs no new machine block entities or inventory-bearing network payloads. Future hardware with real block-local inventories will need its own transfer support.
+Machines store real fuel and upgrades in block inventories. Stable device IDs, machine contents and ship resources travel through the durable transfer journal.
 
-Right-click any equipment block to open its own **80 x 25 diagnostic terminal**. Use arrows and Enter, or click an action. Inspection does not change equipment state. Readings update once per second, including during a control-power blackout; local enable/disable switches remain available. Unregistered, legacy, and disconnected equipment explain the setup or connection required instead of silently ignoring clicks.
+Right-click machinery for its native controls and inventory slots. Advanced opens an **80 x 25 diagnostic terminal**. Use arrows and Enter, or click an action. Inspection does not change equipment state. Readings update once per second, including during a control-power blackout; local enable/disable switches remain available. Unregistered and disconnected equipment explain the setup or connection required instead of silently ignoring clicks.
 
 Interfaces share a navy background, colored role headers, highlighted selection/input fields, and semantic status colors: green for healthy, amber for caution/partial power, red for faults/leaks, gold for power controls, and cyan for navigation/cameras. Oxygen percentages, battery charge, and power delivery carry individual colors for quick scanning. Text labels accompany each state. Camera and transit screens use the same palette; [terminal.md](terminal.md) records the display thresholds.
 
 | Equipment | Readings and actions |
 | --- | --- |
-| Generator | Output, ship supply switch, enable/disable, and explicit **Manual restart**. Development generators currently need no fuel. |
+| Generator | Fuel slots, return slot, output, supply switch, upgrade slots and Advanced diagnostics. Generation consumes furnace fuel from its hopper-accessible inventory. |
 | Battery | This battery's stored energy/capacity and charge/discharge limit, enable/disable, and **Manual restart**. A restart creates no energy. |
 | Air supply | Pump power, room oxygen and leaks, outlet warnings, enable/disable, and air allocation. |
-| Engine | Exhaust direction and power readiness, enable/disable, and engine allocation. Continuous thrust remains unimplemented. |
-| Door control | Door count, open count, queue progress/results, enable/disable, door allocation, **Close all doors**, and **Open all doors**. |
+| Engine | Exhaust direction, fuel and power readiness, enable/disable, upgrade slots and Advanced diagnostics. |
+| Ship Controller: doors | Door count, open count, queue progress/results, door allocation, **Close all doors**, and **Open all doors**. |
 | Camera | Source direction, feed/power status, enable/disable, camera allocation, and **View feed** for this camera. |
 | Monitor | Selected source and feed/power status, enable/disable, **Next camera** to change its placed display, and **View feed** for fullscreen video. |
-| Cannon | Muzzle clearance, recharge, delivered/requested power, enable/disable, and weapon allocation. Fire remains a helm action. |
+| Cannon | Muzzle clearance, recharge, delivered/requested power, enable/disable, and weapon allocation. Fire remains a ship controller action. |
 
-Allocation changes require powered controls and cycle the subsystem's ship-wide request through 0-8. Local switches affect only the selected device. Equipment menus cannot issue helm or general engineering commands. Sessions bind actions to the player, block type, dimension, range, and current configuration revision. Door batches retain the existing cancellation rules when their terminal closes.
+Allocation changes require powered controls and cycle the subsystem's ship-wide request through 0-8. Local switches affect only the selected device. Equipment menus cannot issue ship controller or general engineering commands. Sessions bind actions to the player, block type, dimension, range, and current configuration revision. Door batches retain the existing cancellation rules when their terminal closes.
 
 Local panels show the block name once in the header and a short set of operational readings. Coordinates, device/ship UUIDs, repeated names, the color legend, repeated action descriptions, and tutorial paragraphs are omitted. Full equipment IDs/positions remain available through engineering diagnostics when needed.
 
@@ -76,11 +74,11 @@ doors all close
 
 Priority numbers are controls 0, air 1, doors 2, engines 3, cameras 4, weapons 5. Use each once. `devices 1` reads the next page of device identities, conditions, and stored energy; `groups` lists groups and `group lock delete` removes one. Groups contain stable door IDs; replacing a door does not transfer its group membership. Closing a terminal cancels its unfinished door work. After a blackout, right-click an installed generator or charged battery and select **Manual restart** to re-enable supply and restore a control-power reservation. Reading local diagnostics remains possible without control power.
 
-New development fixtures are **plots 23 and 24**, two powered Meridian spheres. Use `/nullspace lab systems` or `/nullspace lab plot 24`. The helm and a systems terminal are on deck 3; supply, air, door hardware, another systems terminal, and monitors are on deck 1. Their fixed simulated positions are 180 blocks apart and their cannons face one another. Launch both real ships to see both in space. Operators can set their current ship's simulated pose with `/nullspace scene pose <x> <y> <z> <yaw> <pitch> <roll>`; this changes the rendered/combat frame and preserves real blocks and crew coordinates. Camera orientation is its lens face; right-click a monitor and select **View feed** for fullscreen viewing. Tab selects a camera, arrow keys aim, PgUp/PgDn change field of view, and F2 exports a PNG. **Next camera** in the monitor terminal cycles its placed display. A camera's own View feed stays pinned to that camera. Original plots and existing builds are not retrofitted.
+New development fixtures are **plots 23 and 24**, two powered Meridian spheres. Use `/nullspace lab systems` or `/nullspace lab plot 24`. The ship controller and a systems terminal are on deck 3; supply, air, door hardware, another systems terminal, and monitors are on deck 1. Their fixed simulated positions are 180 blocks apart and their cannons face one another. Launch both real ships to see both in space. Operators can set their current ship's simulated pose with `/nullspace scene pose <x> <y> <z> <yaw> <pitch> <roll>`; this changes the rendered/combat frame and preserves real blocks and crew coordinates. Camera orientation is its lens face; right-click a monitor and select **View feed** for fullscreen viewing. Tab selects a camera, arrow keys aim, PgUp/PgDn change field of view, and F2 exports a PNG. **Next camera** in the monitor terminal cycles its placed display. A camera's own View feed stays pinned to that camera. Original plots and existing builds are not retrofitted.
 
 Implemented rules and starting limits:
 
-- Systems enforcement is opt-in through **Upgrade systems**, requiring connected generator, battery, air supply, and door-control hardware. Identity and diagnostics work before strict travel validation. Existing legacy ships retain their earlier air/power behavior until upgraded.
+- Systems enforcement is opt-in through **Upgrade systems**, requiring a connected generator and air supply. Identity and diagnostics work before strict travel validation. Existing legacy ships retain their earlier air/power behavior until upgraded.
 - Each development generator supplies 8 power units/tick. Batteries store 1,200 energy with charge/discharge limits of 4 per tick; new batteries start empty. Fuel recipes remain separate balance work. Disabled/destroyed/detached devices cannot supply power. Replacing a destroyed battery does not restore its charge.
 - Atmosphere uses conserved per-cell quantities, bounded connected rooms, a 25% breathability threshold, powered pumps, occupant consumption, gradual vacuum leakage, and consumption from tether oxygen sources. Open planetary rooms refill from ambient air. Unattended ships pause; observing them through a camera does not run their machinery.
 - Installed framed doors are queued one per tick under the delivered door budget. Individual, group, open-all, and close-all operations read back the real result, respect redstone override, and cancel on power/controller/session loss or transfer.
@@ -94,7 +92,7 @@ Remaining acceptance work is explicit:
 
 - **V1/V2:** non-player animated entities and special block-entity visuals (including sign text and chest models) are not yet captured. Players are rendered; untracked-player equipment currently retains item types rather than all custom item components, and its pose updates at snapshot rate. Static block materials and glass render; full native lighting, source deltas, adaptive refresh, permission leases for crew-operated remote cameras on *another* ship, and cache/LOD scheduling still need work. A gameplay camera currently belongs to its connected ship; arbitrary sources are operator-only.
 - **V3/V4:** native transparency interleaving through several remote/local glass layers, two-observer visual assertions, body-size/occlusion regression fixtures, adaptive detail, and resource-reload stress still need acceptance coverage. Bodies currently have fixed poses and procedural materials; orbital movement, clouds, rings, and terrain mapping are not implemented.
-- **S1/S4:** ambiguous wreck splits/merges need an explicit repair/claim workflow. A surviving helm anchors its connected bus. With no helm, the largest component containing supply/control hardware is serviced; equal-size ambiguous components remain offline. Oxygen consumption currently counts players, not every breathing mob. Gas displaced by construction remains conserved, including through thick new bulkheads and above nominal pressure. Full compartment removal explicitly records gas loss; reopening starts empty. Boundary, compartment-removal and seeded randomized remapping tests cover that rule in the [improvement record](improvement-pass-2026-10-23.md).
+- **S1/S4:** ambiguous wreck splits/merges need an explicit repair/claim workflow. A surviving ship controller anchors its connected bus. With no ship controller, the largest component containing supply/control hardware is serviced; equal-size ambiguous components remain offline. Oxygen consumption currently counts players, not every breathing mob. Gas displaced by construction remains conserved, including through thick new bulkheads and above nominal pressure. Full compartment removal explicitly records gas loss; reopening starts empty. Boundary, compartment-removal and seeded randomized remapping tests cover that rule in the [improvement record](improvement-pass-2026-10-23.md).
 - **C1:** normal runtime transfer quarantine queues impacts, but combat damage and its receipts do not yet have a separate crash-atomic world/drop journal. Do not claim that accepted impacts are exactly once across a process halt. Two-client damage presentation, blast-during-arrival cases, and dedicated explosion crash injection remain acceptance work. Native bows/projectiles are not cross-frame weapons.
 - **S5:** travel has powered readiness checks, but there is no continuous thrust, steering, or engine vector integration. Per-engine on/off is available through device control; throttle and flight dynamics remain separate work.
 
@@ -170,7 +168,7 @@ An illustrative test setup is an 8-unit generator, a battery with a 4-unit disch
 | Controls | Ship computer/control block | Accept authenticated system commands and expose live readings. | Local passive diagnostics remain readable; commands requiring service report no power. Other equipment continues independently. |
 | Life support | Air-supply block | Add a bounded amount of breathable air to its connected room. | Replenishment stops. Existing room air remains and is consumed or lost normally. |
 | Propulsion | Existing engine blocks | Supply enabled engine output within the granted budget. | Thrust/launch service stops. No stored allocation or stale command produces output. |
-| Doors | Door-control block plus recognized framed doors | Execute individual, group, open-all, and close-all commands. | Remote movement stops; doors retain their real state and local vanilla operation. |
+| Doors | Ship Controller plus recognized framed doors | Execute individual, group, open-all, and close-all commands. | Remote movement stops; doors retain their real state and local vanilla operation. |
 | Cameras | Camera blocks and monitor hardware | Enable named feeds and monitor presentation. | Show no-power/stale status; never present the last image as a live feed. |
 | Sensors | Ship sensor equipment | Supply contact identity and permitted diagnostics. | Enhanced contact data stops. A physically visible hull does not disappear merely because sensors lose power. |
 
@@ -196,7 +194,7 @@ Keep the accepted movement policy explicit: the current prototype enables suit f
 
 ## 4. Door control and FTL-style commands
 
-One installed, powered door-control block manages the ship's recognized framed doors through the shared bus. Existing oak and iron doors remain usable. A door is one device identified by its lower half; both halves, frame, and current state are validated before an operation. An open but otherwise valid door remains discoverable as a controllable door.
+The powered Ship Controller manages the ship's recognized framed doors through the shared bus. Existing oak and iron doors remain usable. A door is one device identified by its lower half; both halves, frame, and current state are validated before an operation. An open but otherwise valid door remains discoverable as a controllable door.
 
 The terminal supports a door list, individual commands, named groups, **Close all doors**, and **Open all doors**. Include the airlock and interior room doors. Group membership belongs to stable door IDs, so a moved or replaced door is not silently treated as its predecessor.
 
@@ -363,7 +361,7 @@ Rendering a body does not create native block collision. Finite solid bodies nee
 
 ### Interaction boundary
 
-A rendered ship has no local Minecraft collision or hit targets at its apparent location. Showing it nearby does not permit vanilla block interaction, walking across a gap, docking, or boarding. Camera viewing and screenshots do not transfer ownership or authorize remote block edits. Ship-to-ship weapon hits require the server-owned mapping below; an ordinary vanilla projectile in the observer's storage region cannot automatically strike the rendered target.
+A rendered ship has no local Minecraft collision or hit targets at its apparent location. Showing it nearby does not permit vanilla block interaction or walking across a gap. Automatic docking and checked airlock transfers provide boarding through the [station service](stations.md). Camera viewing and screenshots do not transfer ownership or authorize remote block edits. Ship-to-ship weapon hits require the server-owned mapping below; an ordinary vanilla projectile in the observer's storage region cannot automatically strike the rendered target.
 
 ### Combat, explosions, and physical hull damage
 
@@ -405,14 +403,14 @@ These are completion gates. The implementation record above distinguishes implem
 | --- | --- | --- |
 | S1 | Stable prelaunch ship/device identity and discovery independent of travel validation. | Open doors, missing engines, damaged rooms, and a replaced controller remain diagnosable without resetting state; detached devices lose membership. |
 | S2 | Generator, battery, shared allocation, passive diagnostics, and terminal system page. | Energy conservation, deterministic brownouts, allocation changes from two clients, save/load, and no resource duplication through detach or transfer. |
-| S3 | Door-control hardware and individual/group/all commands. | Close Meridian's ten room doors and both airlock doors; handle power loss, partial budget, redstone override, removal, stale requests, transfer cancellation, and real pressure updates. |
+| S3 | Controller door functions and individual/group/all commands. | Close Meridian's ten room doors and both airlock doors; handle power loss, partial budget, redstone override, removal, stale requests, transfer cancellation, and real pressure updates. |
 | V1 | Independent bounded same-dimension viewport into a GPU texture, with screenshot export. | Secondary rendering leaves the main view/input/audio unchanged; opaque blocks, glass, lights, signs, and moving entities render; multiple views and recursive monitor views remain bounded. |
 | V2 | Authorized distant-source subscription/cache and placed cameras/monitors using S2 power. | Feed works beyond both normal player chunk ranges on a dedicated server; live edits appear, stale packets are rejected, power/access loss is visible, and leases/resources clean up. |
 | V3 | Two real ships in shared space, independent simulated poses, and depth-aware subject composition. | Ships appear at chosen virtual positions/orientations while storage blocks/chunk axes stay unchanged; correct perspective and occlusion from two different observers, no storage-neighbor leaks or recursive scenery. |
 | V4 | Shared space scene with a star field, finite sun, planet, moon, and another representative object. | Bodies appear consistently through windows/EVA, monitors, and screenshots; correct relative pose, angular size, parallax, occlusion, lighting phase, and detail transitions from two observers, independent of storage slot. No planetary chunk loads or per-star world renders. |
 | C1 | Server-owned cross-frame weapon hits and explosions using physical hull damage. | Real local TNT damage, compartment isolation and equipment loss; simulated hits map to the correct storage blocks, finite solid bodies block weapon queries, blast fan-out is bounded/deduplicated, visual updates agree for two clients, and transfer ordering cannot erase or duplicate an accepted impact. |
 | S4 | Finite atmosphere, powered air supply, and tether consumption. | Room merge/split conserves air, door exchange and leaks drain it, blackout stops refill only, and saves/travel/recovery preserve quantities. |
-| S5 | Powered propulsion readiness and system-enforced launch/landing; explicit upgrade path. | No unpowered launch or stale output in upgraded ships; compatibility fixtures and existing user builds remain recoverable. Local piloting, third-person ship cameras, and helm-only region jumps are implemented in [ship navigation](ship-navigation.md). |
+| S5 | Powered propulsion readiness and system-enforced launch/landing; explicit upgrade path. | No unpowered launch or stale output in upgraded ships; compatibility fixtures and existing user builds remain recoverable. Local piloting, third-person ship cameras, and ship controller-only region jumps are implemented in [ship navigation](ship-navigation.md). |
 
 S1-S3 define the gameplay backbone before finite oxygen. V1 is an early rendering risk check and can be developed independently of oxygen. V2-V4 are all required consumers of that service: monitors, ships, and celestial surroundings. V3 and V4 consume server-authoritative piloted ship poses and planet/system region definitions; operator pose commands remain available for fixtures. Future inventory-bearing camera/monitor block entities must pass the travel/recovery support gate before boarding. Current cameras and monitors are ordinary blocks whose persistent configuration belongs to ship metadata.
 
@@ -424,7 +422,7 @@ Re-run the physical crash/restart matrix when introducing persisted system/devic
 
 ## 12. Deliberately separate follow-up work
 
-Physical wiring, circuit breakers, heat, reactor fuel recipes, powered gravity, portable oxygen tanks, autonomous computers/OSs, gravitational/orbital dynamics, generated solar-system progression, continuous planetary descent/terrain mapping, hull-to-hull collision dynamics, docking/boarding transitions, and cross-dimension terrain cameras remain separate designs. Celestial presentation is included through V4; weapon hits/explosions are included through C1. Neither supplies full orbital, surface, or ship rigid-body simulation. The bus, typed command boundary, persistent identities, source providers, remote scene cache, and per-observer viewport transforms must support those extensions without claiming they already exist.
+Physical wiring, circuit breakers, heat, reactor fuel recipes, powered gravity, portable oxygen tanks, autonomous computers/OSs, gravitational/orbital dynamics, generated solar-system progression, continuous planetary descent/terrain mapping, hull-to-hull collision dynamics, stations spanning several simulation sections, and cross-dimension terrain cameras remain separate designs. The first automatic docking and airlock boarding loop is implemented. Celestial presentation is included through V4; weapon hits/explosions are included through C1. Neither supplies full orbital, surface, or ship rigid-body simulation. The bus, typed command boundary, persistent identities, source providers, remote scene cache, and per-observer viewport transforms must support those extensions without claiming they already exist.
 
 
 ## Hatch integration ? October 25, 2026

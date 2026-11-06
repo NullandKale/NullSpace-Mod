@@ -125,7 +125,7 @@ Implementation references are the pinned 26.3 sources in `.gradle/loom-cache/min
 
 ## Ship navigation integration
 
-[Ship cameras and navigation](ship-navigation.md) reuse this renderer for the external piloting camera. Server snapshots carry simulated poses at 10 Hz during piloting; shared client interpolation supplies consistent transforms to native cockpit composition, independent cameras, and compute occlusion. Each planet destination has its own persisted definition. Helm fast travel changes that definition and waits for the destination scene to prepare; thrust never switches regions. No second OpenGL context or planetary terrain rendering is introduced.
+[Ship cameras and navigation](ship-navigation.md) reuse this renderer for the external piloting camera. Server snapshots carry simulated poses at 10 Hz during piloting; shared client interpolation supplies consistent transforms to native cockpit composition, independent cameras, and compute occlusion. Each planet destination has its own persisted definition. Ship Controller fast travel changes that definition and waits for the destination scene to prepare; thrust never switches regions. No second OpenGL context or planetary terrain rendering is introduced.
 
 ## Native camera alignment correction
 

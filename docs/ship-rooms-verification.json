@@ -1,0 +1,56 @@
+﻿{
+    "status":  "passed",
+    "completedUtc":  "2026-11-04T20:35:32.5600704Z",
+    "finalInputsSha256":  "79014fd641c7da25ef43c9fd0ab4e691815ea7ba621832ba87cf24fc6741021b",
+    "artifact":  {
+                     "sha256":  "2a45b611807aeea9fe770ae7c709055a2e6249bf25192c67c3c538a043c3a8db",
+                     "file":  "build/libs/nullspace-0.1.0.jar"
+                 },
+    "fullSuite":  {
+                      "graphicalTests":  24,
+                      "nativeModTests":  177,
+                      "elapsedSeconds":  414.3,
+                      "unitTests":  526,
+                      "result":  "build/parallel-verification/20261104-122505-103de3/result.json",
+                      "inputsSha256":  "da6baac3bb2d2455b046d2ce72bfa8f4055e54740f336effc5a60d94e4090755",
+                      "nativeSmokeTests":  1
+                  },
+    "finalFollowups":  {
+                           "nativeTests":  1,
+                           "description":  "After the full suite, added supply compatibility for older unfinished plans and lights above the upper corridor. Final unit/content/package checks and focused native/graphical checks passed.",
+                           "graphical":  "build/room-variety-client/20261104-123430/result.json",
+                           "compile":  "build/room-variety-final-compile.log",
+                           "unitTests":  526,
+                           "native":  "build/docking-regression/room-resource-compatibility/test.log",
+                           "graphicalClasses":  [
+                                                    "com.nullandkale.nullspace.ManufacturerRoleClientGameTest"
+                                                ]
+                       },
+    "worldCleanup":  {
+                         "fullSuite":  [
+                                           {
+                                               "path":  "build\\parallel-verification\\20261104-122505-103de3\\server-1\\world",
+                                               "bytes":  678276556,
+                                               "status":  "removed"
+                                           },
+                                           {
+                                               "path":  "build\\parallel-verification\\20261104-122505-103de3\\graphics-1\\saves",
+                                               "bytes":  259324147,
+                                               "status":  "removed"
+                                           },
+                                           {
+                                               "path":  "build\\parallel-verification\\20261104-122505-103de3\\graphics-2\\saves",
+                                               "bytes":  200247540,
+                                               "status":  "removed"
+                                           }
+                                       ],
+                         "finalGraphicalSavesRemoved":  true,
+                         "focusedRunsRemovedBytes":  [
+                                                         27585837,
+                                                         30304369,
+                                                         41621742,
+                                                         24420400
+                                                     ]
+                     },
+    "playerWorldReset":  false
+}

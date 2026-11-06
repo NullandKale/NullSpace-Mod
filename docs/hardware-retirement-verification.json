@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-02",
+  "commands": [
+    ".\\scripts\\Invoke-Gradle.ps1 test runGameTest assemble verifyContentAssets",
+    ".\\scripts\\Invoke-Gradle.ps1 runClientGameTest"
+  ],
+  "unit": {
+    "tests": 488,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 476
+  },
+  "serverTests": 143,
+  "graphicalCompleted": [
+    "com.nullandkale.nullspace.ShipRecallClientGameTest",
+    "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+    "com.nullandkale.nullspace.StationClientGameTest",
+    "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+    "com.nullandkale.nullspace.ClientLifecycleGameTest",
+    "com.nullandkale.nullspace.ComputeClientGameTest",
+    "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+    "com.nullandkale.nullspace.AtmosphereClientGameTest",
+    "com.nullandkale.nullspace.NullSpaceClientGameTest",
+    "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+    "com.nullandkale.nullspace.SphereClientGameTest",
+    "com.nullandkale.nullspace.SystemsClientGameTest",
+    "com.nullandkale.nullspace.LabArrivalClientGameTest",
+    "com.nullandkale.nullspace.RecipeClientGameTest",
+    "com.nullandkale.nullspace.NavigationClientGameTest",
+    "com.nullandkale.nullspace.PadPreviewClientGameTest",
+    "com.nullandkale.nullspace.ExpansionClientGameTest",
+    "com.nullandkale.nullspace.GuideClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ],
+  "guidePages": 95,
+  "recipes": 24,
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 1188097,
+  "sha256": "5df72dd12b855977466fa31c3549ff3aeb49a5c031296f05dd069f00ceb91886",
+  "logs": [
+    "build/hardware-retirement-server.log",
+    "build/hardware-retirement-client.log"
+  ],
+  "coverage": [
+    "Every loaded wooden-door tag member crafts the Docking Base; iron is rejected as a wooden ingredient",
+    "No species-specific wood ingredients remain in authored recipes",
+    "Six retired placed block IDs convert to solid iron through the chunk-load lifecycle",
+    "Nine active equipment types remain unchanged",
+    "Installed scanner module drops exactly once through repeated chunk loads",
+    "Retired recipes and guide entries are absent; current recipe pages link correctly and fit native book bounds",
+    "Recall test pads have separate allocations independent of randomized test ordering"
+  ]
+}

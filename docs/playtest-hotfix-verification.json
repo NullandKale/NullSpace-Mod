@@ -1,0 +1,127 @@
+{
+  "status": "local-hotfix-verification-passed",
+  "date": "2026-11-05",
+  "artifact": {
+    "sha256": "e365171d971a302019a266d369ec6429822ec8942bffc2ec34ea34730796389a",
+    "file": "nullspace-0.1.0.jar"
+  },
+  "inputsSha256": "613928aed994ea61b2932ef33e4c7f132a270482847bd1af2dcb392aea195ef0",
+  "unit": {
+    "tests": 534,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "nativeModTests": 188,
+  "nativeSmokeTests": 4,
+  "graphicalEntrypoints": 25,
+  "multiplayerRoles": [
+    "pilot",
+    "crew"
+  ],
+  "receipts": {
+    "full": "build/parallel-verification/20261105-102144-229709/result.json",
+    "multiplayer": "build/local-multiplayer/20261105-102759-98424c/result.json",
+    "standalone": "build/alpha-server-smoke/20261105-102517/result.json"
+  },
+  "coverage": {
+    "scope": "Main production sources only; unit/native/GUI execution. Client-only code excluded.",
+    "report": "build/parallel-verification/20261105-102144-229709/coverage/combinedCoverageReport.xml",
+    "branch": {
+      "covered": 10611,
+      "total": 14021,
+      "percent": 75.68
+    },
+    "line": {
+      "covered": 17519,
+      "total": 19862,
+      "percent": 88.2
+    }
+  },
+  "package": {
+    "draft": true,
+    "archive": "build/alpha-packages/20261105-102508-e4837d.zip",
+    "sha256": "ea3e490bad906f56ca2ec599984a73bfc6e927b5119ca5fba20913a957774e59",
+    "filesVerified": 16,
+    "eulaAcceptanceIncluded": false
+  },
+  "profile": {
+    "status": "two-client-workload-passed",
+    "run": "build/local-multiplayer/20261105-101154-4b01fa",
+    "artifactSha256": "07686fc0a95e21b816e46af26d222d9179dca19bb14acc1af60ec9a117f9c21b",
+    "scope": "Recorded before the final missing-route compatibility branch. Dedicated server thread shares the pilot JVM with a client. Not a standalone public-server benchmark.",
+    "serverCpuSamples": 804,
+    "longWaits": [
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.station.StationService.tickBuilds",
+        "count": 12,
+        "totalMs": 1839.34,
+        "maxMs": 963.99
+      },
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.ship.TravelService.transferFrom",
+        "count": 5,
+        "totalMs": 1450.09,
+        "maxMs": 861.45
+      },
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.shipyard.ShipYardService.complete",
+        "count": 2,
+        "totalMs": 346.58,
+        "maxMs": 215.08
+      },
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.dev.ShipGallery.ensure",
+        "count": 2,
+        "totalMs": 164.4,
+        "maxMs": 113.44
+      },
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.dev.SphereLab.ensure",
+        "count": 1,
+        "totalMs": 38.33,
+        "maxMs": 38.33
+      },
+      {
+        "event": "jdk.ThreadPark",
+        "method": "com.nullandkale.nullspace.station.StationService.reserve",
+        "count": 1,
+        "totalMs": 14.71,
+        "maxMs": 14.71
+      }
+    ],
+    "jvmGcPauses": {
+      "count": 146,
+      "totalMs": 1072.61,
+      "maxMs": 26.31
+    }
+  },
+  "baselineDurability": {
+    "artifactSha256": "a021962904a8c4346a4b9cb83f61b545ebb3e0ed6b47244b8bb21aae5fc4b5c6",
+    "travelCases": 14,
+    "travel": "build/local-crash/20261104-192125-0c9d6c/result.json",
+    "shipyardCases": 7,
+    "shipyard": "build/shipyard-crash/20261104-192147-fef015/result.json",
+    "scope": "Passed on the earlier baseline JAR; process-halt matrices were not repeated after the docking hotfix. Current native journal/recovery tests pass."
+  },
+  "publication": {
+    "published": false,
+    "licenseApproved": false,
+    "remainingGates": [
+      "Approved license, copyright/contact and contributor/third-party review",
+      "Authenticated join on the hosted production installation",
+      "Whole-world backup/restore rehearsal",
+      "Final external connection and moderation setup for the hosted server"
+    ]
+  },
+  "limitations": [
+    "Local automated tests run on Windows and its local OpenGL device",
+    "The human remote session used offline identities and a development server",
+    "Profiling identifies save barriers; this pass does not claim the latency spikes are fixed"
+  ]
+}

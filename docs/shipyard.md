@@ -2,17 +2,21 @@
 
 Implemented October 27, 2026. A Ship Beacon calls a preset ship onto an existing registered landing pad. Purchases are free: no money, XP, items or materials are required. There is no economy or delivery animation yet.
 
+The [manufacturer review fleet](procedural-ships.md#current-review-set) adds nine ships across scout, freighter and explorer roles, plus a compact station template showroom. Seeded generation remains planned.
+
 ## Using a beacon in survival
 
 1. Register a grass/dirt pad with its ordinary pad computer. Keep the cobblestone ring complete.
 2. Place a **Ship Beacon** on another block of that ring. Its facing does not matter. Keep both controllers on the ground.
-3. Stand beside the ring and right-click the beacon. Select a design with arrows/Enter or the mouse to read its size and equipment.
-4. Select **Call selected**. The server checks the actual pad again, then constructs that ship centered on it.
-5. Walk up the entry stair, open the oak door, enter and close it. Larger ships have a bridge upstairs. Inspect and launch at the helm; the delivery pad is its home landing destination.
+3. Stand beside the ring and right-click the beacon. Select a design in the catalog to read its size and equipment.
+4. Select **Deliver ship**. The server checks the actual pad again, then constructs that ship centered on it.
+5. Walk up the entry stair, open the oak door, enter and close it. Larger ships have a bridge upstairs. Inspect and launch at the Ship Controller; the delivery pad is its home landing destination.
 
 The beacon needs the chosen ship's width and depth as pad interior dimensions; its size readout is **width × height × depth**. It never rotates a hull to make it fit. Every delivery needs clear sky over the entire pad. Existing blocks, fluids and ships are preserved. Players, creatures, items and other entities must be outside the new hull's volume. Entity data must finish loading before construction starts. If the beacon says the area is loading, wait a moment and call again.
 
-The beacon cannot replace an existing ship, merge two ships, or clear a damaged ship for you. A ground allocation that still belongs to another ship is refused even if its visible hull has been removed. Launch an existing ship or choose a different empty pad. Physical ship transfers temporarily block delivery and new shipyard generation. A larger pad is discovered through the existing automatic pad refresh; a stacked pad's ring can limit height and obstruct the launch column.
+The beacon cannot clear a damaged ship or merge two ships. After you completely dismantle a ship, delivery automatically releases its empty saved allocation and creates a fresh ship identity. The entire old area must contain no blocks or occupants; offline crew and dock links must be resolved first. Replacing the beacon is unnecessary. Preview only checks readiness; the old assignment is removed together with the saved delivery intent. Physical ship transfers temporarily block delivery and new shipyard generation. A larger pad is discovered through the existing automatic pad refresh; a stacked pad's ring can limit height and obstruct the launch column.
+
+The catalog has three pages. Use the arrow buttons beneath the ship list to reach the manufacturer scouts, freighters and explorers. Manufacturer and role appear beside the ship specification. Selection, the footprint preview and Deliver ship remain on the same screen.
 
 ## Recipe
 
@@ -34,16 +38,28 @@ This is a shaped recipe (`GTG / CKC / SHS`), making one beacon. Rough stone acce
 | Wayfarer | 15 × 10 × 21 | 2 | Blue explorer, internal stairs, rooms and upper bridge |
 | Aegis | 17 × 10 × 23 | 2 | Red patrol ship, twin engines and a forward cannon |
 | Atlas | 23 × 15 × 29 | 3 | Green expedition ship, stairways, workshops and cargo rooms |
+| Rivet Bolt | 17 x 7 x 25 | 1 | Industrial scout with offset bridge, service spine and engine pods |
+| Halcyon Swift | 19 x 7 x 27 | 1 | Tapered survey scout with swept shoulders and observation bridge |
+| Bastion Ward | 19 x 7 x 25 | 1 | Angular scout with broad shoulders, protected bridge and bulkhead |
+| Rivet Hauler | 25 x 8 x 31 | 1 | Offset bridge and broad industrial cargo hold |
+| Rivet Ranger | 25 x 12 x 31 | 2 | Service pods, upper crew deck and lower workshop |
+| Halcyon Courier | 25 x 8 x 31 | 1 | Tapered freight hull with swept cargo shoulders |
+| Halcyon Horizon | 25 x 12 x 31 | 2 | Raised observation bridge and separate crew space |
+| Bastion Tender | 25 x 8 x 31 | 1 | Protected command section and compartmented stores |
+| Bastion Pioneer | 25 x 12 x 31 | 2 | Upper command deck and lower engineering |
 
-All include exactly one helm, a generator, battery, air supply, door control, systems controller, shell terminal, camera, monitor and both scanners. Installed finite power/air systems are enabled on delivery. Batteries start empty and charge from surplus generation. The generator and engine follow the mod's current power rules; the proposed combustible fuel progression remains separate. Camera/scanner allocations can be adjusted in engineering. Cargo barrels start empty. Rooms are separated by ordinary doors, making them useful for air-management tests. Airless surfaces still require a suit until the relevant rooms have been supplied with air.
+All fifteen include one Ship Controller, generators, a battery, cabin air supply, programmable terminal, one Scanner, small mounted camera and thin monitor. Each has a framed compact docking door on a Docking Base. Each new generator receives one finite stack of coal; batteries start empty and charge from surplus generation. Normal delivery does not require a separate systems-upgrade step. The new manufacturer freighters start with six air-power units for three pumps; their explorers use eight for four pumps. Cargo storage starts empty. Doors and room air remain physical; airless surfaces require a suit until the relevant cabin has air.
+
+Existing yards make new deliveries using the current blueprints. Already placed ships and showroom builds retain their construction and edits; retrofit them using the [short docking instructions](stations.md#add-a-port-to-your-ship). The native catalog test checks every design with the real docking and pressure validators.
+
 
 Blueprints are deterministic code in `shipyard/ShipBlueprints.java`; the showroom and delivery service build the same block-state maps. The current blueprint version is 1. New equipment and hull layouts should be added here, with launch/pressure/path tests, rather than maintaining a second showroom build.
 
 ## Visiting the shipyard
 
-Operators can run **`/nullspace shipyard`**. This creates a lit platform with three empty 32 × 32 delivery pads and six registered showroom pads containing the catalog ships. Showroom ships can be entered, inspected and launched. The yard is generated only on request, in the overworld, above existing terrain and outside registered pad footprints. No survival save is modified by installing the feature.
+Operators can run **`/nullspace shipyard`**. This creates a lit platform with three empty 32 × 32 delivery pads and fifteen registered showroom pads containing the catalog ships. Showroom ships can be entered, inspected and launched. The yard is generated only on request, in the overworld, above existing terrain and outside registered pad footprints. No survival save is modified by installing the feature.
 
-Generation reserves its site in `nullspace-shipyard-v1.nbt` before writing blocks. Returning reads that marker and preserves edits, purchased ships and emptied display pads. An incomplete generation marker refuses automatic rebuilding; it never clears the site and starts over. The bounded search does not guarantee a site in every heavily built or height-limited world. A large opt-in construction and its save can briefly stall the server.
+Generation reserves its site in `nullspace-shipyard-v3.nbt` before writing blocks. Returning reads that marker and preserves edits, purchased ships and emptied display pads. The v3 fifteen-ship gallery reserves a fresh site and leaves the older galleries unchanged. An incomplete generation marker refuses automatic rebuilding; it never clears the site and starts over. The bounded search does not guarantee a site in every heavily built or height-limited world. A large opt-in construction and its save can briefly stall the server.
 
 ## Ownership and interrupted deliveries
 
@@ -70,6 +86,8 @@ These checks use disposable worlds. `shipyard-crash-test.ps1` exercises actual p
 .\multiplayer-test.ps1
 ```
 
-The [final verification receipt](shipyard-verification.json) records **454 passing unit tests, 12 existing known-bug skips, 112 passing server tests (111 mod plus one optional vanilla), all 16 graphical entrypoints, all seven delivery crash/restart cases, and the two-client purchase race**, plus assembly, assets and formatting. All evidence certifies the same source fingerprint. The separate fourteen-case launch/landing crash matrix was not rerun. Status is `passed-with-known-skips`; the strict no-skipped-tests gate remains unsatisfied.
+The [original delivery verification receipt](shipyard-verification.json) records **454 passing unit tests, 12 existing known-bug skips, 112 passing server tests (111 mod plus one optional vanilla), all 16 graphical entrypoints, all seven delivery crash/restart cases, and the two-client purchase race**, plus assembly, assets and formatting. That evidence certifies the original source fingerprint. The separate fourteen-case launch/landing crash matrix was not rerun. Status is `passed-with-known-skips`; the strict no-skipped-tests gate remains unsatisfied.
 
-Native captures: [beacon terminal](images/ship-beacon-catalog.png), [purchased ship in space](images/purchased-ship-in-space.png), [six-ship showroom](images/shipyard-showroom.png), [multiplayer purchase](images/ship-beacon-multiplayer.png). The showroom fixture waits for visible meshes in both display rows before capture.
+The [manufacturer role verification](manufacturer-roles-verification.json) records the expanded fifteen-design catalog: 477 passing unit tests, 12 existing skips, 148 passing server tests and all 21 graphical entrypoints. It includes a page-three Pioneer purchase, launch and return, and walking up and down its stairs in survival. The crash matrix and two-client purchase race were not rerun for the role additions.
+
+Current captures: [page-three catalog](images/manufacturer-beacon-catalog.png), [purchased explorer in space](images/manufacturer-explorer-in-space.png), [fifteen-ship showroom](images/shipyard-manufacturer-fleet.png). The earlier [multiplayer purchase](images/ship-beacon-multiplayer.png) capture belongs to the original delivery verification.

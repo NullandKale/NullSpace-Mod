@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "startedUtc": "2026-11-04T04:31:43.6186833Z",
+  "finishedUtc": "2026-11-04T04:37:59.8376013Z",
+  "elapsedSeconds": 376.2,
+  "inputsSha256": "4f7d32fbd792799cb30ee5f1d161dc53f7774bfd98fc9728dd2b07ee9e61f29a",
+  "artifact": {
+    "sha256": "a0ff0fbb3acb5de229a98381ed365d68ef5c8c7e739ffc709f9d00c5f269186e",
+    "file": "nullspace-0.1.0.jar"
+  },
+  "verificationReceipt": "build/parallel-verification/20261103-203143-9052f3/result.json",
+  "unit": {
+    "tests": 513,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "server": {
+    "modTests": 161,
+    "minecraftSmokeTests": 1,
+    "total": 162,
+    "failures": 0,
+    "workers": 1
+  },
+  "graphical": {
+    "completed": 23,
+    "workers": 2,
+    "classes": [
+      "com.nullandkale.nullspace.StationExpansionClientGameTest",
+      "com.nullandkale.nullspace.NavigationClientGameTest",
+      "com.nullandkale.nullspace.SystemsClientGameTest",
+      "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+      "com.nullandkale.nullspace.LabArrivalClientGameTest",
+      "com.nullandkale.nullspace.PadPreviewClientGameTest",
+      "com.nullandkale.nullspace.ShipRecallClientGameTest",
+      "com.nullandkale.nullspace.AtmosphereClientGameTest",
+      "com.nullandkale.nullspace.ClientLifecycleGameTest",
+      "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+      "com.nullandkale.nullspace.NullSpaceClientGameTest",
+      "com.nullandkale.nullspace.ComputeClientGameTest",
+      "com.nullandkale.nullspace.ShipYardClientGameTest",
+      "com.nullandkale.nullspace.StationClientGameTest",
+      "com.nullandkale.nullspace.SphereClientGameTest",
+      "com.nullandkale.nullspace.RecipeClientGameTest",
+      "com.nullandkale.nullspace.ManufacturerRoleClientGameTest",
+      "com.nullandkale.nullspace.FirstTripClientGameTest",
+      "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+      "com.nullandkale.nullspace.ExpansionClientGameTest",
+      "com.nullandkale.nullspace.ManufacturerClientGameTest",
+      "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+      "com.nullandkale.nullspace.GuideClientGameTest"
+    ]
+  },
+  "coveredStories": [
+    "Register an unused suggested pad name without typing; load real furnace fuel with native inventory handling; launch and land at the unchanged Home destination.",
+    "Refuse a no-fuel launch and a covered engine exhaust, then permit the repaired real transfer.",
+    "Keep scanner selection tied to visible destination IDs; paging cannot commit a hidden result; disable/restore scanner power and select a real station.",
+    "Preserve normal recipe left-click, support right-click and native Back history; enforce the book page budget before starting Minecraft.",
+    "Return from camera fullscreen with an unsaved name draft; a deleted source cannot reopen an old inventory; Edit name focuses the field.",
+    "Run station naming/access, captured docking, unpowered traversal, expanded station construction, delivery, ship recovery and existing navigation regressions."
+  ],
+  "auditCorrections": [
+    "Minecraft 26.3 uses SDL mouse-button codes: left=1, right=3. Original recipe left-click already worked; the implementation now uses named constants and adds right-click/history.",
+    "Camera fullscreen already had a server-side machine return. This pass retains validation and adds UI draft restoration and invalid-source coverage."
+  ],
+  "worldSafety": "All game checks ran in isolated generated worlds. Closed test worlds were cleaned only within verified build directories when needed; failure logs and screenshots were retained. The dev save was not opened by this verification.",
+  "limits": [
+    "These automated checks verify behavior, not whether children understand it.",
+    "Opening progression, food/fuel resource opportunities and station services remain separate player-story work."
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "date": "2026-11-02",
+  "status": "passed-with-known-skips",
+  "unit": {
+    "tests": 489,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 477
+  },
+  "serverTests": 148,
+  "graphicalCompleted": [
+    "com.nullandkale.nullspace.ManufacturerRoleClientGameTest",
+    "com.nullandkale.nullspace.ManufacturerClientGameTest",
+    "com.nullandkale.nullspace.ShipRecallClientGameTest",
+    "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+    "com.nullandkale.nullspace.StationClientGameTest",
+    "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+    "com.nullandkale.nullspace.ClientLifecycleGameTest",
+    "com.nullandkale.nullspace.ComputeClientGameTest",
+    "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+    "com.nullandkale.nullspace.AtmosphereClientGameTest",
+    "com.nullandkale.nullspace.NullSpaceClientGameTest",
+    "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+    "com.nullandkale.nullspace.SphereClientGameTest",
+    "com.nullandkale.nullspace.SystemsClientGameTest",
+    "com.nullandkale.nullspace.LabArrivalClientGameTest",
+    "com.nullandkale.nullspace.RecipeClientGameTest",
+    "com.nullandkale.nullspace.NavigationClientGameTest",
+    "com.nullandkale.nullspace.PadPreviewClientGameTest",
+    "com.nullandkale.nullspace.ExpansionClientGameTest",
+    "com.nullandkale.nullspace.GuideClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ],
+  "commands": [
+    ".\\scripts\\Invoke-Gradle.ps1 test runGameTest assemble verifyContentAssets",
+    ".\\scripts\\Invoke-Gradle.ps1 runClientGameTest",
+    ".\\format.ps1 -Write",
+    ".\\scripts\\Invoke-Gradle.ps1 assemble verifyContentAssets"
+  ],
+  "logs": [
+    "build/manufacturer-roles-server.log",
+    "build/manufacturer-roles-client.log",
+    "build/manufacturer-roles-package.log"
+  ],
+  "ships": [
+    "rivet_hauler",
+    "rivet_ranger",
+    "halcyon_courier",
+    "halcyon_horizon",
+    "bastion_tender",
+    "bastion_pioneer"
+  ],
+  "manufacturerFleetTotal": 9,
+  "catalogDesigns": 15,
+  "catalogPages": 3,
+  "shipFootprint": [
+    25,
+    31
+  ],
+  "freighterHeight": 8,
+  "explorerHeight": 12,
+  "freighterCargoBarrels": 20,
+  "explorerDecks": 2,
+  "initialFreighterAirPower": 6,
+  "initialExplorerAirPower": 8,
+  "galleryMarker": "nullspace-shipyard-v3.nbt",
+  "images": [
+    "docs/images/rivet-hauler.png",
+    "docs/images/rivet-ranger.png",
+    "docs/images/halcyon-courier.png",
+    "docs/images/halcyon-horizon.png",
+    "docs/images/bastion-tender.png",
+    "docs/images/bastion-pioneer.png",
+    "docs/images/explorer-crew-deck.png",
+    "docs/images/explorer-engineering-deck.png",
+    "docs/images/manufacturer-beacon-catalog.png",
+    "docs/images/manufacturer-explorer-in-space.png",
+    "docs/images/shipyard-manufacturer-fleet.png"
+  ],
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 1212196,
+  "sha256": "5cd9502d83e242dce6e7ab003971223924155a14231d50503915afbc7d54b7ba",
+  "coverage": [
+    "All fifteen blueprints pass real connected-ship, exact-envelope, equipment, air outlet and docking validation",
+    "All six role ships have distinct floor outlines and sealed, supplied rooms reachable from the dock",
+    "Freighters provide real cargo barrels, bridge and engineering compartments",
+    "Explorers provide two decks, supported stairs, upper bridge/crew rooms and lower workshop/engineering rooms",
+    "Unassisted survival walking up and down the Pioneer stairwell",
+    "All installed room pumps receive finite-power allocation",
+    "Third-page graphical catalog purchase of Pioneer, duplicate refusal, launch and home-pad return",
+    "Terminal fallback keeps purchase visible and ignores empty catalog rows",
+    "Expanded opt-in gallery preserves earlier reserved galleries and edits",
+    "Six exterior captures, two explorer interior captures, final catalog and showroom visual review"
+  ],
+  "notes": [
+    "The final package includes a message-only correction from Call selected to Deliver ship and a comment update after the full graphical pass; formatting, assembly and asset verification passed afterward.",
+    "Twelve pre-existing unit skips remain.",
+    "Delivery process-kill/restart matrix and two-client purchase race were not rerun for these role additions.",
+    "Seeded procedural generation and larger multi-section station harbors remain planned."
+  ]
+}

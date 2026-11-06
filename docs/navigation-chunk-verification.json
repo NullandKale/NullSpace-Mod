@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-05",
+  "scope": "Navigation chunk and playtest corrections; full batch integration remains pending",
+  "artifact": {
+    "path": "build/libs/nullspace-0.1.0.jar",
+    "sha256": "702530bad5de7723ac1b6b8ac58cb6ebbc63a432534f9e2f2ee5ffc0e65c2912"
+  },
+  "focusedUnit": {
+    "status": "passed",
+    "tests": 21,
+    "classes": ["ShipControlTerminalTest", "FlightDynamicsTest"],
+    "log": "build/scanner-block-interaction.log"
+  },
+  "focusedNative": {
+    "status": "passed",
+    "tests": 9,
+    "logs": [
+      "build/docking-regression/course-playtest-controls/test.log",
+      "build/docking-regression/course-terminal-names/test.log"
+    ],
+    "coverage": "Direct Scanner selection, session authority, local/interstellar Scanner requirement, grouped stations, moved destinations, disconnected pilots, 37-character generated names and maximum 160-character destination names"
+  },
+  "graphicalWalkthroughs": [
+    {
+      "status": "passed",
+      "receipt": "build/course-integration/20261105-151156/result.json",
+      "inputsSha256": "17f92f7ebac12a2594d00839cccd991a150650fb42fbd1fdde737f2603bf6021",
+      "classes": ["CourseClientGameTest", "StationClientGameTest"],
+      "coverage": "Scanner destination selection; Engage launch, jump, automatic berth selection, undock and return landing; randomized arrival orientation/altitude; blackout boarding and station controller with a long-named ship",
+      "qualification": "Completed before the final Scanner right-click dispatch correction. Other gameplay and packet logic were unchanged by that correction. Only the affected Scanner interaction was rerun afterward. Automated FTL cruise time is shortened; transfers and docking run normally."
+    },
+    {
+      "status": "passed",
+      "receipt": "build/scanner-block-focus/20261105-151710/result.json",
+      "inputsSha256": "7d2d2d83fa5e259685d40749a032f9a928637458b21bf5f14d4af36c5c3478e8",
+      "classes": ["ScannerBlockClientGameTest"],
+      "coverage": "Actual client mouse right-click opens the physical Scanner browser; Set destination updates the ship without movement; Settings/upgrades opens its real inventory; controller sees the destination and exposes no Scanner feed or mark handoff"
+    }
+  ],
+  "cleanup": "Finished disposable test worlds removed; logs, receipts and screenshots retained. Player saves untouched."
+}

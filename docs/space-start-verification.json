@@ -1,0 +1,46 @@
+﻿{
+    "status":  "passed",
+    "feature":  "Singleplayer ship selection and server space starts for new players",
+    "receipt":  "build/parallel-verification/20261103-221437-87d35d/result.json",
+    "inputsSha256":  "8fcccf39d3c284d4fbceb8fd7a89629c6d3826814720f60b3692ebb171a6af98",
+    "startedUtc":  "2026-11-04T06:14:37.9538289Z",
+    "finishedUtc":  "2026-11-04T06:20:42.2161304Z",
+    "unitTests":  517,
+    "unitSkipped":  0,
+    "nativeModTests":  165,
+    "nativeSmokeTests":  1,
+    "graphicalCases":  24,
+    "jar":  {
+                "sha256":  "9278e212239985bb9b33b6c643797589a2f26df57333ab31d02708b4cde1e659",
+                "path":  "build/libs/nullspace-0.1.0.jar"
+            },
+    "focus":  {
+                  "server":  "build/docking-regression/space-start-native-3/test.log",
+                  "graphical":  "build/ui-core-client/20261103-220428/result.json"
+              },
+    "coverage":  [
+                     "default vanilla start unchanged",
+                     "ship picker and visible selected label",
+                     "real new-world creation and first login",
+                     "loaded breathable cabin and real fuel",
+                     "world settings saved and reopened",
+                     "same ship after rejoin",
+                     "separate new-player ships",
+                     "stable random landable planets",
+                     "existing player data and backups",
+                     "interrupted construction and supply deduplication",
+                     "first launch client readiness"
+                 ],
+    "notRerun":  [
+                     "two-client multiplayer harness",
+                     "physical process-halt matrix"
+                 ],
+    "cleanup":  {
+                    "bytes":  910356674,
+                    "worldsRemoved":  true
+                },
+    "images":  [
+                   "docs/images/world-start-options.png",
+                   "docs/images/world-start-cabin.png"
+               ]
+}

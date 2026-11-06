@@ -1,6 +1,6 @@
 # In-game field guide
 
-The **NullSpace Field Guide** is a written book using Minecraft's normal reader. It has clickable chapter and recipe indexes, return links on every page, 22 feature chapters and all 23 shaped recipes. Recipe pages show a real 3 x 3 grid of Minecraft item icons, an output slot and batch quantities. Hover for item names; click a crafted ingredient to open its recipe. Tag ingredients cycle through every alternative accepted by the server. It currently contains 88 pages.
+The **NullSpace Field Guide** is a written book using Minecraft's normal reader. It has clickable chapter and recipe indexes, return links on every page, 24 feature chapters and all 28 shaped recipes. Recipe pages show a real 3 x 3 grid of Minecraft item icons, an output slot and batch quantities. Hover for item names; click a crafted ingredient to open its recipe. Tag ingredients cycle through every alternative accepted by the server. It currently contains 100 pages.
 
 Get one with **`/nullspace guide`**, available to ordinary players without operator permission. Repeating the command keeps an existing inventory copy. If the inventory is full, the guide drops at the player's feet. Right-click the book to read it.
 
@@ -13,7 +13,7 @@ Copper
 
 The recipe unlocks when obtaining a book. The guide can be placed on a vanilla lectern or stored in a chiseled bookshelf. Its item ID is `nullspace:field_guide`.
 
-The manual covers the first ship, pads/previews, hull and cargo restrictions, controllers, shared power, spatial air, doors/groups, suits/EVA, launch/landing, piloting, free ship beacons/the preset shipyard, planets, scanners, cameras/monitors, NullOS, shell/scripts, native automation, weapons/damage, graphics, troubleshooting and crafting. Planned stations, docking, encounters and the rendering workshop are explicitly identified as future work.
+The manual covers the first ship, pads/previews, hull and cargo restrictions, controllers, shared power, spatial air, doors/groups, suits/EVA, launch/landing, piloting, ship beacons, stations and automatic docking, planets, scanners, cameras/monitors, NullOS, shell/scripts, native automation, weapons/damage, graphics, troubleshooting and crafting. Random encounters and the rendering workshop remain future work. The station update keeps the native book within its 100-page limit and appends recipes without moving the existing recipe order.
 
 Prepared development worlds and lab visits supply a copy if the player does not carry one. Newly created gallery supply barrels and the recipe annex also include the guide. Existing galleries retain their saved layout and edits; use the command or recipe to obtain the book there.
 

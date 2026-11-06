@@ -1,0 +1,62 @@
+{
+    "status":  "passed",
+    "review":  "docs/repo-review-2026-11-04.md",
+    "walkthrough":  "docs/dev-world5-story.md",
+    "verificationReceipt":  "build/parallel-verification/20261104-105232-d9d3ab/result.json",
+    "preparationReceipt":  "build/dev-world-preparation/20261104-105018-4ac75fbd/result.json",
+    "ordinaryStartupReceipt":  "build/dev-story-normal-probe/result.json",
+    "sourceInputsSha256":  "dc1324f22c4ea4ad6c0818a4d2de80a5f8d7effb95657de4b34b1b7be7608740",
+    "artifactSha256":  "3f2ae535db8e081ab387389f93765b15effe11476d39ce610b07395a33c71c80",
+    "unitTests":  522,
+    "unitSkipped":  0,
+    "nativeModTests":  176,
+    "nativeSmokeTests":  1,
+    "graphicalCases":  24,
+    "profile":  {
+                    "version":  1,
+                    "player":  "Player451",
+                    "playerUuid":  "efe2ab2d-072a-337a-9d65-10da4f48c969",
+                    "seed":  20261104,
+                    "ship":  "halcyon_horizon",
+                    "shipId":  "a9b2a935-ae6b-4f1f-a756-4a5a59d383f7",
+                    "origin":  "frontier_a_outer",
+                    "originName":  "Elos II",
+                    "destination":  "frontier_a_inner",
+                    "destinationName":  "Elos I",
+                    "signal":  "Damaged freighter",
+                    "seconds":  28,
+                    "homePad":  "34ac419d-3346-4d5a-9c35-acfb71a836b0",
+                    "homeComputer":  "-1, 102, 16",
+                    "respawn":  "-3, 102, 16",
+                    "story":  "Jump, investigate the signal, dock, collect supplies, return, undock and resume. Home on Terra is your landing and recovery pad."
+                },
+    "installedWorld":  "run/saves/World 5",
+    "backup":  "run/backups/World 5-20261104-110224-a15fa396",
+    "backupVerifiedFiles":  6,
+    "backupHashesReceipt":  "build/world5-backup-verification.json",
+    "ordinaryStartup":  {
+                            "status":  "passed",
+                            "player":  "Player451",
+                            "uuid":  "efe2ab2d-072a-337a-9d65-10da4f48c969",
+                            "shipId":  "a9b2a935-ae6b-4f1f-a756-4a5a59d383f7",
+                            "startingShip":  "halcyon_horizon",
+                            "gameTestsLoaded":  false,
+                            "destination":  "Elos / Elos I",
+                            "fuel":  817856
+                        },
+    "staticChecks":  [
+                         "All repository PowerShell scripts parse",
+                         "All source JSON parses",
+                         "Java formatting check passed",
+                         "Generated assets and texture scale verified",
+                         "Reset rejects an open world",
+                         "Reset rejects out-of-bound preparation paths",
+                         "Old World 5 hashes unchanged by rejection checks"
+                     ],
+    "worldCleanup":  {
+                         "parallelWorldBytes":  1124350069,
+                         "legacyClosedGameTestBytes":  2318214181,
+                         "supersededPreparationBytes":  28887019,
+                         "playerBackupsPreserved":  true
+                     }
+}

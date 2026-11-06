@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "run": "build/parallel-verification/20261103-161354-d46a18",
+  "inputsSha256": "61cd07486c26a0247ccdb3bbb21412718c17e7c70e407451540ba9027065298c",
+  "artifact": {
+    "sha256": "fe22a449554f4d59f64a7e590c3b52d5515884f80a11c954c800febf76b3973a",
+    "file": "nullspace-0.1.0.jar"
+  },
+  "unit": {
+    "tests": 506,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "server": {
+    "modTests": 159,
+    "minecraftSmokeTests": 2,
+    "shards": {
+      "server-1": 81,
+      "server-2": 80
+    },
+    "failures": 0
+  },
+  "graphics": {
+    "scenarios": 22,
+    "workers": 4,
+    "failures": 0
+  },
+  "content": {
+    "newSystems": 4,
+    "newLandableBodies": 12,
+    "totalOrbitalRegions": 17,
+    "preservedSystems": [
+      "Sol",
+      "Vega"
+    ]
+  },
+  "coverage": [
+    "Deterministic, bounded, versioned world-seed system plans with unique names and stable resource identities.",
+    "The star chart and resolved orbital scenes exist at startup before any navigation menu is opened.",
+    "All regions in a system share the same celestial body identities, sizes, colors, seeds and relative geometry.",
+    "All twelve new regions have independent surface dimensions, matching atmosphere and surface-sky body identity.",
+    "Reload preserves the saved chart, selected generated destinations, edited scenes and existing home scene.",
+    "Controller, local/long-range scanners, advanced navigation and station population use the owning server chart.",
+    "Native sessions reject forged routes while accepting the expanded server catalog; legacy terminal pagination uses server-supplied identities.",
+    "Graphical journey: original planets, generated outer planet, actual landing, surface sky, relaunch to its orbit, moon jump and return to Terra.",
+    "Automatic stations continue populating generated orbital regions.",
+    "All native guide pages fit the book height and content asset checks include the generated dimensions in the test preset."
+  ],
+  "qualification": [
+    "An initial complete run was deliberately stopped after finding the isolated flat-world preset lacked the twelve new dimension entries. The preset and asset validation were updated.",
+    "The next run found an old five-route assertion and an overflowing guide page. The assertion now checks the saved server catalog; star-system guidance has its own short chapter. Guide and navigation passed in isolation and in this full run.",
+    "Generation adds a bounded four-system chart with static allocated surface identities. The landable terrain reuses existing rocky, ocean and moon flat-world templates; unlimited galaxy generation and procedural biome terrain are outside this pass."
+  ]
+}

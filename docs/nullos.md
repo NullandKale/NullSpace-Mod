@@ -1,6 +1,6 @@
 # NullOS ship computer
 
-The Computer Terminal is a new block. Existing helms and equipment menus remain available. Right-click to open its 80-column console; Shift-Esc closes it. Up/Down recalls commands. Ctrl-C stops the foreground job. Computers can be used as standalone virtual consoles; ship device calls require a connected registered ship and the controls bus.
+The Computer Terminal is a new block. Existing ship controllers and equipment menus remain available. Right-click to open its 80-column console; Shift-Esc closes it. Up/Down recalls commands. Ctrl-C stops the foreground job. Computers can be used as standalone virtual consoles; ship device calls require a connected registered ship and the controls bus.
 
 ## Isolation and execution
 
@@ -74,7 +74,7 @@ Shell calls use `ship <action> <arguments>`; Python-style calls use `ship.action
 
 Flight words include forward/reverse, left/right, up/down, pitch_up/pitch_down, roll_left/roll_right and brake. A crew pilot takes ownership over script flight. Two computers cannot simultaneously own flight control. Commands expire and stop motion if hardware, power, cabin safety or chunk availability is lost.
 
-All normal actions are exposed; no extra computer-specific permission tier is imposed. Device power, connectivity, recharge, safe cabin, collision and transit rules still apply. Travel requires an online crew member aboard the helm because the existing transfer protocol needs a player readiness handshake. An unattended job waits when that prerequisite is unavailable. Native actions do not bypass that handshake or manufacture a fake player.
+All normal actions are exposed; no extra computer-specific permission tier is imposed. Device power, connectivity, recharge, safe cabin, collision and transit rules still apply. Travel requires an online crew member aboard the ship controller because the existing transfer protocol needs a player readiness handshake. An unattended job waits when that prerequisite is unavailable. Native actions do not bypass that handshake or manufacture a fake player.
 
 
 Computer image restoration validates a complete replacement before committing. Invalid images leave the existing virtual disk and processes intact. Repeated restoration replaces saved detached jobs instead of duplicating them. Guest files, working directories and detached sleep deadlines survive valid restoration.

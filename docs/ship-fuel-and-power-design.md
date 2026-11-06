@@ -1,12 +1,16 @@
 # Ship fuel, engines, generation, and batteries
 
+The current decisions are collected in the [ship systems redesign](ship-systems-redesign.md): furnace-compatible fuels, one shared fuel inventory inside the generator, and one reusable System Upgrade item. Engines, generators, batteries and scanners each accept up to three modules for upgrade tiers I, II and III; empty slots retain stock operation. The individual fuel inventories and separate tier-specific block recipes below are superseded. Extra systems and numerical balance remain proposals.
+
+Generator hopper automation is agreed: top/side fuel insertion, bottom extraction of container returns, and no hopper access to upgrade slots. Invalid input remains in the hopper; container-output capacity is reserved before fuel consumption. The shared inventory has one authoritative owner and hopper transfers must preserve exact item counts through ship travel and recovery.
+
 Status: proposal for critique. Fuel, residues, solar panels, and hardware tiers described here are **not implemented**. The pad, sky, and development-profile fixes are separate changes. This extends [ship systems](ship-systems-and-viewports.md), [navigation](ship-navigation.md), and [recipes](ship-recipes.md).
 
 ## The intended survival loop
 
-Build a basic engine, put wood or coal into it, keep the exhaust clear, and collect its combustion products. Fuel determines how long the engine can work; its hardware level determines how much thrust it can deliver. Install a generator or solar panels to run controls, air, doors, cameras, and other equipment. Batteries store surplus electricity and cover nights, peak loads, and emergencies.
+Build a basic engine and generator, load furnace fuel into the generator's shared fuel slots, and keep the engine exhaust clear. Engines consume that fuel for propulsion; the generator consumes it for electricity. Batteries store surplus electricity and cover peak loads and emergencies. The same System Upgrade item improves the engine, generator, battery or scanner when installed in its slots.
 
-An engine can also generate electricity. Enable its alternator when electrical supply matters more than maximum propulsion efficiency. A ship can have full batteries and no propulsion fuel, or plenty of fuel and a dead electrical bus. Both situations must be clearly explained at the helm.
+An engine can also generate electricity. Enable its alternator when electrical supply matters more than maximum propulsion efficiency. A ship can have full batteries and no propulsion fuel, or plenty of fuel and a dead electrical bus. Both situations must be clearly explained at the ship controller.
 
 ## Requirements and proposed choices
 
@@ -30,13 +34,13 @@ There are two accounting systems:
 | Combustion energy | Burning an accepted fuel item | Propulsion or a fuel-burning generator | The machine's remaining burn buffer; unburned items in its fuel slots |
 | Electrical energy | Generators, solar panels, engine alternators | Powered ship systems | Batteries |
 
-Existing engines currently derive their readiness and thrust allowance from the electrical `ENGINES` allocation. Replace that with **engine demand/throttle** plus available combustion energy. Retain a small electrical engine-support load for control electronics; do not charge full propulsion output to the bus. The helm must distinguish `NO FUEL`, `CONTROLS UNPOWERED`, `ENGINE SUPPORT UNPOWERED`, `EXHAUST BLOCKED`, and `RESIDUE OUTPUT FULL`.
+Existing engines currently derive their readiness and thrust allowance from the electrical `ENGINES` allocation. Replace that with **engine demand/throttle** plus available combustion energy. Retain a small electrical engine-support load for control electronics; do not charge full propulsion output to the bus. The ship controller must distinguish `NO FUEL`, `CONTROLS UNPOWERED`, `ENGINE SUPPORT UNPOWERED`, `EXHAUST BLOCKED`, and `RESIDUE OUTPUT FULL`.
 
 Electrical allocation remains integer power units per tick. One delivered power unit consumes one electrical energy unit per tick. Combustion uses fixed-point units derived from vanilla furnace burn duration, so fractional throttle does not round weak fuels up to free thrust or waste an entire coal item per tick.
 
 ## Fuel acceptance and cleanliness
 
-Start with every item accepted by the server's loaded vanilla furnace-fuel rules: logs, planks, sticks, wooden tools, coal, charcoal, coal blocks, dried kelp blocks, lava buckets, and other registered fuels. Read the current data after reload. A stick works in the same engine as coal; it simply lasts less time. Stone, iron, glass, and other noncombustible items remain invalid. “Everything” needs confirmation in Q1 below.
+Accept every item allowed by the server's loaded furnace-fuel rules: logs, planks, sticks, wooden tools, coal, charcoal, coal blocks, dried kelp blocks, lava buckets, and other registered fuels. Read the current data after reload. A stick works in the same engine as coal; it simply lasts less time. Stone, iron, glass, and other noncombustible items remain invalid. This acceptance rule is agreed.
 
 Fuel metadata supplies burn duration, cleanliness, residue quantity/type, and any vanilla container remainder. Item-specific rules override tagged families; unclassified valid furnace fuels default to dirty fuel with a conservative generic residue. Invalid or conflicting definitions are rejected during reload, retaining the last valid rules.
 
@@ -147,7 +151,7 @@ Give engines and combustion generators real local inventories: three fuel slots,
 
 Machine right-click opens its focused fuel/inventory page with real item icons, fuel duration, residue status, tier, throttle/output, and actionable fault text. The existing 80-column terminal remains the engineering/control interface. It summarizes the fleet of devices and changes allocation/modes; it should not become a huge inventory screen drawn from text characters.
 
-The helm shows a short preflight summary: usable engines, fuel endurance at current throttle, electricity surplus/deficit, battery endurance, and blocked exhausts. Full calculations stay on engineering pages. Tooltips state whether a fuel is clean/dirty, burn value, and expected product before the player inserts it.
+The ship controller shows a short preflight summary: usable engines, fuel endurance at current throttle, electricity surplus/deficit, battery endurance, and blocked exhausts. Full calculations stay on engineering pages. Tooltips state whether a fuel is clean/dirty, burn value, and expected product before the player inserts it.
 
 Expose the same server-side operations to the custom computer OS: read engine/battery/generator state, set throttle and alternator mode, set reserves/priorities, and query fuel compatibility. Native handlers validate ownership, connection, loaded chunks, and budgets. Scripts use the existing device API and cannot bypass fuel consumption, put items into another player's machine, or force-load an unloaded ship.
 
@@ -159,7 +163,7 @@ Real machine inventories need registered portable block entities plus transfer s
 
 Machine inventory menus use normal server-validated synchronization. Client packets carry requests, never authoritative fuel values. Ship-local computation pauses physical generation/consumption when chunks unload. Detached scripts may keep computing as already agreed; their world actions wait for loaded chunks. No offline catch-up fuel burn or battery charging in this first model.
 
-Existing engines, generators, and batteries retain their IDs and become level I. Existing battery energy remains unchanged unless a separately approved capacity change requires migration. Existing development generators currently generate free electricity; migrating them straight to empty survival generators can strand a ship. Proposal: an explicit legacy conversion notice and a one-time recovery kit containing a finite fuel allowance, obtainable from its helm exactly once and recorded durably. No perpetual exemption or unlimited restart gifts. Q9 asks whether you prefer that transition or immediate strict survival rules.
+Existing engines, generators, and batteries retain their IDs and become level I. Existing battery energy remains unchanged unless a separately approved capacity change requires migration. Existing development generators currently generate free electricity; migrating them straight to empty survival generators can strand a ship. Proposal: an explicit legacy conversion notice and a one-time recovery kit containing a finite fuel allowance, obtainable from its ship controller exactly once and recorded durably. No perpetual exemption or unlimited restart gifts. Q9 asks whether you prefer that transition or immediate strict survival rules.
 
 ## Acceptance tests
 
@@ -182,7 +186,7 @@ Reply with question numbers and your choices; these are proposals until you deci
 1. **What does “burning everything” include?** A: every vanilla furnace fuel, plus data-defined additions (proposed). B: a broader combustible tag including things such as food, leather, and paper, with our own burn values. C: literally any item, including stone/metals, with an explicit fictional conversion rule. Which items should definitely burn?
 2. **How long should fuel last?** Is about 5 minutes of full thrust per coal in a starter engine right, or should it be closer to 1, 10, or 30 minutes? Is a proportional 10% maximum alternator penalty the right tradeoff?
 3. **What are the levels?** Are three engine/battery hardware tiers what you mean? Should the first battery remain the current 15-second buffer at 4-power draw, or start around 1–2 minutes instead?
-4. **What pays for travel?** A: combustible fuel for launch/landing/jumps and local thrust (proposed). B: fuel for local maneuvers, electricity for jumps. C: a later dedicated jump resource. Should the helm protect a landing fuel reserve by default?
+4. **What pays for travel?** A: combustible fuel for launch/landing/jumps and local thrust (proposed). B: fuel for local maneuvers, electricity for jumps. C: a later dedicated jump resource. Should the ship controller protect a landing fuel reserve by default?
 5. **How should clean fuel and waste work?** A: two residue items, dirty vanilla fuels and a craftable/refined clean pellet (proposed). B: one universal residue item. C: more distinct byproducts. Are farming/filter/construction uses appealing, and should refining use an existing generator/engine menu or a separate machine?
 6. **What happens when engines stop?** A: keep the current easy arcade flight and make brake/steering costs explicit (proposed). B: preserve velocity and require fueled braking, with a separate emergency rescue option. Should dirty fuel eventually foul engines, or should its downside remain extra waste for now?
 7. **How physical should fuel handling be?** A: individual engine inventories fed by hoppers (proposed). B: one ship fuel bunker that supplies connected engines. When a burning engine is mined, should its remaining burn energy be discarded (proposed) or saved in its dropped item?

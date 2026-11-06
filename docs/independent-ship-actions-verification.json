@@ -1,0 +1,44 @@
+﻿{
+    "status":  "passed",
+    "feature":  "Independent ship actions and destination reservations",
+    "receipt":  "build/parallel-verification/20261103-231812-fcd7c0/result.json",
+    "inputsSha256":  "4908a8182774c8d0a98c727cad17c89c9ebaf0caed232de6760f60a2df27d7ee",
+    "startedUtc":  "2026-11-04T07:18:12.9040391Z",
+    "finishedUtc":  "2026-11-04T07:24:46.4415699Z",
+    "unitTests":  517,
+    "unitSkipped":  0,
+    "nativeModTests":  170,
+    "nativeSmokeTests":  1,
+    "graphicalCases":  24,
+    "artifact":  {
+                     "sha256":  "4ba7cf74a3521ba983ecbaacfab196879cf67ebc363cfddc68c0c5f044571632",
+                     "path":  "build/libs/nullspace-0.1.0.jar"
+                 },
+    "concurrencyCases":  [
+                             "separate landings with independent ready and arrival acknowledgements",
+                             "same-pad contention rejected without blocking the other pad",
+                             "docking and station planning available during unrelated travel",
+                             "simultaneous jumps alongside physical travel",
+                             "independent recall requests and cancellation",
+                             "recall menu remains usable while waiting",
+                             "distinct space allocations reserved before simultaneous launches",
+                             "failed later transfer rollback preserves earlier committed ship"
+                         ],
+    "crashRecovery":  {
+                          "verifyExit":  0,
+                          "cases":  [
+                                        "launch/SOURCE_CLEARED",
+                                        "landing/SOURCE_CLEARED"
+                                    ],
+                          "prepareExit":  86,
+                          "receipt":  "build/local-crash/20261103-232720-48ac14/result.json"
+                      },
+    "notRerun":  [
+                     "two-client multiplayer harness",
+                     "full physical crash-stage matrix"
+                 ],
+    "worldCleanup":  {
+                         "fullRunBytes":  1055650071,
+                         "worldsRemoved":  true
+                     }
+}

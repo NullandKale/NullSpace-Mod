@@ -1,0 +1,40 @@
+﻿{
+    "status":  "passed",
+    "completedUtc":  "2026-11-04T21:51:53.6729194Z",
+    "finalInputsSha256":  "399808a93c10ec07cc5d79195e8f29b17e7e4d9e26fae13cc86914805d8900ff",
+    "artifact":  {
+                     "sha256":  "92a90b5a43ff32538a33954d015dff85b2df223e4e012b1f9c043b309af31a39",
+                     "file":  "build/libs/nullspace-0.1.0.jar"
+                 },
+    "unit":  {
+                 "skipped":  0,
+                 "errors":  0,
+                 "tests":  529,
+                 "failures":  0
+             },
+    "graphical":  {
+                      "validatedEntrypoints":  25,
+                      "run":  "build/parallel-verification/20261104-133535-7fc440",
+                      "allWorkerInventoriesMatched":  true
+                  },
+    "native":  {
+                   "rerunCases":  [
+                                      "nullspace-test:legacy_hardware_game_test_dock_recipe_accepts_every_wooden_door_and_guide_lists_only_current_hardware",
+                                      "nullspace-test:legacy_hardware_game_test_loaded_retired_hardware_becomes_iron_without_changing_current_equipment_or_losing_modules"
+                                  ],
+                   "run":  "build/parallel-verification/20261104-134453-91335f",
+                   "validatedUniqueModCases":  177,
+                   "followup":  "build/docking-regression/legacy-item-lookup/test.log"
+               },
+    "testHarnessFixes":  [
+                             "Battery test now asserts actual four-unit discharge while thrust is requested.",
+                             "Legacy test counts item entities in loaded inactive sections."
+                         ],
+    "productionArtifactUnchangedAcrossChecks":  true,
+    "playerWorldReset":  false,
+    "playerSaveEditedByAgent":  false,
+    "legacyTestWorldCleanup":  [
+                                   "build/power-encounter-legacy-world-cleanup.json",
+                                   "build/power-encounter-legacy-world-cleanup-2.json"
+                               ]
+}

@@ -1,0 +1,91 @@
+{
+  "date": "2026-11-02",
+  "status": "passed-with-known-skips",
+  "unit": {
+    "tests": 496,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 484
+  },
+  "serverTests": 150,
+  "graphicalCompleted": [
+    "com.nullandkale.nullspace.StationExpansionClientGameTest",
+    "com.nullandkale.nullspace.ManufacturerRoleClientGameTest",
+    "com.nullandkale.nullspace.ManufacturerClientGameTest",
+    "com.nullandkale.nullspace.ShipRecallClientGameTest",
+    "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+    "com.nullandkale.nullspace.StationClientGameTest",
+    "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+    "com.nullandkale.nullspace.ClientLifecycleGameTest",
+    "com.nullandkale.nullspace.ComputeClientGameTest",
+    "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+    "com.nullandkale.nullspace.AtmosphereClientGameTest",
+    "com.nullandkale.nullspace.NullSpaceClientGameTest",
+    "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+    "com.nullandkale.nullspace.SphereClientGameTest",
+    "com.nullandkale.nullspace.SystemsClientGameTest",
+    "com.nullandkale.nullspace.LabArrivalClientGameTest",
+    "com.nullandkale.nullspace.RecipeClientGameTest",
+    "com.nullandkale.nullspace.NavigationClientGameTest",
+    "com.nullandkale.nullspace.PadPreviewClientGameTest",
+    "com.nullandkale.nullspace.ExpansionClientGameTest",
+    "com.nullandkale.nullspace.GuideClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ],
+  "commands": [
+    ".\\format.ps1 -Write",
+    ".\\scripts\\Invoke-Gradle.ps1 test runGameTest assemble verifyContentAssets",
+    ".\\scripts\\Invoke-Gradle.ps1 runClientGameTest"
+  ],
+  "logs": [
+    "build/station-expansion-server-verified.log",
+    "build/station-expansion-client-complete.log"
+  ],
+  "stationEnvelope": [
+    128,
+    32,
+    128
+  ],
+  "shipEnvelope": [
+    32,
+    32,
+    32
+  ],
+  "renderSectionSize": 32,
+  "maximumStationRenderSections": 16,
+  "maximumRoomTiles": 64,
+  "ringRoomKits": 28,
+  "ringBerths": 8,
+  "nearbyVessels": 12,
+  "maximumFrameRenderSections": 64,
+  "images": [
+    "docs/images/expanded-station-core.png",
+    "docs/images/full-station-ring.png",
+    "docs/images/full-station-remote.png",
+    "docs/images/full-station-far-berth.png"
+  ],
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 1223780,
+  "sha256": "cfc6f098f01c6bac9dac839965cf1a69760c93ffdced7c3b8587d2069c70996b",
+  "coverage": [
+    "Existing station expansion preserves identity, fuel, stored air and original blocks; obstructed expansion preserves conflicting blocks and rejects before changing dimensions",
+    "Conservative air diffusion crosses x/z=32 boundaries without aliasing or losing mass; only actual outer boundaries leak",
+    "All 28 ring rooms have finite air, all room pumps have power, and the doorway graph connects opposite berths",
+    "Eight simultaneous 32-block berth envelopes remain separate with docking doors offset to either side of a ship",
+    "All sixteen geometry sections decode correctly and far-side hulls participate in authoritative ray collision",
+    "A station and eight visitor subjects fit the bounded rendering protocol",
+    "Station tether measures distance outside the build envelope, allowing far-side interior travel",
+    "Graphical core expansion and 28-kit ring construction through actual controls",
+    "Complete station exterior and remote-frame rendering captures",
+    "Actual automatic docking at the far-side berth, survival walk-through boarding, return and undocking",
+    "All existing graphical navigation, shipyard, recall, hardware, atmosphere and rendering scenarios pass",
+    "Fuel lookup reuses discovered equipment instead of repeatedly sorting the station hull"
+  ],
+  "limits": [
+    "Station height remains 32 blocks; horizontal footprint expands to 128 by 128.",
+    "The new ring is a generic reference layout. Full manufacturer-specific harbors remain planned.",
+    "The eight-berth envelope and scene-budget checks are native tests. The graphical scenario exercises one occupied far-side berth and a complete boarding/departure round trip.",
+    "Twelve pre-existing unit skips remain. Process-kill recovery matrices and the two-client purchase race were not rerun for station expansion."
+  ]
+}

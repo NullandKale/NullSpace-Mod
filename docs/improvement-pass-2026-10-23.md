@@ -46,7 +46,7 @@ These are isolated atmosphere costs, not whole-game frame-time measurements. Raw
 
 ### Engineering controls and telemetry
 
-Use the systems controller's command entry:
+Use the Ship Controller's Advanced command entry:
 
 | Command | Result |
 | --- | --- |

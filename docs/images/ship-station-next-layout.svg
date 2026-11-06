@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="680" viewBox="0 0 1240 680">
+  <defs>
+    <pattern id="ship-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#555a60" stroke-width=".5"/></pattern>
+    <pattern id="station-grid" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M7 0H0V7" fill="none" stroke="#555a60" stroke-width=".4"/></pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#f0c777"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#ece8df} .title{font-size:23px;font-weight:bold}.sub{font-size:14px;fill:#b9b8b3}.label{font-size:12px}.small{font-size:11px;fill:#ddd7ca}.wall{stroke:#e0d8c6;stroke-width:2;stroke-linejoin:round}.route{fill:none;stroke:#f0c777;stroke-width:4;stroke-dasharray:8 5;marker-end:url(#arrow)}.leader{stroke:#b9b8b3;fill:none}.note{font-size:14px;fill:#d2cbbd}
+    </style>
+  </defs>
+  <rect width="1240" height="680" fill="#20242a"/>
+  <text x="30" y="37" class="title">Working floorplans: one ship and one useful station</text>
+  <text x="30" y="61" class="sub">Design sketch for discussion. Colors identify activities, not final block materials. These are not implemented blueprints.</text>
+  <path d="M560 92V555" stroke="#555a60"/>
+
+  <text x="30" y="105" class="title">Rivet workboat</text>
+  <text x="30" y="129" class="sub">15 x 27 blocks / main deck / front points up</text>
+  <g transform="translate(100 155)">
+    <path d="M72 0H108L132 36V96L156 120V228H180V324H132V300H48V324H0V228H24V120L48 96V36Z" fill="#42464b" class="wall"/>
+    <rect x="48" y="36" width="84" height="72" fill="#6b807d" stroke="#b6c8bb"/>
+    <rect x="24" y="120" width="48" height="48" fill="#987248"/>
+    <rect x="24" y="192" width="48" height="36" fill="#987248"/>
+    <rect x="108" y="120" width="48" height="96" fill="#7a7958"/>
+    <rect x="48" y="252" width="84" height="48" fill="#986045"/>
+    <rect x="0" y="240" width="48" height="84" fill="#55575b" stroke="#b4aaa0"/>
+    <rect x="132" y="240" width="48" height="84" fill="#55575b" stroke="#b4aaa0"/>
+    <rect x="0" y="0" width="180" height="324" fill="url(#ship-grid)"/>
+    <path d="M84 258V72" class="route"/>
+    <path d="M12 180H79" class="route"/>
+    <rect x="24" y="168" width="12" height="24" fill="#f0c777"/>
+    <rect x="120" y="132" width="12" height="24" fill="#c8c1b0" stroke="#eee"/>
+    <rect x="60" y="276" width="12" height="12" fill="#e08e4e"/>
+    <rect x="108" y="276" width="12" height="12" fill="#a3ae7b"/>
+    <path d="M60 35H120" stroke="#c6d4d6" stroke-width="5"/>
+    <path d="M24 299V341M156 299V341" stroke="#e08e4e" stroke-width="5" marker-end="url(#arrow)"/>
+    <text x="90" y="65" text-anchor="middle" class="label">Bridge</text>
+    <path d="M132 60H198" class="leader"/><text x="204" y="58" class="label">Readable nose and windows</text>
+    <path d="M156 144H198" class="leader"/><text x="204" y="142" class="label">Bed, food, personal locker</text>
+    <path d="M156 204H198" class="leader"/><text x="204" y="202" class="label">Living nook off the cargo route</text>
+    <path d="M132 270H198" class="leader"/><text x="204" y="268" class="label">Reachable fuel and upgrades</text>
+    <text x="-68" y="156" class="small">Cargo /</text><text x="-68" y="170" class="small">work bays</text>
+    <text x="-68" y="191" class="small">Side dock</text>
+    <text x="90" y="362" text-anchor="middle" class="small">Distinct engine pods / clear rear exhaust</text>
+  </g>
+  <text x="30" y="552" class="note">Review: narrow bridge, wider working body, lower engine pods.</text>
+  <text x="30" y="574" class="note">A 3-block aisle joins controls, cargo, dock and engineering.</text>
+  <text x="30" y="596" class="note">The bed and work area must do something useful.</text>
+
+  <text x="600" y="105" class="title">Rivet service outpost</text>
+  <text x="600" y="129" class="sub">About 64 x 48 blocks / two opposite berths / room heights vary</text>
+  <g transform="translate(657 155)">
+    <path d="M42 140H406V189H42Z" fill="#555348" class="wall"/>
+    <rect x="112" y="105" width="112" height="105" fill="#6b807d" class="wall"/>
+    <rect x="224" y="112" width="112" height="112" fill="#987248" class="wall"/>
+    <path d="M126 210H147V231H224V301H126Z" fill="#7a7958" class="wall"/>
+    <path d="M245 224H322V315H238V238H245Z" fill="#64784e" class="wall"/>
+    <path d="M140 266H238V287H140Z" fill="#7a7958" class="wall"/>
+    <path d="M273 112V98H266V28H336V98H301V112Z" fill="#986045" class="wall"/>
+    <rect x="0" y="140" width="42" height="49" fill="#55575b" class="wall"/>
+    <rect x="406" y="140" width="42" height="49" fill="#55575b" class="wall"/>
+    <rect x="0" y="0" width="448" height="336" fill="url(#station-grid)"/>
+    <path d="M21 165H161V181H280V263H179V194" class="route"/>
+    <path d="M288 165H427" class="route"/>
+    <path d="M-42 165H-5M490 165H453" stroke="#f0c777" stroke-width="3" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+    <text x="168" y="133" text-anchor="middle" class="label">Arrival / services</text>
+    <text x="280" y="139" text-anchor="middle" class="label">Workshop /</text>
+    <text x="280" y="154" text-anchor="middle" class="label">public supplies</text>
+    <text x="175" y="250" text-anchor="middle" class="label">Commons / bunks</text>
+    <text x="280" y="292" text-anchor="middle" class="label">Greenhouse</text>
+    <text x="301" y="58" text-anchor="middle" class="label">Engineering</text>
+    <text x="301" y="74" text-anchor="middle" class="small">Owner reserves</text>
+    <text x="21" y="208" text-anchor="middle" class="small">Dock A</text>
+    <text x="427" y="208" text-anchor="middle" class="small">Dock B</text>
+    <text x="224" y="365" text-anchor="middle" class="small">Approach / departure volumes continue beyond this drawing.</text>
+  </g>
+  <text x="600" y="552" class="note">Review: service spine with distinct inhabited and utility masses.</text>
+  <text x="600" y="574" class="note">A useful public loop; separate owner machinery and reserves.</text>
+  <text x="600" y="596" class="note">Fuel, food, crafting, ship storage and a clear route back aboard.</text>
+  <path d="M30 622H1210" stroke="#555a60"/>
+  <text x="30" y="650" class="sub">Next art gate: build these shapes in Minecraft, walk every route, and review exterior views before generating variants.</text>
+</svg>

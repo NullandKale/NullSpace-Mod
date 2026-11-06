@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-05",
+  "scope": "First controller layout pass, automatic encounter docking, Station Core activation gesture",
+  "status": "passed-focused-checks",
+  "artifact": {
+    "path": "build/libs/nullspace-0.1.0.jar",
+    "sha256": "b38496f3eedfe615e907b4f79cfab5fda84912f0f715ef8ccbcdb496264c2ff9"
+  },
+  "unit": {
+    "tests": 14,
+    "class": "ShipControlTerminalTest",
+    "log": "build/ui-gesture-prepare.log"
+  },
+  "native": [
+    {
+      "tests": 1,
+      "log": "build/docking-regression/encounter-automatic-1/test.log",
+      "coverage": "Actual FTL investigation handshake starts docking without another Engage or Dock input; Disengage stops it and it stays cancelled"
+    },
+    {
+      "tests": 1,
+      "log": "build/docking-regression/station-core-gesture-1/test.log",
+      "coverage": "Shift-right-click on ordinary hull blocks and in empty space starts construction; no Shift does not start construction; interactive controller excluded; consume the core from the hand used"
+    }
+  ],
+  "graphical": {
+    "class": "ScannerBlockClientGameTest",
+    "receipt": "build/scanner-block-focus/20261105-162125/result.json",
+    "inputsSha256": "7b4fc0244fdc3451969d683fa99a3e09e0441d6fc7c000ccd4d73cb8abd515ce",
+    "coverage": "Actual Scanner right-click, destination selection, equipment inventory, updated controller screenshot, and actual client Shift-right-click with a Station Core aimed into empty space",
+    "controllerScreenshot": "build/scanner-block-focus/20261105-162125/screenshots/0002_nullspace-scanner-destination-at-controller.png"
+  },
+  "limits": "First layout pass, not completion or player approval of the whole UI audit. Scanner categories, equipment, camera and station previews remain in the chunk plan. Full batch integration remains pending. Existing station construction/readiness and receipt protections remain."
+}

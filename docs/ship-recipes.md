@@ -58,9 +58,9 @@ B H B
 C T C
 ```
 
-Three glass, two boards, one casing, two copper, and one redstone torch make the shared computer base block (`nullspace:computer_base`). This is the starting point for pad computers, helms, ship computers, and systems controllers.
+Three glass, two boards, one casing, two copper, and one redstone torch make the shared computer base block (`nullspace:computer_base`). This is the starting point for Pad Computers and Ship Controllers.
 
-The base is a placeable, unconfigured computer chassis. Its tooltip and right-click message explain that it must be crafted into a controller. It does not count as an active helm, register a pad, supply power, or run an operating system. Crafting a specialized controller gives it its current role. This block is distinct from the existing ship computer, so existing ships retain their working controller.
+The base is a placeable, unconfigured computer chassis. Its tooltip and right-click message explain that it must be crafted into a controller. It does not count as an active ship controller, register a pad, supply power, or run an operating system. Crafting a specialized controller gives it its current role. This block is distinct from the existing ship computer, so existing ships retain their working controller.
 
 The other new crafting items are `nullspace:machine_casing` and `nullspace:circuit_board`. These three shared components are enough for this pass; individual resistors, wire items, and processors are not required.
 
@@ -71,14 +71,12 @@ Each table pattern is the same 3 x 3 grid shown above, written as three rows sep
 | Part | Pattern | Construction and use |
 | --- | --- | --- |
 | Pad computer | `WWW / CKC / STS` | Wood desk, computer base, copper connections, stone feet, and a redstone torch. Register and name the pad. |
-| Helm | `IGI / CKC / WLW` | Metal instrument panel, computer base, and lever controls. Main ship controls, travel, engineering, and weapons. |
-| Ship computer | `WGW / CKC / WTW` | Wood console around the same computer base. Existing alternative to the helm. |
-| Systems controller | `IBI / CKC / WTW` | Computer base with an extra circuit board for engineering controls. |
+| Ship computer | `WGW / CKC / WTW` | Wood console around the same computer base. Unified Ship Controller for flight, travel, docking and engineering. |
 | Ship beacon | `GTG / CKC / SHS` | Ground controller that calls a free preset ship onto a registered, empty pad. Keep its pad computer too. See [ship beacons and the shipyard](shipyard.md). |
 | Camera | `IGI / CBC / .H.` | Glass lens, circuit board, copper connections, and a casing. |
 | Monitor | `GGG / GBG / CHC` | Five glass blocks around a display board, mounted on a casing with copper connections. |
 
-Install exactly one helm **or** one ship computer for travel. A helm already opens engineering, so additional systems controllers are optional. The pad computer stays on the ground. Cameras and monitors have their own boards and casings; they do not each need a complete computer base.
+Install exactly one Ship Controller for travel. The pad computer stays on the ground. Cameras and monitors have their own boards and casings; they do not each need a complete computer base.
 
 ## Machinery
 
@@ -88,10 +86,19 @@ Install exactly one helm **or** one ship computer for travel. A helm already ope
 | Generator | `ITI / CFC / SHS` | Furnace core, redstone ignition, copper connections, and casing. |
 | Battery | `CRC / CHC / IRI` | Copper cells and redstone around the casing. Starts empty. |
 | Air supply | `IGI / CPC / BHB` | Piston pump, glass gauge, and two control boards. |
-| Door control | `ITI / CBC / .H.` | Redstone switching and a board in a casing. Controls ordinary ship doors. |
 | Ship cannon | `III / PHP / CDC` | Iron barrel, two pistons, and a dispenser in a casing. |
 
-The furnace in the engine recipe is a construction ingredient, not a new fuel mechanic. The dispenser in the cannon recipe does not add an ammunition inventory. Fuel and ammunition behavior remain separate decisions.
+Engine and generator share furnace fuel stored inside connected generators. The dispenser in the cannon recipe does not add an ammunition inventory.
+
+## Stations and docking
+
+These three recipes add directly to the same crafting chain. See [stations and automatic docking](stations.md) for construction and airlock placement.
+
+| Part | Pattern | Construction and use |
+| --- | --- | --- |
+| Station Core | `XXX / BKB / XXX` | `X` means iron block. Deploys the construction platform directly in space. |
+| Station Module Kit | `IGI / BHB / IGI` | Builds one room; assembling a generated section uses four kits. |
+| Docking Base | `III / CDC / III` | Here `C` means circuit board and `D` means any wooden door. Install in the floor directly below the dock door. |
 
 ## Space suit
 
@@ -122,30 +129,28 @@ Use ordinary Minecraft blocks and their existing recipes for the ship itself:
 
 No special hull block is required. Material choice keeps its ordinary block properties and explosion resistance. Stairs, slabs, panes, and fences remain fittings rather than pressure seals. Existing ship validation, build bounds, and transfer restrictions still apply.
 
-## First powered ship crafting order
+## First powered ship
 
-The starter kit is one pad computer, one helm, one engine, one generator, one battery, one air supply, and one door control.
+Craft one Pad Computer, one Ship Controller, one engine, one generator, an optional battery and one Air Supply. Use one Scanner with upgrade items for distant destinations.
 
-1. Craft nine redstone torches, two ordinary pistons, two furnaces, and one lever.
-2. Craft seven machine casings.
-3. Craft two batches of circuit boards, producing eight boards.
-4. Make two computer bases, consuming two casings and four boards.
-5. Make the pad computer and helm from those bases.
-6. Make the engine, generator, battery, air supply, and door control using the five remaining casings. The air supply uses two boards and door control uses one.
-7. One board remains. Use it in the suit chestplate or keep it for another device.
-
-| Raw ingredient | Starter kit | Starter kit plus full suit |
+| Raw ingredient | Starter including battery | Starter plus full suit |
 | --- | ---: | ---: |
-| Iron ingots | 42 | 61 |
-| Copper ingots | 56 | 61 |
+| Iron ingots | 34 | 53 |
+| Copper ingots | 50 | 55 |
 | Redstone dust | 17 | 17 |
 | Glass blocks | 8 | 9 |
-| Cobblestone | 31 | 31 |
-| Planks | 19 | 19 |
+| Cobblestone | 30 | 30 |
+| Planks | 21 | 21 |
 
-These totals include the native subrecipes and batch rounding: make twelve sticks from six of the planks, spend ten on torches and the lever, and retain two sticks. The starter kit's spare board supplies the suit chestplate, so the full-suit column needs no extra board batch. Of the 31 cobblestone, nine must be actual cobblestone for the two pistons and lever; the remaining 22 can use cobbled deepslate where accepted.
+These totals include native subrecipes and batch rounding. The starter leaves two circuit boards and three sticks; adding the suit uses one spare board. Add hull materials, a door, crafting table and generator fuel separately. A newly crafted battery and generator are empty. Load any furnace fuel by hand or hopper before flight. The ready controller initializes ship systems automatically.
 
-Add the hull, a usable door, furnishings, crafting table, and smelting fuel separately. Cameras, monitors, cannons, and additional systems controllers are optional. Keep the existing opt-in **Upgrade systems** step; crafting and placing the hardware does not automatically upgrade a legacy ship.
+### Universal System Upgrade
+
+`ICI / CRC / ICI`: I = iron ingot, C = circuit board, R = redstone. One recipe makes one upgrade item. Engine, Generator, Battery and Scanner accept up to three of this same item in actual slots.
+
+### Compact Docking Base
+
+`III / CDC / III`: I = iron ingot, C = circuit board, D = any wooden door, including bamboo, crimson and warped. Place any standard door above the base, in a full frame. The installed door can be wooden or iron; no button, second door or connector is needed.
 
 ## Recipe chest gallery
 
@@ -159,13 +164,14 @@ The displays read the server's loaded shaped recipes when first built; they do n
 
 ## Implementation and checks
 
-The computer base block/item, machine casing item, and circuit board item are registered with distinct models and names. There are twenty-four native shaped recipes: three shared components, sixteen equipment blocks, four suit pieces and the field guide. Only the board recipe has a batch output. Ingredients use the vanilla planks item tag and a mod tag containing cobblestone and cobbled deepslate. Equipment and the computer base have self-drop loot tables and the pickaxe mining tag, so crafted machines can be recovered when mined. Battery charge is not created by crafting or replacing a block.
+The computer base block/item, machine casing item, and circuit board item are registered with distinct models and names. There are twenty-four native shaped recipes: three shared components, fourteen active equipment blocks, the upgrade item, station module kit, four suit pieces and field guide. Only the board recipe has a batch output. Ingredients use the vanilla planks item tag and a mod tag containing cobblestone and cobbled deepslate. Equipment and the computer base have self-drop loot tables and the pickaxe mining tag, so crafted machines can be recovered when mined. Battery charge is not created by crafting or replacing a block.
 
 Recipe-book unlocks follow the crafting chain. Casings unlock on iron, boards on redstone, the computer base on boards, controller recipes on the computer base, machinery/display recipes on casings, and suit recipes on iron. These unlocks reveal recipes without adding mandatory progression flags.
 
-Verify exact ingredient counts, outputs, mirrored patterns, required empty slots, and rejection of incorrect arrangements. Compare normalized and mirrored patterns against each other and native recipes. Check mixed plank/cobble inputs, the new base's exclusion from active-helm counts, and the shopping-list totals against actual recipe data. In a disposable survival world, craft the starter kit and suit, build and register a small ship, upgrade systems, charge the battery, then launch and land through the normal terminals without commands or creative inventory.
+Verify exact ingredient counts, outputs, mirrored patterns, required empty slots, and rejection of incorrect arrangements. Compare normalized and mirrored patterns against each other and native recipes. Check mixed plank/cobble inputs, the new base's exclusion from active-ship controller counts, and the shopping-list totals against actual recipe data. In a disposable survival world, craft the starter kit and suit, build and register a small ship, upgrade systems, charge the battery, then launch and land through the normal terminals without commands or creative inventory.
 
-This pass defines construction costs. Generator fuel, engine fuel, cannon ammunition, and portable oxygen remain separate gameplay decisions. Current generator output, power allocation, oxygen consumption, and weapon cooldown stay as implemented until those decisions are made.
+Fuel, real inventories, hopper automation and System Upgrades are implemented. See [fuel and power](ship-systems-redesign.md#fuel) for operation. Cannon ammunition, solar panels and fuel residues remain separate future decisions.
+
 
 ## Computers and scanners
 
@@ -175,6 +181,6 @@ These additions use the same shaped crafting and component progression.
 | --- | --- | --- |
 | Computer Terminal | `GGG/BKB/CTC` | Existing symbols above |
 | Local Scanner | `IGI/RKR/CTC` | Existing symbols above |
-| Long-Range Scanner | `ICI/RXR/GTG` | `X` = Local Scanner |
+| System Upgrade | `ICI/CRC/ICI` | Three identical items reach Tier III |
 
-The computer runs the [NullOS shell and scripts](nullos.md). Scanners use the cameras/sensors bus: installed enabled cameras occupy its first power slots, followed by enabled scanners sorted by position. Allocate another unit for each scanner you want online. The long-range scanner reports jump targets; the local scanner reports the local celestial scene and nearby ship contacts.
+The computer runs the [NullOS shell and scripts](nullos.md). Scanners use the cameras/sensors bus: installed enabled cameras occupy its first power slots, followed by enabled scanners sorted by position. Allocate another unit for each scanner you want online. The Scanner reports local contacts; installing its first System Upgrade enables distant destinations.

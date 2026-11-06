@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-02",
+  "unit": {
+    "tests": 488,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 476
+  },
+  "serverTests": 147,
+  "graphicalCompleted": [
+    "com.nullandkale.nullspace.ManufacturerClientGameTest",
+    "com.nullandkale.nullspace.ShipRecallClientGameTest",
+    "com.nullandkale.nullspace.ShipHardwareClientGameTest",
+    "com.nullandkale.nullspace.StationClientGameTest",
+    "com.nullandkale.nullspace.ResourceReloadClientGameTest",
+    "com.nullandkale.nullspace.ClientLifecycleGameTest",
+    "com.nullandkale.nullspace.ComputeClientGameTest",
+    "com.nullandkale.nullspace.ComputeSceneClientGameTest",
+    "com.nullandkale.nullspace.AtmosphereClientGameTest",
+    "com.nullandkale.nullspace.NullSpaceClientGameTest",
+    "com.nullandkale.nullspace.ShipGalleryClientGameTest",
+    "com.nullandkale.nullspace.SphereClientGameTest",
+    "com.nullandkale.nullspace.SystemsClientGameTest",
+    "com.nullandkale.nullspace.LabArrivalClientGameTest",
+    "com.nullandkale.nullspace.RecipeClientGameTest",
+    "com.nullandkale.nullspace.NavigationClientGameTest",
+    "com.nullandkale.nullspace.PadPreviewClientGameTest",
+    "com.nullandkale.nullspace.ExpansionClientGameTest",
+    "com.nullandkale.nullspace.GuideClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ],
+  "finalStorageClientChecks": [
+    "com.nullandkale.nullspace.ManufacturerClientGameTest",
+    "com.nullandkale.nullspace.ShipYardClientGameTest"
+  ],
+  "commands": [
+    ".\\scripts\\Invoke-Gradle.ps1 test runGameTest assemble verifyContentAssets",
+    ".\\scripts\\Invoke-Gradle.ps1 runClientGameTest",
+    ".\\scripts\\Invoke-Gradle.ps1 runClientGameTest -x processGametestResources (temporary build-only filter; restored afterward)"
+  ],
+  "logs": [
+    "build/manufacturer-server-final.log",
+    "build/manufacturer-client-final.log",
+    "build/manufacturer-client-storage.log"
+  ],
+  "ships": [
+    "rivet_bolt",
+    "halcyon_swift",
+    "bastion_ward"
+  ],
+  "station": "manufacturer_showcase_v1",
+  "stationSection": [
+    32,
+    32,
+    32
+  ],
+  "stationBerths": 2,
+  "catalogDesigns": 9,
+  "jar": "build/libs/nullspace-0.1.0.jar",
+  "jarBytes": 1205048,
+  "sha256": "b550cf9ea97fefaa115d6911868440b8f56d1dcf5ff3a0622b39a46bd5f0ad41",
+  "coverage": [
+    "Distinct footprints and stepped rooflines; connected hardware and clear engine exhaust",
+    "Sealed rooms, finite air, operable bulkheads, dock-to-workshop routes",
+    "Saved station construction, two opposed berths, all three rooms reachable and edits preserved on revisit",
+    "Second native catalog page, purchased Bastion scout launch and return, post-flight computer flush/save",
+    "Frozen metadata snapshot and retained automatic-save request when live state changes during IO",
+    "Nine-ship gallery uses a new reservation marker and preserves the prior gallery"
+  ]
+}
