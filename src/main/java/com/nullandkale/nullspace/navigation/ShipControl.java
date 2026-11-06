@@ -476,7 +476,7 @@ public final class ShipControl {
     if (action == Action.LAUNCH)
       return space
           ? "Already in space"
-          : fuelReason(p, ship, 400 + ShipSystems.connected(p.level(), ship).size());
+          : fuelReason(p, ship, com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
     if (!space) return "Launch into space first";
     if (action == Action.DEPLOY)
       return "In space, hold a Station Core and Shift-right-click empty space or a non-interactive"
@@ -497,8 +497,8 @@ public final class ShipControl {
                               .system()
                               .equals(
                                   LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? 2000
-                          : 8000);
+                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
+                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
     if (action == Action.LAND && target.kind() != ShipDestination.Kind.PAD)
       return "Choose a landing pad as the destination";
     if (action == Action.DOCK && target.kind() != ShipDestination.Kind.PORT)
@@ -519,7 +519,7 @@ public final class ShipControl {
       return readiness.ready() ? "" : readiness.message();
     }
     if (action == Action.LAND)
-      return fuelReason(p, ship, 400 + ShipSystems.connected(p.level(), ship).size());
+      return fuelReason(p, ship, com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
     return "";
   }
 
@@ -618,7 +618,7 @@ public final class ShipControl {
                     : "unsafe here")
             : "Setup incomplete: connect a generator and an Air Supply";
     int transferCost =
-        FuelSystem.travelCost(p.level(), ship, 400 + ShipSystems.connected(p.level(), ship).size());
+        FuelSystem.travelCost(p.level(), ship, com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
     String costs = "Fuel costs: Launch/Land " + FuelSystem.display(transferCost);
     if (JourneyService.active(ship)) costs += " | Jump already paid; Resume has no jump fee";
     else if (target != null)
@@ -632,8 +632,8 @@ public final class ShipControl {
                               .system()
                               .equals(
                                   LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? 2000
-                          : 8000));
+                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
+                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP));
     costs += " | Dock: burns while moving";
     if (target != null
         && !JourneyService.active(ship)
@@ -933,9 +933,9 @@ public final class ShipControl {
                               .system()
                               .equals(
                                   LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? 2000
-                          : 8000)
-                      : 400 + ShipSystems.connected(p.level(), ship).size();
+                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
+                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP)
+                      : com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size());
               if (FuelSystem.available(p.level(), ship)
                   < FuelSystem.travelCost(p.level(), ship, base)) {
                 var generator =

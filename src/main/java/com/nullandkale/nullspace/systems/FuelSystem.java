@@ -53,6 +53,20 @@ public final class FuelSystem {
     return String.format(java.util.Locale.ROOT, "%.2f", units / (double) UNITS_PER_FUEL);
   }
 
+  /** P7 balance: a jump within a star system costs 0.50 fuel before engine upgrades. */
+  public static final int LOCAL_JUMP = UNITS_PER_FUEL / 2;
+
+  /** P7 balance: an interstellar jump costs 2.00 fuel (P9 will scale this with distance). */
+  public static final int INTERSTELLAR_JUMP = UNITS_PER_FUEL * 2;
+
+  /** Launch or landing base cost: about 0.25 fuel for a typical 1,500-block ship. */
+  public static int transfer(int blocks) {
+    return (400 + blocks) * 2;
+  }
+
+  /** P7 balance: generators deliver this many power units per fuel unit (about 4 fuel/hour idle). */
+  public static final int POWER_PER_FUEL_UNIT = 7;
+
   public static int travelCost(ServerLevel level, CompoundTag ship, int base) {
     int best =
         ShipSystems.equipment(level, ship).stream()

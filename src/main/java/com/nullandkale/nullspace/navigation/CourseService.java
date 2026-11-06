@@ -131,7 +131,7 @@ public final class CourseService {
   public static int minimumFuel(ServerPlayer player, CompoundTag ship, ShipDestination target) {
     target = departureTarget(player.level().getServer(), ship, target);
     if (target == null || atPad(ship, target) || atDock(ship, target)) return 0;
-    int transfer = 400 + ShipSystems.connected(player.level(), ship).size();
+    int transfer = com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(player.level(), ship).size());
     int cost =
         player.level().dimension().equals(TravelService.SPACE)
             ? 0
@@ -146,8 +146,8 @@ public final class CourseService {
               LocalSpaces.get(player.level().getServer(), LocalSpaces.address(ship))
                       .system()
                       .equals(LocalSpaces.get(player.level().getServer(), target.region()).system())
-                  ? 2000
-                  : 8000);
+                  ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
+                  : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
     return cost;
   }
 

@@ -157,7 +157,17 @@ final class PowerSystem {
           && active(r, position)) {
         int efficiency = FuelSystem.tier(level, position),
             work = Math.min(used, 8 + 4 * efficiency);
-        FuelSystem.spend(level, ship, (work * 4 + 3 + efficiency) / (4 + efficiency));
+        // P7 balance: POWER_PER_FUEL_UNIT power units per fuel unit, upgrades cheaper still.
+        // Fractions carry over per generator so small steady loads are charged exactly.
+        var s = ShipSystems.state(ship);
+        var debts = s.getCompoundOrEmpty("powerDebt");
+        String key = Long.toString(position.asLong());
+        long debt = debts.getLongOr(key, 0) + work * 4L;
+        long divisor = FuelSystem.POWER_PER_FUEL_UNIT * (4L + efficiency);
+        int units = (int) (debt / divisor);
+        if (units > 0) FuelSystem.spend(level, ship, units);
+        debts.putLong(key, debt % divisor);
+        s.put("powerDebt", debts);
         used -= work;
       }
     int difference = r.power.energy() - allocation.stored();

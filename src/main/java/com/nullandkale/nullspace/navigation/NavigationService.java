@@ -507,8 +507,8 @@ public final class NavigationService {
             LocalSpaces.get(server, destination)
                     .system()
                     .equals(LocalSpaces.get(server, LocalSpaces.address(s)).system())
-                ? 2000
-                : 8000);
+                ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
+                : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
     if (com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s) < cost)
       throw new IllegalArgumentException(
           "Not enough fuel for this jump: needs "

@@ -652,7 +652,7 @@ public final class TravelService {
     }
     int fuelCost =
         com.nullandkale.nullspace.systems.FuelSystem.travelCost(
-            source, fuelShip, 400 + scan.blocks().size());
+            source, fuelShip, com.nullandkale.nullspace.systems.FuelSystem.transfer(scan.blocks().size()));
     if (!recall
         && !detaching
         && !com.nullandkale.nullspace.systems.FuelSystem.spend(source, fuelShip, fuelCost))
