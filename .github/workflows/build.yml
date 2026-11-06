@@ -2,6 +2,10 @@ name: Build and test
 
 on: [push, pull_request, workflow_dispatch]
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -16,15 +20,16 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-      - run: ./gradlew build --no-daemon
+      - run: ./gradlew build verifyContentAssets -Pcoverage=true --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: nullspace
           path: build/libs/*.jar
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: test-reports
+          retention-days: 14
           path: |
             build/reports/
             build/test-results/

@@ -1,0 +1,82 @@
+name: Release
+
+# Push a tag such as v0.1.0 (it must match mod_version in gradle.properties) to build, test and
+# attach the JAR to a GitHub *draft* alpha release. Nothing becomes public until someone
+# publishes the draft in the GitHub UI; see docs/public-alpha.md and docs/release-license-proposal.md.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and release (for example v0.1.0)
+        required: true
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+
+      - name: Tag must match mod_version
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          [ "$TAG" = "v$version" ] || { echo "::error::Tag $TAG does not match mod_version $version"; exit 1; }
+
+      - run: ./gradlew build verifyContentAssets --no-daemon
+
+      - name: Inspect the release JAR
+        run: |
+          jar="build/libs/nullspace-${VERSION}.jar"
+          test -f "$jar" || { echo "::error::Missing $jar"; exit 1; }
+          meta=$(unzip -p "$jar" fabric.mod.json)
+          [ "$(echo "$meta" | jq -r .id)" = nullspace ] || { echo "::error::Wrong mod id"; exit 1; }
+          [ "$(echo "$meta" | jq -r .version)" = "$VERSION" ] || { echo "::error::JAR version differs from mod_version"; exit 1; }
+          if echo "$meta" | jq -e '.entrypoints | has("fabric-gametest") or has("gametest")' >/dev/null; then
+            echo "::error::Release JAR contains GameTest entrypoints"; exit 1
+          fi
+          if unzip -Z1 "$jar" | grep -Eq '(^|/)(gametest|test-results)/'; then
+            echo "::error::Release JAR contains test output"; exit 1
+          fi
+          mkdir -p dist
+          cp "$jar" dist/
+          (cd dist && sha256sum "nullspace-${VERSION}.jar" > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - name: License gate
+        run: |
+          if [ ! -f LICENSE ]; then
+            echo "::warning::No LICENSE file. The release stays a draft; do not publish until the license is approved."
+            echo "### No LICENSE in this commit" >> "$GITHUB_STEP_SUMMARY"
+            echo "The release is a draft alpha. Review docs/release-license-proposal.md before publishing." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create or update the draft release
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --draft --prerelease --title "NullSpace $VERSION (alpha)" \
+              --generate-notes --notes "Alpha build for Minecraft 26.3 with Fabric Loader 0.19.5 and Fabric API 0.164.0+26.3. Install on both client and server. Verify the download against SHA256SUMS.txt."
+          fi
+          echo "Draft release: $(gh release view "$TAG" --json url -q .url)" >> "$GITHUB_STEP_SUMMARY"
