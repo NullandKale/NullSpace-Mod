@@ -17,6 +17,8 @@ public final class EngineeringGameTest {
     var level = ctx.getLevel();
     var base = ctx.absolutePos(new BlockPos(offset, 64, offset));
     var helm = ShipTestFixture.build(level, base);
+    level.setBlock(base.offset(0, 3, 1), Blocks.STONE.defaultBlockState(), 18);
+    level.setBlock(base.offset(6, 3, 1), Blocks.STONE.defaultBlockState(), 18);
     for (int x : new int[] {1, 2, 4, 5})
       level.setBlock(
           base.offset(x, 3, 6),
@@ -29,6 +31,7 @@ public final class EngineeringGameTest {
               .defaultBlockState(),
           18);
     level.setBlock(base.offset(6, 5, 4), ShipBlocks.WEAPON.defaultBlockState(), 18);
+    FuelSystem.provision(level, base.offset(1, 3, 6), 64);
     var ship = new CompoundTag();
     ship.putString("id", UUID.randomUUID().toString());
     ship.putString("dimension", level.dimension().identifier().toString());

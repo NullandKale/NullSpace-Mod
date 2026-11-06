@@ -12,6 +12,128 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 
 public final class ShipSystemsGameTest {
   @GameTest
+  public void upgradeDistinguishesMissingDisconnectedAndOutsideEquipment(GameTestHelper ctx) {
+    var level = ctx.getLevel();
+    var base = ctx.absolutePos(new BlockPos(15360, 64, 15360));
+    for (int x = 0; x < 8; x++)
+      for (int z = 0; z < 8; z++) {
+        level.setBlock(base.offset(x, 0, z), Blocks.IRON_BLOCK.defaultBlockState(), 18);
+        level.setBlock(base.offset(x, 4, z), Blocks.IRON_BLOCK.defaultBlockState(), 18);
+      }
+    var helm = base.offset(1, 1, 1);
+    var battery = base.offset(2, 5, 2);
+    var outside = base.offset(8, 1, 2);
+    level.setBlock(helm, ShipBlocks.HELM.defaultBlockState(), 18);
+    level.setBlock(base.offset(2, 1, 1), ShipBlocks.BATTERY.defaultBlockState(), 18);
+    level.setBlock(battery, ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    level.setBlock(outside, ShipBlocks.AIR_SUPPLY.defaultBlockState(), 18);
+    var ship = new net.minecraft.nbt.CompoundTag();
+    ship.putString("id", UUID.randomUUID().toString());
+    ship.putString("dimension", level.dimension().identifier().toString());
+    ship.putLong("base", base.asLong());
+    ship.putLong("controller", helm.asLong());
+    ship.putInt("width", 8);
+    ship.putInt("depth", 8);
+    ship.putInt("height", 8);
+    var store = ShipStore.get(level.getServer());
+    store.ships().add(ship);
+    var player = ctx.makeMockServerPlayerInLevel();
+    player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() + .5);
+    try {
+      var check = ShipSystems.upgradeCheck(level, ship, helm);
+      ctx.assertTrue(
+          !check.ready()
+              && check.message().contains("Generator: installed at " + battery.toShortString())
+              && check.message().contains("no block connection")
+              && check.message().contains("Air Supply: nearby at " + outside.toShortString())
+              && check.message().contains("outside this ship's build area")
+              && check.message().contains("Main controller: " + helm.toShortString()),
+          "One diagnostic distinguishes disconnected upper deck, missing supply and outside"
+              + " equipment: "
+              + check.message());
+      ShipSystems.action(player, helm, ComputerTerminal.Action.UPGRADE);
+      ctx.assertTrue(
+          ComputerTerminal.reading(player, helm)
+              .contains("Generator: installed at " + battery.toShortString()),
+          "Live refresh retains upgrade diagnostics instead of replacing them with the legacy"
+              + " summary");
+      ctx.assertTrue(
+          !ShipSystems.enabled(ship),
+          "A blocked upgrade returns feedback without enabling systems");
+      level.setBlock(outside, Blocks.AIR.defaultBlockState(), 18);
+      level.setBlock(base.offset(3, 1, 1), ShipBlocks.DOOR_CONTROL.defaultBlockState(), 18);
+      level.setBlock(base.offset(4, 1, 1), ShipBlocks.AIR_SUPPLY.defaultBlockState(), 18);
+      ctx.assertTrue(
+          !ShipSystems.upgradeCheck(level, ship, helm).ready(),
+          "An upper deck still needs a physical connection");
+      for (int y = 1; y < 4; y++)
+        level.setBlock(base.offset(0, y, 0), Blocks.IRON_BLOCK.defaultBlockState(), 18);
+      ctx.assertTrue(
+          ShipSystems.upgradeCheck(level, ship, helm).ready(),
+          "A pillar between floors connects equipment on both decks");
+      ctx.assertTrue(
+          ComputerTerminal.reading(player, helm).contains("Required equipment is connected"),
+          "Live diagnostics notice the repair and prompt for an explicit upgrade");
+      ShipSystems.action(player, helm, ComputerTerminal.Action.UPGRADE);
+      ctx.assertTrue(
+          ShipSystems.enabled(ship), "Repairing all reported issues permits the upgrade");
+      ctx.succeed();
+    } finally {
+      level.getServer().getPlayerList().remove(player);
+      store.ships().remove(ship);
+    }
+  }
+
+  @GameTest
+  public void liveEngineeringRefreshSurvivesLostHelmConnection(GameTestHelper ctx)
+      throws java.io.IOException {
+    var level = ctx.getLevel();
+    var base = ctx.absolutePos(new BlockPos(14336, 64, 14336));
+    SphereLab.buildPad(level, base, "Disconnected " + UUID.randomUUID().toString().substring(0, 8));
+    var console = base.offset(4, 1, 4);
+    level.setBlock(console, ShipBlocks.SYSTEMS_CONTROLLER.defaultBlockState(), 18);
+    var store = ShipStore.get(level.getServer());
+    var ship = new net.minecraft.nbt.CompoundTag();
+    ship.putString("id", UUID.randomUUID().toString());
+    ship.putString("dimension", level.dimension().identifier().toString());
+    ship.putLong("base", base.above().asLong());
+    ship.putLong("controller", console.east().asLong());
+    ship.putString("homeId", "former-pad");
+    store.ships().add(ship);
+    var player = ctx.makeMockServerPlayerInLevel();
+    player.teleportTo(console.getX() + .5, console.getY(), console.getZ() + .5);
+    var session = ComputerTerminal.issue(player, console, "", "systems", "0");
+    try {
+      ctx.assertTrue(
+          !session.session().equals(ComputerTerminal.NONE), "Engineering session is live");
+      boolean disconnected = false;
+      try {
+        ShipTopology.resolve(level, console);
+      } catch (IllegalArgumentException expected) {
+        disconnected = expected.getMessage().contains("Connect this controller");
+      }
+      ctx.assertTrue(disconnected, "Fixture reproduces the lost helm topology from the crash");
+      for (var query : List.of("", "power")) {
+        ComputerTerminal.follow(player, console, query);
+        ctx.assertTrue(
+            ComputerTerminal.reading(player, console).contains("Connect this controller"),
+            "Live refresh reports a disconnected helm instead of throwing");
+      }
+      level.setBlock(console.east(), ShipBlocks.HELM.defaultBlockState(), 18);
+      ship.putString("homeId", PadRegistry.below(level, console).orElseThrow().id());
+      ComputerTerminal.follow(player, console, "");
+      ctx.assertTrue(
+          !ComputerTerminal.reading(player, console).contains("Connect this controller"),
+          "The same session resumes after repairing its helm connection");
+      ctx.succeed();
+    } finally {
+      ComputerTerminal.close(player, session.session());
+      level.getServer().getPlayerList().remove(player);
+      store.ships().remove(ship);
+    }
+  }
+
+  @GameTest
   public void equipmentDiagnosticsSwitchesAndSessions(GameTestHelper ctx) {
     var level = ctx.getLevel();
     var base = ctx.absolutePos(new BlockPos(9216, 64, 9216));
@@ -28,6 +150,7 @@ public final class ShipSystemsGameTest {
     var generator = base.offset(1, 3, 6);
     var battery = base.offset(2, 3, 6);
     level.setBlock(generator, ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    FuelSystem.provision(level, generator, 64);
     level.setBlock(battery, ShipBlocks.BATTERY.defaultBlockState(), 18);
     var player = ctx.makeMockServerPlayerInLevel();
     player.teleportTo(base.getX() + 2.5, base.getY() + 3, base.getZ() + 4.5);
@@ -163,7 +286,9 @@ public final class ShipSystemsGameTest {
     ctx.succeed();
   }
 
-  @GameTest(maxTicks = 180)
+  // Recovery tests replace the global repository and deliberately cancel all queued door work.
+  // Keep this asynchronous door/transfer sequence outside their concurrent batch.
+  @GameTest(environment = "nullspace:systems_transfer", maxTicks = 180)
   public void separateControllersPowerDoorsAndJournaledResources(GameTestHelper ctx)
       throws java.io.IOException {
     var level = ctx.getLevel();
@@ -194,6 +319,9 @@ public final class ShipSystemsGameTest {
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
     var console = base.offset(18, 6, 21);
+    level.setBlock(base.offset(10, 6, 20), Blocks.AIR.defaultBlockState(), 18);
+    level.setBlock(base.offset(10, 6, 21), Blocks.AIR.defaultBlockState(), 18);
+    FuelSystem.provision(level, base.offset(14, 6, 21), 64);
     var ship = ShipTopology.resolve(level, console);
     String id = ship.getStringOr("id", "");
     ctx.assertTrue(
@@ -421,13 +549,21 @@ public final class ShipSystemsGameTest {
                                                   "Fixture must have two physical batteries");
                                               batteries.get(0).putInt("energy", 100);
                                               batteries.get(1).putInt("energy", 0);
+                                              vessel.putInt("thrustDemand", 3);
                                               ShipSystems.tick(level, vessel);
                                               ctx.assertTrue(
                                                   ShipSystems.power(
-                                                          level, vessel, PowerBus.System.ENGINES)
-                                                      == 0,
+                                                              level,
+                                                              vessel,
+                                                              PowerBus.System.ENGINES)
+                                                          <= 1
+                                                      && batteries.get(0).getIntOr("energy", 0)
+                                                          == 96
+                                                      && batteries.get(1).getIntOr("energy", 0)
+                                                          == 0,
                                                   "An empty second battery cannot double the other"
                                                       + " battery's discharge rate");
+                                              vessel.putInt("thrustDemand", 0);
                                               system.putBoolean("supplyDisabled", false);
                                               system.putIntArray("requests", new int[6]);
                                               batteries.get(0).putInt("energy", 1200);

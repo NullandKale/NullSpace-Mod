@@ -310,6 +310,10 @@ public final class SceneViewport implements AutoCloseable {
                         (observerMatrix == null || !t.getStringOr("id", "").equals(observerId))
                             && !t.getListOrEmpty("players").isEmpty());
     long actorTick = actors ? Minecraft.getInstance().level.getGameTime() : 0;
+    if (subjects.stream()
+        .map(t -> (CompoundTag) t)
+        .anyMatch(t -> t.getStringOr("id", "").equals(observerId) && t.getBooleanOr("ftl", false)))
+      actorTick = System.nanoTime() / 16_666_667;
     boolean sameProjection =
         observerMatrix == null
             ? lastProjection == null
@@ -390,8 +394,9 @@ public final class SceneViewport implements AutoCloseable {
     frameQuads.clear();
     var quads = frameQuads;
     for (var tag : subjects)
-      if ((!background || tag != observer)
-          && (scene.getListOrEmpty("terrain").isEmpty() || tag != observer))
+      if ((!background || !sameVessel((CompoundTag) tag, observer))
+          && (scene.getListOrEmpty("terrain").isEmpty()
+              || !sameVessel((CompoundTag) tag, observer)))
         blocks((CompoundTag) tag, eye, quads, scene.getBooleanOr("pilotView", false) ? .65f : 0);
     if (!background)
       for (var t : scene.getListOrEmpty("terrain")) {
@@ -548,6 +553,11 @@ public final class SceneViewport implements AutoCloseable {
             target.getDepthTexture(),
             0);
     cleared = true;
+  }
+
+  private static boolean sameVessel(CompoundTag subject, CompoundTag observer) {
+    return subject == observer
+        || subject.getStringOr("parent", "").equals(observer.getStringOr("id", ""));
   }
 
   private void blocks(CompoundTag data, Vec3 eye, List<Quad> output, float fill) {

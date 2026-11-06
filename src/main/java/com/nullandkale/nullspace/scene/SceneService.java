@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
  * players.
  */
 public final class SceneService {
-  public static final int MAX_SUBJECTS = 4, INTERVAL = 20;
+  public static final int MAX_SUBJECTS = 12, MAX_RENDER_SECTIONS = 64, INTERVAL = 20;
 
   public record Definition(CompoundTag data) implements CustomPacketPayload {
     public static final Type<Definition> TYPE =
@@ -77,7 +77,13 @@ public final class SceneService {
               b.writeInt(p.revision);
               b.writeNbt(p.scene);
             },
-            b -> new Frame(b.readUUID(), b.readInt(), b.readNbt()));
+            b -> {
+              var lease = b.readUUID();
+              int revision = b.readInt();
+              if (!(b.readNbt(NbtAccounter.create(16L * 1024 * 1024)) instanceof CompoundTag scene))
+                throw new IllegalArgumentException("Invalid scene frame");
+              return new Frame(lease, revision, scene);
+            });
 
     @Override
     public Type<Frame> type() {
@@ -110,6 +116,8 @@ public final class SceneService {
     final BlockPos freeCamera;
     final float yaw, pitch;
     int expires, revision, selection;
+    boolean machinePreview, returnMachine, returnEquipment;
+    String pinnedCamera = "";
 
     Lease(ServerPlayer player, BlockPos console, BlockPos freeCamera, float yaw, float pitch) {
       dimension = player.level().dimension().identifier().toString();
@@ -132,6 +140,27 @@ public final class SceneService {
   }
 
   public static void open(ServerPlayer player, BlockPos console) {
+    open(player, console, false, false, false);
+  }
+
+  public static void preview(ServerPlayer player, BlockPos console) {
+    open(player, console, true, false, false);
+  }
+
+  public static void machineView(ServerPlayer player, BlockPos console) {
+    open(player, console, false, true, false);
+  }
+
+  public static void equipmentView(ServerPlayer player, BlockPos console) {
+    open(player, console, false, false, true);
+  }
+
+  private static void open(
+      ServerPlayer player,
+      BlockPos console,
+      boolean preview,
+      boolean returnMachine,
+      boolean returnEquipment) {
     if (!player.level().hasChunkAt(console)
         || !(player.level().getBlockState(console).is(ShipBlocks.MONITOR)
             || player.level().getBlockState(console).is(ShipBlocks.CAMERA))
@@ -141,6 +170,13 @@ public final class SceneService {
         || TravelService.locked(player.level(), console))
       throw new IllegalArgumentException("Camera console unavailable, out of range, or in transit");
     var lease = new Lease(player, console, null, 0, 0);
+    lease.machinePreview = preview;
+    lease.returnMachine = returnMachine;
+    lease.returnEquipment = returnEquipment;
+    if (player.level().getBlockState(console).is(ShipBlocks.MONITOR)
+        && player.level().getBlockEntity(console)
+            instanceof com.nullandkale.nullspace.systems.MachineEntity machine)
+      lease.pinnedCamera = machine.camera;
     var owner = ShipStore.get(player.level().getServer()).at(player.level(), console);
     if (owner != null)
       lease.selection =
@@ -170,12 +206,25 @@ public final class SceneService {
                 && !TravelService.locked(player.level(), lease.console));
   }
 
-  private static CompoundTag subject(ServerLevel level, CompoundTag ship) {
+  public static void addSubject(ListTag subjects, ServerLevel level, CompoundTag ship) {
+    int used = 0;
+    for (var tag : subjects) used += 1 + ((CompoundTag) tag).getListOrEmpty("sections").size();
+    int needed =
+        com.nullandkale.nullspace.station.StationSpace.sections(ship).size()
+            + com.nullandkale.nullspace.station.DockingTunnel.sections(level, ship);
+    if (subjects.size() < MAX_SUBJECTS && used + needed <= MAX_RENDER_SECTIONS)
+      subjects.add(subject(level, ship));
+  }
+
+  public static CompoundTag subject(ServerLevel level, CompoundTag ship) {
     var base = ShipStore.pos(ship, "base");
     var data = new CompoundTag();
     data.putString("id", ship.getStringOr("id", ""));
     data.putString("name", ship.getStringOr("home", "Ship"));
     data.putLong("base", base.asLong());
+    data.putInt("width", ship.getIntOr("width", 32));
+    data.putInt("height", ship.getIntOr("height", 32));
+    data.putInt("depth", ship.getIntOr("depth", 32));
     var pose = pose(ship);
     data.putDouble("x", pose.position().x);
     data.putDouble("y", pose.position().y);
@@ -183,7 +232,48 @@ public final class SceneService {
     data.putDouble("yaw", ship.getDoubleOr("simYaw", 0));
     data.putDouble("pitch", ship.getDoubleOr("simPitch", 0));
     data.putDouble("roll", ship.getDoubleOr("simRoll", 0));
+    var bow = com.nullandkale.nullspace.navigation.ShipHeading.forward(level, ship);
+    data.putString("bow", bow.getName());
+    var journey = ship.getCompoundOrEmpty("journey");
+    data.putBoolean("ftl", com.nullandkale.nullspace.navigation.JourneyService.cruising(ship));
+    double now = level.getServer().overworld().getGameTime() / 20.0;
+    double elapsed = journey.getIntOr("elapsed", 0) / 20.0;
+    double visualAge = Math.max(0, now - journey.getDoubleOr("visualStarted", now - elapsed));
+    data.putDouble("ftlElapsed", visualAge);
+    data.putDouble(
+        "ftlDuration", visualAge + Math.max(0, journey.getIntOr("duration", 0) / 20.0 - elapsed));
+
     geometry(data, SceneSnapshots.capture(level, base, ShipStore.bounds(ship)));
+    if (ship.getIntOr("width", 32) > 32 || ship.getIntOr("depth", 32) > 32) {
+      var sections = new ListTag();
+      boolean ready = data.getBooleanOr("ready", false);
+      for (var offset : com.nullandkale.nullspace.station.StationSpace.sections(ship)) {
+        if (offset.equals(BlockPos.ZERO)) continue;
+        var section = new CompoundTag();
+        section.putString(
+            "id", ship.getStringOr("id", "") + "/" + offset.getX() + "_" + offset.getZ());
+        section.putString("parent", ship.getStringOr("id", ""));
+        section.putLong("base", base.offset(offset).asLong());
+        var at = pose.toUniverse(Vec3.atLowerCornerOf(offset));
+        section.putDouble("x", at.x);
+        section.putDouble("y", at.y);
+        section.putDouble("z", at.z);
+        section.putDouble("yaw", ship.getDoubleOr("simYaw", 0));
+        section.putDouble("pitch", ship.getDoubleOr("simPitch", 0));
+        section.putDouble("roll", ship.getDoubleOr("simRoll", 0));
+        geometry(
+            section, SceneSnapshots.capture(level, base.offset(offset), ShipStore.bounds(ship)));
+        if (ShipTopology.loaded(level, ship))
+          section.putIntArray("interiorMask", ShipSystems.interiorMask(level, ship, offset));
+        ready &= section.getBooleanOr("ready", false);
+        sections.add(section);
+      }
+      if (ShipTopology.loaded(level, ship))
+        data.putIntArray("interiorMask", ShipSystems.interiorMask(level, ship, BlockPos.ZERO));
+      data.put("sections", sections);
+      data.putBoolean("ready", ready);
+    }
+    com.nullandkale.nullspace.station.DockingTunnel.render(level, ship, data);
     data.put(
         "players",
         players(
@@ -247,6 +337,9 @@ public final class SceneService {
             .at(level, lease.freeCamera == null ? lease.console : lease.freeCamera);
     var result = new CompoundTag();
     result.putString("dimension", lease.dimension);
+    result.putBoolean("machinePreview", lease.machinePreview);
+    result.putBoolean("returnMachine", lease.returnMachine || lease.returnEquipment);
+    result.putLong("console", lease.console.asLong());
     result.putLong("time", level.getServer().getTickCount());
     result.putLong("seed", SceneCatalog.get(level.getServer()).getLongOr("seed", 79419843L));
     result.putInt("selection", lease.selection);
@@ -287,6 +380,12 @@ public final class SceneService {
         result.putBoolean("fixedCamera", fixed);
         int channel =
             fixed ? cameras.indexOf(lease.console) : Math.floorMod(lease.selection, cameras.size());
+        if (!fixed && !lease.pinnedCamera.isEmpty()) {
+          channel = -1;
+          for (int i = 0; i < cameras.size(); i++)
+            if (lease.pinnedCamera.equals("id:" + ShipSystems.deviceId(ship, cameras.get(i)))
+                || lease.pinnedCamera.equals(Long.toString(cameras.get(i).asLong()))) channel = i;
+        }
         if (channel < 0) {
           result.putString("status", "CAMERA DISABLED");
           deliver(player, new Frame(lease.id, ++lease.revision, result));
@@ -335,10 +434,10 @@ public final class SceneService {
                           && com.nullandkale.nullspace.navigation.LocalSpaces.together(ship, t))
               .sorted(
                   Comparator.comparingDouble(
-                      t -> pose(t).position().distanceToSqr(pose(ship).position())))
+                      t -> com.nullandkale.nullspace.station.DockingService.sceneDistance(ship, t)))
               .limit(MAX_SUBJECTS)
               .toList();
-      for (var other : nearby) subjects.add(subject(level, other));
+      for (var other : nearby) addSubject(subjects, level, other);
     } else {
       var item = new CompoundTag();
       item.putString("id", "world-" + origin.asLong());
@@ -413,9 +512,9 @@ public final class SceneService {
                     && com.nullandkale.nullspace.navigation.LocalSpaces.together(ship, t))
         .sorted(
             Comparator.comparingDouble(
-                t -> pose(t).position().distanceToSqr(pose(ship).position())))
+                t -> com.nullandkale.nullspace.station.DockingService.sceneDistance(ship, t)))
         .limit(MAX_SUBJECTS)
-        .forEach(t -> subjects.add(subject(level, t)));
+        .forEach(t -> addSubject(subjects, level, t));
     data.put("subjects", subjects);
     data.putLong("seed", SceneCatalog.get(level.getServer()).getLongOr("seed", 79419843));
     deliver(
@@ -455,7 +554,9 @@ public final class SceneService {
     data.putBoolean("canPilot", pilot);
     data.putString("dimension", p.level().dimension().identifier().toString());
     data.putString("observer", ship.getStringOr("id", ""));
-    data.putString("location", com.nullandkale.nullspace.navigation.LocalSpaces.label(ship));
+    data.putString(
+        "location",
+        com.nullandkale.nullspace.navigation.LocalSpaces.label(p.level().getServer(), ship));
     data.putString(
         "status", "LIVE | " + ship.getStringOr("flightStatus", pilot ? "PILOT" : "OBSERVER"));
     data.putInt("propulsion", power);
@@ -484,13 +585,10 @@ public final class SceneService {
           stats.getCount() == 0 ? 16 : (stats.getMin() + stats.getMax() + 1) * .5);
       if (stats.getCount() > 0) extent = Math.max(extent, stats.getMax() - stats.getMin() + 1);
     }
-    data.putDouble("viewDistance", Math.clamp(extent * 2.2, 28, 100));
-    var helmState = p.level().getBlockState(ShipStore.pos(ship, "controller"));
+    data.putDouble("viewDistance", Math.clamp(extent * 2.2, 28, 300));
     data.putFloat(
         "helmYaw",
-        helmState.hasProperty(HorizontalDirectionalBlock.FACING)
-            ? helmState.getValue(HorizontalDirectionalBlock.FACING).getOpposite().toYRot()
-            : 180);
+        com.nullandkale.nullspace.navigation.ShipHeading.forward(p.level(), ship).toYRot());
     var subjects = new ListTag();
     ShipStore.get(p.level().getServer()).ships().stream()
         .map(t -> (CompoundTag) t)
@@ -500,9 +598,9 @@ public final class SceneService {
                     && com.nullandkale.nullspace.navigation.LocalSpaces.together(ship, t))
         .sorted(
             Comparator.comparingDouble(
-                t -> pose(t).position().distanceToSqr(pose(ship).position())))
+                t -> com.nullandkale.nullspace.station.DockingService.sceneDistance(ship, t)))
         .limit(MAX_SUBJECTS)
-        .forEach(t -> subjects.add(subject(p.level(), t)));
+        .forEach(t -> addSubject(subjects, p.level(), t));
     data.put("subjects", subjects);
     deliver(p, new Frame(lease, revision, data));
   }
@@ -530,12 +628,41 @@ public final class SceneService {
               p ->
                   level.getBlockState(p).is(ShipBlocks.MONITOR)
                       && player.distanceToSqr(Vec3.atCenterOf(p)) <= 144)
+          .filter(
+              p ->
+                  com.nullandkale.nullspace.systems.MonitorWall.tiles(level, p)
+                      .getFirst()
+                      .equals(p))
           .sorted(Comparator.comparingDouble(p -> player.distanceToSqr(Vec3.atCenterOf(p))))
           .limit(2)
           .forEach(
               p -> {
                 var display = new CompoundTag();
                 display.putLong("position", p.asLong());
+                var tiles = com.nullandkale.nullspace.systems.MonitorWall.tiles(level, p);
+                var normal = level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING);
+                display.putDouble(
+                    "centerX",
+                    tiles.stream().mapToInt(BlockPos::getX).average().orElse(p.getX()) + .5);
+                display.putDouble(
+                    "centerY",
+                    tiles.stream().mapToInt(BlockPos::getY).average().orElse(p.getY()) + .5);
+                display.putDouble(
+                    "centerZ",
+                    tiles.stream().mapToInt(BlockPos::getZ).average().orElse(p.getZ()) + .5);
+                display.putInt(
+                    "wallWidth",
+                    (int)
+                        tiles.stream()
+                            .mapToInt(
+                                t -> normal.getAxis() == Direction.Axis.X ? t.getZ() : t.getX())
+                            .distinct()
+                            .count());
+                display.putInt(
+                    "wallHeight", (int) tiles.stream().mapToInt(BlockPos::getY).distinct().count());
+                display.putBoolean(
+                    "mounted",
+                    !level.getBlockState(p).getValue(ShipBlocks.InventoryMachine.LEGACY_HULL));
                 display.putString(
                     "facing",
                     level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING).getName());
@@ -548,11 +675,33 @@ public final class SceneService {
                                     Long.toString(p.subtract(ShipStore.pos(ship, "base")).asLong()),
                                     0),
                             cameras.size());
+                String selectedFeed =
+                    tiles.stream()
+                        .map(level::getBlockEntity)
+                        .filter(com.nullandkale.nullspace.systems.MachineEntity.class::isInstance)
+                        .map(com.nullandkale.nullspace.systems.MachineEntity.class::cast)
+                        .map(e -> e.camera)
+                        .filter(s -> !s.isEmpty())
+                        .findFirst()
+                        .orElse("");
+                if (!selectedFeed.isEmpty()) {
+                  if (selectedFeed.startsWith("id:")) {
+                    channel = -1;
+                    for (int index = 0; index < cameras.size(); index++)
+                      if (ShipSystems.deviceId(ship, cameras.get(index))
+                          .equals(selectedFeed.substring(3))) channel = index;
+                  } else
+                    try {
+                      channel = cameras.indexOf(BlockPos.of(Long.parseLong(selectedFeed)));
+                    } catch (NumberFormatException invalid) {
+                      channel = -1;
+                    }
+                }
                 boolean power =
                     !ShipSystems.enabled(ship)
                         || channel < ShipSystems.power(level, ship, PowerBus.System.CAMERAS)
                             && ShipSystems.active(ship, p);
-                if (power && !cameras.isEmpty()) {
+                if (power && !cameras.isEmpty() && channel >= 0) {
                   var camera = cameras.get(channel);
                   var facing =
                       level.getBlockState(camera).getValue(HorizontalDirectionalBlock.FACING);
@@ -586,9 +735,9 @@ public final class SceneService {
                           && com.nullandkale.nullspace.navigation.LocalSpaces.together(ship, t))
               .sorted(
                   Comparator.comparingDouble(
-                      t -> pose(t).position().distanceToSqr(pose(ship).position())))
+                      t -> com.nullandkale.nullspace.station.DockingService.sceneDistance(ship, t)))
               .limit(MAX_SUBJECTS)
-              .forEach(t -> subjects.add(subject(level, t)));
+              .forEach(t -> addSubject(subjects, level, t));
         else {
           var source = subject(level, ship);
           source.putDouble("x", 0);
@@ -659,10 +808,29 @@ public final class SceneService {
                       if (lease == null || !lease.id.equals(p.lease)) return;
                       if (p.close) {
                         leases(c.server()).remove(c.player().getUUID());
+                        if (lease.returnEquipment) {
+                          try {
+                            com.nullandkale.nullspace.systems.ShipSystems.openEquipment(
+                                c.player(), lease.console);
+                          } catch (IllegalArgumentException unavailable) {
+                            c.player()
+                                .sendSystemMessage(
+                                    net.minecraft.network.chat.Component.literal(
+                                        "View closed: " + unavailable.getMessage()));
+                          }
+                        }
+                        if (lease.returnMachine
+                            && !com.nullandkale.nullspace.systems.MachineMenus.open(
+                                c.player(), lease.console))
+                          c.player()
+                              .sendSystemMessage(
+                                  net.minecraft.network.chat.Component.literal(
+                                      "View closed: camera or monitor is no longer reachable"));
                         return;
                       }
                       if (Math.abs((long) p.selection) > 10000 || !valid(c.player(), lease)) return;
                       lease.expires = c.server().getTickCount() + 100;
+                      if (lease.selection != p.selection) lease.pinnedCamera = "";
                       lease.selection = p.selection;
                     }));
     com.nullandkale.nullspace.server.ServerContext.tick(

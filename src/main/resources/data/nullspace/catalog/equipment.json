@@ -37,7 +37,8 @@
     "capabilities": [
       "device",
       "navigation",
-      "controller"
+      "controller",
+      "retired"
     ],
     "unlock": {
       "items": "nullspace:computer_base"
@@ -60,7 +61,8 @@
     "kind": "block",
     "capabilities": [
       "device",
-      "controller"
+      "controller",
+      "retired"
     ],
     "unlock": {
       "items": "nullspace:computer_base"
@@ -141,7 +143,8 @@
     "capabilities": [
       "device",
       "equipment_menu",
-      "power_allocation"
+      "power_allocation",
+      "retired"
     ],
     "unlock": {
       "items": "nullspace:machine_casing"
@@ -220,7 +223,8 @@
     "capabilities": [
       "device",
       "equipment_menu",
-      "power_allocation"
+      "power_allocation",
+      "retired"
     ],
     "unlock": {
       "items": "nullspace:computer_base"
@@ -240,6 +244,65 @@
     "capabilities": [],
     "unlock": {
       "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "station_core",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "controller"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "door_connector",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "retired"
+    ],
+    "unlock": {
+      "items": "nullspace:circuit_board"
+    }
+  },
+  {
+    "id": "docking_port",
+    "kind": "block",
+    "capabilities": [
+      "device",
+      "retired"
+    ],
+    "unlock": {
+      "items": "nullspace:computer_base"
+    }
+  },
+  {
+    "id": "station_module",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:machine_casing"
+    }
+  },
+  {
+    "id": "docking_base",
+    "kind": "block",
+    "capabilities": [
+      "device"
+    ],
+    "unlock": {
+      "items": "nullspace:circuit_board"
+    }
+  },
+  {
+    "id": "system_upgrade",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:circuit_board"
     }
   }
 ]

@@ -12,7 +12,6 @@ public final class SpatialAir {
   public record Result(
       long supplied, long consumed, long escaped, long entered, List<Flow> flows) {}
 
-  private static final int[] OFFSETS = {-1, 1, -1024, 1024, -32, 32};
   private static final int[] DX = {-1, 1, 0, 0, 0, 0},
       DY = {0, 0, -1, 1, 0, 0},
       DZ = {0, 0, 0, 0, -1, 1};
@@ -25,9 +24,11 @@ public final class SpatialAir {
       Map<Integer, Integer> consumers,
       int ticks,
       int exteriorPressure) {
-    if (air.length != Atmosphere.CELLS
-        || seals.length != Atmosphere.CELLS
-        || topology.roomAt().length != Atmosphere.CELLS
+    var grid = topology.grid();
+    var offsets = grid.offsets();
+    if (air.length != grid.cells()
+        || seals.length != grid.cells()
+        || topology.roomAt().length != grid.cells()
         || ticks < 0
         || ticks > 20
         || exteriorPressure < 0
@@ -35,7 +36,7 @@ public final class SpatialAir {
       throw new IllegalArgumentException("Invalid spatial air step");
     long supplied = 0, consumed = 0, escaped = 0, entered = 0;
     var flows = new ArrayList<Flow>();
-    int[] delta = new int[Atmosphere.CELLS];
+    int[] delta = new int[grid.cells()];
     boolean[] visible = new boolean[topology.rooms().size()];
     for (int tick = 0; tick < ticks; tick++) {
       long[] capacity = new long[topology.rooms().size()];
@@ -49,7 +50,7 @@ public final class SpatialAir {
       }
       for (var entry : pumps.entrySet()) {
         int cell = entry.getKey(), rate = entry.getValue();
-        check(cell, rate);
+        check(cell, rate, grid.cells());
         int room = topology.roomAt()[cell];
         if (room < 0) continue;
         int add =
@@ -64,7 +65,7 @@ public final class SpatialAir {
       }
       for (var entry : consumers.entrySet()) {
         int cell = entry.getKey(), rate = entry.getValue();
-        check(cell, rate);
+        check(cell, rate, grid.cells());
         if (air[cell] >= 0) {
           int used = Math.min(rate, air[cell]);
           air[cell] -= used;
@@ -74,16 +75,10 @@ public final class SpatialAir {
       Arrays.fill(delta, 0);
       for (var room : topology.rooms())
         for (int cell : room.cells()) {
-          int x = cell % 32, y = cell / 1024, z = cell / 32 % 32;
+          int x = grid.x(cell), y = grid.y(cell), z = grid.z(cell);
           for (int d = 0; d < 6; d++) {
-            boolean inside =
-                x + DX[d] >= 0
-                    && x + DX[d] < 32
-                    && y + DY[d] >= 0
-                    && y + DY[d] < 32
-                    && z + DZ[d] >= 0
-                    && z + DZ[d] < 32;
-            int other = inside ? cell + OFFSETS[d] : -1;
+            boolean inside = grid.contains(x + DX[d], y + DY[d], z + DZ[d]);
+            int other = inside ? cell + offsets[d] : -1;
             if (inside && seals[other]) continue;
             boolean exterior = !inside || topology.roomAt()[other] < 0;
             if (!exterior && cell > other) continue;
@@ -98,8 +93,10 @@ public final class SpatialAir {
               if (wanted > 0) escaped += wanted;
               else entered -= wanted;
             } else delta[other] += wanted;
+            // Crew consumption creates small local gradients even in underfilled rooms.
+            // Keep those invisible, while retaining faint exterior leak effects.
             if (tick == ticks - 1
-                && Math.abs(wanted) >= 4
+                && Math.abs(wanted) >= (exterior ? 4 : 25)
                 && (exterior || visible[topology.roomAt()[cell]])
                 && flows.size() < 128)
               flows.add(
@@ -133,8 +130,8 @@ public final class SpatialAir {
     return total;
   }
 
-  private static void check(int cell, int rate) {
-    if (cell < 0 || cell >= Atmosphere.CELLS || rate < 0 || rate > 100000)
+  private static void check(int cell, int rate, int cells) {
+    if (cell < 0 || cell >= cells || rate < 0 || rate > 100000)
       throw new IllegalArgumentException("Invalid air source");
   }
 

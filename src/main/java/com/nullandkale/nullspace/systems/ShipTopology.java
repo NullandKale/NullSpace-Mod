@@ -11,7 +11,15 @@ import net.minecraft.server.level.*;
  * terrain.
  */
 public final class ShipTopology {
+  public record Resolution(CompoundTag ship, String problem) {}
+
   public static CompoundTag resolve(ServerLevel level, BlockPos controller) {
+    var result = find(level, controller);
+    if (result.ship() == null) throw new IllegalArgumentException(result.problem());
+    return result.ship();
+  }
+
+  public static Resolution find(ServerLevel level, BlockPos controller) {
     var store = ShipStore.get(level.getServer());
     var selected =
         level.dimension().equals(TravelService.SPACE)
@@ -20,7 +28,35 @@ public final class ShipTopology {
     var existing = store.at(level, controller);
     if (selected.isPresent()
         && existing != null
-        && !existing.getStringOr("homeId", "").equals(selected.get().id())) existing = null;
+        && !existing.getStringOr("homeId", "").equals(selected.get().id())) {
+      var pad = selected.get();
+      // A re-registered pad is not a new ship. Only a different stacked floor (or an
+      // unidentifiable wreck) requires a fresh allocation.
+      if (ShipStore.pos(existing, "base").getY() != pad.bounds().y() + 1
+          || !ShipBlocks.navigation(level.getBlockState(ShipStore.pos(existing, "controller")))
+              && !ShipBlocks.navigation(level.getBlockState(controller))) existing = null;
+      else {
+        var delta =
+            ShipStore.pos(existing, "base")
+                .subtract(
+                    new BlockPos(pad.bounds().minX(), pad.bounds().y() + 1, pad.bounds().minZ()));
+        com.nullandkale.nullspace.systems.ShipSystems.cancelTransit(level, existing);
+        store
+            .repository()
+            .mutate(
+                new ShipRepository.ShipId(existing.getStringOr("id", "")),
+                ShipRepository.Mutation.CONFIGURATION,
+                candidate -> {
+                  ShipAllocation.resize(
+                      candidate, pad.bounds(), PadRegistry.buildHeight(level, pad.bounds()));
+                  candidate.putString("homeId", pad.id());
+                  candidate.putString("home", pad.name());
+                });
+        if (!delta.equals(BlockPos.ZERO))
+          com.nullandkale.nullspace.computer.ComputerService.rebase(
+              level.getServer(), existing.getStringOr("id", ""), delta);
+      }
+    }
     if (existing != null) {
       if (ShipBlocks.navigation(level.getBlockState(controller))
           && !controller.equals(ShipStore.pos(existing, "controller"))) {
@@ -28,12 +64,12 @@ public final class ShipTopology {
         long helms =
             connected.stream().filter(p -> ShipBlocks.navigation(level.getBlockState(p))).count();
         if (!connected.contains(controller) || helms != 1)
-          throw new IllegalArgumentException(
-              "Resolve competing or disconnected helms before claiming this ship");
+          return new Resolution(
+              null, "Resolve competing or disconnected helms before claiming this ship");
         existing.putLong("controller", controller.asLong());
         store.requestSave();
       }
-      return existing;
+      return new Resolution(existing, "");
     }
     for (var pad : selected.stream().toList()) {
       var b = pad.bounds();
@@ -63,13 +99,13 @@ public final class ShipTopology {
               || level.getBlockState(p).isAir()) continue;
           if (ShipBlocks.navigation(level.getBlockState(p))) {
             if (found != null)
-              throw new IllegalArgumentException("Multiple helms/computers in this build");
+              return new Resolution(null, "Multiple helms/computers in this build");
             found = p;
           }
           for (var d : Direction.values()) queue.add(p.relative(d));
         }
         if (found == null)
-          throw new IllegalArgumentException("Connect this controller to a helm or ship computer");
+          return new Resolution(null, "Connect this controller to a helm or ship computer");
         controller = found;
       }
       var tag = new CompoundTag();
@@ -85,9 +121,9 @@ public final class ShipTopology {
       tag.putInt("height", PadRegistry.buildHeight(level, b));
       store.ships().add(tag);
       store.requestSave();
-      return tag;
+      return new Resolution(tag, "");
     }
-    throw new IllegalArgumentException("Register the pad below this ship first");
+    return new Resolution(null, "Register the pad below this ship first");
   }
 
   /** Query availability only: automation must not complete a partially loaded hull. */
@@ -103,7 +139,9 @@ public final class ShipTopology {
     var bounds = ShipStore.bounds(ship);
     var start = ShipStore.pos(ship, "controller");
     if (!level.hasChunkAt(start)) return Set.of();
-    if (ShipBlocks.navigation(level.getBlockState(start))) return flood(level, bounds, start);
+    if (ShipBlocks.navigation(level.getBlockState(start))
+        || level.getBlockState(start).is(ShipBlocks.STATION_CORE))
+      return flood(level, bounds, start);
     // Keep one surviving bus: select the largest component containing actual supply/control
     // hardware. Never join disconnected wreck fragments through metadata alone.
     Set<BlockPos> best = Set.of();
@@ -127,11 +165,13 @@ public final class ShipTopology {
 
   private static Set<BlockPos> flood(ServerLevel level, ShipScan.Bounds bounds, BlockPos start) {
     var found = new HashSet<BlockPos>();
+    var collars = com.nullandkale.nullspace.station.DockingTunnel.positions(level);
     var queue = new ArrayDeque<BlockPos>();
     queue.add(start);
     while (!queue.isEmpty()) {
       var p = queue.removeFirst();
-      if (!bounds.contains(p) || found.contains(p) || !level.hasChunkAt(p)) continue;
+      if (!bounds.contains(p) || found.contains(p) || collars.contains(p) || !level.hasChunkAt(p))
+        continue;
       var state = level.getBlockState(p);
       if (state.isAir()) continue;
       found.add(p);

@@ -1,10 +1,12 @@
 param(
     [ValidateSet('INTENT_SAVED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','WORLD_SAVED','ORDER_CLEARED')]
     [string[]] $Stages = @('INTENT_SAVED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','WORLD_SAVED','ORDER_CLEARED'),
-    [string] $ArtifactRoot = ''
+    [string] $ArtifactRoot = '',
+    [switch] $KeepWorlds
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'scripts/LocalVerification.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'scripts/TestWorldCleanup.psm1') -Force
 if ($Stages.Count -eq 0 -or @($Stages | Select-Object -Unique).Count -ne $Stages.Count) { throw 'Crash stages must be nonempty and unique' }
 & "$PSScriptRoot/scripts/Invoke-Gradle.ps1" exportLocalServerLaunch --no-configuration-cache --no-daemon --console=plain
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -18,6 +20,8 @@ foreach ($stage in $Stages) {
     $work = Join-Path $runRoot $stage
     $null = New-Item -ItemType Directory -Path $work
     [System.IO.File]::WriteAllText((Join-Path $work 'eula.txt'),"eula=true`n")
+    $process = $null
+    try {
     foreach ($mode in @('prepare','verify')) {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
         $arguments += @('-Xmx2G',"-Dnullspace.shipyard.crash.mode=$mode","-Dnullspace.shipyard.crash.stage=$stage","-Dnullspace.shipyard.crash.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:ship_yard_crash_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
@@ -30,11 +34,23 @@ foreach ($stage in $Stages) {
             if (-not $process.WaitForExit(180000)) { throw "Shipyard crash test timed out at $stage/$mode. Logs: $work" }
             $expected = if ($mode -eq 'prepare') { 86 } else { 0 }
             if ($process.ExitCode -ne $expected) { throw "Shipyard crash test failed at $stage/$mode (exit $($process.ExitCode), expected $expected). Logs: $work" }
-        } finally { if (-not $process.HasExited) { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue } }
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue }
+            $null = $process.WaitForExit(10000)
+        }
     }
     Assert-VerificationMarker (Join-Path $work 'passed')
     Assert-VerificationFingerprint $PSScriptRoot $fingerprint
     Write-Host "Shipyard crash/restart passed: $stage"
+    } finally {
+        if (-not $KeepWorlds) {
+            try {
+                $ids = if ($process) { @($process.Id) } else { @() }
+                $cleanup = @(Remove-TestWorlds -Workspace $PSScriptRoot -WorkRoot $work -ProcessIds $ids)
+                Write-VerificationJson (Join-Path $work 'world-cleanup.json') @{worlds=$cleanup}
+            } catch { Write-Warning "Test world cleanup failed: $($_.Exception.Message)" }
+        }
+    }
 }
-Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; inputsSha256=$fingerprint; stages=@($Stages); prepareExit=86; verifyExit=0; markers=@($Stages | ForEach-Object { "$_/passed" }) }
+Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); prepareExit=86; verifyExit=0; markers=@($Stages | ForEach-Object { "$_/passed" }) }
 Write-Host "All requested shipyard crash/restart tests passed. Logs: $runRoot"

@@ -31,12 +31,16 @@ public final class ShipEntities {
   }
 
   public static void requireLoaded(ServerLevel level, ShipScan.Bounds bounds) {
+    if (!loaded(level, bounds))
+      throw new IllegalArgumentException("Ship passengers are still loading; try again shortly");
+  }
+
+  public static boolean loaded(ServerLevel level, ShipScan.Bounds bounds) {
     var manager = ((ServerLevelEntitiesAccessor) level).nullspace$entities();
     for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
       for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)
-        if (!manager.areEntitiesLoaded(new ChunkPos(x, z).pack()))
-          throw new IllegalArgumentException(
-              "Ship passengers are still loading; try again shortly");
+        if (!manager.areEntitiesLoaded(new ChunkPos(x, z).pack())) return false;
+    return true;
   }
 
   private ShipEntities() {}

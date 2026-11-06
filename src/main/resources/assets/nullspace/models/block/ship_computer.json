@@ -1,8 +1,110 @@
 {
-  "parent": "minecraft:block/orientable",
   "textures": {
-    "top": "minecraft:block/iron_block",
-    "front": "minecraft:block/observer_front",
-    "side": "minecraft:block/blue_concrete"
-  }
+    "case": "nullspace:block/machine_case",
+    "panel": "nullspace:block/machine_panel",
+    "dark": "nullspace:block/machine_dark",
+    "metal": "nullspace:block/machine_metal",
+    "redstone": "nullspace:block/machine_redstone",
+    "amber": "nullspace:block/machine_amber",
+    "front": "nullspace:block/machine_ship_computer",
+    "particle": "nullspace:block/machine_ship_computer_side",
+    "side": "nullspace:block/machine_ship_computer_side",
+    "top": "nullspace:block/machine_ship_computer_top"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#front",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "south"
+        },
+        "east": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "east"
+        },
+        "west": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "west"
+        },
+        "up": {
+          "texture": "#top",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "up"
+        },
+        "down": {
+          "texture": "#case",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "down"
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        30,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.625,
+        0.625,
+        0.625
+      ]
+    }
+  },
+  "parent": "minecraft:block/block"
 }

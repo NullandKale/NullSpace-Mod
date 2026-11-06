@@ -86,5 +86,16 @@ public final class SpaceSettings {
     save();
   }
 
+  public static boolean matchesPreset(int p) {
+    var v = get();
+    return v.surfaceWidth == (p == 0 ? 640 : p == 1 ? 960 : 1280)
+        && v.volumeScale == (p == 0 ? .25 : p == 1 ? .5 : 1)
+        && v.volumeSteps == (p == 0 ? 8 : p == 1 ? 16 : 24)
+        && v.surfaceSamples == (p == 0 ? 1 : 4)
+        && v.cloudSteps == (p == 0 ? 24 : p == 1 ? 48 : 64)
+        && !v.stochastic
+        && v.temporal;
+  }
+
   private SpaceSettings() {}
 }

@@ -12,17 +12,28 @@ def generatedContent = { ->
     blocks.each { definition ->
         def id = definition.id
         def variants = [:]
-        ['north','east','south','west'].eachWithIndex { facing, index -> variants["facing=$facing"] = [model:"nullspace:block/$id", y:index*90] }
+        ['north','east','south','west'].eachWithIndex { facing, index ->
+            if(id in ['camera','monitor']) {
+                variants["facing=$facing,legacy_hull=false"]=[model:"nullspace:block/$id",y:index*90]
+                variants["facing=$facing,legacy_hull=true"]=[model:"nullspace:block/${id}_legacy",y:index*90]
+            } else variants["facing=$facing"] = [model:"nullspace:block/$id", y:index*90]
+        }
         outputs["assets/nullspace/blockstates/${id}.json"] = [variants:variants]
         outputs["assets/nullspace/items/${id}.json"] = [model:[type:'minecraft:model',model:"nullspace:block/$id"]]
         outputs["data/nullspace/loot_table/blocks/${id}.json"] = [type:'minecraft:block',pools:[[rolls:1,entries:[[type:'minecraft:item',name:"nullspace:$id"]],conditions:[[condition:'minecraft:survives_explosion']]]]]
     }
-    equipment.each { definition ->
+    equipment.findAll { !it.capabilities.contains('retired') }.each { definition ->
         def recipe="nullspace:${definition.id}"
         outputs["data/nullspace/advancement/recipes/ship/${definition.id}.json"] = [parent:'minecraft:recipes/root',criteria:[has_component:[trigger:'minecraft:inventory_changed',conditions:[items:[definition.unlock]]],has_the_recipe:[trigger:'minecraft:recipe_unlocked',conditions:[recipes:recipe]]],requirements:[['has_component','has_the_recipe']],rewards:[recipes:[recipe]]]
     }
     outputs['data/minecraft/tags/block/mineable/pickaxe.json'] = [replace:false,values:blocks.collect { "nullspace:${it.id}" }]
     planets.findAll { it.surface != null }.each { outputs["data/nullspace/dimension/${it.id}.json"] = it.surface }
+    def slots = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/star_system_slots.json'))
+    slots.each { slot -> slot.regions.each { region ->
+        def template = planets.find { it.id == region.template }
+        if (!template?.surface) throw new GradleException("Missing generated surface template: ${region.id}")
+        outputs["data/nullspace/dimension/${region.id}.json"] = template.surface
+    } }
     outputs
 }
 
@@ -35,8 +46,64 @@ tasks.register('verifyContentAssets') {
     doLast {
         def parser = new JsonSlurper()
         def mismatches = generatedContent().findAll { path, value -> def file=new File(resourcesRoot,path); !file.exists() || parser.parse(file) != parser.parseText(JsonOutput.toJson(value)) }.keySet()
+        def testPreset = parser.parse(layout.projectDirectory.file('src/gametest/resources/data/minecraft/worldgen/world_preset/flat_all_dimensions.json').asFile)
+        def systemSlots = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/star_system_slots.json'))
+        systemSlots.each { slot -> slot.regions.each { region ->
+            def surface = parser.parse(new File(resourcesRoot, "data/nullspace/dimension/${region.id}.json"))
+            if (testPreset.dimensions["nullspace:${region.id}"] != surface)
+                throw new GradleException("Generated surface missing from the test world preset: ${region.id}")
+        } }
         if (!mismatches.empty) throw new GradleException("Generated content differs: $mismatches. Run generateContentAssets.")
+        def equipment = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/equipment.json'))
+        def active = equipment.findAll { !it.capabilities.contains('retired') }
+        def guideChapters = parser.parse(new File(resourcesRoot, 'data/nullspace/guide/chapters.json')).chapters
+        // Same native book structure: cover, chapter indexes/pages, recipe indexes/pages.
+        int guidePages = 1 + ((guideChapters.size() + 7).intdiv(8)) + guideChapters.sum { it.pages.size() } + ((active.size() + 7).intdiv(8)) + active.size()
+        if (guidePages > 100) throw new GradleException("Field Guide has $guidePages pages; Minecraft supports 100. Shorten chapters before launching.")
+        def imageCache = [:]
+        def textureImage = { String texture ->
+            if (!texture?.startsWith('nullspace:')) throw new GradleException("Machine material must name an authored texture: $texture")
+            if (!imageCache.containsKey(texture)) {
+                def file = new File(resourcesRoot, "assets/nullspace/textures/${texture.substring('nullspace:'.length())}.png")
+                def image = javax.imageio.ImageIO.read(file)
+                if (image == null || image.width != 16 || image.height != 16)
+                    throw new GradleException("Machine texture must be 16x16: $texture")
+                imageCache[texture] = image
+            }
+            imageCache[texture]
+        }
+        active.findAll { it.kind == 'block' }.each { definition ->
+            def model = parser.parse(new File(resourcesRoot, "assets/nullspace/models/block/${definition.id}.json"))
+            if (!model.elements) throw new GradleException("Machine model has no authored elements: ${definition.id}")
+            model.textures.values().each { textureImage(it as String) }
+            model.elements.eachWithIndex { element, index ->
+                def size = (0..2).collect { (element.to[it] as double) - (element.from[it] as double) }
+                if (size.any { it <= 0 }) throw new GradleException("Invalid machine element: ${definition.id}/$index")
+                if (!(definition.id in ['camera', 'monitor'])) {
+                    if ((element.from + element.to).any { (it as double) != Math.rint(it as double) } || element.rotation)
+                        throw new GradleException("Machine geometry must use the 1/16-block grid: ${definition.id}/$index")
+                    if (model.elements.size() != 1 || element.from != [0, 0, 0] || element.to != [16, 16, 16])
+                        throw new GradleException("Regular machines must be full 16x16x16 cubes: ${definition.id}")
+                }
+                element.faces.each { side, face ->
+                    def axes = side in ['north', 'south'] ? [0, 1] : side in ['east', 'west'] ? [2, 1] : [0, 2]
+                    if ((face.rotation ?: 0) % 180 == 90) axes = axes.reverse()
+                    def uv = face.uv
+                    if (uv == null || uv.size() != 4 || uv.any { (it as double) < 0 || (it as double) > 16 })
+                        throw new GradleException("Machine face needs explicit UVs inside its tile: ${definition.id}/$index/$side")
+                    def reference = face.texture as String
+                    def material = reference.startsWith('#') ? model.textures[reference.substring(1)] : reference
+                    def image = textureImage(material as String)
+                    def texels = [Math.abs((uv[2] as double) - (uv[0] as double)) * image.width / 16,
+                                  Math.abs((uv[3] as double) - (uv[1] as double)) * image.height / 16]
+                    if ((0..1).any { Math.abs(texels[it] - size[axes[it]]) > 0.000001 })
+                        throw new GradleException("Machine face must use one texel per model unit: ${definition.id}/$index/$side")
+                }
+            }
+        }
+        active.findAll { it.kind == 'item' }.each { textureImage("nullspace:item/${it.id}" as String) }
         logger.lifecycle('Verified generated block wrappers, mining tags and planet dimensions')
+        logger.lifecycle('Verified full machine cubes, 16px textures and uniform face texel density')
     }
 }
 

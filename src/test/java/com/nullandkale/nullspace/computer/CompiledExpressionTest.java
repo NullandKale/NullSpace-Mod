@@ -207,9 +207,21 @@ class CompiledExpressionTest {
   }
 
   @Test
-  @Disabled(
-      "KNOWN DEVIATION: 'not' binds tighter than comparison, unlike Python (not 1 == 2 is True)")
   void notAppliesToTheWholeComparison() {
     assertEquals(true, eval("not 1 == 2"));
+    assertEquals(false, eval("not 1 < 2"));
+    assertEquals(true, eval("not 1 == 2 and 3 == 3"));
+    assertEquals(false, eval("not not 1 == 2"));
+  }
+
+  @Test
+  void longQuotedTokensAndMalformedTailsStayInsideTheGuestErrorBoundary() {
+    for (String quote : List.of("'", "\"")) {
+      String contents = "a".repeat(8000);
+      assertEquals(contents, eval(quote + contents + quote));
+      assertThrows(IllegalArgumentException.class, () -> eval(quote + contents));
+      assertThrows(IllegalArgumentException.class, () -> eval(quote + contents + quote + " ?"));
+    }
+    assertThrows(IllegalArgumentException.class, () -> eval(" ".repeat(16000) + "?"));
   }
 }

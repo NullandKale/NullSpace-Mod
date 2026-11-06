@@ -186,6 +186,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       world.getConnection().waitForChunksRender();

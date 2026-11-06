@@ -1,0 +1,19 @@
+﻿{
+    "key":  {
+                "G":  "minecraft:glass",
+                "B":  "nullspace:circuit_board",
+                "C":  "nullspace:machine_casing",
+                "I":  "minecraft:iron_ingot"
+            },
+    "category":  "misc",
+    "pattern":  [
+                    "IGI",
+                    "BCB",
+                    "IGI"
+                ],
+    "result":  {
+                   "id":  "nullspace:station_module",
+                   "count":  1
+               },
+    "type":  "minecraft:crafting_shaped"
+}

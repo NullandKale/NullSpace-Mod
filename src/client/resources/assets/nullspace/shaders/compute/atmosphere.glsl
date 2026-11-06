@@ -173,17 +173,21 @@ mat3 skyBasis() {
     return mat3(right, up, normalize(cross(right, up)));
 }
 vec3 skyLutRay(vec2 uv) {
-    float v = uv.y * 2. - 1., mu = sign(v) * v * v;
+    // Square elevation rather than its sine: retain horizon detail without a coarse polar cap.
+    float v = uv.y * 2. - 1., mu = sin(sign(v) * v * v * (.5 * PI));
     float angle = uv.x * 2. * PI;
     return skyBasis() * vec3(sin(angle) * sqrt(max(0., 1. - mu * mu)), mu,
                             cos(angle) * sqrt(max(0., 1. - mu * mu)));
 }
 vec4 skyLutRead(sampler2D image, vec3 d) {
     vec3 local = transpose(skyBasis()) * d;
-    vec2 uv = vec2(fract(atan(local.x, local.z) / (2. * PI)),
-                   .5 + .5 * sign(local.y) * sqrt(abs(local.y)));
+    float elevation = asin(clamp(local.y, -1., 1.)) / (.5 * PI);
+    // Azimuth is undefined at the poles; every column there stores the same vertical ray.
+    float azimuth = dot(local.xz, local.xz) > 1e-12 ? atan(local.x, local.z) : 0.;
+    vec2 uv = vec2(fract(azimuth / (2. * PI)),
+                   .5 + .5 * sign(elevation) * sqrt(abs(elevation)));
     ivec2 size = textureSize(image, 0);
-    vec2 p = vec2(uv.x * float(size.x) - .5, clamp(uv.y * float(size.y) - .5, 0., float(size.y - 1)));
+    vec2 p = vec2(uv.x * float(size.x) - .5, clamp(uv.y, 0., 1.) * float(size.y - 1));
     ivec2 a = ivec2(floor(p)), b = a + 1;
     a.x = (a.x + size.x) % size.x; b.x = (b.x + size.x) % size.x; b.y = min(b.y, size.y - 1);
     vec2 f = fract(p);

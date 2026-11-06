@@ -183,6 +183,334 @@
           "structure_overrides": []
         }
       }
+    },
+    "nullspace:frontier_a_inner": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_a_outer": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_a_moon": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_b_inner": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_b_outer": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_b_moon": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_c_inner": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_c_outer": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_c_moon": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_d_inner": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:red_sandstone"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_d_outer": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:plains",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 3,
+              "block": "minecraft:dirt"
+            },
+            {
+              "height": 1,
+              "block": "minecraft:grass_block"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
+    },
+    "nullspace:frontier_d_moon": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:flat",
+        "settings": {
+          "biome": "minecraft:desert",
+          "layers": [
+            {
+              "height": 1,
+              "block": "minecraft:bedrock"
+            },
+            {
+              "height": 124,
+              "block": "minecraft:stone"
+            },
+            {
+              "height": 4,
+              "block": "minecraft:gravel"
+            }
+          ],
+          "lakes": false,
+          "features": false,
+          "structure_overrides": []
+        }
+      }
     }
   }
 }

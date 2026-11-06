@@ -153,7 +153,8 @@ public final class NavigationGameTest {
     p.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
     var open = ComputerTerminal.issue(p, helm, "Ready", "navigation", LocalSpaces.HOME);
     ctx.assertTrue(
-        open.destinations().size() == 5, "Navigation exposes the finite server route catalog");
+        open.destinations().size() == LocalSpaces.destinations(level.getServer()).size(),
+        "Navigation exposes the finite server route catalog");
     for (var request :
         List.of(
             new ComputerTerminal.Request(

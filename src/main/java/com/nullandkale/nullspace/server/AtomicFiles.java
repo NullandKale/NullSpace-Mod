@@ -15,9 +15,9 @@ public final class AtomicFiles {
             StandardCopyOption.ATOMIC_MOVE);
         return;
       } catch (AccessDeniedException sharing) {
-        if (attempt >= 5) throw sharing;
+        if (attempt >= 10) throw sharing;
         try {
-          Thread.sleep(10);
+          Thread.sleep(Math.min(100, 10L << Math.min(attempt, 4)));
         } catch (InterruptedException interrupted) {
           Thread.currentThread().interrupt();
           throw new IOException("Interrupted while promoting durable state", interrupted);

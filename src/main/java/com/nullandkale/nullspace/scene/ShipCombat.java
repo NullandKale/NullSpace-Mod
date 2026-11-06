@@ -57,7 +57,7 @@ public final class ShipCombat {
     double t = interval[0];
     var from = o.add(Vec3.atLowerCornerOf(base));
     var to = o.add(d.scale(range)).add(Vec3.atLowerCornerOf(base));
-    for (int step = 0; step < 128 && t <= interval[1] + 1e-6; step++) {
+    for (int step = 0; step < 320 && t <= interval[1] + 1e-6; step++) {
       var p = base.offset(x, y, z);
       if (!bounds.contains(p)) break;
       if (!level.hasChunkAt(p))

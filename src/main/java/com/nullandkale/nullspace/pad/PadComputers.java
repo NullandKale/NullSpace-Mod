@@ -170,6 +170,39 @@ public final class PadComputers {
     return result.valid() && (name == null || message.startsWith("Registered ")) ? 1 : 0;
   }
 
+  public static void details(ServerPlayer player, BlockPos pos, boolean highlight) {
+    var result = inspect(player, pos);
+    if (highlight && result.problem() != null) {
+      var point = result.problem();
+      com.nullandkale.nullspace.ship.ShipDiagnostics.highlight(
+          player, java.util.List.of(new BlockPos(point.x(), point.y(), point.z())));
+    }
+    String message = result.message();
+    if (!highlight) {
+      message +=
+          "\nComputer: "
+              + pos.toShortString()
+              + "\nDimension: "
+              + player.level().dimension().identifier();
+      var pad =
+          com.nullandkale.nullspace.ship.PadRegistry.read(player.level().getServer()).stream()
+              .filter(p -> p.computer().equals(pos))
+              .findFirst();
+      if (pad.isPresent()) {
+        var state =
+            com.nullandkale.nullspace.ship.PadRegistry.state(player.level().getServer(), pad.get());
+        message +=
+            "\nRegistration: "
+                + pad.get().name()
+                + "\nState: "
+                + state.state()
+                + " "
+                + state.detail();
+      }
+    }
+    open(player, pos, message);
+  }
+
   public static String register(
       net.minecraft.server.level.ServerLevel level, BlockPos pos, PadScanner.Pad pad, String name)
       throws java.io.IOException {
@@ -237,6 +270,7 @@ public final class PadComputers {
             .map(com.nullandkale.nullspace.ship.PadRegistry.Pad::name)
             .findFirst()
             .orElse("");
+    if (name.isBlank()) name = suggestedName(player);
     com.nullandkale.nullspace.terminal.ComputerTerminal.send(
         player,
         pos,
@@ -255,6 +289,17 @@ public final class PadComputers {
     } catch (IllegalArgumentException invalid) {
       open(player, pos, invalid.getMessage());
     }
+  }
+
+  public static String suggestedName(ServerPlayer player) {
+    var names =
+        com.nullandkale.nullspace.ship.PadRegistry.read(player.level().getServer()).stream()
+            .map(p -> p.name().toLowerCase(java.util.Locale.ROOT))
+            .collect(java.util.stream.Collectors.toSet());
+    if (!names.contains("home")) return "Home";
+    int i = 2;
+    while (names.contains("landing pad " + i)) i++;
+    return "Landing pad " + i;
   }
 
   private PadComputers() {}

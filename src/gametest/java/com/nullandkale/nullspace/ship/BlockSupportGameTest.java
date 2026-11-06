@@ -123,7 +123,11 @@ public final class BlockSupportGameTest {
       variants++;
     }
     ctx.assertTrue(
-        types.equals(ShipBlockSupport.PORTABLE_ENTITIES),
+        types.equals(
+            java.util.stream.Stream.concat(
+                    ShipBlockSupport.PORTABLE_ENTITIES.stream(),
+                    java.util.stream.Stream.of("machine"))
+                .collect(java.util.stream.Collectors.toSet())),
         "Every portable BE type must have a tested representative: " + types);
     ctx.assertTrue(
         level

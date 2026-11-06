@@ -17,14 +17,18 @@ public final class ShipDiagnostics {
   }
 
   public static void highlight(ServerPlayer player, ShipScan.Failure failure) {
+    highlight(player, failure.trace);
+  }
+
+  public static void highlight(ServerPlayer player, List<BlockPos> points) {
     highlights(player.level().getServer())
         .put(
             player.getUUID(),
             new Highlight(
                 player.level().dimension().identifier().toString(),
-                failure.trace.stream().limit(256).toList(),
+                points.stream().limit(256).toList(),
                 player.level().getServer().getTickCount() + 100));
-    draw(player, failure.trace.stream().limit(256).toList());
+    draw(player, points.stream().limit(256).toList());
   }
 
   private static void draw(ServerPlayer p, List<BlockPos> points) {

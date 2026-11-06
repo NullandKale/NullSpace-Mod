@@ -34,11 +34,33 @@ public final class NullSpaceClient implements ClientModInitializer {
     com.nullandkale.nullspace.client.scene.SceneMotion.clear();
     PreviewRenderer.clear();
     ComputerClient.clear();
+    MachineScreen.clearReturn();
+    TerminalScreen.clearReturn();
     AirFlowParticles.clear();
   }
 
   @Override
   public void onInitializeClient() {
+    DevWorldCreation.initialize();
+    net.minecraft.client.gui.screens.MenuScreens.register(
+        com.nullandkale.nullspace.systems.MachineMenus.MENU, MachineScreen::new);
+    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+        com.nullandkale.nullspace.systems.MachineMenus.View.TYPE,
+        (packet, context) ->
+            context
+                .client()
+                .execute(
+                    () -> {
+                      if (context.client().player != null
+                          && context.client().player.containerMenu
+                              instanceof com.nullandkale.nullspace.systems.MachineMenu menu
+                          && menu.containerId == packet.container()) {
+                        menu.reading = packet.data();
+                        menu.at = net.minecraft.core.BlockPos.of(packet.data().getLongOr("at", 0));
+                        if (context.client().gui.screen() instanceof MachineScreen machine
+                            && machine.getMenu() == menu) machine.readingChanged();
+                      }
+                    }));
     net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
           if (com.nullandkale.nullspace.client.scene.compute.ComputeProgram.enabled()) {
@@ -65,15 +87,53 @@ public final class NullSpaceClient implements ClientModInitializer {
                       }
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+        com.nullandkale.nullspace.navigation.ShipControl.View.TYPE,
+        (payload, context) ->
+            context
+                .client()
+                .execute(
+                    () -> {
+                      if (context.client().gui.screen() instanceof TerminalScreen terminal
+                          && terminal.shipControl(payload)) return;
+                      if (payload.opening())
+                        context.client().gui.setScreen(TerminalScreen.restore(payload));
+                    }));
+    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
         com.nullandkale.nullspace.terminal.ComputerTerminal.Open.TYPE,
         (payload, context) ->
             context
                 .client()
                 .execute(
                     () -> {
+                      if (payload.mode().equals("shipyard")) {
+                        if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                          yard.update(payload);
+                        else context.client().gui.setScreen(new ShipyardScreen(payload));
+                        return;
+                      }
                       if (context.client().gui.screen() instanceof TerminalScreen terminal)
                         terminal.update(payload);
-                      else context.client().gui.setScreen(new TerminalScreen(payload));
+                      else context.client().gui.setScreen(TerminalScreen.restore(payload));
+                    }));
+    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+        com.nullandkale.nullspace.terminal.ComputerTerminal.Refresh.TYPE,
+        (packet, context) ->
+            context
+                .client()
+                .execute(
+                    () -> {
+                      if (context.client().gui.screen() instanceof TerminalScreen t)
+                        t.refresh(packet.view());
+                    }));
+    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+        com.nullandkale.nullspace.terminal.ComputerTerminal.Ack.TYPE,
+        (packet, context) ->
+            context
+                .client()
+                .execute(
+                    () -> {
+                      if (context.client().gui.screen() instanceof TerminalScreen t)
+                        t.acknowledged(packet.session());
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
         com.nullandkale.nullspace.terminal.ComputerTerminal.Rejected.TYPE,
@@ -84,6 +144,8 @@ public final class NullSpaceClient implements ClientModInitializer {
                     () -> {
                       if (context.client().gui.screen() instanceof TerminalScreen terminal)
                         terminal.rejected(payload);
+                      else if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                        yard.rejected(payload);
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
         com.nullandkale.nullspace.systems.AirEffects.FlowPacket.TYPE,
@@ -113,6 +175,8 @@ public final class NullSpaceClient implements ClientModInitializer {
                     () -> {
                       if (context.client().gui.screen() instanceof TerminalScreen terminal)
                         terminal.reading(payload);
+                      else if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                        yard.update(payload);
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
         com.nullandkale.nullspace.scene.SceneService.Frame.TYPE,
@@ -151,6 +215,11 @@ public final class NullSpaceClient implements ClientModInitializer {
                         payload.scene().putLong("receivedNanos", System.nanoTime());
                       }
                       com.nullandkale.nullspace.client.scene.SceneMotion.track(payload.scene());
+                      if (payload.scene().getBooleanOr("machinePreview", false)) {
+                        if (context.client().gui.screen() instanceof MachineScreen machine)
+                          machine.preview(payload);
+                        return;
+                      }
                       if (payload.scene().getBooleanOr("pilotView", false)) {
                         if (context.client().gui.screen()
                                 instanceof

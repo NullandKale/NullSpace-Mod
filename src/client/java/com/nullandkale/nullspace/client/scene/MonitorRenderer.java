@@ -84,16 +84,6 @@ public final class MonitorRenderer {
   public static void prepare(Matrix4f worldProjection) {
     PREPARED.clear();
     lastCaptures = 0;
-    if (!VIEWS.isEmpty()
-        && VIEWS.getFirst().target.width
-            != com.nullandkale.nullspace.client.SpaceSettings.width() / 2) {
-      for (var v : VIEWS) v.close();
-      VIEWS.clear();
-      for (var mesh : MESHES) mesh.close();
-      MESHES.clear();
-      SCENES.clear();
-      sceneFrame = null;
-    }
     var mc = Minecraft.getInstance();
     if (frame == null
         || mc.level == null
@@ -136,12 +126,20 @@ public final class MonitorRenderer {
       var pos = BlockPos.of(display.getLongOr("position", 0));
       if (mc.level.getBlockState(pos).getBlock()
           != com.nullandkale.nullspace.ship.ShipBlocks.MONITOR) continue;
+      int maxWidth = com.nullandkale.nullspace.client.SpaceSettings.width() / 2;
+      int maxHeight = com.nullandkale.nullspace.client.SpaceSettings.height() / 2;
+      double aspect =
+          display.getIntOr("wallWidth", 1)
+              / (double) Math.max(1, display.getIntOr("wallHeight", 1));
+      int captureWidth = Math.max(16, Math.min(maxWidth, (int) (maxHeight * aspect)));
+      int captureHeight = Math.max(16, Math.min(maxHeight, (int) (maxWidth / aspect)));
       if (index == VIEWS.size()) {
-        VIEWS.add(
-            new SceneViewport(
-                com.nullandkale.nullspace.client.SpaceSettings.width() / 2,
-                com.nullandkale.nullspace.client.SpaceSettings.height() / 2));
+        VIEWS.add(new SceneViewport(captureWidth, captureHeight));
         MESHES.add(new StagedVertexBuffer(() -> "Monitor face", 4096));
+      } else if (VIEWS.get(index).target.width != captureWidth
+          || VIEWS.get(index).target.height != captureHeight) {
+        VIEWS.get(index).close();
+        VIEWS.set(index, new SceneViewport(captureWidth, captureHeight));
       }
       var viewport = VIEWS.get(index);
       var vertices = MESHES.get(index);
@@ -164,11 +162,21 @@ public final class MonitorRenderer {
       if (face == null) face = Direction.NORTH;
       // One centimetre in front of the opaque face, with normal world depth testing.
       var center =
-          net.minecraft.world.phys.Vec3.atCenterOf(pos)
-              .add(face.getStepX() * .51, 0, face.getStepZ() * .51)
+          new net.minecraft.world.phys.Vec3(
+                  display.getDoubleOr("centerX", pos.getX() + .5),
+                  display.getDoubleOr("centerY", pos.getY() + .5),
+                  display.getDoubleOr("centerZ", pos.getZ() + .5))
+              .add(
+                  face.getStepX() * (display.getBooleanOr("mounted", false) ? -.37 : .51),
+                  0,
+                  face.getStepZ() * (display.getBooleanOr("mounted", false) ? -.37 : .51))
               .subtract(camera.pos);
-      var right = new Vector3f(face.getStepZ() * .45f, 0, -face.getStepX() * .45f);
-      var up = new Vector3f(0, .45f * viewport.target.height / viewport.target.width, 0);
+      var right =
+          new Vector3f(
+              face.getStepZ() * .49f * display.getIntOr("wallWidth", 1),
+              0,
+              -face.getStepX() * .49f * display.getIntOr("wallWidth", 1));
+      var up = new Vector3f(0, .49f * display.getIntOr("wallHeight", 1), 0);
       var c = new Vector3f((float) center.x, (float) center.y, (float) center.z);
       var draw =
           vertices.appendDraw(

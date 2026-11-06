@@ -117,6 +117,52 @@ class SpatialAirTest {
   }
 
   @Test
+  void breathingInAnUnderfilledRoomDoesNotProduceFollowingParticles() {
+    var s = solid();
+    var a = empty();
+    for (int x = 4; x < 12; x++) s[Atmosphere.index(x, 4, 4)] = false;
+    var t = Atmosphere.rebuild(s, a, false);
+    for (var room : t.rooms()) for (int cell : room.cells()) a[cell] = 800;
+    long expected = total(a);
+    for (int i = 0; i < 30; i++) {
+      int occupant = Atmosphere.index(4 + i % 8, 4, 4);
+      var r = SpatialAir.step(a, t, s, Map.of(), Map.of(occupant, 20), 5, 0);
+      expected -= r.consumed();
+      assertEquals(100, r.consumed());
+      assertEquals(expected, total(a));
+      assertTrue(r.flows().isEmpty(), "Breathing should not draw clouds along the crew's path");
+    }
+  }
+
+  @Test
+  void significantInternalTransferStillProducesParticles() {
+    var s = solid();
+    var a = empty();
+    int one = Atmosphere.index(4, 4, 4);
+    s[one] = s[one + 1] = false;
+    var t = Atmosphere.rebuild(s, a, false);
+    a[one] = 900;
+    a[one + 1] = 300;
+    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
+    assertEquals(1200, total(a));
+    assertTrue(r.flows().stream().anyMatch(f -> !f.exterior() && f.amount() == 50));
+  }
+
+  @Test
+  void faintExteriorLeakStillProducesParticles() {
+    var s = solid();
+    var a = empty();
+    int cell = Atmosphere.index(0, 4, 4);
+    s[cell] = false;
+    a[cell] = 120;
+    var t = Atmosphere.rebuild(s, a, false);
+    var r = SpatialAir.step(a, t, s, Map.of(), Map.of(), 1, 0);
+    assertEquals(10, r.escaped());
+    assertEquals(110, total(a));
+    assertTrue(r.flows().stream().anyMatch(f -> f.exterior() && f.amount() == 10));
+  }
+
+  @Test
   void lastFillUpdateHasNoResidualPumpParticles() {
     var s = solid();
     var a = empty();

@@ -19,11 +19,12 @@ import net.minecraft.world.level.storage.LevelResource;
 
 /** Opt-in showroom and working delivery pads. Reserved once; visits never rebuild player edits. */
 public final class ShipYard {
-  public static final int WIDTH = 118, DEPTH = 120;
+  public static final int WIDTH = 118, DEPTH = 44 + ((ShipBlueprints.PRESETS.size() + 2) / 3) * 38;
 
   public record Yard(BlockPos origin, String prefix) {
     public BlockPos pad(int index) {
-      if (index < 0 || index >= 6) throw new IllegalArgumentException("Choose display bay 0-5");
+      if (index < 0 || index >= ShipBlueprints.PRESETS.size())
+        throw new IllegalArgumentException("Unknown display bay");
       return origin.offset(3 + index % 3 * 38, 0, 43 + index / 3 * 38);
     }
 
@@ -76,10 +77,10 @@ public final class ShipYard {
                                     com.nullandkale.nullspace.guide.FieldGuide.supply(player);
                                     player.sendSystemMessage(
                                         Component.literal(
-                                            "Shipyard: six display ships behind the delivery pads."
-                                                + " Right-click a copper Ship Beacon, select a"
-                                                + " design, then Call selected. Purchases are FREE;"
-                                                + " keep delivery pads clear."));
+                                            "Shipyard: fifteen display ships behind the delivery"
+                                                + " pads. Right-click a copper Ship Beacon, select"
+                                                + " a design, then Deliver ship. Purchases are"
+                                                + " FREE; keep delivery pads clear."));
                                     return 1;
                                   } catch (Exception error) {
                                     player.sendSystemMessage(
@@ -92,7 +93,8 @@ public final class ShipYard {
   }
 
   public static Yard ensure(MinecraftServer server) throws java.io.IOException {
-    var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-shipyard-v1.nbt");
+    // A new reserved gallery leaves the earlier galleries and all player edits intact.
+    var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-shipyard-v3.nbt");
     if (Files.exists(marker)) {
       var saved = ShipStore.read(marker);
       if (saved.getIntOr("version", 0) != 1 || !saved.getBooleanOr("complete", false))
@@ -101,9 +103,6 @@ public final class ShipYard {
                 + " will not be rebuilt.");
       return new Yard(ShipStore.pos(saved, "origin"), saved.getStringOr("prefix", "Yard"));
     }
-    if (TravelService.active(server))
-      throw new IllegalArgumentException(
-          "Wait for the current ship transfer to finish before creating a shipyard.");
     var level = server.overworld();
     Yard yard = null;
     // Start outside the existing labs, and choose height above every existing block/fluid.
@@ -126,6 +125,10 @@ public final class ShipYard {
           y = Math.max(y, level.getHeight(Heightmap.Types.WORLD_SURFACE, x + dx, z + dz));
       y += 4;
       if (y + 33 >= level.getMaxY()) continue;
+      if (TravelService.areaBusy(
+          level,
+          new com.nullandkale.nullspace.ship.ShipScan.Bounds(
+              new BlockPos(x, y, z), new BlockPos(x + WIDTH - 1, y + 33, z + DEPTH - 1)))) continue;
       if (!level
           .getEntities(
               (net.minecraft.world.entity.Entity) null,
@@ -152,7 +155,7 @@ public final class ShipYard {
             (x % 8 == 0 && z % 8 == 0 ? Blocks.SEA_LANTERN : Blocks.CONCRETE.lightGray())
                 .defaultBlockState(),
             18);
-    // Three empty delivery pads face six individually registered showroom ships.
+    // Three empty delivery pads face the individually registered catalog ships.
     for (int index = 0; index < 3; index++) {
       var base = yard.delivery(index);
       buildPad(level, base, 32, 32, yard.prefix() + " Delivery " + (index + 1));
@@ -176,11 +179,17 @@ public final class ShipYard {
       var at = ShipBlueprints.origin(preset, pad, 32);
       for (var entry : ShipBlueprints.blocks(preset).entrySet())
         level.setBlock(at.offset(entry.getKey()), entry.getValue(), 18);
+      for (var entry : ShipBlueprints.blocks(preset).entrySet())
+        if (entry.getValue().is(ShipBlocks.GENERATOR))
+          com.nullandkale.nullspace.systems.FuelSystem.provision(
+              level, at.offset(entry.getKey()), 64);
       var ship =
           com.nullandkale.nullspace.systems.ShipTopology.resolve(level, at.offset(preset.helm()));
       ship.putString("blueprint", preset.id());
       ship.putString("name", preset.name());
       com.nullandkale.nullspace.systems.ShipSystems.upgrade(level, ship);
+      ship.getCompoundOrEmpty("systems")
+          .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
       ShipGallery.label(
           level,
           base.offset(1, 1, -3),

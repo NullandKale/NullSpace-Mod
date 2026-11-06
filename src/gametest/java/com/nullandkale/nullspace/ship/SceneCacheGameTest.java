@@ -129,7 +129,7 @@ public final class SceneCacheGameTest {
     ctx.assertTrue(rejected, "Invalid light payload must be rejected");
     var tooMany = new CompoundTag();
     var subjects = new ListTag();
-    for (int i = 0; i < 5; i++) subjects.add(new CompoundTag());
+    for (int i = 0; i <= SceneService.MAX_SUBJECTS; i++) subjects.add(new CompoundTag());
     tooMany.put("subjects", subjects);
     rejected = false;
     try {

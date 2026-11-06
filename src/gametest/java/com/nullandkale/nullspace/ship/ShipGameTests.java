@@ -248,7 +248,7 @@ public final class ShipGameTests {
             "Readiness " + java.util.UUID.randomUUID().toString().substring(0, 8));
     ctx.assertTrue(
         registered.startsWith("Registered "), "Readiness fixture must register: " + registered);
-    // Other transfer tests finish first; travel intentionally serializes the whole server.
+    // Allow the fixture chunks and their initial entity data to finish loading.
     ctx.runAfterDelay(
         40,
         () -> {
@@ -868,6 +868,18 @@ public final class ShipGameTests {
               furnacePositions.stream()
                   .map(at -> level.getBlockEntity(at).saveWithoutMetadata(level.registryAccess()))
                   .toList();
+          var selectedDestination =
+              com.nullandkale.nullspace.navigation.ShipDestination.catalog(
+                      player,
+                      com.nullandkale.nullspace.systems.ShipTopology.resolve(level, controller))
+                  .stream()
+                  .filter(d -> d.name().equals("Roundtrip"))
+                  .findFirst()
+                  .orElseThrow();
+          com.nullandkale.nullspace.navigation.ShipDestination.select(
+              player,
+              com.nullandkale.nullspace.systems.ShipTopology.resolve(level, controller),
+              selectedDestination);
           for (String stage :
               java.util.List.of(
                   "PREPARED", "DESTINATION_STAGED", "SOURCE_CLEARED", "PASSENGERS_MOVED")) {
@@ -916,6 +928,11 @@ public final class ShipGameTests {
           var space = server.getLevel(TravelService.SPACE);
           var ship = ShipStore.get(server).at(space, player.blockPosition());
           var spaceBase = ShipStore.pos(ship, "base");
+          ctx.assertTrue(
+              com.nullandkale.nullspace.navigation.ShipDestination.selected(ship)
+                  .id()
+                  .equals(selectedDestination.id()),
+              "Launch and recovery preserve the selected final destination");
           var delta = spaceBase.subtract(base.above());
           var spaceController = controller.offset(delta);
           ctx.assertTrue(player.level() == space, "Passenger must arrive in space");
@@ -971,20 +988,78 @@ public final class ShipGameTests {
           space.setBlock(
               base.offset(3, 4, 6).offset(delta), Blocks.IRON_BLOCK.defaultBlockState(), 18);
           level.setBlock(base.offset(1, 40, 1), Blocks.GLASS.defaultBlockState(), 18);
-          boolean blocked = false;
-          try {
-            TravelService.transfer(
-                player, spaceController, "Roundtrip", ShipService.inspect(space, spaceController));
-          } catch (IllegalArgumentException expected) {
-            blocked = expected.getMessage().contains("obstructed");
-          }
+          var blocked =
+              TravelService.transfer(
+                  player,
+                  spaceController,
+                  "Roundtrip",
+                  ShipService.inspect(space, spaceController));
           ctx.assertTrue(
-              blocked && player.level() == space, "Blocked landing must leave ship in space");
+              blocked.outcome() == TravelService.Outcome.REJECTED
+                  && blocked.message().contains("obstructed")
+                  && blocked.message().contains("Location:")
+                  && player.level() == space,
+              "Blocked landing returns a diagnostic result and leaves the ship in space");
           level.setBlock(base.offset(1, 40, 1), Blocks.AIR.defaultBlockState(), 18);
+          var destinationPad =
+              PadRegistry.read(server).stream()
+                  .filter(candidatePad -> candidatePad.name().equals("Roundtrip"))
+                  .findFirst()
+                  .orElseThrow();
+          var padComputer = destinationPad.computer();
+          var computerState = level.getBlockState(padComputer);
+          var originalInjector = TravelService.failureInjector;
+          try {
+            level.setBlock(padComputer, Blocks.AIR.defaultBlockState(), 18);
+            TravelService.failureInjector =
+                stage -> {
+                  throw new AssertionError(
+                      "A rejected landing must not prepare a transfer journal");
+                };
+            var missing =
+                TravelService.transfer(
+                    player,
+                    spaceController,
+                    "Roundtrip",
+                    ShipService.inspect(space, spaceController));
+            ctx.assertTrue(
+                missing.outcome() == TravelService.Outcome.REJECTED
+                    && missing.message().equals("Pad computer is missing: Roundtrip")
+                    && player.level() == space
+                    && space.getBlockState(spaceController).is(ShipBlocks.COMPUTER),
+                "Missing pad computer is an ordinary rejection without journal work or ship"
+                    + " movement");
+            var unknown =
+                TravelService.transfer(
+                    player,
+                    spaceController,
+                    "No such pad",
+                    ShipService.inspect(space, spaceController));
+            ctx.assertTrue(
+                unknown.outcome() == TravelService.Outcome.REJECTED
+                    && unknown.message().contains("Unknown landing pad"),
+                "Unknown destinations also return a rejection without exceptions");
+          } finally {
+            TravelService.failureInjector = originalInjector;
+            level.setBlock(padComputer, computerState, 18);
+          }
           server.getPlayerList().remove(passenger);
-          TravelService.transfer(
-              player, spaceController, "Roundtrip", ShipService.inspect(space, spaceController));
+          var landed =
+              TravelService.transfer(
+                  player,
+                  spaceController,
+                  "Roundtrip",
+                  ShipService.inspect(space, spaceController));
+          ctx.assertTrue(
+              landed.outcome() == TravelService.Outcome.COMPLETED,
+              "Repairing the computer allows the next landing attempt to complete");
           ctx.assertTrue(player.level() == level, "Passenger must return to planet");
+          ctx.assertTrue(
+              com.nullandkale.nullspace.navigation.ShipDestination.selected(
+                      ShipStore.get(server).at(level, controller))
+                  .id()
+                  .equals(selectedDestination.id()),
+              "Landing preserves the destination alongside the ship identity");
           ctx.assertTrue(
               level.getBlockState(base).is(Blocks.DIRT), "Landing must preserve the dirt pad");
           ctx.assertTrue(

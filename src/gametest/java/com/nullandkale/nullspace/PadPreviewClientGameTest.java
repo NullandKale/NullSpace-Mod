@@ -22,12 +22,23 @@ import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
  */
 public final class PadPreviewClientGameTest implements FabricClientGameTest {
   private static void choose(ClientGameTestContext ctx, int index) {
+    if (ctx.computeOnClient(c -> c.gui.screen() instanceof TerminalScreen t && t.shipController())) {
+      ShipControlTestUi.action(
+          ctx,
+          index == 1
+              ? com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH
+              : com.nullandkale.nullspace.navigation.ShipControl.Action.LAND);
+      return;
+    }
     ctx.runOnClient(
         c -> {
           var t = (TerminalScreen) c.gui.screen();
-          for (int i = 0; i < 12 && t.selection() != index; i++)
+          if (t.shipController())
+            throw new AssertionError("Controller actions are handled before this callback");
+          int target = new int[] {5, 0, 1, 2, 3, 4, 7, 6}[index];
+          for (int i = 0; i < 12 && t.selection() != target; i++)
             t.keyPressed(new KeyEvent(InputConstants.KEY_DOWN, 0, 0));
-          if (t.selection() != index) throw new AssertionError("Menu entry missing: " + index);
+          if (t.selection() != target) throw new AssertionError("Menu entry missing: " + index);
           t.keyPressed(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
         });
   }
@@ -39,6 +50,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext ctx) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = ctx.worldBuilder().create()) {
       var base = new BlockPos(0, -60, 0);
@@ -201,7 +213,13 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest {
                 throw new AssertionError(
                     "Expired overlays must disappear without another server packet");
             });
-        ctx.runOnClient(c -> c.keyboardHandler.textInput(c.getWindow().handle(), "Survival Pad"));
+        ctx.runOnClient(
+            c -> {
+              var t = (TerminalScreen) c.gui.screen();
+              ShipControlTestUi.click(t, 8, 5);
+              t.keyPressed(new KeyEvent(InputConstants.KEY_A, 0, InputConstants.MOD_CONTROL));
+              c.keyboardHandler.textInput(c.getWindow().handle(), "Survival Pad");
+            });
         choose(ctx, 2);
         ctx.waitFor(
             c ->

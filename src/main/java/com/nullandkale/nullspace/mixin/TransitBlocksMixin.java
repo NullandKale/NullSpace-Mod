@@ -48,6 +48,9 @@ public abstract class TransitBlocksMixin {
     if (ci.getReturnValue() && (Object) this instanceof ServerLevel level && before.get() != null) {
       var after = level.getBlockState(pos);
       if (before.get() == after) return;
+      if (before.get().getBlock() instanceof net.minecraft.world.level.block.AbstractBedBlock
+          && before.get().getBlock() != after.getBlock())
+        com.nullandkale.nullspace.ship.VesselRespawns.changed(level,pos,true);
       com.nullandkale.nullspace.ship.ShipMutations.blockChanged(
           level, pos, !before.get().isAir() && before.get().getBlock() != after.getBlock());
     }

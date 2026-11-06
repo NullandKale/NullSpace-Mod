@@ -6,7 +6,6 @@ import com.nullandkale.nullspace.dev.*;
 import com.nullandkale.nullspace.ship.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.DoorBlock;
 
@@ -14,6 +13,7 @@ import net.minecraft.world.level.block.DoorBlock;
 public final class SphereClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       var annex =
@@ -133,10 +133,8 @@ public final class SphereClientGameTest implements FabricClientGameTest {
           40);
       context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
       context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
-      context.runOnClient(
-          c ->
-              ((TerminalScreen) c.gui.screen())
-                  .keyPressed(new KeyEvent(InputConstants.KEY_RETURN, 0, 0)));
+      ShipControlTestUi.action(
+          context, com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT);
       context.waitFor(
           c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"),
           200);

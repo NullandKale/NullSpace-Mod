@@ -7,7 +7,7 @@ import java.util.List;
  * Pad/ship application. Owns editing and actions, but knows nothing about Minecraft screens or
  * packets.
  */
-public final class ControllerTerminal implements TerminalDevice {
+public final class ControllerTerminal implements ControllerApplication {
   public record Action(String verb, String argument) {}
 
   private final boolean ship;
@@ -16,13 +16,21 @@ public final class ControllerTerminal implements TerminalDevice {
   private final List<EquipmentMenus.Entry> equipment;
   private final TerminalBuffer display = new TerminalBuffer();
   private final ArrayDeque<Action> actions = new ArrayDeque<>();
+  private List<ComputerTerminal.Destination> routes =
+      com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS.stream()
+          .map(
+              d ->
+                  new ComputerTerminal.Destination(
+                      d.id(), d.systemName() + " / " + d.name(), "READY"))
+          .toList();
   private String status, name;
   private int selected, cursor, scroll, pendingTicks, quietTicks;
   private boolean overview = true;
-  private boolean waiting, selectAll;
+  private boolean waiting, selectAll, emergencyArmed;
   private boolean dirty = true;
   private String readingSource;
   private List<Reading> cachedReadings;
+  private final java.util.Map<String, Integer> allocations = new java.util.HashMap<>();
   private int[] readingColors;
 
   public ControllerTerminal(boolean ship, String status, String name) {
@@ -33,7 +41,10 @@ public final class ControllerTerminal implements TerminalDevice {
     this.mode = mode;
     this.ship = !mode.equals("pad");
     this.systems = mode.equals("systems");
-    this.equipment = EquipmentMenus.supports(mode) ? EquipmentMenus.entries(mode) : List.of();
+    this.equipment =
+        com.nullandkale.nullspace.station.StationMenus.supports(mode)
+            ? com.nullandkale.nullspace.station.StationMenus.entries(mode)
+            : EquipmentMenus.supports(mode) ? EquipmentMenus.entries(mode) : List.of();
     this.status = status;
     this.name = systems || !equipment.isEmpty() ? "" : name;
     cursor = this.name.length();
@@ -43,7 +54,20 @@ public final class ControllerTerminal implements TerminalDevice {
     return selected;
   }
 
+  public void catalog(List<ComputerTerminal.Destination> destinations) {
+    for (var d : destinations)
+      if (d.state().equals("ALLOCATION")) {
+        allocations.put(d.id(), Integer.parseInt(d.name()));
+        dirty = true;
+      }
+    if (!mode.equals("navigation")) return;
+    routes = List.copyOf(destinations);
+    selected = Math.min(selected, routes.size());
+    dirty = true;
+  }
+
   public int field() {
+    if (mode.equals("station_core")) return 0;
     return mode.equals("navigation") || mode.equals("shipyard")
         ? -1
         : !equipment.isEmpty() ? -1 : systems ? 8 : ship ? 2 : 1;
@@ -87,8 +111,8 @@ public final class ControllerTerminal implements TerminalDevice {
     return mode.equals("shipyard")
         ? com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size() + 1
         : mode.equals("navigation")
-            ? com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS.size() + 1
-            : !equipment.isEmpty() ? equipment.size() : systems ? 10 : ship ? 10 : 5;
+            ? routes.size() + 1
+            : !equipment.isEmpty() ? equipment.size() : systems ? 10 : ship ? 11 : 8;
   }
 
   private int menuRow() {
@@ -130,8 +154,29 @@ public final class ControllerTerminal implements TerminalDevice {
     dirty = true;
     if (input instanceof TerminalInput.Pointer point) {
       int row = point.row() - menuRow();
+      if (mode.equals("navigation") && routes.size() > 6) {
+        if (row < 0 || row > 6) return;
+        int index =
+            row == 6 ? routes.size() : Math.min(selected / 6, (routes.size() - 1) / 6) * 6 + row;
+        if (row != 6 && index >= routes.size()) return;
+        row = index;
+      }
+      if (mode.equals("shipyard")) {
+        if (row < 0 || row > 6) return;
+        int size = com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size();
+        int index = row == 6 ? size : Math.min(selected / 6, (size - 1) / 6) * 6 + row;
+        if (row != 6 && index >= size) return;
+        row = index;
+      }
       if (point.column() < 0 || point.column() >= 80 || row < 0 || row >= count()) return;
+      if (selected != row) emergencyArmed = false;
       selected = row;
+      if (allocationKey(row) != null) {
+        int choice = (point.column() - 38) / 4;
+        if (point.column() >= 38 && point.column() < 74 && (point.column() - 38) % 4 < 3)
+          allocate(row, choice);
+        return;
+      }
       selectAll = false;
       if (selected == field()) cursor = Math.clamp(point.column() - 22, 0, name.length());
       else execute();
@@ -159,10 +204,12 @@ public final class ControllerTerminal implements TerminalDevice {
     } else if (input instanceof TerminalInput.Key key) {
       switch (key) {
         case UP -> {
+          emergencyArmed = false;
           selected = Math.floorMod(selected - 1, count());
           selectAll = false;
         }
         case DOWN, TAB -> {
+          emergencyArmed = false;
           selected = (selected + 1) % count();
           selectAll = false;
         }
@@ -174,6 +221,17 @@ public final class ControllerTerminal implements TerminalDevice {
         case PAGE_UP -> scroll = Math.max(0, scroll - 4);
         case PAGE_DOWN -> scroll = Math.min(maxScroll(), scroll + 4);
         default -> {
+          if ((key == TerminalInput.Key.LEFT || key == TerminalInput.Key.RIGHT)
+              && allocationKey(selected) != null) {
+            allocate(
+                selected,
+                Math.clamp(
+                    allocations.getOrDefault(allocationKey(selected), 0)
+                        + (key == TerminalInput.Key.LEFT ? -1 : 1),
+                    0,
+                    8));
+            return;
+          }
           if (selected == field())
             switch (key) {
               case SELECT_ALL -> selectAll = true;
@@ -213,6 +271,10 @@ public final class ControllerTerminal implements TerminalDevice {
 
   private void execute() {
     if (waiting) return;
+    if (allocationKey(selected) != null) {
+      update("Choose a power request: click 0..8 or use Left/Right");
+      return;
+    }
     if (mode.equals("shipyard")) {
       var presets = com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS;
       if (selected < presets.size()) name = presets.get(selected).id();
@@ -222,13 +284,24 @@ public final class ControllerTerminal implements TerminalDevice {
       return;
     }
     if (!equipment.isEmpty()) {
-      actions.addLast(new Action(equipment.get(selected).verb(), ""));
+      if (equipment.get(selected).verb().equals("dock_emergency") && !emergencyArmed) {
+        emergencyArmed = true;
+        update(
+            "Emergency release retracts the tunnel. Damaged seals may leak air. Move all crew"
+                + " inside the ship. Select RELEASE (confirm) to proceed, or another action to"
+                + " cancel.");
+        return;
+      }
+      emergencyArmed = false;
+      actions.addLast(
+          new Action(
+              equipment.get(selected).verb(),
+              com.nullandkale.nullspace.station.StationMenus.supports(mode) ? name : ""));
       waiting = true;
       pendingTicks = 100;
       return;
     }
     if (mode.equals("navigation")) {
-      var routes = com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS;
       actions.addLast(
           new Action(
               selected < routes.size() ? "fast_travel" : "helm",
@@ -284,12 +357,16 @@ public final class ControllerTerminal implements TerminalDevice {
               case 7 -> "pilot";
               case 8 -> "chase";
               case 9 -> "navigation";
+              case 10 -> "docks";
               default -> "destinations";
             }
             : switch (selected) {
               case 0 -> "inspect";
               case 3 -> "preview_pad";
               case 4 -> "preview_ship";
+              case 5 -> "pad_problem";
+              case 6 -> "pad_advanced";
+              case 7 -> "recall_list";
               default -> "register";
             };
     actions.addLast(new Action(verb, verb.equals("register") || verb.equals("land") ? name : ""));
@@ -344,10 +421,12 @@ public final class ControllerTerminal implements TerminalDevice {
     }
     if (mode.equals("shipyard")) {
       var presets = com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS;
-      for (int i = 0; i < presets.size(); i++) {
+      int page = Math.min(selected / 6, (presets.size() - 1) / 6);
+      line(3, "  Catalog page " + (page + 1) + " / " + ((presets.size() + 5) / 6), false);
+      for (int i = page * 6; i < Math.min(presets.size(), page * 6 + 6); i++) {
         var p = presets.get(i);
         menu(
-            12 + i,
+            12 + i % 6,
             i,
             p.name(),
             p.size()
@@ -358,7 +437,7 @@ public final class ControllerTerminal implements TerminalDevice {
             "ship_quote");
       }
       menu(
-          12 + presets.size(),
+          18,
           presets.size(),
           "Call selected",
           com.nullandkale.nullspace.shipyard.ShipBlueprints.get(name).name() + " | FREE",
@@ -376,31 +455,37 @@ public final class ControllerTerminal implements TerminalDevice {
     if (!equipment.isEmpty()) {
       for (int i = 0; i < equipment.size(); i++) {
         var entry = equipment.get(i);
-        menu(menuRow() + i, i, entry.label(), entry.description(), entry.verb());
+        menu(
+            menuRow() + i,
+            i,
+            entry.verb().equals("dock_emergency") && emergencyArmed
+                ? "RELEASE (confirm)"
+                : entry.label(),
+            i == field() ? name : entry.description(),
+            entry.verb());
       }
+      drawAllocations();
       if (waiting) line(22, "  Waiting for server...", false);
-      line(23, "  Arrows / Click Select   ENTER Run   ESC Close", false);
+      line(23, "  Arrows / Click Select   ENTER Run   PgUp/Dn Details   ESC Close", false);
       line(24, "+" + "-".repeat(78) + "+", false);
-      display.cursorVisible(false);
+      if (field() >= 0) display.cursor(22 + cursor, menuRow() + field());
+      display.cursorVisible(selected == field());
       return display;
     }
     if (mode.equals("navigation")) {
-      var routes = com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS;
-      for (int i = 0; i < routes.size(); i++) {
+      int routeFirst = routes.size() <= 6 ? 0 : Math.min(selected / 6, (routes.size() - 1) / 6) * 6;
+      for (int i = routeFirst; i < Math.min(routeFirst + 6, routes.size()); i++) {
         var r = routes.get(i);
         menu(
-            12 + i,
+            12 + i - routeFirst,
             i,
-            r.systemName() + " / " + r.name(),
-            r.id().equals(name)
-                ? "CURRENT LOCAL SPACE"
-                : r.system()
-                        .equals(com.nullandkale.nullspace.navigation.LocalSpaces.get(name).system())
-                    ? "Orbital fast travel"
-                    : "Interstellar fast travel",
+            r.name(),
+            r.id().equals(name) ? "CURRENT LOCAL SPACE" : r.state(),
             "fast_travel");
       }
-      menu(12 + routes.size(), routes.size(), "return to helm", "", "helm");
+      menu(12 + Math.min(6, routes.size()), routes.size(), "return to helm", "", "helm");
+      if (routes.size() > 6)
+        line(20, "  Route page " + (routeFirst / 6 + 1) + " / " + ((routes.size() + 5) / 6), false);
       line(
           22,
           waiting
@@ -435,8 +520,17 @@ public final class ControllerTerminal implements TerminalDevice {
                     "fire weapon",
                     "pilot ship",
                     "ship camera",
-                    "navigation")
-                : List.of("inspect pad", "pad name", "register pad", "pad preview", "ship preview");
+                    "navigation",
+                    "docking")
+                : List.of(
+                    "inspect pad",
+                    "pad name",
+                    "register / save name",
+                    "pad preview",
+                    "ship preview",
+                    "show problem",
+                    "advanced",
+                    "recall ships");
     List<String> descriptions =
         systems
             ? List.of(
@@ -461,13 +555,17 @@ public final class ControllerTerminal implements TerminalDevice {
                     "Fire mounted cannon",
                     "Thrust and steer in local space",
                     "Orbit third-person view",
-                    "Jump to a planet or solar system")
+                    "Jump to a planet or solar system",
+                    "Stations and automatic docking")
                 : List.of(
                     "Scan surface and border",
                     "",
                     "Register or rename pad",
                     "Toggle cyan pad highlights",
-                    "Toggle amber ship highlights");
+                    "Toggle amber ship highlights",
+                    "Highlight the diagnosed block",
+                    "Registration and footprint details",
+                    "Recover your empty ship from space");
     for (int i = 0; i < count(); i++)
       menu(
           12 + i,
@@ -475,14 +573,16 @@ public final class ControllerTerminal implements TerminalDevice {
           labels.get(i),
           i == field() ? "[" + name + "]" : descriptions.get(i),
           labels.get(i).replace(' ', '_'));
-    line(
-        systems || ship ? 22 : 19,
-        waiting
-            ? "  Waiting for server..."
-            : systems
-                ? "  power cameras 2 | doors list | help | Ctrl+A edit command"
-                : "  READY - type to edit " + (ship ? "destination" : "pad name"),
-        false);
+    drawAllocations();
+    if (!ship || systems)
+      line(
+          systems || ship ? 22 : 21,
+          waiting
+              ? "  Waiting for server..."
+              : systems
+                  ? "  power cameras 2 | doors list | help | Ctrl+A edit command"
+                  : "  READY - type to edit " + (ship ? "destination" : "pad name"),
+          false);
     if (!systems && !ship) line(21, "  Ctrl+A Select all  Ctrl+V Paste  Home/End Cursor", false);
     line(23, "  Click / Arrows Select  ENTER Run  PgUp/Dn Scroll  ESC Exit", false);
     line(24, "+" + "-".repeat(78) + "+", false);
@@ -491,6 +591,45 @@ public final class ControllerTerminal implements TerminalDevice {
     display.cursor(22 + cursor, 12 + field());
     display.cursorVisible(selected == field());
     return display;
+  }
+
+  private String allocationKey(int row) {
+    if (systems && row >= 4 && row <= 6) return new String[] {"air", "engines", "weapons"}[row - 4];
+    if (row >= 0 && row < equipment.size() && equipment.get(row).verb().equals("device_allocate"))
+      return "device";
+    return null;
+  }
+
+  private void allocate(int row, int value) {
+    if (waiting) return;
+    String key = allocationKey(row);
+    actions.add(
+        new Action(
+            key.equals("device") ? "device_allocate" : "configure",
+            key.equals("device") ? "" + value : "power " + key + " " + value));
+    waiting = true;
+    pendingTicks = 100;
+    dirty = true;
+  }
+
+  private void drawAllocations() {
+    for (int row = 0; row < count(); row++) {
+      String key = allocationKey(row);
+      if (key == null) continue;
+      display.put(
+          22,
+          menuRow() + row,
+          "Request:        " + " ".repeat(40),
+          TerminalTheme.TEXT,
+          TerminalTheme.PANEL);
+      for (int v = 0; v <= 8; v++)
+        display.put(
+            38 + v * 4,
+            menuRow() + row,
+            "[" + v + "]",
+            allocations.getOrDefault(key, -1) == v ? TerminalTheme.GREEN : TerminalTheme.CYAN,
+            TerminalTheme.PANEL);
+    }
   }
 
   private void line(int row, String text, boolean selected) {

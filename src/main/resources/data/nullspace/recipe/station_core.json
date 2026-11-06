@@ -1,0 +1,18 @@
+﻿{
+    "key":  {
+                "C":  "nullspace:computer_base",
+                "B":  "nullspace:circuit_board",
+                "I":  "minecraft:iron_block"
+            },
+    "category":  "misc",
+    "pattern":  [
+                    "III",
+                    "BCB",
+                    "III"
+                ],
+    "result":  {
+                   "id":  "nullspace:station_core",
+                   "count":  1
+               },
+    "type":  "minecraft:crafting_shaped"
+}

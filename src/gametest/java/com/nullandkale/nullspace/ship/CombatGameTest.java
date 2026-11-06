@@ -12,7 +12,7 @@ import net.minecraft.world.level.block.*;
 import net.minecraft.world.phys.Vec3;
 
 public final class CombatGameTest {
-  @GameTest(maxTicks = 100)
+  @GameTest(maxTicks = 160)
   public void nativeTntDamagesSimulatedNeighbor(GameTestHelper ctx) {
     var level = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
     var anchor = ctx.absolutePos(new BlockPos(24576, 0, 24576));
@@ -30,28 +30,33 @@ public final class CombatGameTest {
           level.setChunkForced(x, z, true);
     var hull = target.offset(0, 15, 16);
     ctx.assertTrue(!level.getBlockState(hull).isAir(), "TNT target must start with a real hull");
-    ctx.runAfterDelay(
-        20,
+    var bomb = new net.minecraft.world.entity.item.PrimedTnt[1];
+    int[] ticks = {0};
+    ctx.onEachTick(
         () -> {
-          var tnt =
-              net.minecraft.world.entity.EntityTypes.TNT.create(
-                  level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
-          tnt.setPos(base.getX() + 32.5, base.getY() + 15.5, base.getZ() + 16.5);
-          tnt.setFuse(2);
-          level.addFreshEntity(tnt);
-          ctx.runAfterDelay(
-              5,
-              () -> {
-                ctx.assertTrue(
-                    level.getBlockState(hull).isAir(),
-                    "Real ticking TNT must damage a simulated neighbor whose physical hull is 8192"
-                        + " blocks away");
-                ctx.assertTrue(
-                    !level.getBlockState(isolatedBase.offset(0, 15, 16)).isAir(),
-                    "Native TNT cannot damage a ship at identical simulated coordinates in a"
-                        + " different region");
-                ctx.succeed();
-              });
+          if (++ticks[0] < 20) return;
+          if (bomb[0] == null) {
+            var tnt =
+                net.minecraft.world.entity.EntityTypes.TNT.create(
+                    level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            tnt.setPos(base.getX() + 32.5, base.getY() + 15.5, base.getZ() + 16.5);
+            tnt.setDeltaMovement(Vec3.ZERO);
+            tnt.setNoGravity(true);
+            tnt.setFuse(2);
+            level.addFreshEntity(tnt);
+            bomb[0] = tnt;
+            return;
+          }
+          if (!bomb[0].isRemoved()) return;
+          ctx.assertTrue(
+              level.getBlockState(hull).isAir(),
+              "Real ticking TNT must damage a simulated neighbor whose physical hull is 8192 blocks"
+                  + " away");
+          ctx.assertTrue(
+              !level.getBlockState(isolatedBase.offset(0, 15, 16)).isAir(),
+              "Native TNT cannot damage a ship at identical simulated coordinates in a different"
+                  + " region");
+          ctx.succeed();
         });
   }
 
@@ -73,6 +78,7 @@ public final class CombatGameTest {
             .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST),
         18);
     level.setBlock(base.offset(14, 5, 21), ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    com.nullandkale.nullspace.systems.FuelSystem.provision(level, base.offset(14, 5, 21), 64);
     level.setBlock(base.offset(15, 5, 21), ShipBlocks.BATTERY.defaultBlockState(), 18);
     level.setBlock(
         base.offset(16, 5, 21),

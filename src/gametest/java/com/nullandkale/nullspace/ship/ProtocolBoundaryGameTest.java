@@ -55,7 +55,7 @@ public final class ProtocolBoundaryGameTest {
             .mapToObj(
                 i ->
                     new ComputerTerminal.Destination(
-                        UUID.randomUUID().toString(), "N".repeat(32), "S".repeat(16)))
+                        UUID.randomUUID().toString(), "N".repeat(160), "S".repeat(16)))
             .toList();
     roundTrip(
         ctx,
@@ -67,6 +67,20 @@ public final class ProtocolBoundaryGameTest {
             "v".repeat(32),
             id,
             destinations));
+    roundTrip(
+        ctx,
+        ComputerTerminal.Open.CODEC,
+        new ComputerTerminal.Open(
+            BlockPos.ZERO,
+            "Station services",
+            "station_core",
+            "0",
+            id,
+            List.of(
+                new ComputerTerminal.Destination(
+                    UUID.randomUUID().toString(),
+                    "Halcyon Courier - abandoned freighter",
+                    "Available"))));
     roundTrip(
         ctx, ComputerTerminal.Update.CODEC, new ComputerTerminal.Update(id, "u".repeat(3000), 123));
     roundTrip(

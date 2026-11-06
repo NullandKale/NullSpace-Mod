@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.*;
  * opt-in.
  */
 public final class ShipSystems {
+  private static final String UPGRADE_QUERY = "upgrade readiness";
   private static final com.nullandkale.nullspace.server.ServerContext.Key<Map<String, ShipRuntime>>
       KEY = new com.nullandkale.nullspace.server.ServerContext.Key<>();
 
@@ -47,11 +48,61 @@ public final class ShipSystems {
     return ship != null && ship.contains("systems");
   }
 
+  public static int deviceEnergy(CompoundTag ship, BlockPos pos) {
+    long local = pos.subtract(ShipStore.pos(ship, "base")).asLong();
+    return state(ship).getListOrEmpty("devices").stream()
+        .map(t -> (CompoundTag) t)
+        .filter(d -> d.getLongOr("position", Long.MIN_VALUE) == local)
+        .mapToInt(d -> d.getIntOr("energy", 0))
+        .sum();
+  }
+
+  public static String deviceId(CompoundTag ship, BlockPos pos) {
+    long local = pos.subtract(ShipStore.pos(ship, "base")).asLong();
+    return state(ship).getListOrEmpty("devices").stream()
+        .map(t -> (CompoundTag) t)
+        .filter(d -> d.getLongOr("position", Long.MIN_VALUE) == local)
+        .map(d -> d.getStringOr("id", ""))
+        .findFirst()
+        .orElse("");
+  }
+
+  public static void setEnabled(
+      ServerLevel level, CompoundTag ship, BlockPos pos, boolean enabled) {
+    for (var tag : state(ship).getListOrEmpty("devices")) {
+      var d = (CompoundTag) tag;
+      if (d.getLongOr("position", Long.MIN_VALUE)
+          == pos.subtract(ShipStore.pos(ship, "base")).asLong()) d.putBoolean("enabled", enabled);
+    }
+    var r = runtime(level, ship);
+    r.power = null;
+    r.revision++;
+    ShipStore.get(level.getServer()).requestSave();
+  }
+
   public static Set<BlockPos> connected(ServerLevel level, CompoundTag ship) {
     if (!enabled(ship)) return ShipTopology.discover(level, ship);
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
     return r.blocks;
+  }
+
+  /** Re-read a vessel after its terrain has been loaded, preserving saved device and air state. */
+  public static void loaded(ServerLevel level, CompoundTag ship) {
+    var r = runtime(level, ship);
+    r.dirty = true;
+    r.power = null;
+  }
+
+  public static List<BlockPos> equipment(ServerLevel level, CompoundTag ship) {
+    if (!enabled(ship))
+      return connected(level, ship).stream()
+          .filter(p -> DeviceInventory.device(level.getBlockState(p).getBlock()))
+          .sorted(Comparator.comparingLong(BlockPos::asLong))
+          .toList();
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    return r.equipment;
   }
 
   private static ShipRuntime runtime(ServerLevel level, CompoundTag ship) {
@@ -107,18 +158,44 @@ public final class ShipSystems {
     ship.put("systems", s);
     var live = runtime(level, ship);
     live.dirty = true;
-    live.air = new int[Atmosphere.CELLS];
+    live.air = new int[grid(ship).cells()];
     Arrays.fill(live.air, -1);
     rebuild(level, ship, live, true);
     ShipStore.get(level.getServer()).requestSave();
   }
 
-  static int local(BlockPos base, BlockPos p) {
-    var d = p.subtract(base);
-    return Atmosphere.index(d.getX(), d.getY(), d.getZ());
+  public static void resizeStation(ServerLevel level, CompoundTag ship, int width, int depth) {
+    if (!com.nullandkale.nullspace.station.StationService.station(ship))
+      throw new IllegalArgumentException("Only stations can expand");
+    var previous = grid(ship);
+    var next = new Atmosphere.Grid(width, 32, depth);
+    var runtime = runtime(level, ship);
+    if (enabled(ship) && runtime.dirty) rebuild(level, ship, runtime, false);
+    if (enabled(ship)) {
+      int[] air = new int[next.cells()];
+      Arrays.fill(air, -1);
+      for (int cell = 0; cell < previous.cells(); cell++)
+        air[next.index(previous.x(cell), previous.y(cell), previous.z(cell))] = runtime.air[cell];
+      state(ship).putIntArray("air", air);
+    }
+    ship.putInt("width", width);
+    ship.putInt("depth", depth);
+    live(level.getServer()).remove(ship.getStringOr("id", ""));
+  }
+
+  public static Atmosphere.Grid grid(CompoundTag ship) {
+    return com.nullandkale.nullspace.station.StationService.station(ship)
+        ? new Atmosphere.Grid(ship.getIntOr("width", 32), 32, ship.getIntOr("depth", 32))
+        : Atmosphere.SHIP;
+  }
+
+  static int local(CompoundTag ship, BlockPos p) {
+    var d = p.subtract(ShipStore.pos(ship, "base"));
+    return grid(ship).index(d.getX(), d.getY(), d.getZ());
   }
 
   public static void changed(ServerLevel level, BlockPos p, boolean replaced) {
+    com.nullandkale.nullspace.station.StationService.changed(level, p, replaced);
     for (Tag t : ShipStore.get(level.getServer()).ships()) {
       var ship = (CompoundTag) t;
       if (!enabled(ship)
@@ -158,7 +235,9 @@ public final class ShipSystems {
   }
 
   public static void tick(ServerLevel level, CompoundTag ship) {
-    if (!enabled(ship) || TravelService.locked(level, ShipStore.pos(ship, "base"))) return;
+    if (!enabled(ship)
+        || !com.nullandkale.nullspace.station.StationService.ready(ship)
+        || TravelService.locked(level, ShipStore.pos(ship, "base"))) return;
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
     PowerSystem.tick(level, ship, r);
@@ -191,18 +270,68 @@ public final class ShipSystems {
   }
 
   public static boolean breathable(ServerLevel level, CompoundTag ship, BlockPos pos) {
+    if (com.nullandkale.nullspace.station.DockingService.sealedMate(level, pos)) {
+      var state = level.getBlockState(pos);
+      var inside = pos.relative(state.getValue(DoorBlock.FACING).getOpposite());
+      return breathable(level, ship, inside);
+    }
     if (!ShipStore.bounds(ship).contains(pos)) return false;
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
-    return r.air[local(ShipStore.pos(ship, "base"), pos)] >= Atmosphere.BREATHABLE;
+    return r.air[local(ship, pos)] >= Atmosphere.BREATHABLE;
   }
 
   public static int pressure(ServerLevel level, CompoundTag ship, int x, int y, int z) {
-    if (x < 0 || x >= 32 || y < 0 || y >= 32 || z < 0 || z >= 32)
-      throw new IllegalArgumentException("Cell coordinates must be 0..31");
+    if (!grid(ship).contains(x, y, z))
+      throw new IllegalArgumentException("Cell coordinates are outside this vessel");
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
-    return Math.max(0, r.air[Atmosphere.index(x, y, z)]);
+    return Math.max(0, r.air[grid(ship).index(x, y, z)]);
+  }
+
+  public static int[] interiorMask(ServerLevel level, CompoundTag ship, BlockPos offset) {
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    var grid = grid(ship);
+    var result = new int[1024];
+    for (var room : r.rooms)
+      if (room.leaks() == 0)
+        for (int cell : room.cells()) {
+          int x = grid.x(cell) - offset.getX(),
+              y = grid.y(cell) - offset.getY(),
+              z = grid.z(cell) - offset.getZ();
+          if (x >= 0 && x < 32 && y >= 0 && y < 32 && z >= 0 && z < 32) {
+            int index = Atmosphere.index(x, y, z);
+            result[index >>> 5] |= 1 << (index & 31);
+          }
+        }
+    return result;
+  }
+
+  public static int[] powerStats(ServerLevel level, CompoundTag ship) {
+    power(level, ship, PowerBus.System.CONTROLS);
+    var r = runtime(level, ship);
+    var p = r.power;
+    return p == null
+        ? new int[4]
+        : new int[] {p.generated() - p.curtailed(), p.consumed(), p.charged(), p.energy()};
+  }
+
+  /** Read actual generation/use separately from demand, including unmet demand. */
+  public static int[] powerDisplay(ServerLevel level, CompoundTag ship) {
+    var actual = powerStats(level, ship);
+    var allocation = PowerSystem.allocate(level, ship, runtime(level, ship));
+    return new int[] {
+      actual[0], actual[1], actual[2], actual[3], allocation.demand(), allocation.capacity()
+    };
+  }
+
+  public static RoomReading roomAt(ServerLevel level, CompoundTag ship, BlockPos pos) {
+    if (!enabled(ship) || !ShipStore.bounds(ship).contains(pos)) return null;
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    int number = r.atmosphere.roomAt()[local(ship, pos)];
+    return number < 0 ? null : rooms(level, ship).get(number);
   }
 
   public record RoomReading(int number, int volume, int oxygenPercent, int leaks, long quantity) {
@@ -244,7 +373,7 @@ public final class ShipSystems {
       if (level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY) && active(r, p)) {
         var at = p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING));
         if (breathable(level, ship, at)) {
-          int i = local(base, at);
+          int i = local(ship, at);
           r.air[i] = Math.max(0, r.air[i] - 10);
           state(ship).putIntArray("air", r.air);
           return true;
@@ -309,19 +438,20 @@ public final class ShipSystems {
   }
 
   public static String reading(ServerPlayer player, BlockPos controller, String query) {
-    var level = player.level();
-    var ship = ShipTopology.resolve(level, controller);
-    if (query.isEmpty() || !enabled(ship)) return summary(level, ship);
-    if (!EngineeringCommands.readOnly(query))
-      throw new IllegalArgumentException("This is not a status query");
-    var r = runtime(level, ship);
-    if (r.dirty) rebuild(level, ship, r, false);
-    // A physical edit can remove a page while it is being watched. Keep the terminal
-    // alive and tell its viewer to choose a current page instead of failing a tick.
+    // Physical edits can invalidate the controller's topology as well as its selected page.
+    // Both are status messages while a terminal is watched, not fatal server tick errors.
     try {
+      var level = player.level();
+      var ship = ShipTopology.resolve(level, controller);
+      if (query.equals(UPGRADE_QUERY)) return upgradeCheck(level, ship, controller).message();
+      if (query.isEmpty() || !enabled(ship)) return summary(level, ship);
+      if (!EngineeringCommands.readOnly(query))
+        throw new IllegalArgumentException("This is not a status query");
+      var r = runtime(level, ship);
+      if (r.dirty) rebuild(level, ship, r, false);
       return configure(player, level, ship, r, query);
     } catch (IllegalArgumentException e) {
-      return e.getMessage();
+      return ShipMessages.failure(e);
     }
   }
 
@@ -330,8 +460,99 @@ public final class ShipSystems {
     action(player, controller, action, "");
   }
 
+  public record UpgradeCheck(boolean ready, String message) {}
+
+  /** Diagnose every missing bus connection on demand without loading neighboring terrain. */
+  public static UpgradeCheck upgradeCheck(
+      ServerLevel level, CompoundTag ship, BlockPos controller) {
+    var blocks = connected(level, ship);
+    var helm = ShipStore.pos(ship, "controller");
+    String connectionAdvice =
+        "Join floors with face-touching walls or pillars leading to the main controller."
+            + " Diagonal contact does not count.";
+    if (!blocks.contains(controller))
+      return new UpgradeCheck(
+          false,
+          "Systems controller at "
+              + controller.toShortString()
+              + " is disconnected from the main controller at "
+              + helm.toShortString()
+              + ".\n"
+              + connectionAdvice);
+    var required = List.of(ShipBlocks.GENERATOR, ShipBlocks.AIR_SUPPLY);
+    var missing =
+        required.stream()
+            .filter(type -> blocks.stream().noneMatch(p -> level.getBlockState(p).is(type)))
+            .toList();
+    if (missing.isEmpty())
+      return new UpgradeCheck(
+          true, "Required equipment is connected. Choose Upgrade systems to continue.");
+
+    var bounds = ShipStore.bounds(ship);
+    var inside = new HashMap<Block, BlockPos>();
+    var outside = new HashMap<Block, BlockPos>();
+    boolean unloadedInside = false;
+    // At most a 40-cube scan: include nearby misplaced equipment, never another storage slot.
+    for (var p :
+        BlockPos.betweenClosed(bounds.min().offset(-4, -4, -4), bounds.max().offset(4, 4, 4))) {
+      if (!level.hasChunkAt(p)) {
+        if (bounds.contains(p)) unloadedInside = true;
+        continue;
+      }
+      var type = level.getBlockState(p).getBlock();
+      if (!missing.contains(type)) continue;
+      var candidates = bounds.contains(p) ? inside : outside;
+      var old = candidates.get(type);
+      if (old == null || p.distSqr(helm) < old.distSqr(helm)) candidates.put(type, p.immutable());
+    }
+    var message = new StringBuilder("Systems upgrade blocked:\n");
+    for (var type : missing) {
+      message.append(ShipMessages.block(type)).append(": ");
+      var at = inside.get(type);
+      if (at != null)
+        message
+            .append("installed at ")
+            .append(at.toShortString())
+            .append(", but no block connection reaches the main controller.");
+      else if (unloadedInside)
+        message.append("not found in the loaded part of the ship. Load the whole ship and retry.");
+      else if ((at = outside.get(type)) != null)
+        message
+            .append("nearby at ")
+            .append(at.toShortString())
+            .append(", outside this ship's build area. Move it inside.");
+      else message.append("not installed in this ship. Place it on a connected floor or wall.");
+      message.append('\n');
+    }
+    message
+        .append("Main controller: ")
+        .append(helm.toShortString())
+        .append("\nBuild area: ")
+        .append(bounds.min().toShortString())
+        .append(" to ")
+        .append(bounds.max().toShortString())
+        .append('\n')
+        .append(connectionAdvice);
+    return new UpgradeCheck(false, message.toString());
+  }
+
   public static void action(
       ServerPlayer player, BlockPos controller, ComputerTerminal.Action action, String argument) {
+    action(player, controller, action, argument, true);
+  }
+
+  public static String closeDoors(ServerPlayer player, BlockPos controller) {
+    action(player, controller, ComputerTerminal.Action.CLOSE_DOORS, "", false);
+    var ship = ShipStore.get(player.level().getServer()).at(player.level(), controller);
+    return runtime(player.level(), ship).result;
+  }
+
+  private static void action(
+      ServerPlayer player,
+      BlockPos controller,
+      ComputerTerminal.Action action,
+      String argument,
+      boolean openScreen) {
     var level = player.level();
     if (TravelService.busy(player) || TravelService.locked(level, controller))
       throw new IllegalArgumentException("Wait for boarding to finish");
@@ -343,20 +564,12 @@ public final class ShipSystems {
                 && EngineeringCommands.readOnly(argument);
     String response = null;
     var connected = connected(level, ship);
-    if (!connected.contains(controller))
+    if (action != ComputerTerminal.Action.UPGRADE && !connected.contains(controller))
       throw new IllegalArgumentException("This controller is disconnected from the ship");
     if (action == ComputerTerminal.Action.UPGRADE) {
-      var blocks = connected;
-      for (var required :
-          List.of(
-              ShipBlocks.GENERATOR,
-              ShipBlocks.BATTERY,
-              ShipBlocks.AIR_SUPPLY,
-              ShipBlocks.DOOR_CONTROL))
-        if (blocks.stream().noneMatch(p -> level.getBlockState(p).is(required)))
-          throw new IllegalArgumentException(
-              "Install a connected " + ShipMessages.block(required) + " before upgrading");
-      upgrade(level, ship);
+      var check = upgradeCheck(level, ship, controller);
+      if (check.ready()) upgrade(level, ship);
+      else response = check.message();
     } else if (enabled(ship)) {
       if (!readOnly && power(level, ship, PowerBus.System.CONTROLS) == 0)
         throw new IllegalArgumentException("Controls have no power; reset local supply hardware");
@@ -410,6 +623,7 @@ public final class ShipSystems {
     } else if (action != ComputerTerminal.Action.SYSTEMS)
       throw new IllegalArgumentException("Upgrade systems first");
     if (!readOnly) ShipStore.get(level.getServer()).requestSave();
+    if (!openScreen) return;
     ComputerTerminal.send(
         player,
         controller,
@@ -421,7 +635,9 @@ public final class ShipSystems {
     ComputerTerminal.follow(
         player,
         controller,
-        readOnly && action == ComputerTerminal.Action.CONFIGURE ? argument : "");
+        action == ComputerTerminal.Action.UPGRADE && response != null
+            ? UPGRADE_QUERY
+            : readOnly && action == ComputerTerminal.Action.CONFIGURE ? argument : "");
   }
 
   public static boolean active(CompoundTag ship, BlockPos pos) {
@@ -476,9 +692,24 @@ public final class ShipSystems {
   }
 
   public static void use(ServerPlayer player, BlockPos pos) {
+    if (player.level().getBlockState(pos).is(ShipBlocks.LOCAL_SCANNER)
+        || player.level().getBlockState(pos).is(ShipBlocks.LONG_RANGE_SCANNER)) {
+      equipmentAccess(player, pos);
+      // The Scanner layout explains itself; keep the message line free for results.
+      com.nullandkale.nullspace.navigation.ShipControl.open(player, pos, "");
+      return;
+    }
+    if (player.level().getBlockEntity(pos) instanceof MachineEntity) {
+      MachineMenus.open(player, pos);
+      return;
+    }
+    openEquipment(player, pos);
+  }
+
+  public static void openEquipment(ServerPlayer player, BlockPos pos) {
     if (player.level().getBlockState(pos).is(ShipBlocks.CAMERA)
         && ShipStore.get(player.level().getServer()).at(player.level(), pos) == null) {
-      com.nullandkale.nullspace.scene.SceneService.open(player, pos);
+      com.nullandkale.nullspace.scene.SceneService.equipmentView(player, pos);
       return;
     }
     equipmentAccess(player, pos);
@@ -550,20 +781,32 @@ public final class ShipSystems {
       int[] requests = Arrays.copyOf(state(ship).getIntArray("requests").orElse(new int[0]), 6);
       lines.add(
           "Power: " + delivered + " delivered / " + requests[system.ordinal()] + " requested");
+      if (on && requests[system.ordinal()] == 0)
+        lines.add("Power allocation is off. Increase this system's allocation.");
+      else if (on && delivered == 0)
+        lines.add(
+            "No power reaches this system. Check fuel, generation and higher-priority loads.");
     }
     var base = ShipStore.pos(ship, "base");
     switch (mode) {
       case "generator" -> {
         lines.add(
             "Output: "
-                + (on && !state(ship).getBooleanOr("supplyDisabled", false) ? 8 : 0)
+                + (on && !state(ship).getBooleanOr("supplyDisabled", false)
+                    ? 8 + 4 * FuelSystem.tier(level, pos)
+                    : 0)
                 + " energy/t");
         lines.add(
             "Ship supply: " + (state(ship).getBooleanOr("supplyDisabled", false) ? "OFF" : "ON"));
       }
       case "battery" -> {
-        lines.add("Stored energy: " + device.getIntOr("energy", 0) + " / 1200");
-        lines.add("Charge / discharge limit: 4 energy/t");
+        lines.add(
+            "Stored energy: "
+                + device.getIntOr("energy", 0)
+                + " / "
+                + FuelSystem.capacity(level, pos));
+        lines.add(
+            "Charge / discharge limit: " + (4 * (1 + FuelSystem.tier(level, pos))) + " energy/t");
       }
       case "air_supply" -> {
         int assigned = delivered;
@@ -585,7 +828,7 @@ public final class ShipSystems {
         if (!ShipStore.bounds(ship).contains(outlet))
           lines.add("OUTLET OUTSIDE SHIP: rotate/place the pump facing a room.");
         else {
-          int cell = local(base, outlet);
+          int cell = local(ship, outlet);
           var room =
               r.rooms.stream()
                   .filter(a -> Arrays.stream(a.cells()).anyMatch(i -> i == cell))
@@ -677,6 +920,46 @@ public final class ShipSystems {
 
   public static void equipmentAction(
       ServerPlayer player, BlockPos pos, ComputerTerminal.Action action) {
+    equipmentAction(player, pos, action, true, -1);
+  }
+
+  public static void restartSupply(ServerPlayer player, BlockPos pos) {
+    equipmentAction(player, pos, ComputerTerminal.Action.DEVICE_RESET, false, -1);
+  }
+
+  public static void allocatePower(ServerPlayer player, BlockPos pos, int request) {
+    if (request < 0 || request > 8) throw new IllegalArgumentException("Choose power from 0 to 8");
+    equipmentAction(player, pos, ComputerTerminal.Action.DEVICE_ALLOCATE, false, request);
+  }
+
+  public static void equipmentAction(
+      ServerPlayer player, BlockPos pos, ComputerTerminal.Action action, String value) {
+    int request = -1;
+    if (action == ComputerTerminal.Action.DEVICE_ALLOCATE && !value.isBlank()) {
+      if (!value.matches("[0-8]")) throw new IllegalArgumentException("Choose power from 0 to 8");
+      request = Integer.parseInt(value);
+    }
+    equipmentAction(player, pos, action, true, request);
+  }
+
+  public static int requestedAllocation(ServerLevel level, BlockPos at) {
+    var ship = ShipStore.get(level.getServer()).at(level, at);
+    String mode = ShipBlocks.equipmentMode(level.getBlockState(at));
+    if (!com.nullandkale.nullspace.content.ContentCatalog.equipment(mode)
+        .map(d -> d.has("power_allocation"))
+        .orElse(false)) return -1;
+    var system = subsystem(mode);
+    if (ship == null || system == null) return -1;
+    var requests = Arrays.copyOf(state(ship).getIntArray("requests").orElse(new int[0]), 6);
+    return requests[system.ordinal()];
+  }
+
+  private static void equipmentAction(
+      ServerPlayer player,
+      BlockPos pos,
+      ComputerTerminal.Action action,
+      boolean reopen,
+      int requested) {
     equipmentAccess(player, pos);
     var level = player.level();
     var mode = ShipBlocks.equipmentMode(level.getBlockState(pos));
@@ -684,7 +967,7 @@ public final class ShipSystems {
         .noneMatch(e -> e.verb().equalsIgnoreCase(action.name())))
       throw new IllegalArgumentException("Action does not belong to this equipment");
     if (action == ComputerTerminal.Action.DEVICE_REFRESH) {
-      use(player, pos);
+      openEquipment(player, pos);
       return;
     }
     var ship = ShipTopology.resolve(level, pos);
@@ -692,7 +975,7 @@ public final class ShipSystems {
     if (!connected(level, ship).contains(pos))
       throw new IllegalArgumentException("This equipment is disconnected from the ship");
     if (action == ComputerTerminal.Action.DEVICE_VIEW) {
-      com.nullandkale.nullspace.scene.SceneService.open(player, pos);
+      com.nullandkale.nullspace.scene.SceneService.equipmentView(player, pos);
       return;
     }
     if (!enabled(ship))
@@ -719,7 +1002,7 @@ public final class ShipSystems {
               "Controls have no power. Select Manual restart at a generator or charged battery.");
         int i = subsystem(mode).ordinal();
         var req = Arrays.copyOf(state(ship).getIntArray("requests").orElse(new int[0]), 6);
-        req[i] = (req[i] + 1) % 9;
+        req[i] = requested >= 0 ? requested : (req[i] + 1) % 9;
         state(ship).putIntArray("requests", req);
         state(ship).putString("profile", "custom");
         r.power = null;
@@ -744,7 +1027,7 @@ public final class ShipSystems {
     }
     r.revision++;
     ShipStore.get(level.getServer()).requestSave();
-    use(player, pos);
+    if (reopen) openEquipment(player, pos);
   }
 
   public static void initialize() {
@@ -757,7 +1040,8 @@ public final class ShipSystems {
             var level = ShipStore.level(server, ship.getStringOr("dimension", ""));
             var bounds = ShipStore.bounds(ship);
             if (level.players().stream()
-                .noneMatch(p -> bounds.box().inflate(80).contains(p.position()))) continue;
+                    .noneMatch(p -> bounds.box().inflate(80).contains(p.position()))
+                && !com.nullandkale.nullspace.station.DockingService.engaged(ship)) continue;
             boolean loaded = true;
             for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
               for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)

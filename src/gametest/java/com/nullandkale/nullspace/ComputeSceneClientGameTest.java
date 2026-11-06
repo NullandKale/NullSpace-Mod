@@ -14,6 +14,75 @@ import net.minecraft.world.phys.Vec3;
 
 /** Numerical GPU assertions and actual native draws, independent of decorative screenshots. */
 public final class ComputeSceneClientGameTest implements FabricClientGameTest {
+  private static int changedPixels(float[] a, float[] b) {
+    int changed = 0;
+    for (int p = 0; p < a.length; p += 4)
+      if (Math.abs(a[p] - b[p]) + Math.abs(a[p + 1] - b[p + 1]) + Math.abs(a[p + 2] - b[p + 2])
+          > .003) changed++;
+    return changed;
+  }
+
+  private static void saveStarFrame(String name, float[] pixels) {
+    var bytes =
+        java.nio.ByteBuffer.allocate(pixels.length * Float.BYTES)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+    for (float value : pixels) bytes.putFloat(value);
+    try {
+      java.nio.file.Files.write(java.nio.file.Path.of(name + ".f32"), bytes.array());
+    } catch (java.io.IOException failure) {
+      throw new java.io.UncheckedIOException(failure);
+    }
+  }
+
+  private static void checkStarMotion() {
+    int width = 321, height = 181;
+    var empty =
+        new SpaceDefinition("test:star-motion", 1, 42, 1, 0, List.of(), List.of(), List.of());
+    var scene = frame(empty, new int[32768]);
+    scene.putFloat("cameraYaw", 180);
+    scene.putString("dimension", "nullspace:space");
+    var observer = scene.getListOrEmpty("subjects").getCompound(0).orElseThrow();
+    observer.putString("bow", "north");
+    try (var view = new SceneViewport(width, height)) {
+      view.render(scene.copy(), 0, 0, 70);
+      float[] stationary = view.compute().inspectRadiance();
+      scene.putDouble("simulationTime", 1);
+      view.render(scene.copy(), 0, 0, 70);
+      check(
+          changedPixels(stationary, view.compute().inspectRadiance()) == 0,
+          "Stationary stars cannot drift with time");
+      observer.putDouble("x", 48);
+      view.render(scene.copy(), 0, 0, 70);
+      var translated = view.compute().inspectRadiance();
+      check(
+          changedPixels(stationary, translated) > 20,
+          "Docking translation must create visible parallax without a rotation");
+      observer.putDouble("x", 0);
+      observer.putBoolean("ftl", true);
+      observer.putDouble("ftlElapsed", 10);
+      observer.putDouble("ftlDuration", 60);
+      view.render(scene.copy(), 0, 0, 70);
+      var streaks = view.compute().inspectRadiance();
+      check(changedPixels(stationary, streaks) > 200, "FTL must produce a distinct streak pattern");
+      scene.putDouble("simulationTime", 1.5);
+      view.render(scene.copy(), 0, 0, 70);
+      check(
+          changedPixels(streaks, view.compute().inspectRadiance()) > 200,
+          "FTL streaks must flow along the travel axis");
+      observer.putString("bow", "east");
+      scene.putDouble("simulationTime", 1);
+      view.render(scene.copy(), 0, 0, 70);
+      var sideways = view.compute().inspectRadiance();
+      check(
+          changedPixels(streaks, sideways) > 200,
+          "FTL must use the ship's travel axis rather than a screen-fixed streak overlay");
+      saveStarFrame("stars-stationary-321x181", stationary);
+      saveStarFrame("stars-translated-321x181", translated);
+      saveStarFrame("stars-ftl-forward-321x181", streaks);
+      saveStarFrame("stars-ftl-sideways-321x181", sideways);
+    }
+  }
+
   private static SpaceDefinition definition(long revision, List<SpaceDefinition.Volume> volumes) {
     return new SpaceDefinition(
         "test:gpu",
@@ -205,6 +274,7 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       world.getConnection().waitForChunksRender();
@@ -216,6 +286,7 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest {
             System.setProperty("nullspace.compute.volumeScale", "0.5");
             try {
               int live = SpaceComputeRenderer.liveViews();
+              checkStarMotion();
               checkDaytimeStars();
               checkSurfaceWeather();
               String brute = System.getProperty("nullspace.compute.bruteForce");

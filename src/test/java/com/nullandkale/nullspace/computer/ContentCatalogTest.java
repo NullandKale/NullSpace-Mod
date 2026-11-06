@@ -10,9 +10,11 @@ class ContentCatalogTest {
   @Test
   void everyDefinedBlockHasWrappersLootRecipeAndAuthoredModel() {
     for (var d : ContentCatalog.EQUIPMENT) {
-      assertNotNull(getClass().getResource("/data/nullspace/recipe/" + d.id() + ".json"));
-      assertNotNull(
-          getClass().getResource("/data/nullspace/advancement/recipes/ship/" + d.id() + ".json"));
+      if (!d.has("retired")) {
+        assertNotNull(getClass().getResource("/data/nullspace/recipe/" + d.id() + ".json"));
+        assertNotNull(
+            getClass().getResource("/data/nullspace/advancement/recipes/ship/" + d.id() + ".json"));
+      }
       if (d.kind().equals("block")) {
         assertNotNull(getClass().getResource("/assets/nullspace/blockstates/" + d.id() + ".json"));
         assertNotNull(getClass().getResource("/assets/nullspace/models/block/" + d.id() + ".json"));
@@ -21,7 +23,7 @@ class ContentCatalogTest {
             getClass().getResource("/data/nullspace/loot_table/blocks/" + d.id() + ".json"));
       }
     }
-    assertEquals(24, ContentCatalog.EQUIPMENT.size());
+    assertEquals(30, ContentCatalog.EQUIPMENT.size());
   }
 
   @Test

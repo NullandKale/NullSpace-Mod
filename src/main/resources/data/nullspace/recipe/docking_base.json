@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "CDC",
+    "III"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "nullspace:circuit_board",
+    "D": "#minecraft:wooden_doors"
+  },
+  "result": {
+    "id": "nullspace:docking_base",
+    "count": 1
+  }
+}

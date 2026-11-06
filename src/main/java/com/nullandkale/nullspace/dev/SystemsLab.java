@@ -87,7 +87,7 @@ public final class SystemsLab {
           "Arrows / Enter");
       level.setBlock(
           SphereLab.controller(base),
-          ShipBlocks.HELM
+          ShipBlocks.COMPUTER
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
@@ -96,8 +96,8 @@ public final class SystemsLab {
             ShipBlocks.GENERATOR,
             ShipBlocks.BATTERY,
             ShipBlocks.AIR_SUPPLY,
-            ShipBlocks.DOOR_CONTROL,
-            ShipBlocks.SYSTEMS_CONTROLLER,
+            ShipBlocks.AIR_SUPPLY,
+            ShipBlocks.LOCAL_SCANNER,
             ShipBlocks.MONITOR
           };
       for (int i = 0; i < devices.length; i++)
@@ -122,7 +122,7 @@ public final class SystemsLab {
           18);
       level.setBlock(
           base.offset(18, 16, 22),
-          ShipBlocks.SYSTEMS_CONTROLLER
+          ShipBlocks.TERMINAL
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);

@@ -24,6 +24,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext c) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = c.worldBuilder().create()) {
       final net.minecraft.core.BlockPos[] launchHelm = new net.minecraft.core.BlockPos[1];
@@ -67,7 +68,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                 }
               },
               200);
-      choose(c, 1);
+      ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
       try {
         c.waitFor(
             mc ->
@@ -96,7 +97,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
               });
       c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
       c.waitTicks(12);
-      choose(c, 7);
+      ShipControlTestUi.action(c, ShipControl.Action.PILOT);
       c.waitFor(
           mc ->
               mc.gui.screen() instanceof ShipPilotScreen s
@@ -196,11 +197,15 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
               });
       c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 100);
       c.waitTicks(12);
-      choose(c, 8);
+      ShipControlTestUi.action(c, ShipControl.Action.CAMERA);
       c.waitFor(mc -> mc.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 100);
       c.runOnClient(mc -> mc.gui.screen().onClose());
       c.waitTicks(3);
-      for (String destination : new String[] {"sol_luna", "vega_pelagos", "sol_terra"}) {
+      ShipControlTestUi.ensureScanner(world);
+      for (String destination :
+          new String[] {
+            "sol_luna", "vega_pelagos", "frontier_a_outer", "frontier_a_moon", "sol_terra"
+          }) {
         world
             .getServer()
             .runOnServer(
@@ -209,19 +214,103 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                   NavigationService.navigation(
                       p, ShipStore.pos(SceneService.observer(p), "controller"));
                 });
-        c.waitFor(
-            mc ->
-                mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(12).contains("Terra"),
-            100);
+        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
         c.waitTicks(12);
         c.takeScreenshot("nullspace-helm-navigation");
-        int index =
-            java.util.stream.IntStream.range(0, LocalSpaces.DESTINATIONS.size())
-                .filter(i -> LocalSpaces.DESTINATIONS.get(i).id().equals(destination))
-                .findFirst()
-                .orElseThrow();
-        choose(c, index);
+        var bodyName = new String[1];
+        world
+            .getServer()
+            .runOnServer(server -> bodyName[0] = LocalSpaces.get(server, destination).name());
+        ShipControlTestUi.destination(c, world, bodyName[0], "Regions");
+        c.takeScreenshot("nullspace-unified-destination");
+        ShipControlTestUi.action(c, ShipControl.Action.JUMP);
         c.waitFor(mc -> mc.gui.screen() instanceof TravelScreen, 100);
+        c.waitFor(
+            mc ->
+                mc.gui.screen() == null
+                    && NullSpaceClient.definitions().scene() != null
+                    && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"),
+            300);
+        c.takeScreenshot("nullspace-ftl-walkable-cabin");
+        if (destination.equals("sol_luna")) {
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var ship = SceneService.observer(world.getConnection().getServerPlayer());
+                    ship.getCompoundOrEmpty("journey").putInt("contactAt", 0);
+                  });
+          world
+              .getServer()
+              .waitFor(
+                  server ->
+                      JourneyService.stopReason(
+                              server,
+                              SceneService.observer(world.getConnection().getServerPlayer()))
+                          .isEmpty(),
+                  600);
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var player = world.getConnection().getServerPlayer();
+                    ShipControl.open(
+                        player,
+                        ShipStore.pos(SceneService.observer(player), "controller"),
+                        "Signal found");
+                  });
+          c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+          c.waitTicks(5);
+          c.takeScreenshot("nullspace-ftl-investigate");
+          ShipControlTestUi.action(c, ShipControl.Action.INVESTIGATE);
+          c.waitFor(
+              mc ->
+                  mc.gui.screen() == null
+                      && NullSpaceClient.definitions().scene().id().startsWith("nullspace:e_"),
+              300);
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var player = world.getConnection().getServerPlayer();
+                    ShipControl.open(
+                        player,
+                        ShipStore.pos(SceneService.observer(player), "controller"),
+                        "Ready to resume");
+                  });
+          c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+          c.waitTicks(5);
+          c.takeScreenshot("nullspace-ftl-resume");
+          ShipControlTestUi.action(c, ShipControl.Action.DISENGAGE);
+          world
+              .getServer()
+              .waitFor(
+                  server -> {
+                    var ship = SceneService.observer(world.getConnection().getServerPlayer());
+                    return !CourseService.active(ship) && !ship.contains("dock");
+                  },
+                  800);
+          c.waitTicks(5);
+          ShipControlTestUi.action(c, ShipControl.Action.RESUME);
+          c.waitFor(
+              mc ->
+                  mc.gui.screen() == null
+                      && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"),
+              300);
+        }
+        world
+            .getServer()
+            .runOnServer(
+                server -> {
+                  var ship = SceneService.observer(world.getConnection().getServerPlayer());
+                  if (!JourneyService.cruising(ship)
+                      || TravelService.busy(world.getConnection().getServerPlayer()))
+                    throw new AssertionError(
+                        "FTL cruise must release the loading screen and block interaction lock");
+                  // Shorten only this fixture; production journeys retain their saved duration.
+                  var journey = ship.getCompoundOrEmpty("journey");
+                  journey.putInt("elapsed", journey.getIntOr("duration", 0) - 20);
+                });
         c.waitFor(
             mc ->
                 mc.gui.screen() == null
@@ -243,6 +332,10 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                       || TravelService.busy(p))
                     throw new AssertionError(
                         "Destination metadata and readiness must commit together");
+                  if (!ShipDestination.selected(SceneService.observer(p))
+                      .region()
+                      .equals(destination))
+                    throw new AssertionError("Jump lost the selected destination");
                   if (!destination.equals(LocalSpaces.HOME)) {
                     boolean rejected = false;
                     try {
@@ -266,6 +359,66 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                 });
         c.waitTicks(10);
         c.takeScreenshot("nullspace-arrival-" + destination);
+        if (destination.equals("frontier_a_outer")) {
+          // Travel through a generated system using the same controller and real surface transfer.
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var player = world.getConnection().getServerPlayer();
+                    var ship = SceneService.observer(player);
+                    ShipService.open(
+                        player, ShipStore.pos(ship, "controller"), "Land on the generated planet");
+                  });
+          c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+          ShipControlTestUi.destination(c, world, bodyName[0] + " Landing", "Pads");
+          ShipControlTestUi.action(c, ShipControl.Action.LAND);
+          c.waitFor(
+              mc ->
+                  mc.level != null
+                      && mc.level.dimension().equals(PlanetSurfaces.dimension(destination))
+                      && mc.gui.screen() == null,
+              600);
+          world.getConnection().waitForChunksRender();
+          c.waitTicks(12);
+          c.takeScreenshot("nullspace-generated-planet-surface");
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var player = world.getConnection().getServerPlayer();
+                    var ship = SceneService.observer(player);
+                    if (ship == null || !PlanetSurfaces.address(player.level()).equals(destination))
+                      throw new AssertionError(
+                          "Generated planet landing lost the registered ship or surface address");
+                    var sky = new net.minecraft.nbt.CompoundTag();
+                    if (!PlanetSky.decorate(sky, player.level(), player.blockPosition())
+                        || !sky.getStringOr("surfaceBody", "").equals("nullspace:" + destination))
+                      throw new AssertionError(
+                          "Generated surface must reference its actual planet");
+                    ShipService.open(
+                        player,
+                        ShipStore.pos(ship, "controller"),
+                        "Launch from the generated planet");
+                  });
+          c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+          ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
+          c.waitFor(
+              mc ->
+                  mc.level != null
+                      && mc.level.dimension().equals(TravelService.SPACE)
+                      && mc.gui.screen() == null,
+              600);
+          world
+              .getServer()
+              .runOnServer(
+                  server -> {
+                    var player = world.getConnection().getServerPlayer();
+                    if (!LocalSpaces.address(SceneService.observer(player)).equals(destination))
+                      throw new AssertionError(
+                          "Surface launch must return to the generated system's planet orbit");
+                  });
+        }
       }
       world
           .getServer()

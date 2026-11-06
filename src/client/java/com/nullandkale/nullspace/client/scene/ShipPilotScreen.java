@@ -14,14 +14,20 @@ import net.minecraft.network.chat.Component;
 
 /** Third-person render of the real ship snapshot; all movement remains server authoritative. */
 public final class ShipPilotScreen extends Screen implements SceneScreen {
+  private final com.nullandkale.nullspace.client.TerminalScreen parent;
   private SceneService.Frame frame;
   private SceneViewport viewport;
-  private int buttons, sequence, ticks, lastUpdate;
+  private int pulse, buttons, sequence, ticks, lastUpdate;
   private double orbit, elevation = 18, distance = 70;
-  private boolean focused, help;
+  private boolean focused, help = true;
 
   public ShipPilotScreen(SceneService.Frame frame) {
     super(Component.literal("Ship controls"));
+    parent =
+        net.minecraft.client.Minecraft.getInstance().gui.screen()
+                instanceof com.nullandkale.nullspace.client.TerminalScreen t
+            ? t
+            : null;
     this.frame = frame;
     distance = frame.scene().getDoubleOr("viewDistance", 70);
     orbit = 180 + frame.scene().getFloatOr("helmYaw", 180);
@@ -50,6 +56,28 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
   protected void init() {
     resizeViewport();
     focused = minecraft.isWindowActive();
+    addRenderableWidget(
+        net.minecraft.client.gui.components.Button.builder(
+                Component.literal("Controls (H)"), b -> help = !help)
+            .bounds(8, 23, 108, 18)
+            .build());
+    if (canPilot()) {
+      addRenderableWidget(
+          net.minecraft.client.gui.components.Button.builder(
+                  Component.literal("Brake (R)"), b -> pulse |= FlightDynamics.BRAKE)
+              .bounds(120, 23, 96, 18)
+              .build());
+      addRenderableWidget(
+          net.minecraft.client.gui.components.Button.builder(
+                  Component.literal("Fire (F)"), b -> pulse |= FlightDynamics.FIRE)
+              .bounds(220, 23, 80, 18)
+              .build());
+    }
+    addRenderableWidget(
+        net.minecraft.client.gui.components.Button.builder(
+                Component.literal("Back"), b -> onClose())
+            .bounds(width - 72, 23, 64, 18)
+            .build());
   }
 
   private void resizeViewport() {
@@ -77,11 +105,22 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
       return;
     }
     boolean active = minecraft.isWindowActive();
-    if (focused && !active) buttons = 0;
+    if (focused && !active) {
+      buttons = 0;
+      pulse = 0;
+    }
     focused = active;
     ClientPlayNetworking.send(
-        new NavigationService.Input(frame.lease(), sequence++, canPilot() ? buttons : 0, false));
+        new NavigationService.Input(
+            frame.lease(), sequence++, canPilot() ? buttons | pulse : 0, false));
     buttons &= ~FlightDynamics.FIRE;
+    pulse = 0;
+  }
+
+  @Override
+  public void onClose() {
+    if (parent != null) com.nullandkale.nullspace.client.TerminalScreen.rememberReturn(parent);
+    super.onClose();
   }
 
   @Override
@@ -135,11 +174,12 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
 
   @Override
   public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
-    return true;
+    return super.mouseClicked(event, twice);
   }
 
   @Override
   public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+    if (event.y() < 44) return false;
     orbit += dx * .4;
     elevation = Math.clamp(elevation + dy * .4, -80, 80);
     return true;
@@ -192,7 +232,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
         5,
         TerminalTheme.CYAN,
         false);
-    String hint = "H controls | Esc helm";
+    String hint = "H controls | Esc ship controls";
     int hintX = Math.max(8, width - font.width(hint) - 8);
     g.text(
         font,
@@ -224,5 +264,6 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
           false);
       g.text(font, "Drag orbit | Wheel zoom", 8, height - 27, TerminalTheme.MUTED, false);
     }
+    super.extractRenderState(g, mx, my, delta);
   }
 }

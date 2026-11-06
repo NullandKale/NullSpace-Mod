@@ -83,8 +83,7 @@ public final class SpaceSceneRenderer {
     var origin = BlockPos.of(observer.getLongOr("base", 0));
     if (!scene.getBooleanOr("planetSky", false)
         && mc.player != null
-        && mc.player.position().distanceToSqr(Vec3.atCenterOf(origin.offset(16, 16, 16))) > 40000)
-      return;
+        && !observerBounds(observer).contains(mc.player.position())) return;
     var offset = camera.pos.subtract(Vec3.atLowerCornerOf(origin));
     var pose =
         new ScenePose(
@@ -185,17 +184,21 @@ public final class SpaceSceneRenderer {
     if (observer == null)
       return mc.player == null || mc.player.getBoundingBox().inflate(104).intersects(box);
     var p = BlockPos.of(observer.getLongOr("base", 0));
-    if (mc.player != null
-        && mc.player.position().distanceToSqr(Vec3.atCenterOf(p.offset(16, 16, 16))) > 40000)
+    if (mc.player != null && !observerBounds(observer).contains(mc.player.position()))
       return mc.player.getBoundingBox().inflate(104).intersects(box);
+    return observerBounds(observer).intersects(box);
+  }
+
+  private static net.minecraft.world.phys.AABB observerBounds(CompoundTag observer) {
+    var p = BlockPos.of(observer.getLongOr("base", 0));
     return new net.minecraft.world.phys.AABB(
-            p.getX() - 72,
-            p.getY() - 72,
-            p.getZ() - 72,
-            p.getX() + 104,
-            p.getY() + 104,
-            p.getZ() + 104)
-        .intersects(box);
+            p.getX(),
+            p.getY(),
+            p.getZ(),
+            p.getX() + observer.getIntOr("width", 32),
+            p.getY() + observer.getIntOr("height", 32),
+            p.getZ() + observer.getIntOr("depth", 32))
+        .inflate(72);
   }
 
   public static SceneViewport viewport() {

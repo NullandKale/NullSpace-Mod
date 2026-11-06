@@ -6,6 +6,22 @@ import org.junit.jupiter.api.Test;
 
 class ControllerTerminalTest {
   @Test
+  void legacyNavigationUsesTheServerChartAndPaginatesBeyondTheOriginalPlanets() {
+    var terminal = new ControllerTerminal("navigation", "Ready", "sol_terra");
+    var routes =
+        java.util.stream.IntStream.range(0, 17)
+            .mapToObj(
+                i -> new ComputerTerminal.Destination("route_" + i, "Saved planet " + i, "READY"))
+            .toList();
+    terminal.catalog(routes);
+    for (int i = 0; i < 8; i++) terminal.input(TerminalInput.Key.DOWN);
+    assertTrue(terminal.display().row(14).contains("Saved planet 8"));
+    terminal.input(new TerminalInput.Pointer(8, 14));
+    assertEquals(new ControllerTerminal.Action("fast_travel", "route_8"), terminal.pollAction());
+    assertFalse(terminal.display().row(23).isBlank());
+  }
+
+  @Test
   void padPreviewsAreIndependentActionsAndRetainTheNameEditor() {
     var terminal = new ControllerTerminal("pad", "Ready", "My pad");
     for (var entry : java.util.Map.of(15, "preview_pad", 16, "preview_ship").entrySet()) {
@@ -51,8 +67,14 @@ class ControllerTerminalTest {
       assertEquals(0, terminal.selection());
       assertEquals("", terminal.fieldValue());
       for (var entry : EquipmentMenus.entries(mode)) {
-        terminal.input(TerminalInput.Key.ENTER);
-        assertEquals(new ControllerTerminal.Action(entry.verb(), ""), terminal.pollAction());
+        if (entry.verb().equals("device_allocate")) {
+          terminal.input(TerminalInput.Key.RIGHT);
+          assertEquals(
+              new ControllerTerminal.Action("device_allocate", "1"), terminal.pollAction());
+        } else {
+          terminal.input(TerminalInput.Key.ENTER);
+          assertEquals(new ControllerTerminal.Action(entry.verb(), ""), terminal.pollAction());
+        }
         terminal.update("Reply");
         terminal.input(TerminalInput.Key.DOWN);
       }

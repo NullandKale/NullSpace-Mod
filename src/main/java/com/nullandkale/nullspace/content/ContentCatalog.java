@@ -28,6 +28,12 @@ public final class ContentCatalog {
       boolean breathable,
       String dimension) {}
 
+  public record SystemSlot(String id, List<PlanetDefinition> regions) {
+    public SystemSlot {
+      regions = List.copyOf(regions);
+    }
+  }
+
   private static JsonArray read(String name) {
     try (var in =
         ContentCatalog.class.getResourceAsStream("/data/nullspace/catalog/" + name + ".json")) {
@@ -49,6 +55,42 @@ public final class ContentCatalog {
 
   public static final List<EquipmentDefinition> EQUIPMENT = equipment();
   public static final List<PlanetDefinition> PLANETS = planets();
+  public static final List<SystemSlot> SYSTEM_SLOTS = systemSlots();
+  public static final List<PlanetDefinition> SURFACES =
+      java.util.stream.Stream.concat(
+              PLANETS.stream(), SYSTEM_SLOTS.stream().flatMap(s -> s.regions().stream()))
+          .toList();
+
+  private static List<SystemSlot> systemSlots() {
+    var slots = new ArrayList<SystemSlot>();
+    for (var value : read("star_system_slots")) {
+      var o = value.getAsJsonObject();
+      String id = o.get("id").getAsString();
+      var regions = new ArrayList<PlanetDefinition>();
+      for (var region : o.getAsJsonArray("regions")) {
+        var r = region.getAsJsonObject();
+        var template =
+            PLANETS.stream()
+                .filter(p -> p.id().equals(r.get("template").getAsString()))
+                .findFirst()
+                .orElseThrow();
+        String address = r.get("id").getAsString();
+        regions.add(
+            new PlanetDefinition(
+                address,
+                id,
+                id,
+                address,
+                template.seed(),
+                template.color(),
+                template.moon(),
+                template.breathable(),
+                "nullspace:" + address));
+      }
+      slots.add(new SystemSlot(id, unique(regions, PlanetDefinition::id)));
+    }
+    return unique(slots, SystemSlot::id);
+  }
 
   private static List<EquipmentDefinition> equipment() {
     var values = new ArrayList<EquipmentDefinition>();
@@ -85,7 +127,7 @@ public final class ContentCatalog {
       EQUIPMENT.stream()
           .collect(java.util.stream.Collectors.toUnmodifiableMap(EquipmentDefinition::id, d -> d));
   private static final Map<String, PlanetDefinition> PLANETS_BY_ID =
-      PLANETS.stream()
+      SURFACES.stream()
           .collect(java.util.stream.Collectors.toUnmodifiableMap(PlanetDefinition::id, d -> d));
 
   public static Optional<EquipmentDefinition> equipment(String id) {

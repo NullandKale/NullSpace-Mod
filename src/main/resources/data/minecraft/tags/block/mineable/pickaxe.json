@@ -17,6 +17,10 @@
         "nullspace:computer_terminal",
         "nullspace:local_scanner",
         "nullspace:long_range_scanner",
-        "nullspace:ship_beacon"
+        "nullspace:ship_beacon",
+        "nullspace:station_core",
+        "nullspace:door_connector",
+        "nullspace:docking_port",
+        "nullspace:docking_base"
     ]
 }

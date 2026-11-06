@@ -302,6 +302,14 @@ public final class SphereLab {
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);
+    level.setBlock(b.offset(10, 6, 20), ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    com.nullandkale.nullspace.systems.FuelSystem.provision(level, b.offset(10, 6, 20), 64);
+    level.setBlock(
+        b.offset(10, 6, 21),
+        ShipBlocks.AIR_SUPPLY
+            .defaultBlockState()
+            .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH),
+        18);
   }
 
   private static void stair(ServerLevel level, BlockPos b, int x, int y, int z) {

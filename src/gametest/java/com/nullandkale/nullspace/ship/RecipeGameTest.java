@@ -93,6 +93,9 @@ public final class RecipeGameTest {
     }
     for (var entry : PATTERNS.entrySet()) {
       String name = entry.getKey();
+      if (com.nullandkale.nullspace.content.ContentCatalog.equipment(name)
+          .map(d -> d.has("retired"))
+          .orElse(false)) continue;
       var recipe = RecipeLab.recipe(server, name);
       var key =
           ResourceKey.create(Registries.RECIPE, Identifier.fromNamespaceAndPath("nullspace", name));

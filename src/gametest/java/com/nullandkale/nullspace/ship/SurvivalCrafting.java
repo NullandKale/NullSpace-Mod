@@ -82,27 +82,26 @@ public final class SurvivalCrafting {
       Items.COBBLESTONE,
       Items.OAK_PLANKS
     };
-    int[] counts = {42, 56, 17, 8, 31, 19};
+    int[] counts = {34, 50, 17, 8, 30, 21};
     for (int i = 0; i < items.length; i++)
       player.getInventory().add(new ItemStack(items[i], counts[i]));
     var crafting = new SurvivalCrafting(player, table);
     for (var item :
         List.of(
             com.nullandkale.nullspace.pad.PadComputers.BLOCK.asItem(),
-            ShipBlocks.HELM.asItem(),
+            ShipBlocks.COMPUTER.asItem(),
             ShipBlocks.ENGINE.asItem(),
             ShipBlocks.GENERATOR.asItem(),
             ShipBlocks.BATTERY.asItem(),
-            ShipBlocks.AIR_SUPPLY.asItem(),
-            ShipBlocks.DOOR_CONTROL.asItem())) crafting.ensure(item, 1);
+            ShipBlocks.AIR_SUPPLY.asItem())) crafting.ensure(item, 1);
     for (var item : items)
       if (player.getInventory().countItem(item) != 0)
         throw new AssertionError(
             "Starter bill did not consume expected raw material: "
                 + BuiltInRegistries.ITEM.getKey(item));
-    if (player.getInventory().countItem(ShipBlocks.CIRCUIT_BOARD) != 1
-        || player.getInventory().countItem(Items.STICK) != 2)
-      throw new AssertionError("Starter batch leftovers must be one board and two sticks");
+    if (player.getInventory().countItem(ShipBlocks.CIRCUIT_BOARD) != 2
+        || player.getInventory().countItem(Items.STICK) != 3)
+      throw new AssertionError("Starter batch leftovers must be two boards and three sticks");
     player.getInventory().add(new ItemStack(Items.IRON_INGOT, 19));
     player.getInventory().add(new ItemStack(Items.COPPER_INGOT, 5));
     player.getInventory().add(new ItemStack(Items.GLASS));
@@ -111,7 +110,7 @@ public final class SurvivalCrafting {
     for (var item : items)
       if (player.getInventory().countItem(item) != 0)
         throw new AssertionError("Suit bill did not consume expected raw material");
-    if (player.getInventory().countItem(ShipBlocks.CIRCUIT_BOARD) != 0)
+    if (player.getInventory().countItem(ShipBlocks.CIRCUIT_BOARD) != 1)
       throw new AssertionError("Suit chestplate must use the spare board");
   }
 }

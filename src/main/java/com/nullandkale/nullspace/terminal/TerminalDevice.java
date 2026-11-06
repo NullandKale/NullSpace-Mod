@@ -5,4 +5,8 @@ public interface TerminalDevice {
   TerminalBuffer display();
 
   void input(TerminalInput input);
+
+  default boolean closeRequested() {
+    return false;
+  }
 }

@@ -9,6 +9,42 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 
 public final class ShipSensors {
+  public static boolean powered(ServerLevel level, CompoundTag ship, BlockPos scanner) {
+    var blocks = ShipSystems.connected(level, ship);
+    if (!blocks.contains(scanner) || !ShipSystems.active(ship, scanner)) return false;
+    long cameras =
+        blocks.stream()
+            .filter(
+                p -> level.getBlockState(p).is(ShipBlocks.CAMERA) && ShipSystems.active(ship, p))
+            .count();
+    var sensors =
+        blocks.stream()
+            .filter(
+                p ->
+                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER)
+                            || level.getBlockState(p).is(ShipBlocks.LONG_RANGE_SCANNER))
+                        && ShipSystems.active(ship, p))
+            .sorted(Comparator.comparingLong(BlockPos::asLong))
+            .toList();
+    int index = sensors.indexOf(scanner);
+    return index >= 0 && ShipSystems.power(level, ship, PowerBus.System.CAMERAS) > cameras + index;
+  }
+
+  public static int range(ServerLevel level, CompoundTag ship) {
+    int tier =
+        ShipSystems.connected(level, ship).stream()
+            .filter(
+                p ->
+                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER)
+                            || level.getBlockState(p).is(ShipBlocks.LONG_RANGE_SCANNER))
+                        && ShipSystems.active(ship, p))
+            .filter(p -> powered(level, ship, p))
+            .mapToInt(p -> FuelSystem.tier(level, p))
+            .max()
+            .orElse(0);
+    return 1024 << tier;
+  }
+
   public static boolean installed(ServerLevel level, CompoundTag ship, boolean far) {
     var blocks = ShipSystems.connected(level, ship);
     long cameras =
@@ -28,9 +64,10 @@ public final class ShipSensors {
     int granted = ShipSystems.power(level, ship, PowerBus.System.CAMERAS);
     for (int i = 0; i < sensors.size(); i++)
       if (granted > cameras + i
-          && level
-              .getBlockState(sensors.get(i))
-              .is(far ? ShipBlocks.LONG_RANGE_SCANNER : ShipBlocks.LOCAL_SCANNER)) return true;
+          && level.getBlockState(sensors.get(i)).is(ShipBlocks.LONG_RANGE_SCANNER)) return true;
+      else if (granted > cameras + i
+          && level.getBlockState(sensors.get(i)).is(ShipBlocks.LOCAL_SCANNER)
+          && (!far || FuelSystem.tier(level, sensors.get(i)) > 0)) return true;
     return false;
   }
 
@@ -44,7 +81,7 @@ public final class ShipSensors {
       return "JUMP TARGETS\n"
           + String.join(
               "\n",
-              LocalSpaces.DESTINATIONS.stream()
+              LocalSpaces.destinations(level.getServer()).stream()
                   .map(
                       d ->
                           d.id()
@@ -62,7 +99,7 @@ public final class ShipSensors {
             ? LocalSpaces.address(ship)
             : PlanetSurfaces.address(level);
     if (address == null) address = LocalSpaces.HOME;
-    lines.add("LOCAL SPACE: " + LocalSpaces.get(address).name());
+    lines.add("LOCAL SPACE: " + LocalSpaces.get(level.getServer(), address).name());
     lines.add("Environment: " + PlanetSurfaces.atmosphere(level));
     var own = SceneService.pose(ship);
     lines.add(
@@ -88,7 +125,7 @@ public final class ShipSensors {
           || !other.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString())
           || !LocalSpaces.together(ship, other)) continue;
       double distance = SceneService.pose(other).position().distanceTo(own.position());
-      if (distance > 4096) continue;
+      if (distance > range(level, ship)) continue;
       lines.add(
           String.format(
               Locale.ROOT,
@@ -97,14 +134,14 @@ public final class ShipSensors {
               distance));
       if (++contacts >= 16) break;
     }
-    lines.add("Contacts: " + contacts + " | local range 4096");
+    lines.add("Contacts: " + contacts + " | local range " + range(level, ship));
     return String.join("\n", lines);
   }
 
   public static List<Map<String, Object>> targets(ServerLevel level, CompoundTag ship) {
     if (!installed(level, ship, true))
       throw new IllegalArgumentException("Power a long-range scanner first");
-    return LocalSpaces.DESTINATIONS.stream()
+    return LocalSpaces.destinations(level.getServer()).stream()
         .map(
             d ->
                 Map.<String, Object>of(
@@ -131,7 +168,7 @@ public final class ShipSensors {
           || !LocalSpaces.together(ship, other)) continue;
       var position = SceneService.pose(other).position();
       double distance = position.distanceTo(own.position());
-      if (distance <= 4096 && result.size() < 16)
+      if (distance <= range(level, ship) && result.size() < 16)
         result.add(
             Map.of(
                 "id",

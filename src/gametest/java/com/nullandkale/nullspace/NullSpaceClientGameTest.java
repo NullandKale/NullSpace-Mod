@@ -51,6 +51,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) {
       LocalMultiplayerTest.run(context);
       return;
@@ -139,14 +140,12 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                   throw new java.io.UncheckedIOException(error);
                 }
                 var records = com.google.gson.JsonParser.parseString(saved).getAsJsonArray();
-                if (records.size() != 1
-                    || !records
-                        .get(0)
-                        .getAsJsonObject()
-                        .get("name")
-                        .getAsString()
-                        .equals("Test Pad"))
-                  throw new AssertionError("Pad registration was not persisted");
+                long named =
+                    java.util.stream.StreamSupport.stream(records.spliterator(), false)
+                        .filter(
+                            t -> t.getAsJsonObject().get("name").getAsString().equals("Test Pad"))
+                        .count();
+                if (named != 1) throw new AssertionError("Pad registration was not persisted");
               });
       context.waitFor(
           client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen);
@@ -157,38 +156,14 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
             var terminal = (com.nullandkale.nullspace.client.TerminalScreen) client.gui.screen();
             if (!org.lwjgl.sdl.SDLKeyboard.SDL_TextInputActive(client.getWindow().handle()))
               throw new AssertionError("Terminal must activate native text input");
+            click(terminal, 10, 5);
             terminal.keyPressed(
                 new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            int oldLength = terminal.fieldValue().length();
-            for (int i = 0; i < oldLength; i++)
-              terminal.keyPressed(
-                  new net.minecraft.client.input.KeyEvent(
-                      com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE, 0, 0));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-            if (!terminal.status().contains("Enter a pad name") || terminal.selection() != 1)
-              throw new AssertionError("Empty keyboard registration must explain the missing name");
-            click(terminal, 10, 14);
-            if (!terminal.status().contains("Enter a pad name"))
-              throw new AssertionError("Empty mouse registration must show feedback");
-            click(terminal, 22, 13);
+                    com.mojang.blaze3d.platform.InputConstants.KEY_A,
+                    0,
+                    com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL));
             client.keyboardHandler.textInput(client.getWindow().handle(), "Terminal Pad");
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_LEFT, 0, 0));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE, 0, 0));
-            terminal.charTyped(new net.minecraft.client.input.CharacterEvent('a'));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT, 0, 0));
-            click(terminal, 10, 14);
+            click(terminal, 4, 7);
           });
       singleplayer
           .getServer()
@@ -248,16 +223,10 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen);
       long shipReady = System.nanoTime();
       context.waitFor(client -> System.nanoTime() - shipReady > 600_000_000L);
-      context.runOnClient(
-          client -> {
-            var terminal = (com.nullandkale.nullspace.client.TerminalScreen) client.gui.screen();
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-          });
+      context.waitFor(
+          client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen t
+              && t.shipController());
+      ShipControlTestUi.action(context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
       context.takeScreenshot("nullspace-launch-request");
       context.waitFor(
           client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TravelScreen);

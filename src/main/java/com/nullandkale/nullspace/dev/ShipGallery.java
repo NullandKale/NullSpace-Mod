@@ -319,6 +319,14 @@ public final class ShipGallery {
     if (number == 10) level.setBlock(b.offset(2, 2, 6), Blocks.STONE.defaultBlockState(), 18);
     if (number == 11) level.setBlock(b.offset(1, 2, 6), Blocks.STONE.defaultBlockState(), 18);
     if (number == 12) level.setBlock(b.offset(5, 36, 6), Blocks.GLASS.defaultBlockState(), 18);
+    level.setBlock(b.offset(2, 2, 7), ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    com.nullandkale.nullspace.systems.FuelSystem.provision(level, b.offset(2, 2, 7), 64);
+    level.setBlock(
+        b.offset(8, 2, 6),
+        ShipBlocks.AIR_SUPPLY
+            .defaultBlockState()
+            .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
+        18);
   }
 
   private static void door(ServerLevel level, BlockPos bottom, Block block) {

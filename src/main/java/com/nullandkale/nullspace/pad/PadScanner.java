@@ -43,14 +43,20 @@ public final class PadScanner {
     }
   }
 
-  public record Result(Pad pad, String message) {
+  public record Point(int x, int y, int z) {}
+
+  public record Result(Pad pad, String message, Point problem) {
+    public Result(Pad pad, String message) {
+      this(pad, message, null);
+    }
+
     public boolean valid() {
       return pad != null;
     }
   }
 
   private static Result fail(String message, int x, int y, int z) {
-    return new Result(null, message + " at " + x + ", " + y + ", " + z);
+    return new Result(null, message + " at " + x + ", " + y + ", " + z, new Point(x, y, z));
   }
 
   private static boolean surface(Cell cell) {

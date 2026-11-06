@@ -14,7 +14,7 @@ public final class PlanetSky {
     String address = PlanetSurfaces.address(level);
     if (address == null) return false;
     var catalog = SceneCatalog.region(level.getServer(), address);
-    String name = LocalSpaces.get(address).name();
+    String name = LocalSpaces.get(level.getServer(), address).name();
     var body =
         catalog.getListOrEmpty("bodies").stream()
             .map(t -> (CompoundTag) t)

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "CRC",
+    "ICI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "nullspace:circuit_board",
+    "R": "minecraft:redstone"
+  },
+  "result": {
+    "id": "nullspace:system_upgrade",
+    "count": 1
+  }
+}

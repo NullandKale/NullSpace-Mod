@@ -121,6 +121,7 @@ public final class ResourceReloadClientGameTest implements FabricClientGameTest 
 
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     var directory = new AtomicReference<Path>();
     var selected = new AtomicReference<List<String>>();

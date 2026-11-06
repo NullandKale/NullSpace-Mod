@@ -80,10 +80,12 @@ public final class PadStatusService {
     while (it.hasNext() && lastReads < READS_PER_TICK) {
       var job = it.next().getValue();
       PadRegistry.Status result = null;
-      ServerLevel level = null;
-      try {
-        level = ShipStore.level(server, job.pad.dimension());
-      } catch (IllegalArgumentException missing) {
+      ServerLevel level =
+          server.getLevel(
+              net.minecraft.resources.ResourceKey.create(
+                  net.minecraft.core.registries.Registries.DIMENSION,
+                  net.minecraft.resources.Identifier.parse(job.pad.dimension())));
+      if (level == null) {
         result =
             new PadRegistry.Status(job.pad, PadRegistry.State.UNAVAILABLE, "Dimension missing");
       }

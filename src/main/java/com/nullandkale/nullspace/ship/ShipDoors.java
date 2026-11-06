@@ -43,6 +43,7 @@ public final class ShipDoors {
   }
 
   public static boolean sealed(ServerLevel level, BlockPos at) {
+    if (com.nullandkale.nullspace.station.DockingService.sealedMate(level, at)) return true;
     var s = level.getBlockState(at);
     return s.getBlock() instanceof TrapDoorBlock
         ? framedHatch(level, at) && !open(s) && s.getFluidState().isEmpty()

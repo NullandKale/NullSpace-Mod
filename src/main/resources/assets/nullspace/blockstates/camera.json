@@ -1,19 +1,35 @@
 {
     "variants": {
-        "facing=north": {
+        "facing=north,legacy_hull=false": {
             "model": "nullspace:block/camera",
             "y": 0
         },
-        "facing=east": {
+        "facing=north,legacy_hull=true": {
+            "model": "nullspace:block/camera_legacy",
+            "y": 0
+        },
+        "facing=east,legacy_hull=false": {
             "model": "nullspace:block/camera",
             "y": 90
         },
-        "facing=south": {
+        "facing=east,legacy_hull=true": {
+            "model": "nullspace:block/camera_legacy",
+            "y": 90
+        },
+        "facing=south,legacy_hull=false": {
             "model": "nullspace:block/camera",
             "y": 180
         },
-        "facing=west": {
+        "facing=south,legacy_hull=true": {
+            "model": "nullspace:block/camera_legacy",
+            "y": 180
+        },
+        "facing=west,legacy_hull=false": {
             "model": "nullspace:block/camera",
+            "y": 270
+        },
+        "facing=west,legacy_hull=true": {
+            "model": "nullspace:block/camera_legacy",
             "y": 270
         }
     }

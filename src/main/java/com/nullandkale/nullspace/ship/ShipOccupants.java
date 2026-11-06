@@ -14,11 +14,16 @@ public final class ShipOccupants {
   public record Contents(List<Entity> cargo, List<ServerPlayer> crew) {}
 
   public static Contents inspect(ServerLevel level, ShipScan.Result scan) {
+    return inspect(level, scan, false);
+  }
+
+  static Contents inspect(ServerLevel level, ShipScan.Result scan, boolean recall) {
     ShipEntities.requireLoaded(level, scan.bounds());
     var contents = ShipEntities.inBounds(level, scan.bounds());
     List<Entity> cargo = new ArrayList<>();
     List<ServerPlayer> crew = new ArrayList<>();
     for (Entity entity : contents) {
+      if (recall && entity instanceof ServerPlayer p && !p.isAlive()) continue;
       if (!(entity instanceof ServerPlayer)
           && !(entity instanceof Mob)
           && !(entity instanceof ItemEntity))
@@ -26,7 +31,7 @@ public final class ShipOccupants {
             entity,
             "This vehicle, projectile or decoration cannot travel yet. Remove it from the ship"
                 + " before launching.");
-      if (!scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
+      if (!recall && !scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
         throw ShipMessages.entityProblem(
             entity,
             "Move fully inside a sealed cabin before launch; this occupant is outside the safe"

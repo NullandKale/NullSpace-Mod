@@ -128,6 +128,87 @@ class ShipStoreDurabilityTest {
   // --- AtomicFiles ---------------------------------------------------------------------------
 
   @Test
+  @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+  void aWindowsSharingLockLongerThanFiftyMillisecondsCanClearWithoutLosingState() throws Exception {
+    var temp = directory.resolve("sharing.tmp");
+    var destination = directory.resolve("sharing");
+    Files.writeString(destination, "old");
+    Files.writeString(temp, "new");
+    try (var locked =
+            java.nio.channels.FileChannel.open(
+                destination,
+                StandardOpenOption.READ,
+                com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE);
+        var release = java.util.concurrent.Executors.newSingleThreadScheduledExecutor()) {
+      var closed =
+          release.schedule(
+              () -> {
+                locked.close();
+                return true;
+              },
+              150,
+              java.util.concurrent.TimeUnit.MILLISECONDS);
+      AtomicFiles.promote(temp, destination);
+      assertTrue(closed.get(2, java.util.concurrent.TimeUnit.SECONDS));
+    }
+    assertEquals("new", Files.readString(destination));
+    assertFalse(Files.exists(temp));
+  }
+
+  @Test
+  @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+  void aPersistentSharingLockFailsWithBothOriginalAndTemporaryContentsIntact() throws Exception {
+    var temp = directory.resolve("blocked.tmp");
+    var destination = directory.resolve("blocked");
+    Files.writeString(destination, "old");
+    Files.writeString(temp, "new");
+    try (var locked =
+        java.nio.channels.FileChannel.open(
+            destination,
+            StandardOpenOption.READ,
+            com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE)) {
+      assertThrows(AccessDeniedException.class, () -> AtomicFiles.promote(temp, destination));
+    }
+    assertEquals("old", Files.readString(destination));
+    assertEquals("new", Files.readString(temp));
+  }
+
+  @Test
+  @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+  void interruptionCancelsSharingRetriesAndKeepsTheInterruptFlag() throws Exception {
+    var temp = directory.resolve("interrupt.tmp");
+    var destination = directory.resolve("interrupt");
+    Files.writeString(destination, "old");
+    Files.writeString(temp, "new");
+    var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+    var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+    try (var locked =
+        java.nio.channels.FileChannel.open(
+            destination,
+            StandardOpenOption.READ,
+            com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE)) {
+      var worker =
+          Thread.ofPlatform()
+              .start(
+                  () -> {
+                    Thread.currentThread().interrupt();
+                    try {
+                      AtomicFiles.promote(temp, destination);
+                    } catch (IOException error) {
+                      failure.set(error);
+                      interrupted.set(Thread.currentThread().isInterrupted());
+                    }
+                  });
+      worker.join(2000);
+      assertFalse(worker.isAlive());
+    }
+    assertInstanceOf(IOException.class, failure.get());
+    assertTrue(interrupted.get());
+    assertEquals("old", Files.readString(destination));
+    assertEquals("new", Files.readString(temp));
+  }
+
+  @Test
   void promoteReplacesAnExistingDestination() throws IOException {
     var temp = directory.resolve("a.tmp");
     var destination = directory.resolve("a");

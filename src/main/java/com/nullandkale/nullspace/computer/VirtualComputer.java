@@ -376,7 +376,10 @@ public final class VirtualComputer implements ScriptLanguage.Host {
       case "cp", "mv" -> {
         arity(args, 2);
         String from = VirtualFiles.path(cwd, args.getFirst());
-        files.write(VirtualFiles.path(cwd, args.get(1)), files.read(from));
+        String to = VirtualFiles.path(cwd, args.get(1));
+        String contents = files.read(from);
+        if (from.equals(to)) yield "";
+        files.write(to, contents);
         if (name.equals("mv")) files.remove(from);
         yield "";
       }
@@ -398,7 +401,10 @@ public final class VirtualComputer implements ScriptLanguage.Host {
         yield String.join("\n", stdin.lines().filter(l -> l.contains(args.getFirst())).toList());
       }
       case "head" -> {
-        int count = args.isEmpty() ? 10 : Integer.parseInt(args.getFirst());
+        if (args.size() > 1 || !args.isEmpty() && !args.getFirst().matches("[+-]?\\d{1,10}"))
+          throw new IllegalArgumentException(
+              "Usage: head [line count]. Reads piped input; counts clamp to 0..1000.");
+        long count = args.isEmpty() ? 10 : Long.parseLong(args.getFirst());
         yield String.join("\n", stdin.lines().limit(Math.clamp(count, 0, 1000)).toList());
       }
       case "wc" -> Long.toString(stdin.lines().count());
@@ -501,7 +507,11 @@ public final class VirtualComputer implements ScriptLanguage.Host {
   public void restore(String image) {
     // Build and validate a complete replacement before touching the running machine.
     var restored = new VirtualComputer(devices);
-    restored.restoreImage(image);
+    try {
+      restored.restoreImage(image);
+    } catch (JsonParseException malformed) {
+      throw new IllegalArgumentException("Invalid computer image JSON", malformed);
+    }
     files.replaceWith(restored.files);
     processes.clear();
     processes.putAll(restored.processes);
@@ -523,38 +533,49 @@ public final class VirtualComputer implements ScriptLanguage.Host {
   }
 
   private void restoreImage(String image) {
+    if (image == null) throw new IllegalArgumentException("Computer image is missing");
     if (image.length() > 8 * 1024 * 1024)
       throw new IllegalArgumentException("Computer image exceeds limit");
-    var root = JsonParser.parseString(image).getAsJsonObject();
-    if (root.get("version").getAsInt() != 1)
+    var parsed = JsonParser.parseString(image);
+    if (!parsed.isJsonObject())
+      throw new IllegalArgumentException("Computer image must be an object");
+    var root = parsed.getAsJsonObject();
+    if (number(root, "version") != 1)
       throw new IllegalArgumentException("Unknown computer image version");
-    if (root.has("compilerAbi")
-        && root.get("compilerAbi").getAsInt() != ScriptLanguage.COMPILER_ABI)
+    if (root.has("compilerAbi") && number(root, "compilerAbi") != ScriptLanguage.COMPILER_ABI)
       throw new IllegalArgumentException("Saved scripts require a different compiler ABI");
-    clock = Math.max(0, root.get("clock").getAsLong());
+    clock = Math.max(0, number(root, "clock"));
     files.clear();
     if (root.has("directories"))
-      for (var value : root.getAsJsonArray("directories")) {
+      for (var value : array(root, "directories")) {
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
+          throw new IllegalArgumentException("Image directory names must be strings");
         String dir = value.getAsString();
         if (!files.directory(dir)) files.mkdir(VirtualFiles.path("/", dir));
       }
-    for (var entry : root.getAsJsonObject("files").entrySet())
-      files.write(VirtualFiles.path("/", entry.getKey()), entry.getValue().getAsString());
-    cwd = VirtualFiles.path("/", root.get("cwd").getAsString());
+    var savedFiles = object(root, "files");
+    for (var entry : savedFiles.entrySet())
+      files.write(VirtualFiles.path("/", entry.getKey()), string(savedFiles, entry.getKey()));
+    cwd = VirtualFiles.path("/", string(root, "cwd"));
     if (!files.directory(cwd)) cwd = "/home/crew";
     if (root.has("jobs"))
-      for (var value : root.getAsJsonArray("jobs")) {
+      for (var value : array(root, "jobs")) {
         if (processes.size() >= 8) throw new IllegalArgumentException("Too many saved processes");
+        if (!value.isJsonObject())
+          throw new IllegalArgumentException("Image job must be an object");
         var j = value.getAsJsonObject();
-        String source = j.get("source").getAsString();
-        var syntax = ScriptLanguage.Syntax.valueOf(j.get("syntax").getAsString());
+        String source = string(j, "source");
+        var syntax = ScriptLanguage.Syntax.valueOf(string(j, "syntax"));
         var job = new ScriptLanguage.Job(ScriptLanguage.compile(source, syntax));
         job.detached = true;
-        job.pc = j.get("pc").getAsInt();
+        long pc = number(j, "pc");
+        if (pc < 0 || pc > Integer.MAX_VALUE)
+          throw new IllegalArgumentException("Invalid saved instruction position");
+        job.pc = (int) pc;
         if (job.pc < 0 || job.pc > job.program.code().size())
           throw new IllegalArgumentException("Invalid saved instruction position");
-        job.wake = Math.max(0, j.get("wake").getAsLong());
-        for (var e : j.getAsJsonObject("variables").entrySet()) {
+        job.wake = Math.max(0, number(j, "wake"));
+        for (var e : object(j, "variables").entrySet()) {
           if (job.variables.size() >= 128 || e.getValue().toString().length() > 8192)
             throw new IllegalArgumentException("Saved variables exceed limit");
           Object variable = new Gson().fromJson(e.getValue(), Object.class);
@@ -565,5 +586,45 @@ public final class VirtualComputer implements ScriptLanguage.Host {
         int id = nextPid++;
         processes.put(id, new Process(id, source, syntax, job));
       }
+  }
+
+  private static JsonElement required(JsonObject root, String key) {
+    var value = root.get(key);
+    if (value == null || value.isJsonNull())
+      throw new IllegalArgumentException("Computer image is missing field: " + key);
+    return value;
+  }
+
+  private static String string(JsonObject root, String key) {
+    var value = required(root, key);
+    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
+      throw new IllegalArgumentException("Computer image field must be a string: " + key);
+    return value.getAsString();
+  }
+
+  private static long number(JsonObject root, String key) {
+    var value = required(root, key);
+    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())
+      throw new IllegalArgumentException("Computer image field must be an integer: " + key);
+    try {
+      return value.getAsBigDecimal().longValueExact();
+    } catch (ArithmeticException invalid) {
+      throw new IllegalArgumentException(
+          "Computer image field must be a whole 64-bit integer: " + key);
+    }
+  }
+
+  private static JsonObject object(JsonObject root, String key) {
+    var value = required(root, key);
+    if (!value.isJsonObject())
+      throw new IllegalArgumentException("Computer image field must be an object: " + key);
+    return value.getAsJsonObject();
+  }
+
+  private static JsonArray array(JsonObject root, String key) {
+    var value = required(root, key);
+    if (!value.isJsonArray())
+      throw new IllegalArgumentException("Computer image field must be an array: " + key);
+    return value.getAsJsonArray();
   }
 }

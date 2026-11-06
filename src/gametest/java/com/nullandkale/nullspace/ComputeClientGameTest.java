@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 public final class ComputeClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     context.runOnClient(
         client -> {

@@ -47,10 +47,72 @@ public final class ComputerTerminal {
     PREVIEW_PAD,
     PREVIEW_SHIP,
     SHIP_QUOTE,
-    SHIP_BUY
+    SHIP_BUY,
+    DOCKS,
+    STATION_ARGUMENT,
+    STATION_REFRESH,
+    STATION_SYSTEMS,
+    STATION_WAYPOINT,
+    STATION_START,
+    STATION_MODULE,
+    STATION_GENERATE,
+    STATION_RENAME,
+    STATION_INVITE,
+    STATION_ACCESS,
+    STATION_DOOR,
+    DOCK_NEXT,
+    DOCK_REQUEST,
+    DOCK_ACCEPT,
+    DOCK_CANCEL,
+    DOCK_INNER,
+    DOCK_OUTER,
+    DOCK_BOARD,
+    DOCK_CONSTRUCTION,
+    DOCK_RETURN,
+    DOCK_UNDOCK,
+    DOCK_EMERGENCY,
+    MACHINE_BACK,
+    STATION_REMOVE,
+    STATION_EXPAND,
+    PAD_PROBLEM,
+    PAD_ADVANCED,
+    RECALL_LIST,
+    RECALL_SHIP,
+    RECALL_CANCEL,
+    RECALL_BACK,
+    CONTROLLER_BACK,
+    SHIP_STORE,
+    SHIP_TITLE,
+    STATION_CLAIM
   }
 
-  public record Destination(String id, String name, String state) {}
+  public record Destination(String id, String name, String state, String detail) {
+    public Destination(String id, String name, String state) {
+      this(id, name, state, "");
+    }
+  }
+
+  /** Session-scoped live data can never open a closed terminal. */
+  public record Refresh(Open view) implements CustomPacketPayload {
+    public static final Type<Refresh> TYPE =
+        new Type<>(Identifier.parse("nullspace:terminal_refresh"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, Refresh> CODEC =
+        Open.CODEC.map(Refresh::new, Refresh::view);
+
+    public Type<Refresh> type() {
+      return TYPE;
+    }
+  }
+
+  public record Ack(UUID session) implements CustomPacketPayload {
+    public static final Type<Ack> TYPE = new Type<>(Identifier.parse("nullspace:terminal_ack"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, Ack> CODEC =
+        StreamCodec.of((b, p) -> b.writeUUID(p.session), b -> new Ack(b.readUUID()));
+
+    public Type<Ack> type() {
+      return TYPE;
+    }
+  }
 
   private static final class Session {
     final UUID id = UUID.randomUUID();
@@ -58,7 +120,7 @@ public final class ComputerTerminal {
     final String dimension, mode;
     final LinkedHashMap<String, Destination> destinations = new LinkedHashMap<>();
     int expires, nextAction;
-    String query = "";
+    String query = "", value = "";
 
     Session(ServerPlayer p, BlockPos pos, String mode) {
       position = pos.immutable();
@@ -129,8 +191,9 @@ public final class ComputerTerminal {
               b.writeVarInt(p.destinations.size());
               for (var d : p.destinations) {
                 b.writeUtf(d.id, 36);
-                b.writeUtf(d.name, 32);
+                b.writeUtf(d.name, 160);
                 b.writeUtf(d.state, 16);
+                b.writeUtf(d.detail, 256);
               }
             },
             b -> {
@@ -140,11 +203,12 @@ public final class ComputerTerminal {
               var value = b.readUtf(32);
               var id = b.readUUID();
               int count = b.readVarInt();
-              if (count < 0 || count > 128)
+              if (count < 0 || count > 256)
                 throw new IllegalArgumentException("Invalid terminal catalog size");
               var destinations = new ArrayList<Destination>();
               for (int i = 0; i < count; i++)
-                destinations.add(new Destination(b.readUtf(36), b.readUtf(32), b.readUtf(16)));
+                destinations.add(
+                    new Destination(b.readUtf(36), b.readUtf(160), b.readUtf(16), b.readUtf(256)));
               return new Open(pos, message, mode, value, id, List.copyOf(destinations));
             });
 
@@ -216,6 +280,11 @@ public final class ComputerTerminal {
 
   public record Authorized(BlockPos position, String mode, String argument) {}
 
+  public static boolean current(ServerPlayer p, UUID id) {
+    var s = sessions(p.level().getServer()).get(p.getUUID());
+    return s != null && s.id.equals(id) && valid(p, s);
+  }
+
   private static boolean valid(ServerPlayer p, Session s) {
     return p.isAlive()
         && s.expires >= p.level().getServer().getTickCount()
@@ -223,30 +292,40 @@ public final class ComputerTerminal {
         && p.distanceToSqr(s.position.getX() + .5, s.position.getY() + .5, s.position.getZ() + .5)
             <= 64
         && p.level().hasChunkAt(s.position)
-        && (s.mode.equals("shipyard")
-            ? p.level().getBlockState(s.position).is(ShipBlocks.SHIP_BEACON)
-            : s.mode.equals("pad")
-                ? p.level().getBlockState(s.position).is(PadComputers.BLOCK)
-                : EquipmentMenus.supports(s.mode)
-                    ? s.mode.equals(ShipBlocks.equipmentMode(p.level().getBlockState(s.position)))
-                    : ShipBlocks.navigation(p.level().getBlockState(s.position))
-                        || s.mode.equals("systems")
-                            && p.level()
-                                .getBlockState(s.position)
-                                .is(ShipBlocks.SYSTEMS_CONTROLLER))
+        && (com.nullandkale.nullspace.station.StationMenus.supports(s.mode)
+            ? s.mode.equals(
+                com.nullandkale.nullspace.station.StationService.mode(p.level(), s.position))
+            : s.mode.equals("shipyard")
+                ? p.level().getBlockState(s.position).is(ShipBlocks.SHIP_BEACON)
+                : (s.mode.equals("pad") || s.mode.equals("recall"))
+                    ? p.level().getBlockState(s.position).is(PadComputers.BLOCK)
+                    : EquipmentMenus.supports(s.mode)
+                        ? s.mode.equals(
+                            ShipBlocks.equipmentMode(p.level().getBlockState(s.position)))
+                        : ShipBlocks.navigation(p.level().getBlockState(s.position))
+                            || s.mode.equals("systems")
+                                && (p.level()
+                                        .getBlockState(s.position)
+                                        .is(ShipBlocks.SYSTEMS_CONTROLLER)
+                                    || p.level()
+                                        .getBlockState(s.position)
+                                        .is(ShipBlocks.STATION_CORE)))
         && p.mayInteract(p.level(), s.position)
+        && com.nullandkale.nullspace.station.StationService.mayUse(p, s.position)
         && !TravelService.busy(p)
         && !TravelService.locked(p.level(), s.position);
   }
 
   public static Open issue(
       ServerPlayer player, BlockPos pos, String message, String mode, String value) {
-    if (!mode.equals("pad")
+    if (!mode.equals("recall")
+        && !mode.equals("pad")
         && !mode.equals("ship")
         && !mode.equals("systems")
         && !mode.equals("navigation")
         && !mode.equals("shipyard")
-        && !EquipmentMenus.supports(mode))
+        && !EquipmentMenus.supports(mode)
+        && !com.nullandkale.nullspace.station.StationMenus.supports(mode))
       throw new IllegalArgumentException("Unknown controller mode");
     var candidate = new Session(player, pos, mode);
     candidate.expires = player.level().getServer().getTickCount() + 1200;
@@ -286,9 +365,28 @@ public final class ComputerTerminal {
             pad.name().toLowerCase(Locale.ROOT),
             new Destination(pad.id(), pad.name(), status.state().name()));
       }
+    if (mode.equals("pad")) {
+      session.destinations.clear();
+      var inspected = PadComputers.inspect(player, pos);
+      boolean registered =
+          PadRegistry.read(player.level().getServer()).stream()
+              .anyMatch(
+                  p ->
+                      p.dimension().equals(player.level().dimension().identifier().toString())
+                          && p.computer().equals(pos));
+      session.destinations.put(
+          "pad_status",
+          new Destination(
+              "pad_status",
+              inspected.valid()
+                  ? inspected.pad().width() + " x " + inspected.pad().depth()
+                  : "Needs repair",
+              !inspected.valid() ? "INVALID" : registered ? "REGISTERED" : "VALID"));
+    }
     if (mode.equals("navigation")) {
       session.destinations.clear();
-      for (var route : com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS)
+      for (var route :
+          com.nullandkale.nullspace.navigation.LocalSpaces.destinations(player.level().getServer()))
         session.destinations.put(
             route.id(),
             new Destination(
@@ -296,10 +394,103 @@ public final class ComputerTerminal {
                 route.systemName() + " / " + route.name(),
                 route.id().equals(value) ? "CURRENT" : "READY"));
     }
+    if (mode.equals("systems")) {
+      var own = ShipStore.get(player.level().getServer()).at(player.level(), pos);
+      if (own != null) {
+        var requests =
+            Arrays.copyOf(
+                own.getCompoundOrEmpty("systems").getIntArray("requests").orElse(new int[0]), 6);
+        session.destinations.put(
+            "air", new Destination("air", Integer.toString(requests[1]), "ALLOCATION"));
+        session.destinations.put(
+            "engines", new Destination("engines", Integer.toString(requests[3]), "ALLOCATION"));
+        session.destinations.put(
+            "weapons", new Destination("weapons", Integer.toString(requests[5]), "ALLOCATION"));
+      }
+    } else if (EquipmentMenus.supports(mode)) {
+      int request =
+          com.nullandkale.nullspace.systems.ShipSystems.requestedAllocation(player.level(), pos);
+      if (request >= 0)
+        session.destinations.put(
+            "device", new Destination("device", Integer.toString(request), "ALLOCATION"));
+    }
+    session.value = value;
     if (mode.equals("shipyard")) {
       session.destinations.clear();
       for (var preset : com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS)
         session.destinations.put(preset.id(), new Destination(preset.id(), preset.name(), "FREE"));
+    }
+    if (mode.equals("recall")) {
+      session.destinations.clear();
+      for (var ship : ShipRecall.candidates(player, pos)) session.destinations.put(ship.id(), ship);
+      var pad =
+          PadRegistry.read(player.level().getServer()).stream()
+              .filter(
+                  p ->
+                      p.computer().equals(pos)
+                          && p.dimension()
+                              .equals(player.level().dimension().identifier().toString()))
+              .findFirst();
+      pad.ifPresent(
+          p ->
+              session.destinations.put(
+                  "recall_pad",
+                  new Destination(
+                      "recall_pad", p.name(), ShipRecall.active(player) ? "ACTIVE" : "IDLE")));
+    }
+    if (mode.equals("station_core")) {
+      session.destinations.clear();
+      var station = ShipStore.get(player.level().getServer()).at(player.level(), pos);
+      if (station != null) {
+        session.destinations.put(
+            "station_rights",
+            new Destination(
+                "station_rights",
+                com.nullandkale.nullspace.station.StationService.owner(player, station)
+                    ? "Owner"
+                    : "Builder",
+                "SETTING"));
+        if (com.nullandkale.nullspace.station.EncounterClaims.claimable(station))
+          session.destinations.put(
+              "station_claim", new Destination("station_claim", "Claim", "CLAIMABLE"));
+        session.destinations.put(
+            "station_name",
+            new Destination("station_name", station.getStringOr("home", "Station"), "SETTING"));
+        session.destinations.put(
+            "station_access",
+            new Destination(
+                "station_access",
+                station.getStringOr("access", "private").equals("public")
+                    ? "Allowed"
+                    : "Not allowed",
+                "SETTING"));
+        if (!station.getStringOr("constructionShip", "").isEmpty())
+          session.destinations.put(
+              "construction_return", new Destination("construction_return", "My ship", "SETTING"));
+        for (var online :
+            player.level().getServer().getPlayerList().getPlayers().stream().limit(60).toList())
+          session.destinations.put(
+              "player_" + online.getUUID().toString().replace("-", ""),
+              new Destination(
+                  online.getUUID().toString().replace("-", ""),
+                  online.getPlainTextName(),
+                  "PLAYER"));
+        for (var id : station.getCompoundOrEmpty("builders").keySet()) {
+          if (session.destinations.size() >= 60) break;
+          var name = station.getCompoundOrEmpty("builderNames").getStringOr(id, id.substring(0, 8));
+          session.destinations.put(id, new Destination(id, name, "BUILDER"));
+        }
+        session.destinations.put(
+            "station_area",
+            new Destination(
+                "station_area",
+                Integer.toString(station.getIntOr("width", 32) / 32),
+                "STATION_AREA"));
+        var rooms = station.getCompoundOrEmpty("roomPieces");
+        for (var cell : rooms.keySet())
+          session.destinations.put(
+              cell, new Destination(cell, rooms.getStringOr(cell, "Room"), "ROOM"));
+      }
     }
     if (old != null && old != session)
       com.nullandkale.nullspace.systems.ShipSystems.cancel(player, old.position);
@@ -328,44 +519,78 @@ public final class ComputerTerminal {
           "Computer moved, changed, is out of range, or session expired. Reopen it.");
     }
     var allowed =
-        EquipmentMenus.supports(s.mode)
-            ? EquipmentMenus.entries(s.mode).stream()
+        com.nullandkale.nullspace.station.StationMenus.supports(s.mode)
+            ? com.nullandkale.nullspace.station.StationMenus.entries(s.mode).stream()
+                .filter(e -> !e.verb().equals("station_argument"))
                 .map(e -> Action.valueOf(e.verb().toUpperCase(Locale.ROOT)))
                 .collect(java.util.stream.Collectors.toSet())
-            : s.mode.equals("shipyard")
-                ? Set.of(Action.SHIP_QUOTE, Action.SHIP_BUY)
-                : s.mode.equals("pad")
-                    ? Set.of(
-                        Action.INSPECT, Action.REGISTER, Action.PREVIEW_PAD, Action.PREVIEW_SHIP)
-                    : s.mode.equals("ship")
+            : EquipmentMenus.supports(s.mode)
+                ? EquipmentMenus.entries(s.mode).stream()
+                    .map(e -> Action.valueOf(e.verb().toUpperCase(Locale.ROOT)))
+                    .collect(java.util.stream.Collectors.toSet())
+                : s.mode.equals("shipyard")
+                    ? Set.of(Action.SHIP_QUOTE, Action.SHIP_BUY)
+                    : s.mode.equals("recall")
                         ? Set.of(
-                            Action.INSPECT,
-                            Action.LAUNCH,
-                            Action.LAND,
-                            Action.DESTINATIONS,
-                            Action.SYSTEMS,
-                            Action.FIRE,
-                            Action.PILOT,
-                            Action.CHASE,
-                            Action.NAVIGATION)
-                        : s.mode.equals("navigation")
-                            ? Set.of(Action.FAST_TRAVEL, Action.HELM)
-                            : Set.of(
-                                Action.SYSTEMS,
-                                Action.UPGRADE,
-                                Action.CLOSE_DOORS,
-                                Action.OPEN_DOORS,
-                                Action.POWER_AIR,
-                                Action.POWER_ENGINES,
-                                Action.POWER_WEAPONS,
-                                Action.PRIORITY,
-                                Action.CONFIGURE);
+                            Action.RECALL_LIST,
+                            Action.RECALL_SHIP,
+                            Action.RECALL_CANCEL,
+                            Action.RECALL_BACK,
+                            Action.SHIP_STORE,
+                            Action.SHIP_TITLE)
+                        : s.mode.equals("pad")
+                            ? Set.of(
+                                Action.RECALL_LIST,
+                                Action.INSPECT,
+                                Action.REGISTER,
+                                Action.PREVIEW_PAD,
+                                Action.PAD_PROBLEM,
+                                Action.PAD_ADVANCED,
+                                Action.PREVIEW_SHIP)
+                            : s.mode.equals("ship")
+                                ? Set.of(
+                                        Action.INSPECT,
+                                        Action.LAUNCH,
+                                        Action.LAND,
+                                        Action.DESTINATIONS,
+                                        Action.SYSTEMS,
+                                        Action.FIRE,
+                                        Action.PILOT,
+                                        Action.CHASE,
+                                        Action.NAVIGATION)
+                                    .stream()
+                                    .collect(java.util.stream.Collectors.toSet())
+                                : s.mode.equals("navigation")
+                                    ? Set.of(Action.FAST_TRAVEL, Action.HELM)
+                                    : Set.of(
+                                        Action.SYSTEMS,
+                                        Action.UPGRADE,
+                                        Action.CLOSE_DOORS,
+                                        Action.OPEN_DOORS,
+                                        Action.POWER_AIR,
+                                        Action.POWER_ENGINES,
+                                        Action.POWER_WEAPONS,
+                                        Action.PRIORITY,
+                                        Action.CONFIGURE);
+    if (s.mode.equals("ship")) allowed.add(Action.DOCKS);
+    if (player.level().getBlockEntity(s.position)
+        instanceof com.nullandkale.nullspace.systems.MachineEntity) {
+      allowed = new HashSet<>(allowed);
+      allowed.add(Action.MACHINE_BACK);
+    }
+    if (ShipBlocks.navigation(player.level().getBlockState(s.position))
+        || player.level().getBlockState(s.position).is(ShipBlocks.STATION_CORE)) {
+      allowed = new HashSet<>(allowed);
+      allowed.add(Action.CONTROLLER_BACK);
+    }
     if (!allowed.contains(request.action))
       throw new IllegalArgumentException("Action does not belong to this controller");
     if ((s.mode.equals("systems") || EquipmentMenus.supports(s.mode))
         && request.action != Action.SYSTEMS
         && request.action != Action.DEVICE_REFRESH
         && request.action != Action.DEVICE_VIEW
+        && request.action != Action.MACHINE_BACK
+        && request.action != Action.CONTROLLER_BACK
         && !(request.action == Action.CONFIGURE
             && com.nullandkale.nullspace.systems.EngineeringCommands.readOnly(request.argument))) {
       var vessel =
@@ -421,6 +646,8 @@ public final class ComputerTerminal {
 
   public static void initialize() {
     PayloadTypeRegistry.clientboundPlay().register(Open.TYPE, Open.CODEC);
+    PayloadTypeRegistry.clientboundPlay().register(Refresh.TYPE, Refresh.CODEC);
+    PayloadTypeRegistry.clientboundPlay().register(Ack.TYPE, Ack.CODEC);
     PayloadTypeRegistry.clientboundPlay().register(Rejected.TYPE, Rejected.CODEC);
     PayloadTypeRegistry.clientboundPlay().register(Update.TYPE, Update.CODEC);
     PayloadTypeRegistry.serverboundPlay().register(Request.TYPE, Request.CODEC);
@@ -435,8 +662,43 @@ public final class ComputerTerminal {
                       var player = context.player();
                       try {
                         var a = authorize(player, packet);
-                        if (a.mode.equals("pad")) {
-                          if (packet.action == Action.PREVIEW_PAD
+                        if (packet.action == Action.CONTROLLER_BACK) {
+                          close(player, packet.session);
+                          if (player.level().getBlockState(a.position).is(ShipBlocks.STATION_CORE))
+                            com.nullandkale.nullspace.station.StationService.open(
+                                player, a.position, "");
+                          else
+                            com.nullandkale.nullspace.navigation.ShipControl.open(
+                                player, a.position, "Returned from engineering");
+                        } else if (packet.action == Action.MACHINE_BACK) {
+                          close(player, packet.session);
+                          com.nullandkale.nullspace.systems.MachineMenus.open(player, a.position);
+                        } else if (a.mode.equals("recall")) {
+                          if (packet.action == Action.RECALL_BACK)
+                            PadComputers.action(player, a.position, null);
+                          else {
+                            String notice =
+                                packet.action == Action.RECALL_SHIP
+                                    ? ShipRecall.request(
+                                        player, a.position, a.argument, packet.session)
+                                    : packet.action == Action.RECALL_CANCEL
+                                        ? ShipRecall.cancel(player)
+                                        : packet.action == Action.SHIP_STORE
+                                            ? ShipRecall.store(
+                                                player, a.position, a.argument, packet.session)
+                                            : packet.action == Action.SHIP_TITLE
+                                                ? ShipRecall.title(player, a.position, a.argument)
+                                                : "";
+                            ShipRecall.open(player, a.position, notice);
+                          }
+                        } else if (a.mode.equals("pad")) {
+                          if (packet.action == Action.RECALL_LIST)
+                            ShipRecall.open(player, a.position, "");
+                          else if (packet.action == Action.PAD_PROBLEM
+                              || packet.action == Action.PAD_ADVANCED)
+                            PadComputers.details(
+                                player, a.position, packet.action == Action.PAD_PROBLEM);
+                          else if (packet.action == Action.PREVIEW_PAD
                               || packet.action == Action.PREVIEW_SHIP)
                             PadComputers.preview(
                                 player, a.position, packet.action == Action.PREVIEW_SHIP);
@@ -445,18 +707,26 @@ public final class ComputerTerminal {
                                 player,
                                 a.position,
                                 packet.action == Action.REGISTER ? a.argument : null);
+                        } else if (com.nullandkale.nullspace.station.StationMenus.supports(
+                            a.mode)) {
+                          if (packet.action == Action.HELM)
+                            ShipService.open(player, a.position, "Ready");
+                          else
+                            com.nullandkale.nullspace.station.StationService.action(
+                                player, a.position, packet.action, a.argument);
                         } else if (a.mode.equals("shipyard"))
                           com.nullandkale.nullspace.shipyard.ShipYardService.action(
                               player, a.position, a.argument, packet.action == Action.SHIP_BUY);
                         else if (EquipmentMenus.supports(a.mode))
                           com.nullandkale.nullspace.systems.ShipSystems.equipmentAction(
-                              player, a.position, packet.action);
+                              player, a.position, packet.action, a.argument);
                         else
                           ShipService.act(
                               player,
                               a.position,
                               packet.action.name().toLowerCase(Locale.ROOT),
                               a.argument);
+                        ServerPlayNetworking.send(player, new Ack(packet.session));
                       } catch (Exception error) {
                         if (!(error instanceof IllegalArgumentException))
                           com.nullandkale.nullspace.NullSpace.LOGGER.error(
@@ -483,23 +753,42 @@ public final class ComputerTerminal {
     com.nullandkale.nullspace.server.ServerContext.tick(
         com.nullandkale.nullspace.server.ServerContext.Phase.SESSIONS,
         server -> {
-          sessions(server)
-              .entrySet()
-              .removeIf(
-                  e -> {
-                    var p = server.getPlayerList().getPlayer(e.getKey());
-                    boolean invalid = p == null || !valid(p, e.getValue());
-                    if (invalid && p != null)
-                      com.nullandkale.nullspace.systems.ShipSystems.cancel(
-                          p, e.getValue().position);
-                    return invalid;
-                  });
-          if (server.getTickCount() % 20 != 0) return;
-          for (var entry : sessions(server).entrySet()) {
+          var active = sessions(server);
+          // Cancellation and network callbacks may close or replace another player's session.
+          for (var entry : Map.copyOf(active).entrySet()) {
+            var p = server.getPlayerList().getPlayer(entry.getKey());
             var session = entry.getValue();
+            if ((p == null || !valid(p, session))
+                && active.remove(entry.getKey(), session)
+                && p != null)
+              com.nullandkale.nullspace.systems.ShipSystems.cancel(p, session.position);
+          }
+          if (server.getTickCount() % 20 != 0) return;
+          for (var entry : Map.copyOf(active).entrySet()) {
+            var session = entry.getValue();
+            if (active.get(entry.getKey()) != session) continue;
             var player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) continue;
+            if (session.mode.equals("shipyard")) {
+              var preview =
+                  com.nullandkale.nullspace.shipyard.ShipYardService.preview(
+                      player, session.position, session.value);
+              if (active.get(entry.getKey()) != session) continue;
+              ServerPlayNetworking.send(
+                  player, new Update(session.id, preview.message(), preview.readiness()));
+              session.expires = server.getTickCount() + 1200;
+              continue;
+            }
+            if (session.mode.equals("recall")) {
+              ServerPlayNetworking.send(
+                  player,
+                  new Refresh(issue(player, session.position, "", session.mode, session.value)));
+              session.expires = server.getTickCount() + 1200;
+              continue;
+            }
             boolean equipment = EquipmentMenus.supports(session.mode);
-            if ((!session.mode.equals("systems") && !equipment)
+            boolean station = com.nullandkale.nullspace.station.StationMenus.supports(session.mode);
+            if ((!session.mode.equals("systems") && !equipment && !station)
                 || !ServerPlayNetworking.canSend(player, Update.TYPE)) continue;
             var message =
                 equipment
@@ -508,18 +797,50 @@ public final class ComputerTerminal {
                     : "";
             var ship = ShipStore.get(server).at(player.level(), session.position);
             if (ship == null && !equipment) continue;
-            if (!equipment) message = reading(player, session.position);
+            if (station) {
+              try {
+                message =
+                    com.nullandkale.nullspace.station.StationService.status(
+                        player, ship, session.position);
+              } catch (IllegalArgumentException damaged) {
+                message = damaged.getMessage();
+              }
+            } else if (!equipment) message = reading(player, session.position);
             int revision =
-                ship == null
-                    ? 0
-                    : com.nullandkale.nullspace.systems.ShipSystems.revision(player.level(), ship);
-            ServerPlayNetworking.send(player, new Update(session.id, message, revision));
+                station
+                    ? server.getTickCount()
+                    : ship == null
+                        ? 0
+                        : com.nullandkale.nullspace.systems.ShipSystems.revision(
+                            player.level(), ship);
+            if (active.get(entry.getKey()) != session) continue;
+            if (session.mode.equals("station_core"))
+              ServerPlayNetworking.send(
+                  player,
+                  new Refresh(
+                      issue(
+                          player,
+                          session.position,
+                          message,
+                          session.mode,
+                          Integer.toString(revision))));
+            else
+              ServerPlayNetworking.send(
+                  player,
+                  new Refresh(
+                      issue(
+                          player,
+                          session.position,
+                          message,
+                          session.mode,
+                          Integer.toString(revision))));
             session.expires = server.getTickCount() + 1200;
           }
         });
   }
 
   public static void send(ServerPlayer p, BlockPos pos, String message, String mode, String value) {
+    if (p.containerMenu != p.inventoryMenu) p.closeContainer();
     ServerPlayNetworking.send(p, issue(p, pos, message, mode, value));
   }
 

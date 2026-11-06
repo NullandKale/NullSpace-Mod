@@ -33,6 +33,16 @@ public final class ShipScan {
 
   public static Result inspect(
       ServerLevel level, BlockPos controller, PadScanner.Pad pad, boolean sky) {
+    return inspect(level, controller, pad, sky, Set.of(), false);
+  }
+
+  static Result inspect(
+      ServerLevel level,
+      BlockPos controller,
+      PadScanner.Pad pad,
+      boolean sky,
+      Set<BlockPos> approvedDetached,
+      boolean reviewing) {
     Bounds allowed =
         new Bounds(
             new BlockPos(pad.minX(), pad.y() + 1, pad.minZ()),
@@ -43,12 +53,13 @@ public final class ShipScan {
           "The helm is outside this pad. Move it above the grass or dirt interior.",
           controller);
     Set<BlockPos> blocks = new HashSet<>();
+    var docking = com.nullandkale.nullspace.station.DockingTunnel.positions(level);
     ArrayDeque<BlockPos> queue = new ArrayDeque<>();
     queue.add(controller);
     int engines = 0, computers = 0, doors = 0;
     while (!queue.isEmpty()) {
       BlockPos pos = queue.removeFirst();
-      if (blocks.contains(pos) || pos.getY() <= pad.y()) continue;
+      if (blocks.contains(pos) || pos.getY() <= pad.y() || docking.contains(pos)) continue;
       var state = level.getBlockState(pos);
       if (state.isAir()) continue;
       if (!allowed.contains(pos))
@@ -117,17 +128,28 @@ public final class ShipScan {
       z1 = Math.max(z1, p.getZ());
     }
     Bounds bounds = new Bounds(new BlockPos(x0, y0, z0), new BlockPos(x1, y1, z1));
-    // A disconnected part or high transparent obstruction must not be silently captured.
+    // Approval covers exact loose pieces, never a block in the hull's vertical launch path.
+    Map<Long, Integer> columns = new HashMap<>();
+    for (BlockPos p : blocks)
+      columns.merge(BlockPos.asLong(p.getX(), 0, p.getZ()), p.getY(), Math::min);
     for (int x = pad.minX(); x <= pad.maxX(); x++)
       for (int z = pad.minZ(); z <= pad.maxZ(); z++)
-        for (int y = pad.y() + 1; y <= (sky ? level.getMaxY() : bounds.max().getY()); y++) {
+        for (int y = pad.y() + 1; y <= (sky ? level.getMaxY() : pad.y() + 32); y++) {
           var p = new BlockPos(x, y, z);
-          if (!level.getBlockState(p).isAir() && !blocks.contains(p))
+          if (!level.getBlockState(p).isAir() && !blocks.contains(p) && !docking.contains(p)) {
+            if (sky && columns.getOrDefault(BlockPos.asLong(x, 0, z), Integer.MAX_VALUE) < y)
+              fail(
+                  level,
+                  "Launch path obstruction: clear this block above the connected hull before"
+                      + " launching.",
+                  p);
+            if (reviewing || approvedDetached.contains(p)) continue;
             fail(
                 level,
-                "This block is disconnected from the ship or is an obstruction in the launch path."
-                    + " Connect it to the hull or clear the column above the pad.",
+                "This block is disconnected from the ship. Reconnect it, remove it, or use"
+                    + " Review loose blocks at the controller to leave it behind.",
                 p);
+          }
         }
     Pressure pressure = pressure(level, bounds, blocks);
     var facing = level.getBlockState(controller).getValue(HorizontalDirectionalBlock.FACING);
@@ -226,6 +248,7 @@ public final class ShipScan {
   }
 
   public static boolean seals(ServerLevel level, BlockPos pos) {
+    if (com.nullandkale.nullspace.station.DockingService.sealedMate(level, pos)) return true;
     var state = level.getBlockState(pos);
     if (ShipDoors.isDoor(state)) return ShipDoors.sealed(level, pos);
     return !state.isAir()

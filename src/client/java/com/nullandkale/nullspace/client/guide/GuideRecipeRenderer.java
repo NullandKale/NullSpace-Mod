@@ -13,6 +13,14 @@ import net.minecraft.world.item.ItemStack;
 
 /** Uses the item renderer: resource packs, models, counts and hover names work normally. */
 public final class GuideRecipeRenderer {
+  private static BookViewScreen.BookAccess hoverBook;
+  private static int hoverPage = -1, hoverCell = -1;
+  private static String hoverItem;
+
+  public static boolean isGuide(BookViewScreen.BookAccess access) {
+    return ((RecipeBookAccess) (Object) access).nullspace$recipes() != null;
+  }
+
   public static GuideContent.Recipe recipe(BookViewScreen.BookAccess access, int page) {
     var data = ((RecipeBookAccess) (Object) access).nullspace$recipes();
     if (data == null) return null;
@@ -26,7 +34,11 @@ public final class GuideRecipeRenderer {
     if (recipe == null || recipe.count() == 0) return -1;
     int cell = cellAt(width, mouseX, mouseY);
     if (cell < 0) return -1;
-    return target(access, shown(recipe.cells().get(cell)));
+    return target(
+        access,
+        access == hoverBook && page == hoverPage && cell == hoverCell
+            ? hoverItem
+            : shown(recipe.cells().get(cell)));
   }
 
   private static int target(BookViewScreen.BookAccess access, String item) {
@@ -68,12 +80,23 @@ public final class GuideRecipeRenderer {
       int mx,
       int my) {
     var recipe = recipe(access, page);
-    if (recipe == null || recipe.count() == 0) return;
+    if (recipe == null || recipe.count() == 0) {
+      hoverBook = null;
+      return;
+    }
+    int hovered = cellAt(width, mx, my);
+    if (access != hoverBook || page != hoverPage || hovered != hoverCell) {
+      hoverBook = access;
+      hoverPage = page;
+      hoverCell = hovered;
+      hoverItem = hovered < 0 ? null : shown(recipe.cells().get(hovered));
+    }
     var mc = Minecraft.getInstance();
     int left = (width - 192) / 2 + 36;
     for (int cell = 0; cell < 9; cell++) {
       var choices = recipe.cells().get(cell);
-      var item = stack(shown(choices), 1);
+      String displayed = cell == hovered ? hoverItem : shown(choices);
+      var item = stack(displayed, 1);
       int x = left + cell % 3 * 18, y = 55 + cell / 3 * 18;
       slot(g, item, x, y);
       if (cellAt(width, mx, my) == cell && !item.isEmpty()) {
@@ -83,7 +106,7 @@ public final class GuideRecipeRenderer {
           tooltip.add(
               Component.literal("Any of " + choices.size() + " ingredients (cycles)")
                   .withStyle(ChatFormatting.GRAY));
-        if (target(access, shown(choices)) >= 0)
+        if (target(access, displayed) >= 0)
           tooltip.add(Component.literal("Click for recipe").withStyle(ChatFormatting.AQUA));
         g.setComponentTooltipForNextFrame(mc.font, tooltip, mx, my);
       }

@@ -64,6 +64,8 @@ public final class NavigationService {
     final Set<UUID> crew = new HashSet<>(), ready = new HashSet<>(), arrived = new HashSet<>();
     int ticks;
     boolean committed;
+    Mode mode = Mode.START;
+    CompoundTag journey;
 
     Jump(ServerPlayer p, CompoundTag vessel, BlockPos helm, String destination) {
       actor = p.getUUID();
@@ -71,6 +73,13 @@ public final class NavigationService {
       this.helm = helm.immutable();
       this.destination = destination;
     }
+  }
+
+  private enum Mode {
+    START,
+    INVESTIGATE,
+    RESUME,
+    ARRIVE
   }
 
   private record Automation(String computer, BlockPos controller, int buttons, int until) {}
@@ -95,6 +104,20 @@ public final class NavigationService {
 
   public static boolean pending(MinecraftServer server) {
     return !state(server).jumps.isEmpty();
+  }
+
+  public static boolean pending(MinecraftServer server, String ship) {
+    return state(server).jumps.containsKey(ship);
+  }
+
+  public static boolean areaBusy(ServerLevel level, ShipScan.Bounds bounds) {
+    return state(level.getServer()).jumps.keySet().stream()
+        .map(id -> ship(level.getServer(), id))
+        .filter(Objects::nonNull)
+        .anyMatch(
+            s ->
+                s.getStringOr("dimension", "").equals(level.dimension().identifier().toString())
+                    && ShipStore.bounds(s).box().intersects(bounds.box()));
   }
 
   public static boolean busy(ServerPlayer p) {
@@ -128,6 +151,7 @@ public final class NavigationService {
   }
 
   public static int propulsion(ServerLevel level, CompoundTag s) {
+    if (com.nullandkale.nullspace.systems.FuelSystem.available(level, s) == 0) return 0;
     int engines =
         (int)
             ShipSystems.connected(level, s).stream()
@@ -142,7 +166,8 @@ public final class NavigationService {
                                             .getBlockState(p)
                                             .getValue(HorizontalDirectionalBlock.FACING)))
                                 .isAir())
-                .count();
+                .mapToInt(p -> 1 + com.nullandkale.nullspace.systems.FuelSystem.tier(level, p))
+                .sum();
     if (engines == 0) return 0;
     if (!ShipSystems.enabled(s)) return Math.min(8, engines);
     if (ShipSystems.power(level, s, PowerBus.System.CONTROLS) == 0) return 0;
@@ -151,6 +176,11 @@ public final class NavigationService {
 
   public static UUID open(ServerPlayer player, BlockPos at, boolean pilot) {
     var vessel = helm(player, at);
+    if (pilot && JourneyService.cruising(vessel))
+      throw new IllegalArgumentException(
+          "FTL is steering the ship; investigate a signal before flying locally");
+    if (pilot && com.nullandkale.nullspace.station.DockingService.motionLocked(vessel))
+      throw new IllegalArgumentException("Automatic docking owns movement; undock before piloting");
     if (TravelService.busy(player) || TravelService.locked(player.level(), at))
       throw new IllegalArgumentException("Finish travel before opening ship controls");
     var r = state(player.level().getServer());
@@ -161,6 +191,10 @@ public final class NavigationService {
     if (pilot) state(player.level().getServer()).computers.remove(vessel.getStringOr("id", ""));
     if (owner == null) stop(vessel);
     close(player.level().getServer(), player.getUUID());
+    if (pilot) {
+      ShipRecall.authorize(vessel, player);
+      ShipStore.get(player.level().getServer()).requestSave();
+    }
     var lease = new Lease(player, vessel, at, pilot);
     r.leases.put(player.getUUID(), lease);
     if (pilot) r.pilots.put(lease.ship, player.getUUID());
@@ -185,6 +219,10 @@ public final class NavigationService {
     if (l == null || !l.token.equals(input.session) || !valid(p, l)) return false;
     if (input.close) {
       close(p.level().getServer(), p.getUUID());
+      if (ShipControl.open(p, l.helm, "Returned to ship controls") == null)
+        p.sendSystemMessage(
+            net.minecraft.network.chat.Component.literal(
+                "View closed: ship controls are no longer reachable"));
       return true;
     }
     if (input.sequence < 0
@@ -198,6 +236,7 @@ public final class NavigationService {
   }
 
   public static void stop(CompoundTag s) {
+    s.putInt("thrustDemand", 0);
     s.putDouble("simVX", 0);
     s.putDouble("simVY", 0);
     s.putDouble("simVZ", 0);
@@ -240,9 +279,11 @@ public final class NavigationService {
       var origin =
           new Vec3(
               (ix % 2 == 0 ? ix / 2 : -(ix + 1) / 2) * 160,
-              0,
+              own.getDoubleOr("arrivalAltitude", 0),
               (iz % 2 == 0 ? iz / 2 : -(iz + 1) / 2) * 160);
-      var center = origin.add(16, 16, 16);
+      var center =
+          origin.add(
+              FlightDynamics.rotate(SceneService.pose(own).orientation(), new Vec3(16, 16, 16)));
       if (neighbors.stream().anyMatch(c -> c.distanceToSqr(center) < 160 * 160)) continue;
       if (definition.bodies().stream()
           .anyMatch(
@@ -252,6 +293,14 @@ public final class NavigationService {
       return origin;
     }
     throw new IllegalArgumentException("Destination arrival area is full");
+  }
+
+  public static void randomizeArrival(MinecraftServer server, CompoundTag ship) {
+    var frame = FlightDynamics.randomArrival(new Random(server.overworld().getRandom().nextLong()));
+    ship.putDouble("simYaw", frame.yaw());
+    ship.putDouble("simPitch", frame.pitch());
+    ship.putDouble("simRoll", frame.roll());
+    ship.putDouble("arrivalAltitude", frame.altitude());
   }
 
   private static void close(MinecraftServer server, UUID player) {
@@ -330,8 +379,11 @@ public final class NavigationService {
       if (other == own
           || !other.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString())
           || !LocalSpaces.together(own, other)) continue;
-      var center = SceneService.pose(other).toUniverse(new Vec3(16, 16, 16));
-      double combined = radius * 2;
+      var center =
+          SceneService.pose(other)
+              .toUniverse(
+                  new Vec3(other.getIntOr("width", 32) / 2., 16, other.getIntOr("depth", 32) / 2.));
+      double combined = radius + com.nullandkale.nullspace.station.StationSpace.radius(other);
       if (old.center().distanceToSqr(center) < combined * combined) {
         if (next.center().distanceToSqr(center) < old.center().distanceToSqr(center)) return true;
       } else if (SpaceBvh.sphere(old.center(), direction, center, combined) <= distance)
@@ -347,6 +399,10 @@ public final class NavigationService {
       String computer,
       int buttons,
       int ticks) {
+    if (JourneyService.cruising(ship))
+      throw new IllegalArgumentException("FTL is steering the ship");
+    if (com.nullandkale.nullspace.station.DockingService.motionLocked(ship))
+      throw new IllegalArgumentException("Docking or station anchoring owns movement");
     if (!level.dimension().equals(TravelService.SPACE))
       throw new IllegalArgumentException("Local thrust operates in space");
     if ((buttons & ~FlightDynamics.ALL) != 0 || ticks < 1 || ticks > 200)
@@ -379,17 +435,9 @@ public final class NavigationService {
   }
 
   public static void navigation(ServerPlayer p, BlockPos at) {
-    var s = helm(p, at);
-    com.nullandkale.nullspace.terminal.ComputerTerminal.send(
-        p,
-        at,
-        "LOCAL SPACE: "
-            + LocalSpaces.label(s)
-            + "\n"
-            + "Choose a planet for an orbital jump. Other systems use interstellar fast travel.\n"
-            + "Local piloting never changes regions. Landing pads belong to the current planet.",
-        "navigation",
-        LocalSpaces.address(s));
+    helm(p, at);
+    ShipControl.open(
+        p, at, "Choose a destination, then Engage. Departure, travel and arrival are automatic.");
   }
 
   private static ShipService.Inspection jumpInspection(ServerPlayer p, BlockPos at) {
@@ -414,17 +462,72 @@ public final class NavigationService {
   }
 
   public static UUID jump(ServerPlayer p, BlockPos at, String destination) {
-    LocalSpaces.get(destination);
-    var s = helm(p, at);
+    return jumpTo(p, at, helm(p, at), destination);
+  }
+
+  /** A previously authorized course can continue while its pilot walks inside the cabin. */
+  public static UUID courseJump(ServerPlayer p, CompoundTag ship, String destination) {
+    requireCoursePilot(p, ship);
+    return jumpTo(p, ShipStore.pos(ship, "controller"), ship, destination);
+  }
+
+  private static void requireCoursePilot(ServerPlayer p, CompoundTag ship) {
+    var controller = ShipStore.pos(ship, "controller");
+    if (!p.isAlive()
+        || !p.level().dimension().equals(TravelService.SPACE)
+        || SceneService.observer(p) != ship
+        || !p.level().hasChunkAt(controller)
+        || !ShipBlocks.navigation(p.level().getBlockState(controller)))
+      throw new IllegalArgumentException("Return aboard the ship to continue its course");
+  }
+
+  private static UUID jumpTo(ServerPlayer p, BlockPos at, CompoundTag s, String destination) {
     var server = p.level().getServer();
-    if (TravelService.active(server) || pending(server))
-      throw new IllegalArgumentException("Another ship transit is in progress");
+    LocalSpaces.get(server, destination);
+    String scanner = CourseService.scannerReason(p, s, destination);
+    if (!scanner.isEmpty()) throw new IllegalArgumentException(scanner);
+    if (JourneyService.active(s))
+      throw new IllegalArgumentException("Finish or resume the current journey first");
+    if (JourneyService.special(server, destination))
+      throw new IllegalArgumentException(
+          "Encounter signals are reached using Investigate during a journey");
+    if (ShipRecall.active(p))
+      throw new IllegalArgumentException("Finish or cancel your recall before fast travel");
+    if (com.nullandkale.nullspace.station.DockingService.motionLocked(s))
+      throw new IllegalArgumentException("Undock before fast travel; stations are anchored");
+    if (TravelService.busy(p) || TravelService.busy(server, s))
+      throw new IllegalArgumentException("This ship or its crew is already travelling or boarding");
     if (destination.equals(LocalSpaces.address(s)))
       throw new IllegalArgumentException("Already in that local space");
     jumpInspection(p, at);
+    int cost =
+        com.nullandkale.nullspace.systems.FuelSystem.travelCost(
+            p.level(),
+            s,
+            LocalSpaces.get(server, destination)
+                    .system()
+                    .equals(LocalSpaces.get(server, LocalSpaces.address(s)).system())
+                ? 2000
+                : 8000);
+    if (com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s) < cost)
+      throw new IllegalArgumentException(
+          "Not enough shared fuel for this jump: " + cost + " burn units. Load the generator.");
     PlanetSurfaces.ensureLanding(server, destination);
     SceneCatalog.region(server, destination);
-    var j = new Jump(p, s, at, destination);
+    var selected = ShipDestination.selected(s);
+    if (selected == null || !selected.region().equals(destination)) {
+      ShipDestination.select(p, s, ShipDestination.region(server, destination));
+    }
+    var plan = JourneyService.plan(server, s, destination, cost);
+    var j = new Jump(p, s, at, plan.getStringOr("corridor", ""));
+    j.journey = plan;
+    var token = begin(p, s, j);
+    CourseService.prepareArrival(p, s, ShipDestination.selected(s));
+    return token;
+  }
+
+  private static UUID begin(ServerPlayer p, CompoundTag s, Jump j) {
+    var server = p.level().getServer();
     for (var crew : p.level().players())
       if (SceneService.observer(crew) == s) {
         j.crew.add(crew.getUUID());
@@ -435,6 +538,68 @@ public final class NavigationService {
     state(server).jumps.put(j.ship, j);
     broadcast(server, j, "Preparing fast travel", "", false);
     return j.token;
+  }
+
+  public static UUID investigate(ServerPlayer p, BlockPos at) {
+    var s = helm(p, at);
+    String reason = JourneyService.stopReason(p.level().getServer(), s);
+    if (!reason.isEmpty()) throw new IllegalArgumentException(reason);
+    var token = journeyTransition(p, s, Mode.INVESTIGATE);
+    CourseService.investigate(p, s);
+    return token;
+  }
+
+  public static UUID resume(ServerPlayer p, BlockPos at) {
+    var s = helm(p, at);
+    if (!JourneyService.active(s) || JourneyService.cruising(s))
+      throw new IllegalArgumentException("No paused journey to resume");
+    jumpInspection(p, at);
+    var token = journeyTransition(p, s, Mode.RESUME);
+    CourseService.prepareArrival(
+        p,
+        s,
+        ShipDestination.read(s.getCompoundOrEmpty("journey").getCompoundOrEmpty("selection")));
+    return token;
+  }
+
+  public static UUID courseResume(ServerPlayer p, CompoundTag ship) {
+    requireCoursePilot(p, ship);
+    if (!JourneyService.active(ship) || JourneyService.cruising(ship))
+      throw new IllegalArgumentException("No paused journey to resume");
+    jumpInspection(p, ShipStore.pos(ship, "controller"));
+    return journeyTransition(p, ship, Mode.RESUME);
+  }
+
+  private static UUID journeyTransition(ServerPlayer p, CompoundTag s, Mode mode) {
+    var server = p.level().getServer();
+    if (com.nullandkale.nullspace.station.DockingService.motionLocked(s)
+        || TravelService.busy(p)
+        || TravelService.busy(server, s))
+      throw new IllegalArgumentException(
+          "Undock and finish boarding before continuing the journey");
+    if (!crewAboard(p.level(), s))
+      throw new IllegalArgumentException("Bring crew into safe cabins before changing regions");
+    var journey = s.getCompoundOrEmpty("journey");
+    String target =
+        journey.getStringOr(
+            switch (mode) {
+              case INVESTIGATE -> "encounter";
+              case RESUME -> "corridor";
+              default -> "destination";
+            },
+            "");
+    var j = new Jump(p, s, ShipStore.pos(s, "controller"), target);
+    j.mode = mode;
+    return begin(p, s, j);
+  }
+
+  static void arrive(ServerPlayer p, CompoundTag s) {
+    // Arrival is paid already, and does not require standing at the controller or engine power.
+    if (TravelService.busy(p.level().getServer(), s) || !crewAboard(p.level(), s)) {
+      s.putString("flightStatus", "Arrival ready: return crew to safe cabins");
+      return;
+    }
+    journeyTransition(p, s, Mode.ARRIVE);
   }
 
   public static boolean ready(ServerPlayer p, TravelPackets.Ready packet) {
@@ -452,7 +617,8 @@ public final class NavigationService {
     for (var id : j.crew) {
       var p = server.getPlayerList().getPlayer(id);
       if (p != null)
-        ServerPlayNetworking.send(p, new TravelPackets.Progress(j.token, text, target, done));
+        ServerPlayNetworking.send(
+            p, new TravelPackets.Progress(j.token, text, target, done, TravelPackets.Kind.JUMP));
     }
   }
 
@@ -472,6 +638,7 @@ public final class NavigationService {
   }
 
   private static void tick(MinecraftServer server) {
+    JourneyService.tick(server);
     var r = state(server);
     for (var l : List.copyOf(r.leases.values())) {
       var p = server.getPlayerList().getPlayer(l.player);
@@ -483,17 +650,18 @@ public final class NavigationService {
       if (l.pilot) {
         boolean aboard = crewAboard(p.level(), s);
         int power = aboard ? propulsion(p.level(), s) : 0;
+        boolean thrust = (l.buttons & ~FlightDynamics.FIRE) != 0;
+        if (power > 0
+            && thrust
+            && !com.nullandkale.nullspace.systems.FuelSystem.spend(
+                p.level(),
+                s,
+                com.nullandkale.nullspace.systems.FuelSystem.travelCost(
+                    p.level(), s, Math.max(1, power)))) power = 0;
+        s.putInt("thrustDemand", thrust ? power : 0);
         var old = flight(s);
         var next =
-            FlightDynamics.step(
-                old,
-                l.buttons,
-                power,
-                p.level()
-                    .getBlockState(l.helm)
-                    .getValue(HorizontalDirectionalBlock.FACING)
-                    .getOpposite()
-                    .toYRot());
+            FlightDynamics.step(old, l.buttons, power, ShipHeading.forward(p.level(), s).toYRot());
         if (blocked(server, s, old, next)) {
           next =
               new FlightDynamics.State(old.center(), Vec3.ZERO, old.yaw(), old.pitch(), old.roll());
@@ -539,16 +707,22 @@ public final class NavigationService {
         continue;
       }
       var old = flight(vessel);
+      vessel.putInt("thrustDemand", command.buttons == 0 ? 0 : propulsion(level, vessel));
+      if (!com.nullandkale.nullspace.systems.FuelSystem.spend(
+          level,
+          vessel,
+          com.nullandkale.nullspace.systems.FuelSystem.travelCost(
+              level, vessel, Math.max(1, propulsion(level, vessel))))) {
+        stop(vessel);
+        computers.remove();
+        continue;
+      }
       var next =
           FlightDynamics.step(
               old,
               command.buttons,
               propulsion(level, vessel),
-              level
-                  .getBlockState(ShipStore.pos(vessel, "controller"))
-                  .getValue(HorizontalDirectionalBlock.FACING)
-                  .getOpposite()
-                  .toYRot());
+              ShipHeading.forward(level, vessel).toYRot());
       if (blocked(server, vessel, old, next)) {
         stop(vessel);
         vessel.putString("flightStatus", "AUTOPILOT OBSTACLE");
@@ -572,21 +746,47 @@ public final class NavigationService {
         }
         if (j.ticks < 20 || !allOnline(server, j, j.ready)) continue;
         try {
-          var s = helm(pilot, j.helm);
-          if (!s.getStringOr("id", "").equals(j.ship))
-            throw new IllegalArgumentException("Ship changed");
-          jumpInspection(pilot, j.helm);
+          var s = ship(server, j.ship);
+          if (s == null || SceneService.observer(pilot) != s)
+            throw new IllegalArgumentException("Pilot is no longer aboard this ship");
+          if (j.mode == Mode.START) jumpInspection(pilot, j.helm);
+          else if (!crewAboard(pilot.level(), s))
+            throw new IllegalArgumentException(
+                "Bring crew into safe cabins before changing regions");
+          if (j.mode == Mode.START
+              && !FuelSystem.spend(pilot.level(), s, j.journey.getIntOr("paid", 0)))
+            throw new IllegalArgumentException("Shared fuel ran out before jump commitment");
           var before = s.copy();
           try {
+            if (j.mode == Mode.START) {
+              j.journey.putDouble("visualStarted", server.overworld().getGameTime() / 20.0);
+              JourneyService.register(server, j.journey);
+              s.put("journey", j.journey.copy());
+            } else if (j.mode == Mode.ARRIVE) {
+              s.remove("journey");
+            } else {
+              var journey = s.getCompoundOrEmpty("journey");
+              journey.putString("state", j.mode == Mode.RESUME ? "CRUISE" : "STOPPED");
+              if (j.mode == Mode.RESUME)
+                journey.putDouble("visualStarted", server.overworld().getGameTime() / 20.0);
+              if (j.mode == Mode.RESUME)
+                s.put(
+                    "destination",
+                    journey.contains("selection")
+                        ? journey.getCompoundOrEmpty("selection").copy()
+                        : ShipDestination.region(server, journey.getStringOr("destination", ""))
+                            .save());
+              if (j.mode == Mode.INVESTIGATE) journey.putBoolean("visited", true);
+            }
+            s.putString("flightStatus", "");
             s.putString("localSpace", j.destination);
             stop(s);
+            if (j.mode == Mode.ARRIVE || j.mode == Mode.INVESTIGATE) randomizeArrival(server, s);
             var arrival = arrivalOrigin(server, s);
             s.putDouble("simX", arrival.x);
             s.putDouble("simY", arrival.y);
             s.putDouble("simZ", arrival.z);
-            s.putDouble("simYaw", 0);
-            s.putDouble("simPitch", 0);
-            s.putDouble("simRoll", 0);
+            if (j.mode == Mode.INVESTIGATE) JourneyService.selectEncounterDock(pilot, s);
             ShipStore.get(server).save();
           } catch (RuntimeException save) {
             for (var key : List.copyOf(s.keySet())) s.remove(key);
@@ -597,7 +797,8 @@ public final class NavigationService {
           j.ticks = 0;
           SceneService.refresh(server);
           var target = SceneCatalog.forShip(server, s).getStringOr("id", "");
-          broadcast(server, j, "Arriving at " + LocalSpaces.label(s), "scene:" + target, false);
+          broadcast(
+              server, j, "Arriving at " + LocalSpaces.label(server, s), "scene:" + target, false);
         } catch (RuntimeException error) {
           finish(server, j, "Fast travel cancelled: " + error.getMessage());
         }
@@ -613,10 +814,15 @@ public final class NavigationService {
         finish(
             server,
             j,
-            "Arrived in "
-                + LocalSpaces.get(j.destination).systemName()
-                + " / "
-                + LocalSpaces.get(j.destination).name());
+            j.mode == Mode.START || j.mode == Mode.RESUME
+                ? "FTL underway. You can move around your ship."
+                : j.mode == Mode.INVESTIGATE
+                    ? (ship(server, j.ship)
+                            .getCompoundOrEmpty("journey")
+                            .getBooleanOr("encounterDockSelected", false)
+                        ? "Signal reached. Automatic docking will begin; Disengage cancels it."
+                        : "Signal reached. Select an available docking port, then Dock.")
+                    : "Arrived in " + LocalSpaces.label(server, ship(server, j.ship)));
       }
     }
     if (!r.pilots.isEmpty() && server.getTickCount() % 100 == 0) ShipStore.get(server).save();

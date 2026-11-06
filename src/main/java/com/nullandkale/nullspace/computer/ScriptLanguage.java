@@ -84,8 +84,12 @@ public final class ScriptLanguage {
         if (needsBody && (!blocks.isEmpty() && indent <= blocks.peek().indent))
           throw error(number, "Expected an indented block");
         needsBody = false;
-        while (!blocks.isEmpty() && indent <= blocks.peek().indent && !line.equals("else:"))
-          close(code, blocks.pop());
+        while (!blocks.isEmpty()
+            && indent <= blocks.peek().indent
+            && !(line.equals("else:")
+                && indent == blocks.peek().indent
+                && blocks.peek().kind.equals("if")
+                && blocks.peek().branch < 0)) close(code, blocks.pop());
         if (blocks.isEmpty() && indent > 0) throw error(number, "Unexpected indentation");
       }
       if (blocks.size() > 32 || code.size() > 2048) throw error(number, "Script is too complex");

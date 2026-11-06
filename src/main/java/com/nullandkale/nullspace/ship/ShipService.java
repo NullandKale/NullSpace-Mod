@@ -99,6 +99,10 @@ public final class ShipService {
       return 0;
     }
     try {
+      if (action.equals("docks")) {
+        com.nullandkale.nullspace.station.StationService.open(player, pos, "");
+        return 1;
+      }
       if (action.equals("pilot") || action.equals("chase")) {
         com.nullandkale.nullspace.navigation.NavigationService.open(
             player, pos, action.equals("pilot"));
@@ -186,6 +190,10 @@ public final class ShipService {
   }
 
   public static Inspection inspect(ServerLevel level, BlockPos controller) {
+    return inspect(level, controller, false);
+  }
+
+  static Inspection inspect(ServerLevel level, BlockPos controller, boolean reviewing) {
     if (!ShipBlocks.navigation(level.getBlockState(controller)))
       throw new IllegalArgumentException("Helm or ship computer is missing");
     var store = ShipStore.get(level.getServer());
@@ -197,7 +205,12 @@ public final class ShipService {
       var pad =
           new PadScanner.Pad(
               base.getX(), base.getX() + 31, base.getY() - 1, base.getZ(), base.getZ() + 31);
-      return new Inspection(ShipScan.inspect(level, controller, pad, false), null, vessel, base);
+      return new Inspection(
+          ShipScan.inspect(
+              level, controller, pad, false, ShipDetachment.approved(level, controller), reviewing),
+          null,
+          vessel,
+          base);
     }
     var pads = PadRegistry.below(level, controller).stream().toList();
     for (var pad : pads) {
@@ -210,13 +223,16 @@ public final class ShipService {
           && controller.getY() > b.y()
           && controller.getY() <= b.y() + 32) {
         PadRegistry.validate(level, pad);
+        var scan =
+            ShipScan.inspect(
+                level, controller, b, true, ShipDetachment.approved(level, controller), reviewing);
+        // Resolve the physical hull before transfer; a changed pad registration must not
+        // silently discard its identity, computers, battery charge or systems upgrade.
         var owner =
-            vessel != null && pad.id().equals(vessel.getStringOr("homeId", "")) ? vessel : null;
-        return new Inspection(
-            ShipScan.inspect(level, controller, b, true),
-            pad,
-            owner,
-            new BlockPos(b.minX(), b.y() + 1, b.minZ()));
+            vessel != null && ShipStore.pos(vessel, "base").getY() == b.y() + 1
+                ? com.nullandkale.nullspace.systems.ShipTopology.resolve(level, controller)
+                : null;
+        return new Inspection(scan, pad, owner, new BlockPos(b.minX(), b.y() + 1, b.minZ()));
       }
     }
     throw new IllegalArgumentException(
@@ -237,18 +253,7 @@ public final class ShipService {
   }
 
   public static void open(ServerPlayer player, BlockPos pos, String message) {
-    var vessel = ShipStore.get(player.level().getServer()).at(player.level(), pos);
-    String home = vessel == null ? "" : vessel.getStringOr("home", "");
-    if (vessel != null) {
-      String homeId = vessel.getStringOr("homeId", "");
-      home =
-          PadRegistry.read(player.level().getServer()).stream()
-              .filter(p -> p.id().equals(homeId))
-              .map(PadRegistry.Pad::name)
-              .findFirst()
-              .orElse(home);
-    }
-    ComputerTerminal.send(player, pos, message, "ship", home);
+    com.nullandkale.nullspace.navigation.ShipControl.open(player, pos, message);
   }
 
   private ShipService() {}

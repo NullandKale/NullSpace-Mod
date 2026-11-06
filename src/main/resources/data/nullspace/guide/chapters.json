@@ -1,11 +1,22 @@
 {
   "chapters": [
     {
-      "id": "start",
-      "title": "First ship",
+      "id": "aboard",
+      "title": "Already on a ship",
       "pages": [
-        "Build a grass/dirt pad with a cobble ring. Register it. Add a sealed hull, one helm and an outward-facing engine. Close doors, Inspect, then Launch.",
-        "For powered systems add a generator, battery, air supply and door control. Choose Upgrade systems at the helm. A new battery starts empty."
+        "This ship is your home. Food is in your inventory. Furnace fuel goes in the generator and feeds both power and engines. Open the Ship Controller to choose where to go. Keep some supplies for getting back.",
+        "Choose a planet, landing pad or docking port, then press Jump. You can walk around while travelling. The countdown shows how long is left. A signal may offer food, fuel or salvage.",
+        "To explore a signal, press Investigate signal. Choose its docking port, then Dock. Open the normal door and walk through. Bring supplies back, Undock, then Resume journey. Your paid trip keeps its progress.",
+        "Search by room: food in the galley, fuel beside engineering, tools and parts at workbenches, building materials in cargo. Scouts share small spaces. Larger ships have separate rooms. Supplies do not refill when you come back."
+      ]
+    },
+    {
+      "id": "start",
+      "title": "Build my first ship",
+      "pages": [
+        "Make a dirt or grass pad inside a cobblestone ring. Put a Pad Computer on the ring and click Register pad. You can keep its suggested name. Show pad area marks the ground that stays behind.",
+        "Above the pad, build a sealed hull with a normal door, Ship Controller, outward-facing engine, generator and inward-facing Air Supply. Leave standing room at the controller and clear space behind the engine.",
+        "Load furnace fuel in the generator. Close the door and open the Ship Controller. Launch checks the ship before leaving. Read any problem, repair it and try again. Home stays selected: use Land to return. Check ship is optional."
       ]
     },
     {
@@ -13,7 +24,7 @@
       "title": "Landing pads",
       "pages": [
         "Use a flat grass/dirt rectangle inside a complete cobblestone ring. Grass may become dirt. The interior and ship fit within 32 x 32 x 32.",
-        "Place the Pad Computer on the ring. Facing does not matter. Name and register the pad. Pad/Ship preview highlights fade over 30 seconds.",
+        "Place the Pad Computer on the ring. Facing does not matter. Click Register pad with the suggested name, or edit it first. Show pad area and Show ship area highlight different parts; outlines fade after 30 seconds.",
         "Leave clear sky above the ship. A stacked pad overhead obstructs launch. On landing, choose a pad on your current planet. Inspect again after repairs."
       ]
     },
@@ -30,17 +41,17 @@
       "id": "controllers",
       "title": "Controllers",
       "pages": [
-        "Install one Helm OR Ship Computer for travel. Systems Controllers add engineering access. The Pad Computer stays on the planet.",
-        "Computer Base is an unconfigured crafting part. Computer Terminal runs NullOS. Engines and other machines open status menus when right-clicked."
+        "One Ship Controller combines flight, travel, docking and engineering. Planets, landing pads and ports share one Destination selection. Launch, Jump, Land and Dock remain separate direct actions.",
+        "Computer Base is a crafting chassis; Computer Terminal runs NullOS. Machinery opens native controls and slots, with detailed terminals under Advanced."
       ]
     },
     {
       "id": "power",
       "title": "Ship power",
       "pages": [
-        "Equipment shares the connected ship bus. Generators supply power; batteries store surplus. Allocate power in Engineering. No cables are required.",
-        "Keep Controls powered. Allocate Air, Doors, Engines and Cameras as needed. Disabled or disconnected hardware cannot work. Profiles change allocations.",
-        "Each enabled camera/scanner needs one Cameras power slot. Cameras take the first slots. Two scanners without cameras need 2 power. Monitor feeds use camera channels."
+        "Load any furnace fuel into a generator. Connected engines and generation share its real fuel slots. Top/side hoppers insert fuel; bottom hoppers remove empty containers. No cables or fuel pipes are needed.",
+        "Generation supplies demand and charges batteries; batteries cover shortages. Disabling generation leaves its fuel accessible to engines. Fuel burns only for real work, including stationary electrical use.",
+        "Engine, Generator, Battery and Scanner each accept the same System Upgrade item. Three slots give Stock, I, II and III. Battery modules cannot be removed until stored charge fits the smaller capacity."
       ]
     },
     {
@@ -56,8 +67,8 @@
       "id": "doors",
       "title": "Doors and groups",
       "pages": [
-        "Door Control handles framed vanilla doors and trapdoors. Use Engineering to list doors, create groups and open or close a group.",
-        "Power and enabled hardware are required. Redstone can override closing. Inspect a failed action: a powered hatch or damaged frame may keep a room exposed."
+        "The Ship Controller handles framed doors and trapdoors. Advanced engineering retains door groups and batch commands.",
+        "For docking place any standard door above one outward-facing Docking Base. Frame it, leave walking space inside and a clear approach outside. Iron doors work without extra buttons."
       ]
     },
     {
@@ -73,7 +84,7 @@
       "id": "travel",
       "title": "Launch and land",
       "pages": [
-        "At the helm: Inspect, fix errors, close doors, then Launch. Blocks and cargo transfer to space with a loading screen. The hull stays stationary Minecraft blocks.",
+        "At the controller: Inspect hull, fix errors, close doors, then Launch. Blocks and cargo transfer to space with a loading screen. The hull stays stationary Minecraft blocks.",
         "Recall EVA crew before travel. Landing restores the real hull at a clear registered pad. Do not quit during a loading screen. On reconnect, follow recovery messages."
       ]
     },
@@ -81,16 +92,16 @@
       "id": "flight",
       "title": "Piloting",
       "pages": [
-        "Helm > Pilot ship. W/S thrust, A/D yaw, Space/Ctrl lift. Up/Down pitch, Q/E roll. R brakes; F fires the cannon. Only one crew member pilots.",
-        "Drag to orbit and use the wheel to zoom. H shows controls. Esc returns to the helm and stops motion. Ship camera is an observer view; it grants no thrust.",
-        "Power loss or unsafe crew stops flight. Local piloting stays in this region. Use helm Navigation to change planets or systems. Avoid solid bodies and other hulls."
+        "Controller > Pilot. W/S thrust, A/D yaw, Space/Ctrl lift. Up/Down pitch, Q/E roll. R brakes; F fires the cannon. Only one crew member pilots.",
+        "Drag to orbit and use the wheel to zoom. H shows controls. Esc returns to the Ship Controller and stops motion. Ship camera is an observer view; it grants no thrust.",
+        "Power loss or unsafe crew stops flight. Local piloting stays in this region. Select a Destination and use Jump to change regions. Avoid solid bodies and other hulls."
       ]
     },
     {
       "id": "planets",
       "title": "Planet travel",
       "pages": [
-        "Helm > Navigation jumps between Sol and Vega destinations. Jumping changes local space. Then choose the planet landing pad to visit its terrain.",
+        "Choose one Destination: a region, landing pad or docking port. Jump takes time aboard the ship and keeps the final destination. Arrival is automatic; Land or Dock finishes the trip.",
         "Terra is the overworld. Pelagos has grass and breathable air. Luna, Ares and Cinder are airless. New surfaces are flat; first arrival creates a starter pad.",
         "Launching returns to that planet orbit. Existing overworld pads belong to Terra. Jump back to Sol/Terra before landing at home."
       ]
@@ -99,18 +110,18 @@
       "id": "sensors",
       "title": "Scanners",
       "pages": [
-        "Local Scanner reports this region, celestial bodies and nearby ships. Long-Range Scanner lists planetary jump addresses. Right-click for readings and power status.",
-        "Mount scanners on the connected hull. Enable them and allocate Cameras power. A Long-Range Scanner consumes a Local Scanner in crafting; make two to keep both."
+        "One Scanner lists nearby destinations. Select a result and Set destination; the controller uses that same selection. Looking at a target never starts travel.",
+        "Install System Upgrades: Stock range 1024, then 2048/4096/8192. The first module enables distant destinations. Cameras and scanners need Cameras power; Advanced holds allocation tuning."
       ]
     },
     {
       "id": "cameras",
       "title": "Cameras",
       "pages": [
-        "Point a Camera toward the view you want. A ground camera can open a terrain feed. Aboard a powered ship, enable its camera and Cameras power slot.",
-        "Place a Monitor on the hull. Right-click to inspect it and select its channel. Nearby displays show live feeds. Players and supported native visuals appear in feeds.",
-        "A fullscreen feed uses arrows to aim, Page Up/Down to zoom and F2 to capture. Tab changes eligible feeds. Esc exits. Ground feeds cover a bounded neighborhood.",
-        "Camera loading does not tick distant machines or TNT. A feed can fill in as terrain arrives. Unsupported renderer details may differ from a normal player view."
+        "Mount a small Camera on a solid wall, pointing toward the view. Right-click to name it, see a live preview, enable it or view fullscreen. Esc returns from fullscreen to setup.",
+        "Mount thin Monitor blocks like pictures. Complete rectangles up to 8 x 8 share one named camera feed. Right-click any tile to select a camera for the wall. Old cube displays keep their hull seals.",
+        "A fullscreen feed uses arrows to aim, Page Up/Down to zoom and F2 to capture. Tab changes eligible feeds. Ground feeds cover a bounded neighborhood.",
+        "Camera loading does not tick distant machines or TNT. A feed fills in as terrain arrives. Unsupported renderer details may differ from a normal player view."
       ]
     },
     {
@@ -144,14 +155,14 @@
       "title": "Native ship API",
       "pages": [
         "Shell: ship rooms\nPython:\nprint(ship.rooms())\n\nOther calls handle power, doors, devices, scanners, cameras, firing and bounded flight.",
-        "Try: ship scan local\nship scan long\nship doors all close\n\nThe usual power and safety checks apply. Travel scripts need online crew near the helm."
+        "Try: ship scan local\nship scan long\nship doors all close\n\nThe usual power and safety checks apply. Travel scripts need online crew near the Ship Controller."
       ]
     },
     {
       "id": "combat",
       "title": "Damage and cannon",
       "pages": [
-        "The cannon needs connected, enabled hardware and Weapons power. Fire from the helm or F while piloting. Normal recharge rules apply.",
+        "The cannon needs connected, enabled hardware and Weapons power. Press F while piloting to fire. Normal recharge rules apply.",
         "Damage removes real hull and equipment. Breaches lose air; severed hardware loses the bus. Repair survivors before travel. Material blast resistance still matters."
       ]
     },
@@ -168,7 +179,7 @@
       "title": "Troubleshooting",
       "pages": [
         "Pad not found? Put its computer on the cobble ring at floor height. Fill the interior with grass/dirt. Repair border holes and check for overlapping ownership.",
-        "No power? Check generator/battery, enabled switches, connected hull and allocations. No scanner feed? Add one Cameras slot per enabled camera/scanner.",
+        "No power? Load generator fuel; check battery, enabled switches, connected hull and allocations. No scanner feed? Add one Cameras slot per enabled camera/scanner.",
         "Losing air? Check room readings, exterior doors, hatch frames and breaches. Engine blocked? Clear its outward exhaust. Inspect names unsupported machines and travel obstacles.",
         "Cannot land? Jump to the right planet, choose a registered pad and clear its volume. Crew or cargo not ready? Recall crew and wait for the loading handshake."
       ]
@@ -178,27 +189,33 @@
       "title": "Crafting notes",
       "pages": [
         "Recipes follow in this book. Each page shows real items in a 3 x 3 grid. Hover for names. Click a crafted part for its recipe. Horizontal mirroring works; rotation does not.",
-        "Circuit boards craft in batches of four. Plank and stone slots cycle through accepted items. Vanilla piston and lever recipes still need actual cobblestone.",
-        "For Terminal + both scanners: 18 iron, 33 copper, 16 glass, 21 redstone, 8 planks. Includes subparts and torches; leaves one stick. Craft two Local Scanners."
+        "Circuit boards craft in batches of four. Plank and stone slots cycle through accepted items. Wooden doors accept any wood type. Vanilla piston and lever recipes still need cobblestone."
       ]
     },
     {
       "id": "shipyard",
       "title": "Ship beacons",
       "pages": [
-        "Craft a Ship Beacon and place it on a registered pad's cobblestone ring. Keep the pad computer on another ring block. Facing does not matter. Open the beacon with right-click.",
-        "Select a preset for size and equipment details. Choose Call selected to buy it. All ships are FREE for now. Stand beside the ring; clear the pad and its sky. Existing builds are never replaced.",
-        "Ships have a helm, generator, battery, air supply, door control, terminal, camera, monitor and both scanners. Bigger ships have rooms and stairs. Walk in, close the door, inspect and launch at the helm.",
-        "A beacon needs a pad large enough for the whole preset. Free space must extend to the sky. Move mobs and dropped items out of its hull area. An interrupted delivery can resume by calling the same ship again.",
-        "Operators: /nullspace shipyard creates a showroom and empty delivery pads above unused terrain. Return visits preserve your changes. No shipyard is generated automatically in a survival world."
+        "Place a Ship Beacon on a registered pad ring. Its catalog shows designs, a footprint and readiness. Select a model, then Deliver ship. Delivery is free; stand clear of the pad.",
+        "New ships include fuel, a Ship Controller and a compact door-on-base port. Enter normally, close the door, inspect and launch. Existing builds and their fuel are preserved.",
+        "Clear the pad and sky. Resume interrupted delivery with the same design. Operators can visit six examples with /nullspace shipyard."
       ]
     },
     {
-      "id": "lab",
-      "title": "Testing and limits",
+      "id": "star_systems",
+      "title": "Star systems",
       "pages": [
-        "Development worlds: /nullspace lab visits test ships; /nullspace lab sphere visits the large sphere; /nullspace lab recipes shows crafting chests.",
-        "Normal survival uses player-built ships and pads. /nullspace guide replaces this manual. Stations, docking, random encounters and the rendering workshop are planned, not playable yet."
+        "The saved star chart adds four generated systems beside Sol and Vega. Open Destination > Regions, choose a planet or moon, then Jump. Each new system has its own star, two planets and a moon.",
+        "After jumping, choose that body's Landing pad and Land. Launch returns to its orbit. Regions populate stations automatically. Returning preserves your chart, surface builds and resources."
+      ]
+    },
+    {
+      "id": "stations",
+      "title": "Stations and docks",
+      "pages": [
+        "Space regions automatically contain stations. At the controller choose Destination > Ports, select a station berth, then Dock. Autopilot handles approach and mating. Scanners share the same ship destination.",
+        "After capture, open the normal dock door and walk through. A short transition boards the other vessel. Return through the same port, then Undock. Crew must be aboard breathable cabins.",
+        "Carry a Station Core, suit and module kits. Deploy station from the controller, open the dock door and walk through wearing the suit. The core shows room tiles, Build buttons and separate access fields."
       ]
     }
   ]

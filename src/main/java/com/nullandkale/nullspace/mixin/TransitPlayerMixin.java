@@ -12,6 +12,7 @@ public abstract class TransitPlayerMixin {
   @Inject(method = "hurtServer", at = @At("HEAD"), cancellable = true)
   private void nullspace$protectTransit(
       ServerLevel level, DamageSource source, float damage, CallbackInfoReturnable<Boolean> cir) {
-    if (TravelService.busy((ServerPlayer) (Object) this)) cir.setReturnValue(false);
+    if (TravelService.busy((ServerPlayer) (Object) this)
+        || com.nullandkale.nullspace.ship.PlayerRecovery.protectedPlayer((ServerPlayer)(Object)this)) cir.setReturnValue(false);
   }
 }

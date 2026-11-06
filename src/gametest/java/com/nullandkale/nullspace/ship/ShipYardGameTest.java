@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.ship;
 
 import com.nullandkale.nullspace.pad.*;
 import com.nullandkale.nullspace.shipyard.*;
+import com.nullandkale.nullspace.station.DockingService;
 import com.nullandkale.nullspace.systems.*;
 import com.nullandkale.nullspace.terminal.ComputerTerminal;
 import java.util.*;
@@ -13,6 +14,72 @@ import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.block.*;
 
 public final class ShipYardGameTest {
+  @GameTest(environment = "nullspace:yard_dismantling", maxTicks = 300)
+  public void dismantlingShipAndReplacingBeaconFreesPadWithoutReusingItsSavedIdentity(
+      GameTestHelper ctx) {
+    var f = fixture(ctx, 19, 16, 18);
+    later(
+        ctx,
+        () -> {
+          var level = ctx.getLevel();
+          var server = level.getServer();
+          var store = ShipStore.get(server);
+          var old = ShipYardService.deliver(f.player(), f.beacon(), "mule");
+          String id = old.getStringOr("id", "");
+          var bounds = ShipStore.bounds(old);
+          for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max())) {
+            level.removeBlockEntity(at);
+            level.setBlock(at, Blocks.AIR.defaultBlockState(), 18);
+          }
+          level.setBlock(f.beacon(), Blocks.AIR.defaultBlockState(), 18);
+          level.setBlock(f.beacon(), ShipBlocks.SHIP_BEACON.defaultBlockState(), 18);
+          // A remnant outside the smaller replacement blueprint still prevents wiping the old
+          // record.
+          var remnant = bounds.max();
+          level.setBlock(remnant, Blocks.IRON_BLOCK.defaultBlockState(), 18);
+          ctx.assertTrue(
+              ShipYardService.preview(f.player(), f.beacon(), "sparrow").readiness() == 0,
+              "A larger ship's remaining construction cannot be discarded for a smaller delivery");
+          ctx.assertTrue(
+              store.repository().find(id) != null, "Blocked delivery keeps original metadata");
+          level.setBlock(remnant, Blocks.AIR.defaultBlockState(), 18);
+          var offline = new net.minecraft.nbt.CompoundTag();
+          offline.putString("id", UUID.randomUUID().toString());
+          old.getListOrEmpty("crew").add(offline);
+          ctx.assertTrue(
+              ShipYardService.preview(f.player(), f.beacon(), "sparrow")
+                  .message()
+                  .contains("offline crew"),
+              "An offline passenger is never silently evicted");
+          old.getListOrEmpty("crew").clear();
+          old.put("dock", new net.minecraft.nbt.CompoundTag());
+          ctx.assertTrue(
+              ShipYardService.preview(f.player(), f.beacon(), "sparrow").readiness() == 0,
+              "A docking connection is never erased by delivery");
+          old.remove("dock");
+          ctx.assertTrue(
+              ShipYardService.preview(f.player(), f.beacon(), "sparrow").readiness() == 1,
+              "An entirely dismantled ship no longer occupies its pad, even with its saved record");
+          ctx.assertTrue(
+              store.repository().find(id) != null, "Preview does not delete ship records");
+          var replacement = ShipYardService.deliver(f.player(), f.beacon(), "sparrow");
+          ctx.assertTrue(
+              !replacement.getStringOr("id", "").equals(id) && store.repository().find(id) == null,
+              "Delivery replaces the obsolete assignment with a fresh identity");
+          var disk = ShipStore.read(store.directory.resolve("ships.nbt"));
+          ctx.assertTrue(
+              disk.getListOrEmpty("ships").stream()
+                  .noneMatch(
+                      t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("id", "").equals(id)),
+              "Released assignment stays removed after saving");
+          rejects(
+              ctx,
+              () -> ShipYardService.deliver(f.player(), f.beacon(), "sparrow"),
+              "Clear the pad");
+          ctx.succeed();
+        });
+  }
+
   private record Fixture(BlockPos base, BlockPos beacon, ServerPlayer player) {}
 
   private static Fixture fixture(GameTestHelper ctx, int slot, int width, int depth) {
@@ -76,7 +143,7 @@ public final class ShipYardGameTest {
     var level = ctx.getLevel();
     int i = 0;
     for (var p : ShipBlueprints.PRESETS) {
-      var f = fixture(ctx, i++, 32, 32);
+      var f = fixture(ctx, 100 + i++, 32, 32);
       var pad = PadComputers.inspect(level, f.beacon()).pad();
       var at = ShipBlueprints.origin(p, pad, 32);
       var plan = ShipBlueprints.blocks(p);
@@ -85,6 +152,17 @@ public final class ShipYardGameTest {
         level.setBlock(at.offset(entry.getKey()), entry.getValue(), 18);
       var scan = ShipScan.inspect(level, at.offset(p.helm()), pad, true);
       ctx.assertTrue(scan.blocks().size() == plan.size(), "Every block is attached on " + p.name());
+      for (var supplyAt : scan.blocks())
+        if (level.getBlockState(supplyAt).is(ShipBlocks.AIR_SUPPLY)) {
+          var outlet =
+              supplyAt.relative(
+                  level
+                      .getBlockState(supplyAt)
+                      .getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING));
+          ctx.assertTrue(
+              level.getBlockState(outlet).isAir(),
+              "Air supply outlet is clear on " + p.name() + " at " + supplyAt + " -> " + outlet);
+        }
       ctx.assertTrue(
           scan.pressure().breathable(scan.boarding()),
           "Bridge has sealed standing room on " + p.name());
@@ -99,15 +177,32 @@ public final class ShipYardGameTest {
               ShipBlocks.GENERATOR,
               ShipBlocks.BATTERY,
               ShipBlocks.AIR_SUPPLY,
-              ShipBlocks.DOOR_CONTROL,
               ShipBlocks.TERMINAL,
               ShipBlocks.LOCAL_SCANNER,
-              ShipBlocks.LONG_RANGE_SCANNER,
               ShipBlocks.CAMERA,
               ShipBlocks.MONITOR))
         ctx.assertTrue(
             scan.blocks().stream().anyMatch(pos -> level.getBlockState(pos).is(block)),
             p.name() + " includes " + ShipMessages.block(block));
+      var ship = ShipTopology.resolve(level, at.offset(p.helm()));
+      try {
+        for (var position : scan.blocks()) FuelSystem.provision(level, position, 64);
+        ShipSystems.upgrade(level, ship);
+        ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 3, 2, 0});
+        ShipSystems.tick(level, ship);
+        var ports = DockingService.ports(level, ship);
+        ctx.assertTrue(ports.size() == 1, p.name() + " includes one valid docking airlock");
+        var port = DockingService.firstPort(level, ship);
+        ctx.assertTrue(
+            port.facing() == Direction.NORTH
+                && port.anchors().size() >= 2
+                && level.getBlockState(port.outer()).getBlock() instanceof DoorBlock
+                && port.inner().equals(port.outer())
+                && level.getBlockState(port.outer().below()).is(ShipBlocks.DOCKING_BASE),
+            p.name() + " has a powered compact docking door with a single base");
+      } finally {
+        ShipStore.get(level.getServer()).ships().remove(ship);
+      }
     }
     ctx.succeed();
   }
@@ -115,7 +210,7 @@ public final class ShipYardGameTest {
   @GameTest(maxTicks = 500)
   public void exactSizePadsKeepComputersOnAllFourEdgesDisconnectedFromTheHull(GameTestHelper ctx) {
     var level = ctx.getLevel();
-    int slot = 20;
+    int slot = 200;
     for (var preset : ShipBlueprints.PRESETS) {
       var f = fixture(ctx, slot++, preset.width(), preset.depth());
       for (var local :
@@ -141,6 +236,59 @@ public final class ShipYardGameTest {
   }
 
   @GameTest(maxTicks = 500)
+  public void reregisteredPadRetainsUpgradedShipIdentityAndPreflightState(GameTestHelper ctx) {
+    var f = fixture(ctx, 18, 16, 18);
+    later(
+        ctx,
+        () -> {
+          var player = f.player();
+          var level = player.level();
+          var server = level.getServer();
+          var ship = ShipYardService.deliver(player, f.beacon(), "mule");
+          var id = ship.getStringOr("id", "");
+          var helm = ShipStore.pos(ship, "controller");
+          var savedSystems = ship.getCompoundOrEmpty("systems").copy();
+          var pads = PadRepository.get(server);
+          var oldPad = pads.id(ship.getStringOr("homeId", ""));
+          var replacement =
+              new PadRegistry.Pad(
+                  UUID.randomUUID().toString(),
+                  "Re-registered yard",
+                  oldPad.dimension(),
+                  oldPad.computer(),
+                  oldPad.bounds());
+          pads.replace(
+              pads.all().stream().map(p -> p.id().equals(oldPad.id()) ? replacement : p).toList());
+          int count = ShipStore.get(server).ships().size();
+          for (int attempt = 0; attempt < 8; attempt++) {
+            var resolved = ShipTopology.resolve(level, helm);
+            var inspected = ShipService.preflight(level, helm);
+            ctx.assertTrue(
+                resolved == ship
+                    && inspected.vessel() == ship
+                    && resolved.getStringOr("id", "").equals(id)
+                    && resolved.getStringOr("homeId", "").equals(replacement.id())
+                    && resolved.getCompoundOrEmpty("systems").equals(savedSystems)
+                    && ShipStore.get(server).ships().size() == count,
+                "Repeated engineering/preflight lookup keeps one upgraded identity after"
+                    + " re-registration");
+          }
+          ShipStore.get(server).save();
+          var disk = ShipStore.read(ShipStore.get(server).directory.resolve("ships.nbt"));
+          var persisted =
+              disk.getListOrEmpty("ships").stream()
+                  .map(t -> (net.minecraft.nbt.CompoundTag) t)
+                  .filter(t -> t.getStringOr("id", "").equals(id))
+                  .findFirst()
+                  .orElseThrow();
+          ctx.assertTrue(
+              persisted.getCompoundOrEmpty("systems").equals(savedSystems),
+              "Battery, air, device identities and allocations survive the real save");
+          ctx.succeed();
+        });
+  }
+
+  @GameTest(maxTicks = 500)
   public void freeDeliveryCreatesOnePersistentPoweredShipAndNeverReplacesIt(GameTestHelper ctx)
       throws java.io.IOException {
     var f = fixture(ctx, 10, 16, 18);
@@ -154,6 +302,9 @@ public final class ShipYardGameTest {
               p.experienceLevel == xp && p.getInventory().isEmpty(),
               "No money, experience or materials are consumed");
           ctx.assertTrue(ShipSystems.enabled(ship), "Delivered ships have finite systems enabled");
+          ctx.assertTrue(
+              DockingService.firstPort(p.level(), ship).anchors().size() >= 2,
+              "The actual delivered ship has an operational powered docking airlock");
           ctx.assertTrue(
               ship.getStringOr("blueprint", "").equals("mule"), "Selected design is persisted");
           ctx.assertTrue(
@@ -304,7 +455,7 @@ public final class ShipYardGameTest {
   }
 
   @GameTest(maxTicks = 1000)
-  public void showroomIsAdditiveHasSixLaunchableShipsAndPreservesEditsOnRevisit(GameTestHelper ctx)
+  public void showroomIsAdditiveHasAllLaunchableShipsAndPreservesEditsOnRevisit(GameTestHelper ctx)
       throws java.io.IOException {
     var server = ctx.getLevel().getServer();
     var yard = ShipYard.ensure(server);

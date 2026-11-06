@@ -37,6 +37,9 @@ public final class VirtualFiles {
   }
 
   public void mkdir(String p) {
+    if (directories.contains(p)) return;
+    if (!p.startsWith("/home/") && !p.startsWith("/etc/"))
+      throw new IllegalArgumentException("This virtual path is read-only");
     if (files.containsKey(p)) throw new IllegalArgumentException("A file already exists there");
     if (!directories.contains(parent(p)))
       throw new IllegalArgumentException("Parent directory does not exist");
@@ -73,7 +76,8 @@ public final class VirtualFiles {
       revision++;
       return;
     }
-    if (!p.startsWith("/home/")
+    if (p.equals("/home/crew")
+        || !p.startsWith("/home/")
         || files.keySet().stream().anyMatch(s -> s.startsWith(p + "/"))
         || directories.stream().anyMatch(s -> s.startsWith(p + "/")))
       throw new IllegalArgumentException("Directory is protected or not empty");
@@ -82,7 +86,10 @@ public final class VirtualFiles {
   }
 
   public List<String> list(String p) {
-    if (!directory(p)) return List.of(p);
+    if (!directory(p)) {
+      if (!files.containsKey(p)) throw new IllegalArgumentException("No such virtual path: " + p);
+      return List.of(p);
+    }
     String prefix = p.equals("/") ? "/" : p + "/";
     var result = new TreeSet<String>();
     for (String name : directories)

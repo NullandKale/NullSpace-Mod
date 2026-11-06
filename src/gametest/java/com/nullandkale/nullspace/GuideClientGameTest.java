@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.entity.LecternBlockEntity;
 public final class GuideClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext c) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = c.worldBuilder().create()) {
       world.getConnection().waitForChunksRender();
@@ -55,7 +56,8 @@ public final class GuideClientGameTest implements FabricClientGameTest {
           mc -> {
             var screen = (BookViewScreen) mc.gui.screen();
             if (!screen.setPage(1)
-                || !screen.getNarrationMessage().getString().contains("First ship"))
+                || !screen.getNarrationMessage().getString().contains("Build my first ship")
+                || !screen.getNarrationMessage().getString().contains("Already on a ship"))
               throw new AssertionError("Native guide contents must navigate to feature chapters");
           });
       c.takeScreenshot("nullspace-field-guide-contents");
@@ -106,6 +108,24 @@ public final class GuideClientGameTest implements FabricClientGameTest {
                     false);
             if (!mc.gui.screen().getNarrationMessage().getString().contains("Computer base"))
               throw new AssertionError("Clicking the actual ingredient must turn the page");
+            mc.gui
+                .screen()
+                .mouseClicked(
+                    new MouseButtonEvent(
+                        left + 5, 150, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)),
+                    false);
+            if (!mc.gui.screen().getNarrationMessage().getString().contains("Terminal"))
+              throw new AssertionError(
+                  "Back must restore the recipe that was being followed; got: "
+                      + mc.gui.screen().getNarrationMessage().getString());
+            mc.gui
+                .screen()
+                .mouseClicked(
+                    new MouseButtonEvent(
+                        left + 27, 82, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_RIGHT, 0)),
+                    false);
+            if (!mc.gui.screen().getNarrationMessage().getString().contains("Computer base"))
+              throw new AssertionError("Right-click recipe shortcut must remain supported");
             ((BookViewScreen) mc.gui.screen()).setPage(terminalPage);
           });
       c.takeScreenshot("nullspace-field-guide-recipe");

@@ -11,6 +11,37 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelResource;
 
 public final class PadLifecycleGameTest {
+  @GameTest
+  public void missingComputerAndChangedFloorReturnPadStatus(GameTestHelper ctx) {
+    var level = ctx.getLevel();
+    var base = ctx.absolutePos(new BlockPos(96000, 85, 96000));
+    var registered = pad(level, base, 8);
+    ctx.assertTrue(
+        PadRegistry.check(level, registered).state() == PadRegistry.State.READY,
+        "Valid pad produces a ready result");
+    var state = level.getBlockState(registered.computer());
+    level.setBlock(registered.computer(), Blocks.AIR.defaultBlockState(), 18);
+    var missing = PadRegistry.check(level, registered);
+    ctx.assertTrue(
+        missing.state() == PadRegistry.State.UNAVAILABLE
+            && missing.detail().equals("Pad computer is missing: Lifecycle")
+            && PadRegistry.inspectState(level.getServer(), registered).state()
+                == PadRegistry.State.UNAVAILABLE,
+        "Missing controller is a returned status for both validation and destination inspection");
+    level.setBlock(registered.computer(), state, 18);
+    level.setBlock(base.offset(3, 0, 3), Blocks.AIR.defaultBlockState(), 18);
+    var changed = PadRegistry.check(level, registered);
+    ctx.assertTrue(
+        changed.state() == PadRegistry.State.UNAVAILABLE
+            && changed.detail().startsWith("Pad changed:"),
+        "An incomplete floor returns a diagnostic without throwing");
+    level.setBlock(base.offset(3, 0, 3), Blocks.DIRT.defaultBlockState(), 18);
+    ctx.assertTrue(
+        PadRegistry.check(level, registered).state() == PadRegistry.State.READY,
+        "Repair restores the normal ready result");
+    ctx.succeed();
+  }
+
   @GameTest(maxTicks = 100)
   public void completedRingExpansionAutomaticallyRetainsRegistration(GameTestHelper ctx)
       throws Exception {
@@ -221,7 +252,7 @@ public final class PadLifecycleGameTest {
     ctx.succeed();
   }
 
-  @GameTest(maxTicks = 160)
+  @GameTest(environment = "nullspace:pad_lifecycle", maxTicks = 160)
   public void registeredPadsRefreshThroughEditsExpiryReloadAndMissingControllers(GameTestHelper ctx)
       throws Exception {
     var level = ctx.getLevel();
@@ -241,8 +272,8 @@ public final class PadLifecycleGameTest {
     boolean[] awaitingInitialInspection = {true};
     ctx.onEachTick(
         () -> {
-          // Other concurrent fixtures legitimately publish registry revisions. Keep requesting
-          // the initial inspections until our assertion instead of relying on one global version.
+          // Keep advisory inspection jobs requested until they finish under the global read budget.
+          // This environment isolates timed expiry/reload assertions from other registry writers.
           if (awaitingInitialInspection[0])
             for (var p : List.of(large, upper, other)) PadRegistry.state(server, p);
           ctx.assertTrue(

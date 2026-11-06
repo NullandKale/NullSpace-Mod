@@ -14,7 +14,8 @@ final class PowerSystem {
     return r.batteryDevices.stream().filter(d -> d.getBooleanOr("enabled", true)).toList();
   }
 
-  record Allocation(PowerBus.Result result, List<CompoundTag> batteries, int stored) {}
+  record Allocation(
+      PowerBus.Result result, List<CompoundTag> batteries, int stored, int demand, int capacity) {}
 
   static Allocation allocate(ServerLevel level, CompoundTag ship, ShipRuntime r) {
     var s = state(ship);
@@ -37,6 +38,7 @@ final class PowerSystem {
     int energy = batteries.stream().mapToInt(b -> b.getIntOr("energy", 0)).sum();
     int[] caps = {
       counts.getOrDefault(ShipBlocks.COMPUTER, 0)
+                  + counts.getOrDefault(ShipBlocks.STATION_CORE, 0)
                   + counts.getOrDefault(ShipBlocks.HELM, 0)
                   + counts.getOrDefault(ShipBlocks.SYSTEMS_CONTROLLER, 0)
                   + counts.getOrDefault(ShipBlocks.TERMINAL, 0)
@@ -44,8 +46,20 @@ final class PowerSystem {
           ? 1
           : 0,
       air * 2,
-      counts.getOrDefault(ShipBlocks.DOOR_CONTROL, 0) > 0 ? 1 : 0,
-      counts.getOrDefault(ShipBlocks.ENGINE, 0) * 3,
+      counts.getOrDefault(ShipBlocks.DOOR_CONTROL, 0)
+                  + counts.getOrDefault(ShipBlocks.HELM, 0)
+                  + counts.getOrDefault(ShipBlocks.COMPUTER, 0)
+                  + counts.getOrDefault(ShipBlocks.SYSTEMS_CONTROLLER, 0)
+                  + counts.getOrDefault(ShipBlocks.DOCKING_BASE, 0)
+                  + counts.getOrDefault(ShipBlocks.DOCKING_PORT, 0)
+                  + counts.getOrDefault(ShipBlocks.DOOR_CONNECTOR, 0)
+              > 0
+          ? 1
+          : 0,
+      r.equipment.stream()
+          .filter(p -> level.getBlockState(p).is(ShipBlocks.ENGINE) && active(r, p))
+          .mapToInt(p -> 3 + 2 * FuelSystem.tier(level, p))
+          .sum(),
       cameras,
       counts.getOrDefault(ShipBlocks.WEAPON, 0) * 2
     };
@@ -54,42 +68,127 @@ final class PowerSystem {
         s.getIntArray("order")
             .orElse(
                 s.getBooleanOr("airFirst", false)
-                    ? new int[] {1, 0, 2, 3, 4, 5}
-                    : new int[] {0, 1, 2, 3, 4, 5});
+                    ? new int[] {1, 0, 2, 4, 3, 5}
+                    : new int[] {0, 1, 2, 4, 3, 5});
     for (int i : order)
       loads.add(
           new PowerBus.Load(
               PowerBus.System.values()[i],
-              requests[i],
+              i == 3 && requests[i] > 0
+                  ? requests[i]
+                      + r.equipment.stream()
+                          .filter(p -> level.getBlockState(p).is(ShipBlocks.ENGINE) && active(r, p))
+                          .mapToInt(p -> 2 * FuelSystem.tier(level, p))
+                          .sum()
+                  : requests[i],
               caps[i],
-              i == 2 ? (r.doors.isEmpty() ? 0 : 1) : caps[i]));
+              i == 2
+                  ? (r.doors.isEmpty() ? 0 : 1)
+                  : i == 3 ? Math.max(0, ship.getIntOr("thrustDemand", 0)) : caps[i]));
+    int capacity =
+        batteries.stream()
+            .mapToInt(
+                b ->
+                    FuelSystem.capacity(
+                        level,
+                        ShipStore.pos(ship, "base")
+                            .offset(BlockPos.of(b.getLongOr("position", 0)))))
+            .sum();
     int chargeRate =
-        batteries.stream().mapToInt(b -> Math.min(4, 1200 - b.getIntOr("energy", 0))).sum();
+        batteries.stream()
+            .mapToInt(
+                b ->
+                    Math.min(
+                        4
+                            * (1
+                                + FuelSystem.tier(
+                                    level,
+                                    ShipStore.pos(ship, "base")
+                                        .offset(BlockPos.of(b.getLongOr("position", 0))))),
+                        FuelSystem.capacity(
+                                level,
+                                ShipStore.pos(ship, "base")
+                                    .offset(BlockPos.of(b.getLongOr("position", 0))))
+                            - b.getIntOr("energy", 0)))
+            .sum();
     int dischargeRate =
-        batteries.stream().mapToInt(b -> Math.min(4, b.getIntOr("energy", 0))).sum();
+        batteries.stream()
+            .mapToInt(
+                b ->
+                    Math.min(
+                        4
+                            * (1
+                                + FuelSystem.tier(
+                                    level,
+                                    ShipStore.pos(ship, "base")
+                                        .offset(BlockPos.of(b.getLongOr("position", 0))))),
+                        b.getIntOr("energy", 0)))
+            .sum();
+    int output =
+        r.equipment.stream()
+            .filter(p -> level.getBlockState(p).is(ShipBlocks.GENERATOR) && active(r, p))
+            .mapToInt(p -> 8 + 4 * FuelSystem.tier(level, p))
+            .sum();
     return new Allocation(
         PowerBus.tick(
-            s.getBooleanOr("supplyDisabled", false) ? 0 : generators * 8,
+            s.getBooleanOr("supplyDisabled", false)
+                ? 0
+                : Math.min(output, FuelSystem.available(level, ship)),
             energy,
-            batteries.size() * 1200,
+            Math.max(capacity, energy),
             chargeRate,
             dischargeRate,
             loads),
         batteries,
-        energy);
+        energy,
+        loads.stream()
+            .mapToInt(l -> Math.min(l.requested(), Math.min(l.capacity(), l.demand())))
+            .sum(),
+        output);
   }
 
   static void tick(ServerLevel level, CompoundTag ship, ShipRuntime r) {
     var allocation = allocate(level, ship, r);
     r.power = allocation.result();
+    int used = r.power.generated() - r.power.curtailed();
+    for (var position : r.equipment)
+      if (used > 0
+          && level.getBlockState(position).is(ShipBlocks.GENERATOR)
+          && active(r, position)) {
+        int efficiency = FuelSystem.tier(level, position),
+            work = Math.min(used, 8 + 4 * efficiency);
+        FuelSystem.spend(level, ship, (work * 4 + 3 + efficiency) / (4 + efficiency));
+        used -= work;
+      }
     int difference = r.power.energy() - allocation.stored();
     for (var b : allocation.batteries()) {
       int old = b.getIntOr("energy", 0),
           change =
               difference >= 0
-                  ? Math.min(4, Math.min(1200 - old, difference))
-                  : -Math.min(4, Math.min(old, -difference));
+                  ? Math.min(
+                      4
+                          * (1
+                              + FuelSystem.tier(
+                                  level,
+                                  ShipStore.pos(ship, "base")
+                                      .offset(BlockPos.of(b.getLongOr("position", 0))))),
+                      Math.min(
+                          FuelSystem.capacity(
+                                  level,
+                                  ShipStore.pos(ship, "base")
+                                      .offset(BlockPos.of(b.getLongOr("position", 0))))
+                              - old,
+                          difference))
+                  : -Math.min(
+                      4
+                          * (1
+                              + FuelSystem.tier(
+                                  level,
+                                  ShipStore.pos(ship, "base")
+                                      .offset(BlockPos.of(b.getLongOr("position", 0))))),
+                      Math.min(old, -difference));
       b.putInt("energy", old + change);
+      b.putInt("flow", change);
       difference -= change;
     }
   }

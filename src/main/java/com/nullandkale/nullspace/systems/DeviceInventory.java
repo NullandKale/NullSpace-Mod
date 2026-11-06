@@ -58,6 +58,8 @@ final class DeviceInventory {
     r.devices.clear();
     for (Tag tag : devices) {
       var d = (CompoundTag) tag;
+      if (level.getBlockEntity(base.offset(BlockPos.of(d.getLongOr("position", 0))))
+          instanceof MachineEntity machine) d.putString("label", machine.label);
       r.devices.put(d.getLongOr("position", Long.MIN_VALUE), d);
     }
     r.batteryDevices =

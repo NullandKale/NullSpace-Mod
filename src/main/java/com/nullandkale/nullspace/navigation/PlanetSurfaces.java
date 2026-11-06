@@ -16,18 +16,17 @@ public final class PlanetSurfaces {
   public static String address(Level level) {
     if (level.dimension().equals(Level.OVERWORLD)) return LocalSpaces.HOME;
     String id = level.dimension().identifier().toString();
-    return LocalSpaces.DESTINATIONS.stream()
+    return com.nullandkale.nullspace.content.ContentCatalog.SURFACES.stream()
         .filter(
             d ->
                 id.equals(
                     com.nullandkale.nullspace.content.ContentCatalog.planet(d.id()).dimension()))
-        .map(LocalSpaces.Destination::id)
+        .map(com.nullandkale.nullspace.content.ContentCatalog.PlanetDefinition::id)
         .findFirst()
         .orElse(null);
   }
 
   public static ResourceKey<Level> dimension(String address) {
-    LocalSpaces.get(address);
     return address.equals(LocalSpaces.HOME)
         ? Level.OVERWORLD
         : ResourceKey.create(
@@ -52,13 +51,16 @@ public final class PlanetSurfaces {
   }
 
   public static void ensureLanding(MinecraftServer server, String address) {
-    if (address.equals(LocalSpaces.HOME)) return;
+    if (address.equals(LocalSpaces.HOME)) {
+      TerraLandingSite.ensure(server.overworld());
+      return;
+    }
     var key = dimension(address);
     var level = server.getLevel(key);
     if (level == null)
       throw new IllegalArgumentException(
           "Planet dimension is unavailable. Restart with the updated mod.");
-    String padName = LocalSpaces.get(address).name() + " Landing";
+    String padName = LocalSpaces.get(server, address).name() + " Landing";
     if (PadRegistry.read(server).stream()
         .anyMatch(p -> p.dimension().equals(key.identifier().toString()))) return;
     if (PadRegistry.read(server).stream().anyMatch(p -> p.name().equalsIgnoreCase(padName)))
@@ -109,6 +111,8 @@ public final class PlanetSurfaces {
   }
 
   public static void initialize() {
+    net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(
+        server -> ensureLanding(server, LocalSpaces.HOME));
     CommandRegistrationCallback.EVENT.register(
         (dispatcher, access, env) ->
             dispatcher.register(
@@ -134,11 +138,27 @@ public final class PlanetSurfaces {
                                           var p = c.getSource().getPlayerOrException();
                                           var level =
                                               c.getSource().getServer().getLevel(dimension(region));
+                                          var landing =
+                                              PadRegistry.read(c.getSource().getServer()).stream()
+                                                  .filter(
+                                                      pad ->
+                                                          pad.dimension()
+                                                              .equals(
+                                                                  dimension(region)
+                                                                      .identifier()
+                                                                      .toString()))
+                                                  .findFirst()
+                                                  .orElseThrow(
+                                                      () ->
+                                                          new IllegalArgumentException(
+                                                              "No landing site is available on this"
+                                                                  + " surface"));
+                                          var bounds = landing.bounds();
                                           p.teleportTo(
                                               level,
-                                              16.5,
-                                              66,
-                                              16.5,
+                                              (bounds.minX() + bounds.maxX() + 1) / 2.0,
+                                              bounds.y() + 2,
+                                              (bounds.minZ() + bounds.maxZ() + 1) / 2.0,
                                               java.util.Set.of(),
                                               0,
                                               0,

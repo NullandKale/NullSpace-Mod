@@ -31,6 +31,8 @@ final class DoorSystem {
         var b = level.getBlockState(p);
         if (!ShipDoors.isDoor(b) || !r.blocks.contains(p) || !ShipDoors.framed(level, p))
           r.result = "Door MISSING/INVALID at " + p.toShortString();
+        else if (com.nullandkale.nullspace.station.DockingService.ownsDoor(level, p))
+          r.result = "DOCKING owns door at " + p.toShortString();
         else if (!active(r, p)) r.result = "DISABLED at " + p.toShortString();
         else if (!r.open && ShipDoors.powered(level, p))
           r.result = "REDSTONE OVERRIDE at " + p.toShortString();

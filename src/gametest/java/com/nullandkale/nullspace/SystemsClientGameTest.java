@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 public final class SystemsClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       var base =
@@ -37,6 +38,14 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .runOnServer(
               server -> {
                 var level = server.overworld();
+                level.setBlock(
+                    base.offset(10, 6, 20),
+                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                    18);
+                level.setBlock(
+                    base.offset(10, 6, 21),
+                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                    18);
                 for (int x = 14; x <= 19; x++)
                   level.setBlock(
                       base.offset(x, 6, 21),
@@ -52,7 +61,13 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                           .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
                       18);
                 level.setBlock(
-                    base.offset(20, 6, 21),
+                    base.offset(21, 6, 21),
+                    ShipBlocks.MONITOR
+                        .defaultBlockState()
+                        .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
+                    18);
+                level.setBlock(
+                    base.offset(19, 7, 21),
                     ShipBlocks.MONITOR
                         .defaultBlockState()
                         .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
@@ -91,6 +106,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                         .defaultBlockState()
                         .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
                     18);
+                FuelSystem.provision(level, base.offset(14, 6, 21), 64);
                 var ship = ShipTopology.resolve(level, base.offset(18, 6, 21));
                 ShipSystems.upgrade(level, ship);
                 ship.getCompoundOrEmpty("systems")
@@ -206,7 +222,8 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
       context.runOnClient(
           c -> {
             if (MonitorRenderer.preparedCount() != 2)
-              throw new AssertionError("Both test monitors must remain installed and prepared");
+              throw new AssertionError(
+                  "Two separate monitor walls must remain installed and prepared");
             for (int slot = 0; slot < 2; slot++)
               monitorFrames[slot] = MonitorRenderer.capturedFrames(slot);
           });
@@ -313,36 +330,25 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
             .pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
         context.waitFor(
             c ->
-                c.gui.screen() instanceof TerminalScreen t
-                    && t.buffer()
-                        .row(1)
-                        .contains(mode.toUpperCase(java.util.Locale.ROOT).replace('_', ' ')),
+                mode.equals("door_control")
+                    ? c.gui.screen() instanceof TerminalScreen
+                    : c.gui.screen() instanceof MachineScreen screen
+                        && screen.getMenu().reading.getStringOr("mode", "").equals(mode),
             100);
         if (mode.equals("battery")) {
-          context.runOnClient(
-              c -> {
-                var t = (TerminalScreen) c.gui.screen();
-                for (int n = 0; n < 2; n++)
-                  t.keyPressed(
-                      new net.minecraft.client.input.KeyEvent(
-                          com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-                t.keyPressed(
-                    new net.minecraft.client.input.KeyEvent(
-                        com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-              });
-          awaitStatus(context, "OFF (disabled)");
+          MachineTestUi.click(context, 40, 24);
+          context.waitFor(
+              c ->
+                  c.gui.screen() instanceof MachineScreen screen
+                      && !screen.getMenu().reading.getBooleanOr("enabled", true),
+              100);
           context.waitTicks(3);
-          context.runOnClient(
-              c -> {
-                var t = (TerminalScreen) c.gui.screen();
-                t.keyPressed(
-                    new net.minecraft.client.input.KeyEvent(
-                        com.mojang.blaze3d.platform.InputConstants.KEY_UP, 0, 0));
-                t.keyPressed(
-                    new net.minecraft.client.input.KeyEvent(
-                        com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-              });
-          awaitStatus(context, "Switch ON");
+          MachineTestUi.click(context, 40, 24);
+          context.waitFor(
+              c ->
+                  c.gui.screen() instanceof MachineScreen screen
+                      && screen.getMenu().reading.getBooleanOr("enabled", false),
+              100);
         }
         if (mode.equals("air_supply")) context.takeScreenshot("nullspace-equipment-air");
         if (mode.equals("monitor")) break;
@@ -350,31 +356,14 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
         context.waitTicks(3);
       }
       context.takeScreenshot("nullspace-equipment-monitor");
-      context.runOnClient(
-          c -> {
-            var t = (TerminalScreen) c.gui.screen();
-            for (int n = 0; n < 3; n++)
-              t.keyPressed(
-                  new net.minecraft.client.input.KeyEvent(
-                      com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            t.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-          });
+      MachineTestUi.click(context, 60, 80);
       context.waitFor(
-          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Camera 2 / 2"),
+          c ->
+              c.gui.screen() instanceof MachineScreen screen
+                  && !screen.getMenu().reading.getStringOr("feed", "").isBlank(),
           100);
-      context.waitTicks(3);
-      context.runOnClient(
-          c -> {
-            var t = (TerminalScreen) c.gui.screen();
-            t.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            t.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-          });
+      context.waitTicks(4);
+      MachineTestUi.click(context, 210, 135);
       context.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 200);
       context.waitTicks(45);
       context.runOnClient(
@@ -553,17 +542,9 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                   && hit.getBlockPos().equals(SphereLab.controller(base)),
           100);
       context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-      context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
-      context.runOnClient(
-          c -> {
-            var terminal = (TerminalScreen) c.gui.screen();
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, 0, 0));
-            terminal.keyPressed(
-                new net.minecraft.client.input.KeyEvent(
-                    com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
-          });
+      context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
+      context.waitTicks(12);
+      ShipControlTestUi.action(context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
       context.waitFor(
           c ->
               c.level != null

@@ -110,36 +110,52 @@ public final class SceneVolumes {
       for (Tag tag : subjects) {
         if (!(tag instanceof CompoundTag subject))
           throw new IllegalArgumentException("Invalid scene subject");
-        if (!subject.contains("geometry")) {
-          expanded.add(subject);
-          continue;
+        if (expanded.size() + 1 + subject.getListOrEmpty("sections").size()
+            > SceneService.MAX_RENDER_SECTIONS)
+          throw new IllegalArgumentException("Scene render-section budget exceeded");
+        expanded.add(volume(subject));
+        var sections = subject.getListOrEmpty("sections");
+        if (sections.size() >= SceneService.MAX_RENDER_SECTIONS)
+          throw new IllegalArgumentException("Too many vessel render sections");
+        for (var section : sections) {
+          if (!(section instanceof CompoundTag data)
+              || !data.getStringOr("parent", "").equals(subject.getStringOr("id", "")))
+            throw new IllegalArgumentException("Invalid station render section");
+          expanded.add(volume(data));
         }
-        String id = subject.getStringOr("geometryId", "");
-        long revision = subject.getLongOr("geometryRevision", -1);
-        if (id.isEmpty() || id.length() > 80 || revision < 0)
-          throw new IllegalArgumentException("Invalid geometry identity");
-        var old = volumes.get(id);
-        CompoundTag geometry;
-        if (old != null && old.revision == revision) {
-          geometry = old.geometry;
-          reused++;
-        } else {
-          geometry = decode(subject.getCompoundOrEmpty("geometry"));
-          decoded++;
-          if (old == null || revision > old.revision) {
-            volumes.put(id, new Decoded(revision, geometry));
-            while (volumes.size() > limit) volumes.remove(volumes.keySet().iterator().next());
-          }
-        }
-        var copy = shallow(subject);
-        copy.remove("geometry");
-        copy.put("blocks", geometry.get("blocks"));
-        copy.put("light", geometry.get("light"));
-        copy.put("blockEntities", geometry.get("blockEntities"));
-        expanded.add(copy);
       }
       result.put("subjects", expanded);
       return result;
+    }
+
+    private CompoundTag volume(CompoundTag subject) {
+      if (!subject.contains("geometry")) {
+        return subject;
+      }
+      String id = subject.getStringOr("geometryId", "");
+      long revision = subject.getLongOr("geometryRevision", -1);
+      if (id.isEmpty() || id.length() > 80 || revision < 0)
+        throw new IllegalArgumentException("Invalid geometry identity");
+      var old = volumes.get(id);
+      CompoundTag geometry;
+      if (old != null && old.revision == revision) {
+        geometry = old.geometry;
+        reused++;
+      } else {
+        geometry = decode(subject.getCompoundOrEmpty("geometry"));
+        decoded++;
+        if (old == null || revision > old.revision) {
+          volumes.put(id, new Decoded(revision, geometry));
+          while (volumes.size() > limit) volumes.remove(volumes.keySet().iterator().next());
+        }
+      }
+      var copy = shallow(subject);
+      copy.remove("geometry");
+      copy.remove("sections");
+      copy.put("blocks", geometry.get("blocks"));
+      copy.put("light", geometry.get("light"));
+      copy.put("blockEntities", geometry.get("blockEntities"));
+      return copy;
     }
 
     public int size() {

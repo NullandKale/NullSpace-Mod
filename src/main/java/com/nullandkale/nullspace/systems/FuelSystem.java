@@ -1,0 +1,66 @@
+package com.nullandkale.nullspace.systems;
+
+import com.nullandkale.nullspace.ship.*;
+import java.util.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+
+/** One shared store across connected generators. Burn units are conserved between all consumers. */
+public final class FuelSystem {
+  public static List<MachineEntity> generators(ServerLevel level, CompoundTag ship) {
+    return ShipSystems.equipment(level, ship).stream()
+        .filter(p -> level.getBlockState(p).is(ShipBlocks.GENERATOR))
+        .map(level::getBlockEntity)
+        .filter(MachineEntity.class::isInstance)
+        .map(MachineEntity.class::cast)
+        .toList();
+  }
+
+  public static int available(ServerLevel level, CompoundTag ship) {
+    return (int)
+        Math.min(
+            Integer.MAX_VALUE,
+            generators(level, ship).stream().mapToLong(MachineEntity::available).sum());
+  }
+
+  public static boolean spend(ServerLevel level, CompoundTag ship, int amount) {
+    if (amount <= 0) return true;
+    if (available(level, ship) < amount) return false;
+    for (var generator : generators(level, ship)) {
+      amount -= generator.draw(amount);
+      if (amount == 0) return true;
+    }
+    return false;
+  }
+
+  public static int tier(ServerLevel level, BlockPos at) {
+    return level.getBlockEntity(at) instanceof MachineEntity machine ? machine.tier() : 0;
+  }
+
+  public static int capacity(ServerLevel level, BlockPos at) {
+    return 1200 * (1 + tier(level, at));
+  }
+
+  public static int travelCost(ServerLevel level, CompoundTag ship, int base) {
+    int best =
+        ShipSystems.equipment(level, ship).stream()
+            .filter(p -> level.getBlockState(p).is(ShipBlocks.ENGINE))
+            .filter(p -> ShipSystems.active(ship, p))
+            .mapToInt(p -> tier(level, p))
+            .max()
+            .orElse(0);
+    return Math.max(1, (base * 4 + 3 + best) / (4 + best));
+  }
+
+  public static void provision(ServerLevel level, BlockPos at, int coal) {
+    if (level.getBlockEntity(at) instanceof MachineEntity machine
+        && machine.generator()
+        && machine.isEmpty()
+        && machine.burn() == 0)
+      machine.setItem(
+          3, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COAL, coal));
+  }
+
+  private FuelSystem() {}
+}

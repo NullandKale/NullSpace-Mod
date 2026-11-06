@@ -169,7 +169,6 @@ class VirtualFilesTest {
   }
 
   @Test
-  @Disabled("KNOWN QUIRK: the default working directory can be removed once it is empty")
   void theDefaultWorkingDirectoryCannotBeRemoved() {
     var f = new VirtualFiles();
     for (String file : f.files().keySet()) if (file.startsWith("/home/crew/")) f.remove(file);
@@ -177,13 +176,11 @@ class VirtualFilesTest {
   }
 
   @Test
-  @Disabled("KNOWN QUIRK: ls of a missing path prints the path instead of reporting an error")
   void listingAMissingPathIsAnError() {
     assertThrows(IllegalArgumentException.class, () -> new VirtualFiles().list("/home/crew/nope"));
   }
 
   @Test
-  @Disabled("KNOWN QUIRK: mkdir ignores the read-only /proc and /dev trees that write() protects")
   void mkdirHonoursTheSameWritableRootsAsWrite() {
     assertThrows(IllegalArgumentException.class, () -> new VirtualFiles().mkdir("/proc/x"));
   }

@@ -32,15 +32,19 @@ public final class CompiledExpression {
   private static final class Parser {
     private static final Pattern TOKEN =
         Pattern.compile(
-            "\\s*(?:([A-Za-z_][A-Za-z0-9_.]*)|(\\d+(?:\\.\\d+)?)|('(?:\\\\.|[^'\\\\])*'|\"(?:\\\\.|[^\"\\\\])*\")|(==|!=|<=|>=|//|[+*/%<>()!,\\[\\]-]))");
+            "\\s*+(?:([A-Za-z_][A-Za-z0-9_.]*)|(\\d+(?:\\.\\d+)?)|('(?:\\\\.|[^'\\\\])*+'|\"(?:\\\\.|[^\"\\\\])*+\")|(==|!=|<=|>=|//|[+*/%<>()!,\\[\\]-]))");
     final List<String> tokens = new ArrayList<>();
     int at, depth, nodes;
 
     Parser(String source) {
       var m = TOKEN.matcher(source);
       int end = 0;
-      while (m.find()) {
-        if (m.start() != end) throw new IllegalArgumentException("Invalid expression");
+      while (end < source.length()) {
+        m.region(end, source.length());
+        if (!m.lookingAt()) {
+          if (source.substring(end).isBlank()) break;
+          throw new IllegalArgumentException("Invalid expression");
+        }
         tokens.add(
             m.group(1) != null
                 ? m.group(1)
@@ -48,8 +52,6 @@ public final class CompiledExpression {
         end = m.end();
         if (tokens.size() > 1024) throw new IllegalArgumentException("Expression is too large");
       }
-      if (!source.substring(end).isBlank())
-        throw new IllegalArgumentException("Invalid expression");
       tokens.add("<end>");
     }
 
@@ -108,7 +110,7 @@ public final class CompiledExpression {
         return node((v, h) -> finite(-number(child.eval(v, h))));
       }
       if (s.equals("not") || s.equals("!")) {
-        Node child = expr(6);
+        Node child = expr(s.equals("not") ? 3 : 6);
         return node((v, h) -> !truth(child.eval(v, h)));
       }
       if (s.equals("(")) {

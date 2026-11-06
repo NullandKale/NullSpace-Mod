@@ -1,6 +1,7 @@
-param([int] $TimeoutSeconds = 360, [string] $ArtifactRoot = '')
+param([int] $TimeoutSeconds = 360, [string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $Profile)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'scripts/LocalVerification.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'scripts/TestWorldCleanup.psm1') -Force
 $projectRoot = $PSScriptRoot
 & "$projectRoot/scripts/Invoke-Gradle.ps1" exportLocalClientLaunch --no-configuration-cache --no-daemon --console=plain
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -20,6 +21,7 @@ try {
         $null = New-Item -ItemType Directory -Path $work
         [System.IO.File]::WriteAllText((Join-Path $work 'eula.txt'),"eula=true`n")
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
+        if ($Profile) { $arguments += @('-XX:FlightRecorderOptions=stackdepth=128', ('-XX:StartFlightRecording=name=NullSpacePlaytest,settings=profile,dumponexit=true,maxsize=128m,filename=' + (Join-Path $work 'profile.jfr'))) }
         $arguments += @('-Xmx2G',"-Dnullspace.local.role=$role","-Dnullspace.local.directory=$runRoot","-Dnullspace.local.port=$port",'-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $arguments += @('--gameDir',$work,'--username',"NullSpace_$role",'--uuid',[guid]::NewGuid().ToString(),'--width','640','--height','480')
@@ -41,9 +43,20 @@ try {
     Assert-VerificationMarker (Join-Path $runRoot 'passed') 'ok'
     Assert-VerificationMarker (Join-Path $runRoot 'shipyard-race-passed') 'ok'
     Assert-VerificationFingerprint $projectRoot $fingerprint
-    Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; inputsSha256=$fingerprint; roles=@('pilot','crew'); exitCodes=@($processes | ForEach-Object { $_.ExitCode }); marker='passed'; shipyardRace='shipyard-race-passed' }
+    Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; preserveWorlds=[bool]$KeepWorlds; profile=[bool]$Profile; inputsSha256=$fingerprint; roles=@('pilot','crew'); exitCodes=@($processes | ForEach-Object { $_.ExitCode }); marker='passed'; shipyardRace='shipyard-race-passed' }
     Write-Host "Local multiplayer passed: two graphical clients, loopback dedicated server, typed-session validation, private pad/ship previews, launch, offline return, reconnect tracking, shared power revisions, distant GPU feeds, and concurrent free ship purchases. Logs: $runRoot"
 }
 finally {
-    foreach ($process in $processes) { if (-not $process.HasExited) { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue } }
+    foreach ($process in $processes) {
+        if (-not $process.HasExited) { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue }
+        $null = $process.WaitForExit(10000)
+    }
+    if (-not $KeepWorlds) {
+        try {
+            $cleanup = @(foreach ($role in @('pilot','crew')) {
+                Remove-TestWorlds -Workspace $projectRoot -WorkRoot (Join-Path $runRoot $role) -ProcessIds @($processes | ForEach-Object Id)
+            })
+            Write-VerificationJson (Join-Path $runRoot 'world-cleanup.json') @{worlds=$cleanup}
+        } catch { Write-Warning "Test world cleanup failed: $($_.Exception.Message)" }
+    }
 }

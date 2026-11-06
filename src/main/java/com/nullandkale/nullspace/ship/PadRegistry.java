@@ -19,8 +19,6 @@ public final class PadRegistry {
     UNKNOWN
   }
 
-  private static final class UnloadedTerrain extends RuntimeException {}
-
   public record Status(Pad pad, State state, String detail) {}
 
   /**
@@ -105,12 +103,12 @@ public final class PadRegistry {
   }
 
   public static Status inspectState(MinecraftServer server, Pad pad) {
-    ServerLevel level;
-    try {
-      level = ShipStore.level(server, pad.dimension());
-    } catch (IllegalArgumentException unavailable) {
-      return new Status(pad, State.UNAVAILABLE, "Dimension missing");
-    }
+    var level =
+        server.getLevel(
+            net.minecraft.resources.ResourceKey.create(
+                net.minecraft.core.registries.Registries.DIMENSION,
+                net.minecraft.resources.Identifier.parse(pad.dimension())));
+    if (level == null) return new Status(pad, State.UNAVAILABLE, "Dimension missing");
     var b = pad.bounds();
     for (int x = b.minX() - 1; x <= b.maxX() + 1; x++)
       for (int z = b.minZ() - 1; z <= b.maxZ() + 1; z++)
@@ -118,13 +116,8 @@ public final class PadRegistry {
           return new Status(pad, State.UNKNOWN, "Terrain not loaded");
     if (!level.hasChunkAt(pad.computer()))
       return new Status(pad, State.UNKNOWN, "Computer not loaded");
-    try {
-      validate(level, pad, false);
-    } catch (UnloadedTerrain unloaded) {
-      return new Status(pad, State.UNKNOWN, "Terrain not loaded");
-    } catch (IllegalArgumentException invalid) {
-      return new Status(pad, State.UNAVAILABLE, invalid.getMessage());
-    }
+    var validation = check(level, pad, false);
+    if (validation.state() != State.READY) return validation;
     for (int x = b.minX(); x <= b.maxX(); x++)
       for (int z = b.minZ(); z <= b.maxZ(); z++)
         for (int y = b.y() + 1; y <= level.getMaxY(); y++)
@@ -151,23 +144,33 @@ public final class PadRegistry {
     com.nullandkale.nullspace.pad.PadRepository.get(server).reload();
   }
 
+  /** Legacy launch/shipyard adapter; landing and status checks consume the result directly. */
   public static void validate(ServerLevel level, Pad pad) {
-    validate(level, pad, true);
+    var result = check(level, pad);
+    if (result.state() != State.READY) throw new IllegalArgumentException(result.detail());
   }
 
-  private static void validate(ServerLevel level, Pad pad, boolean load) {
+  public static Status check(ServerLevel level, Pad pad) {
+    return check(level, pad, true);
+  }
+
+  private static Status check(ServerLevel level, Pad pad, boolean load) {
     var p = pad.computer();
     if (load) level.getChunk(p);
-    else if (!level.hasChunkAt(p)) throw new UnloadedTerrain();
+    else if (!level.hasChunkAt(p)) return new Status(pad, State.UNKNOWN, "Computer not loaded");
     if (!level.getBlockState(p).is(PadComputers.BLOCK))
-      throw new IllegalArgumentException("Pad computer is missing: " + pad.name());
+      return new Status(pad, State.UNAVAILABLE, "Pad computer is missing: " + pad.name());
     var state = level.getBlockState(p);
     var facing = state.getValue(PadComputerBlock.FACING);
+    boolean[] unloaded = {false};
     var result =
         PadScanner.scan(
             (x, y, z) -> {
               var pos = new BlockPos(x, y, z);
-              if (!load && !level.hasChunkAt(pos)) throw new UnloadedTerrain();
+              if (!load && !level.hasChunkAt(pos)) {
+                unloaded[0] = true;
+                return PadScanner.Cell.OTHER;
+              }
               var s = level.getBlockState(pos);
               if (s.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK))
                 return PadScanner.Cell.GRASS;
@@ -181,8 +184,10 @@ public final class PadRegistry {
             p.getZ(),
             facing.getStepX(),
             facing.getStepZ());
+    if (unloaded[0]) return new Status(pad, State.UNKNOWN, "Terrain not loaded");
     if (!result.valid() || !result.pad().equals(pad.bounds()))
-      throw new IllegalArgumentException("Pad changed: " + result.message());
+      return new Status(pad, State.UNAVAILABLE, "Pad changed: " + result.message());
+    return new Status(pad, State.READY, "Surface and border valid");
   }
 
   private PadRegistry() {}

@@ -26,7 +26,6 @@ class VirtualShellTest {
   // --- Known defects -------------------------------------------------------------------------
 
   @Test
-  @Disabled("KNOWN BUG: mv to the same path writes then removes the file (VirtualComputer cp/mv)")
   void movingAFileOntoItselfKeepsIt() {
     var c = machine();
     c.files.write("/home/crew/a", "precious");
@@ -39,7 +38,47 @@ class VirtualShellTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: head -n N reports a raw NumberFormatException message")
+  void movingThroughAnEquivalentPathKeepsTheFileAndDoesNotChangeTheDisk() {
+    var c = machine();
+    c.files.write("/home/crew/a", "precious");
+    long revision = c.files.revision();
+    for (String target : List.of("./a", "/home/crew/a", "../crew/a")) {
+      sh(c, "mv a " + target);
+      assertEquals("precious", c.files.read("/home/crew/a"));
+      assertEquals(revision, c.files.revision());
+    }
+    fails(c, "mv missing missing");
+  }
+
+  @Test
+  void invalidImageFieldsNeverChangeTheRunningComputer() {
+    var c = machine();
+    c.files.write("/home/crew/keep", "safe");
+    var original = image(c);
+    for (String field : List.of("version", "clock", "files", "cwd")) {
+      for (JsonElement bad :
+          List.of(JsonNull.INSTANCE, new JsonArray(), new JsonObject(), new JsonPrimitive(true))) {
+        if (field.equals("files") && bad.isJsonObject()) continue; // An empty file map is valid.
+        var corrupted = original.deepCopy();
+        corrupted.add(field, bad);
+        var error =
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> c.restore(corrupted.toString()),
+                field + "=" + bad);
+        assertNotNull(error.getMessage());
+        assertEquals(original, image(c), "Failed restore must be atomic: " + field);
+      }
+    }
+    for (String value : List.of("1.5", "9223372036854775808")) {
+      var corrupted = original.deepCopy();
+      corrupted.add("clock", JsonParser.parseString(value));
+      assertThrows(IllegalArgumentException.class, () -> c.restore(corrupted.toString()));
+      assertEquals(original, image(c));
+    }
+  }
+
+  @Test
   void headWithAnUnsupportedFlagExplainsUsage() {
     var c = machine();
     var error = fails(c, "echo a | head -n 2");
@@ -47,7 +86,6 @@ class VirtualShellTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: a missing JSON field surfaces as a NullPointerException with no message")
   void imagesMissingRequiredFieldsAreRejectedAsInvalid() {
     var c = machine();
     for (String image : new String[] {"{}", "{\"version\":1}", "{\"version\":1,\"clock\":0}"}) {

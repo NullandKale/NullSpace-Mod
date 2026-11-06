@@ -31,7 +31,7 @@ class PowerBusTest {
   }
 
   @Test
-  void reservesRequestedCapacityButChargesUnusedOutput() {
+  void idleReservationsDoNotStarveWorkingEquipment() {
     var result =
         PowerBus.tick(
             8,
@@ -42,9 +42,34 @@ class PowerBusTest {
             List.of(
                 new PowerBus.Load(PowerBus.System.DOORS, 8, 8, 0),
                 new PowerBus.Load(PowerBus.System.AIR, 2, 2, 2)));
-    assertEquals(0, result.delivered().get(PowerBus.System.AIR));
-    assertEquals(0, result.consumed());
+    assertEquals(8, result.delivered().get(PowerBus.System.DOORS));
+    assertEquals(2, result.delivered().get(PowerBus.System.AIR));
+    assertEquals(2, result.consumed());
     assertEquals(4, result.charged());
+  }
+
+  @Test
+  void occupiedExplorerKeepsSensorsPoweredAndLimitsThrustToItsActualSupply() {
+    for (int thrust : new int[] {0, 3}) {
+      var result =
+          PowerBus.tick(
+              16,
+              0,
+              2400,
+              8,
+              8,
+              List.of(
+                  new PowerBus.Load(PowerBus.System.CONTROLS, 1, 1, 1),
+                  new PowerBus.Load(PowerBus.System.AIR, 12, 12, 12),
+                  new PowerBus.Load(PowerBus.System.DOORS, 1, 1, 0),
+                  new PowerBus.Load(PowerBus.System.CAMERAS, 2, 2, 2),
+                  new PowerBus.Load(PowerBus.System.ENGINES, 3, 6, thrust)));
+      assertEquals(2, result.delivered().get(PowerBus.System.CAMERAS));
+      assertEquals(1, result.delivered().get(PowerBus.System.ENGINES));
+      assertEquals(15 + Math.min(thrust, 1), result.consumed());
+      assertEquals(16 - result.consumed(), result.charged());
+      assertEquals(0, result.discharged());
+    }
   }
 
   @Test

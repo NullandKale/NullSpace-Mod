@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.nullandkale.nullspace.client.MachineScreen;
 import com.nullandkale.nullspace.client.TerminalScreen;
 import com.nullandkale.nullspace.dev.*;
 import com.nullandkale.nullspace.ship.*;
@@ -9,7 +10,6 @@ import com.nullandkale.nullspace.terminal.ComputerTerminal;
 import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.*;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.core.*;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.*;
 public final class RecipeClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       var gallery = world.getServer().computeOnServer(RecipeLab::ensure);
@@ -136,18 +137,17 @@ public final class RecipeClientGameTest implements FabricClientGameTest {
                     SurvivalCrafting.starter(p, at);
                     var home = ShipLab.ensure(server);
                     var level = server.overworld();
+                    level.setBlock(home.offset(0, 3, 1), Blocks.STONE.defaultBlockState(), 18);
+                    level.setBlock(home.offset(6, 3, 1), Blocks.STONE.defaultBlockState(), 18);
                     Block[] hardware = {
-                      ShipBlocks.GENERATOR,
-                      ShipBlocks.BATTERY,
-                      ShipBlocks.AIR_SUPPLY,
-                      ShipBlocks.DOOR_CONTROL
+                      ShipBlocks.GENERATOR, ShipBlocks.BATTERY, ShipBlocks.AIR_SUPPLY
                     };
                     SurvivalCrafting.take(
                         p, com.nullandkale.nullspace.pad.PadComputers.BLOCK.asItem());
-                    SurvivalCrafting.take(p, ShipBlocks.HELM.asItem());
+                    SurvivalCrafting.take(p, ShipBlocks.COMPUTER.asItem());
                     level.setBlock(
                         home.offset(6, 3, 3),
-                        ShipBlocks.HELM
+                        ShipBlocks.COMPUTER
                             .defaultBlockState()
                             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
                         18);
@@ -181,9 +181,17 @@ public final class RecipeClientGameTest implements FabricClientGameTest {
                         0,
                         true);
                     ShipSystems.action(p, home.offset(6, 3, 3), ComputerTerminal.Action.UPGRADE);
+                    p.getInventory().add(new ItemStack(Items.COAL, 8));
+                    MachineMenus.open(p, home.offset(1, 3, 6));
                     return home;
                   });
-      context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 200);
+      context.waitFor(
+          c ->
+              c.gui.screen() instanceof MachineScreen screen
+                  && screen.getMenu().reading.getStringOr("mode", "").equals("generator"),
+          200);
+      MachineTestUi.shiftItem(context, Items.COAL);
+      context.runOnClient(c -> c.gui.screen().onClose());
       context.waitTicks(40);
       world
           .getServer()
@@ -202,7 +210,8 @@ public final class RecipeClientGameTest implements FabricClientGameTest {
               });
       context.waitFor(
           c ->
-              c.gui.screen() instanceof TerminalScreen t && t.status().equals("Crafted ship ready"),
+              c.gui.screen() instanceof TerminalScreen t
+                  && t.status().startsWith("Crafted ship ready"),
           200);
       context.waitTicks(20);
       send(context, ComputerTerminal.Action.LAUNCH);
@@ -236,22 +245,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest {
   }
 
   private static void send(ClientGameTestContext context, ComputerTerminal.Action action) {
-    context.runOnClient(
-        c -> {
-          var screen = (TerminalScreen) c.gui.screen();
-          String argument = "", id = "";
-          if (action == ComputerTerminal.Action.LAND) {
-            argument = screen.fieldValue();
-            final String name = argument;
-            id =
-                screen.destinations().stream()
-                    .filter(d -> d.name().equalsIgnoreCase(name))
-                    .findFirst()
-                    .orElseThrow()
-                    .id();
-          }
-          ClientPlayNetworking.send(
-              new ComputerTerminal.Request(screen.sessionId(), action, argument, id));
-        });
+    ShipControlTestUi.action(
+        context, com.nullandkale.nullspace.navigation.ShipControl.Action.valueOf(action.name()));
   }
 }

@@ -106,8 +106,11 @@ public final class ShipStore {
     }
   }
 
-  public void save() {
-    var encoded = repository.encoded();
+  public synchronized void save() {
+    // Disconnect and shutdown callbacks can overlap. One store owns one temporary file.
+    // Write and validate one frozen document. Live metadata can change through callbacks or an
+    // integrated client's shared payloads while IO is in progress.
+    var encoded = repository.snapshot();
     if (lastSaved != null
         && lastSaved.equals(encoded)
         && Files.exists(directory.resolve("ships.nbt"))) {
@@ -115,8 +118,8 @@ public final class ShipStore {
       return;
     }
     write(directory.resolve("ships.nbt"), encoded);
-    lastSaved = encoded.copy();
-    requested = false;
+    lastSaved = encoded;
+    requested = !repository.encoded().equals(encoded);
   }
 
   public static CompoundTag read(Path file) throws java.io.IOException {
@@ -153,9 +156,12 @@ public final class ShipStore {
       }
       // Reject a snapshot that recovery could not read, before promoting it or touching world
       // blocks.
-      if (!tag.equals(read(temp)))
+      var verified = read(temp);
+      if (!tag.equals(verified))
         throw new java.io.IOException(
-            "Saved NBT differs from its source; refusing to replace the previous file");
+            "Saved NBT differs at "
+                + difference(tag, verified, "root")
+                + "; refusing to replace the previous file");
       try (var channel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
         channel.force(true);
       }
@@ -167,6 +173,27 @@ public final class ShipStore {
 
   public ListTag ships() {
     return repository.ships();
+  }
+
+  private static String difference(Tag expected, Tag actual, String path) {
+    if (expected instanceof CompoundTag a && actual instanceof CompoundTag b) {
+      var keys = new java.util.TreeSet<>(a.keySet());
+      keys.addAll(b.keySet());
+      for (var key : keys)
+        if (!java.util.Objects.equals(a.get(key), b.get(key)))
+          return difference(a.get(key), b.get(key), path + "." + key);
+    } else if (expected instanceof ListTag a && actual instanceof ListTag b) {
+      if (a.size() != b.size()) return path + ".length";
+      for (int i = 0; i < a.size(); i++)
+        if (!java.util.Objects.equals(a.get(i), b.get(i)))
+          return difference(a.get(i), b.get(i), path + "[" + i + "]");
+    }
+    return path
+        + " ("
+        + (expected == null ? "missing" : expected.getClass().getSimpleName())
+        + "/"
+        + (actual == null ? "missing" : actual.getClass().getSimpleName())
+        + ")";
   }
 
   public CompoundTag at(ServerLevel level, BlockPos pos) {

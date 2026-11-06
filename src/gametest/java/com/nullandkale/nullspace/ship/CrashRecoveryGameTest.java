@@ -49,7 +49,7 @@ public final class CrashRecoveryGameTest {
                   ShipBlocks.GENERATOR,
                   ShipBlocks.BATTERY,
                   ShipBlocks.AIR_SUPPLY,
-                  ShipBlocks.DOOR_CONTROL
+                  ShipBlocks.LOCAL_SCANNER
                 }
                 [x - 2].defaultBlockState(),
             18);
@@ -81,13 +81,22 @@ public final class CrashRecoveryGameTest {
       manifest.putString("creeper", creeper.getUUID().toString());
       manifest.putString("item", dropped.getUUID().toString());
       ShipStore.write(file, manifest);
-      ctx.runAfterDelay(
-          20,
+      afterEntitiesLoaded(
+          ctx,
+          planet,
+          space,
+          base,
           () -> {
-            if (landing)
-              TravelService.transfer(
-                  player, planetController, "", ShipService.inspect(planet, planetController));
+            if (landing) {
+              var launched =
+                  TravelService.transfer(
+                      player, planetController, "", ShipService.inspect(planet, planetController));
+              ctx.assertTrue(
+                  launched.outcome() == TravelService.Outcome.COMPLETED,
+                  "Landing fixture launch must complete before crash setup: " + launched.message());
+            }
             var vessel = ShipStore.get(server).at(source, controller);
+            ctx.assertTrue(vessel != null, "Crash setup needs its authoritative source ship");
             var marker = sourceMin.offset(1, 5, 1);
             source.setBlock(
                 marker, net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState(), 18);
@@ -141,8 +150,11 @@ public final class CrashRecoveryGameTest {
     } else {
       var manifest = ShipStore.read(file);
       boolean committed = System.getProperty("nullspace.crash.stage").equals("COMMITTED");
-      ctx.runAfterDelay(
-          20,
+      afterEntitiesLoaded(
+          ctx,
+          planet,
+          space,
+          base,
           () -> {
             TravelService.recover(server);
             TravelService.recover(server);
@@ -278,5 +290,24 @@ public final class CrashRecoveryGameTest {
                 });
           });
     }
+  }
+
+  private static void afterEntitiesLoaded(
+      GameTestHelper ctx,
+      net.minecraft.server.level.ServerLevel planet,
+      net.minecraft.server.level.ServerLevel space,
+      BlockPos base,
+      Runnable action) {
+    var ground = new ShipScan.Bounds(base.above(), base.above().offset(31, 31, 31));
+    var orbit = new ShipScan.Bounds(new BlockPos(0, 96, 0), new BlockPos(31, 127, 31));
+    int[] ticks = {0};
+    boolean[] started = {false};
+    ctx.onEachTick(
+        () -> {
+          if (started[0] || ++ticks[0] < 20) return;
+          if (!ShipEntities.loaded(planet, ground) || !ShipEntities.loaded(space, orbit)) return;
+          started[0] = true;
+          action.run();
+        });
   }
 }

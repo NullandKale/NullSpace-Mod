@@ -8,13 +8,52 @@ import java.util.*;
  */
 public final class Atmosphere {
   public static final int SIZE = 32, CELLS = 32768, FULL = 1000, BREATHABLE = 250;
-  private static final int[] OFFSETS = {-1, 1, -1024, 1024, -32, 32};
-  private static final byte[] NEIGHBORS = neighborMasks();
+
+  public record Grid(int width, int height, int depth) {
+    public Grid {
+      if (width < 1 || width > 128 || height < 1 || height > 32 || depth < 1 || depth > 128)
+        throw new IllegalArgumentException("Atmosphere exceeds station envelope");
+    }
+
+    public int cells() {
+      return width * height * depth;
+    }
+
+    public int index(int x, int y, int z) {
+      return x + z * width + y * width * depth;
+    }
+
+    public int x(int cell) {
+      return cell % width;
+    }
+
+    public int y(int cell) {
+      return cell / (width * depth);
+    }
+
+    public int z(int cell) {
+      return cell / width % depth;
+    }
+
+    public int[] offsets() {
+      return new int[] {-1, 1, -width * depth, width * depth, -width, width};
+    }
+
+    public boolean contains(int x, int y, int z) {
+      return x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth;
+    }
+  }
+
+  public static final Grid SHIP = new Grid(32, 32, 32);
 
   public record Room(int[] cells, int leaks) {}
 
   /** roomAt uses -1 for exterior/solid cells. Arrays belong to this bounded server topology. */
-  public record Topology(List<Room> rooms, int[] roomAt, long displaced, long vented) {}
+  public record Topology(List<Room> rooms, int[] roomAt, long displaced, long vented, Grid grid) {
+    public Topology(List<Room> rooms, int[] roomAt, long displaced, long vented) {
+      this(rooms, roomAt, displaced, vented, SHIP);
+    }
+  }
 
   public static int index(int x, int y, int z) {
     return x + z * 32 + y * 1024;
@@ -25,29 +64,36 @@ public final class Atmosphere {
   }
 
   public static Topology rebuild(boolean[] seals, int[] previous, boolean initialize) {
-    if (seals.length != CELLS || previous.length != CELLS)
+    return rebuild(seals, previous, initialize, SHIP);
+  }
+
+  public static Topology rebuild(boolean[] seals, int[] previous, boolean initialize, Grid grid) {
+    int cells = grid.cells();
+    var neighbors = neighborMasks(grid);
+    var offsets = grid.offsets();
+    if (seals.length != cells || previous.length != cells)
       throw new IllegalArgumentException("Invalid atmosphere grid");
-    var outside = new BitSet(CELLS);
-    int[] queue = new int[CELLS];
+    var outside = new BitSet(cells);
+    int[] queue = new int[cells];
     int head = 0, tail = 0;
-    for (int i = 0; i < CELLS; i++)
-      if (!seals[i] && NEIGHBORS[i] != 63) {
+    for (int i = 0; i < cells; i++)
+      if (!seals[i] && neighbors[i] != 63) {
         outside.set(i);
         queue[tail++] = i;
       }
     while (head < tail) {
-      int i = queue[head++], mask = NEIGHBORS[i];
+      int i = queue[head++], mask = neighbors[i];
       for (int d = 0; d < 6; d++)
         if ((mask & (1 << d)) != 0) {
-          int n = i + OFFSETS[d];
+          int n = i + offsets[d];
           if (!seals[n] && !outside.get(n)) {
             outside.set(n);
             queue[tail++] = n;
           }
         }
     }
-    var interior = new BitSet(CELLS);
-    for (int i = 0; i < CELLS; i++)
+    var interior = new BitSet(cells);
+    for (int i = 0; i < cells; i++)
       if (!seals[i] && (!outside.get(i) || previous[i] >= 0)) {
         interior.set(i);
         if (previous[i] < 0) previous[i] = initialize ? FULL : 0;
@@ -55,14 +101,14 @@ public final class Atmosphere {
     // Follow whole clusters of newly filled old air cells. Thick walls must not
     // silently delete the gas in their middle. Old solid cells remain barriers.
     long displaced = 0, vented = 0;
-    var filled = new BitSet(CELLS);
+    var filled = new BitSet(cells);
     int[] destinations = null, marked = null;
     int stamp = 0;
-    for (int start = 0; start < CELLS; start++)
+    for (int start = 0; start < cells; start++)
       if (seals[start] && previous[start] >= 0 && !filled.get(start)) {
         if (destinations == null) {
-          destinations = new int[CELLS];
-          marked = new int[CELLS];
+          destinations = new int[cells];
+          marked = new int[cells];
         }
         int count = 0;
         long quantity = 0;
@@ -72,11 +118,11 @@ public final class Atmosphere {
         filled.set(start);
         queue[tail++] = start;
         while (head < tail) {
-          int i = queue[head++], mask = NEIGHBORS[i];
+          int i = queue[head++], mask = neighbors[i];
           quantity += previous[i];
           for (int d = 0; d < 6; d++)
             if ((mask & (1 << d)) != 0) {
-              int n = i + OFFSETS[d];
+              int n = i + offsets[d];
               if (seals[n] && previous[n] >= 0 && !filled.get(n)) {
                 filled.set(n);
                 queue[tail++] = n;
@@ -95,9 +141,9 @@ public final class Atmosphere {
                 Math.toIntExact(previous[destinations[n]] + share + (n < extra ? 1 : 0));
         }
       }
-    for (int i = 0; i < CELLS; i++) if (!interior.get(i)) previous[i] = -1;
+    for (int i = 0; i < cells; i++) if (!interior.get(i)) previous[i] = -1;
     var result = new ArrayList<Room>();
-    int[] roomAt = new int[CELLS];
+    int[] roomAt = new int[cells];
     Arrays.fill(roomAt, -1);
     for (int start = interior.nextSetBit(0); start >= 0; start = interior.nextSetBit(start + 1)) {
       if (roomAt[start] >= 0) continue;
@@ -107,11 +153,11 @@ public final class Atmosphere {
       roomAt[start] = room;
       queue[tail++] = start;
       while (head < tail) {
-        int i = queue[head++], mask = NEIGHBORS[i];
+        int i = queue[head++], mask = neighbors[i];
         leaks += 6 - Integer.bitCount(mask);
         for (int d = 0; d < 6; d++)
           if ((mask & (1 << d)) != 0) {
-            int n = i + OFFSETS[d];
+            int n = i + offsets[d];
             if (interior.get(n)) {
               if (roomAt[n] < 0) {
                 roomAt[n] = room;
@@ -122,7 +168,7 @@ public final class Atmosphere {
       }
       result.add(new Room(Arrays.copyOf(queue, tail), leaks));
     }
-    return new Topology(List.copyOf(result), roomAt, displaced, vented);
+    return new Topology(List.copyOf(result), roomAt, displaced, vented, grid);
   }
 
   public static void tick(
@@ -144,8 +190,9 @@ public final class Atmosphere {
       Map<Integer, Integer> occupants,
       int ticks,
       boolean leaks) {
-    if (air.length != CELLS || topology.roomAt.length != CELLS || ticks < 0)
-      throw new IllegalArgumentException("Invalid atmosphere tick");
+    if (air.length != topology.grid.cells()
+        || topology.roomAt.length != topology.grid.cells()
+        || ticks < 0) throw new IllegalArgumentException("Invalid atmosphere tick");
     if (ticks == 0) return;
     long[] added = amounts(topology, supply, ticks), used = amounts(topology, occupants, ticks);
     for (int r = 0; r < topology.rooms.size(); r++) {
@@ -171,7 +218,7 @@ public final class Atmosphere {
     long[] result = new long[topology.rooms.size()];
     for (var entry : rates.entrySet()) {
       int cell = entry.getKey(), rate = entry.getValue();
-      if (cell < 0 || cell >= CELLS || rate < 0)
+      if (cell < 0 || cell >= topology.grid.cells() || rate < 0)
         throw new IllegalArgumentException("Invalid atmosphere source");
       int room = topology.roomAt[cell];
       if (room >= 0) result[room] += rate * (long) ticks;
@@ -179,18 +226,18 @@ public final class Atmosphere {
     return result;
   }
 
-  private static byte[] neighborMasks() {
-    byte[] result = new byte[CELLS];
-    for (int i = 0; i < CELLS; i++) {
-      int x = i % 32, y = i / 1024, z = i / 32 % 32;
+  private static byte[] neighborMasks(Grid grid) {
+    byte[] result = new byte[grid.cells()];
+    for (int i = 0; i < result.length; i++) {
+      int x = grid.x(i), y = grid.y(i), z = grid.z(i);
       result[i] =
           (byte)
               ((x > 0 ? 1 : 0)
-                  | (x < 31 ? 2 : 0)
+                  | (x < grid.width() - 1 ? 2 : 0)
                   | (y > 0 ? 4 : 0)
-                  | (y < 31 ? 8 : 0)
+                  | (y < grid.height() - 1 ? 8 : 0)
                   | (z > 0 ? 16 : 0)
-                  | (z < 31 ? 32 : 0));
+                  | (z < grid.depth() - 1 ? 32 : 0));
     }
     return result;
   }

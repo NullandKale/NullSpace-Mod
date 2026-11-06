@@ -47,9 +47,10 @@ public final class PowerBus {
       if (grants.containsKey(load.system))
         throw new IllegalArgumentException("Duplicate subsystem");
       int grant = Math.min(available, Math.min(load.requested, load.capacity));
-      available -= grant;
+      int draw = Math.min(grant, load.demand);
+      available -= draw;
       grants.put(load.system, grant);
-      consumed += Math.min(grant, load.demand);
+      consumed += draw;
     }
     int discharge = Math.max(0, consumed - generation),
         surplus = Math.max(0, generation - consumed);

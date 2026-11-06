@@ -76,8 +76,10 @@ public final class LocalMultiplayerTest {
   }
 
   private static Path directory;
+  private static String homePadName;
 
   private static void signal(String name) {
+    com.nullandkale.nullspace.NullSpace.LOGGER.info("MULTIPLAYER_CHECKPOINT {}", name);
     try {
       Files.writeString(directory.resolve(name), "ok");
     } catch (java.io.IOException e) {
@@ -194,6 +196,21 @@ public final class LocalMultiplayerTest {
   }
 
   private static void action(ClientGameTestContext ctx, ComputerTerminal.Action action) {
+    if (ctx.computeOnClient(
+        c -> c.gui.screen() instanceof TerminalScreen t && t.shipController())) {
+      var control =
+          switch (action) {
+            case INSPECT -> com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT;
+            case LAUNCH -> com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH;
+            case LAND -> com.nullandkale.nullspace.navigation.ShipControl.Action.LAND;
+            default ->
+                throw new AssertionError("Unsupported unified controller test action: " + action);
+          };
+      if (action == ComputerTerminal.Action.LAND)
+        ShipControlTestUi.destination(ctx, homePadName, "Pads");
+      ShipControlTestUi.action(ctx, control);
+      return;
+    }
     ctx.runOnClient(
         c -> {
           var terminal = (TerminalScreen) c.gui.screen();
@@ -230,29 +247,43 @@ public final class LocalMultiplayerTest {
   private static void buyShipTogether(ClientGameTestContext ctx) {
     ctx.waitFor(
         c ->
-            c.gui.screen() instanceof TerminalScreen t
-                && t.status().contains("Two-player delivery test"),
+            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+                && yard.status().contains("Two-player delivery test"),
         6000);
     ctx.waitTicks(5);
+    int design =
+        java.util.stream.IntStream.range(
+                0, com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size())
+            .filter(
+                i ->
+                    com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS
+                        .get(i)
+                        .id()
+                        .equals("mule"))
+            .findFirst()
+            .orElseThrow();
+    ShipYardClientGameTest.choose(ctx, design);
+    ctx.waitFor(
+        c ->
+            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+                && yard.selected().equals("mule")
+                && yard.ready(),
+        6000);
     String role = System.getProperty("nullspace.local.role");
     signal(role + "-shipyard-ready");
     await(ctx, "pilot-shipyard-ready");
     await(ctx, "crew-shipyard-ready");
-    ctx.runOnClient(
-        c -> {
-          var terminal = (TerminalScreen) c.gui.screen();
-          ClientPlayNetworking.send(
-              new ComputerTerminal.Request(
-                  terminal.sessionId(), ComputerTerminal.Action.SHIP_BUY, "mule", ""));
-        });
+    ShipYardClientGameTest.choose(
+        ctx, com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size());
     ctx.waitFor(
         c ->
-            c.gui.screen() instanceof TerminalScreen t
-                && (t.status().contains("DELIVERED:") || t.status().contains("Clear the pad")),
+            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+                && (yard.status().contains("DELIVERED:")
+                    || yard.status().contains("Clear the pad")),
         6000);
     ctx.runOnClient(
         c -> {
-          var terminal = (TerminalScreen) c.gui.screen();
+          var terminal = (com.nullandkale.nullspace.client.ShipyardScreen) c.gui.screen();
           try {
             Files.writeString(
                 directory.resolve(role + "-shipyard-result"),
@@ -304,6 +335,8 @@ public final class LocalMultiplayerTest {
                   }
                 });
         var controller = base.offset(6, 3, 3);
+        homePadName = "Reference " + base.getX();
+        signal("reference-ready");
         var mobId = new UUID[1];
         var itemId = new UUID[1];
         dedicated.runOnServer(
@@ -646,13 +679,10 @@ public final class LocalMultiplayerTest {
           ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
           ctx.waitTicks(15);
           signal(route.equals("sol_luna") ? "jump-luna" : "jump-home");
-          ctx.runOnClient(
-              c -> {
-                var t = (TerminalScreen) c.gui.screen();
-                ClientPlayNetworking.send(
-                    new ComputerTerminal.Request(
-                        t.sessionId(), ComputerTerminal.Action.FAST_TRAVEL, route, ""));
-              });
+          ShipControlTestUi.destination(
+              ctx, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra", "Regions");
+          ShipControlTestUi.action(
+              ctx, com.nullandkale.nullspace.navigation.ShipControl.Action.JUMP);
           String sceneId =
               route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";
           ctx.waitFor(
@@ -1089,6 +1119,8 @@ public final class LocalMultiplayerTest {
         ctx.takeScreenshot("local-multiplayer-shipyard");
         signal("shipyard-race-passed");
         signal("passed");
+        // Keep live refresh running while the other client disconnects from its open shipyard.
+        ctx.waitTicks(40);
         await(ctx, "crew-finished");
         dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 1, 6000);
       }
@@ -1099,11 +1131,21 @@ public final class LocalMultiplayerTest {
     await(ctx, "server-ready");
     connect(ctx, port);
     ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
-    action(ctx, ComputerTerminal.Action.REGISTER);
-    ctx.waitFor(
-        c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("does not belong"),
-        6000);
-    ctx.waitTicks(15);
+    ctx.runOnClient(
+        c ->
+            ClientPlayNetworking.send(
+                new com.nullandkale.nullspace.navigation.ShipControl.Input(
+                    UUID.randomUUID(),
+                    com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT,
+                    "")));
+    ctx.waitTicks(30);
+    ctx.runOnClient(
+        c ->
+            check(
+                c.gui.screen() instanceof TerminalScreen t
+                    && t.status().startsWith("Local multiplayer inspection"),
+                "A forged controller session must not execute an inspection or replace the crew's"
+                    + " real session"));
     action(ctx, ComputerTerminal.Action.INSPECT);
     ctx.waitFor(
         c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"),

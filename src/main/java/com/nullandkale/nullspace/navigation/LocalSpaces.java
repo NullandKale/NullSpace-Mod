@@ -30,17 +30,45 @@ public final class LocalSpaces {
         .orElseThrow(() -> new IllegalArgumentException("Unknown local-space destination"));
   }
 
+  public static List<Destination> destinations(net.minecraft.server.MinecraftServer server) {
+    return StarSystems.destinations(server);
+  }
+
+  public static Destination get(net.minecraft.server.MinecraftServer server, String id) {
+    var journey = JourneyService.region(server, id);
+    if (journey != null) return journey;
+    return destinations(server).stream()
+        .filter(d -> d.id().equals(id))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Unknown local-space destination"));
+  }
+
+  public static boolean known(String id) {
+    return com.nullandkale.nullspace.content.ContentCatalog.SURFACES.stream()
+        .anyMatch(d -> d.id().equals(id));
+  }
+
   public static String address(CompoundTag ship) {
     return ship == null ? HOME : ship.getStringOr("localSpace", HOME);
   }
 
   public static boolean together(CompoundTag a, CompoundTag b) {
+    // A stored ship is out of play: it shares no space with anything but itself.
+    if (a != b
+        && (a != null && a.getBooleanOr("stored", false)
+            || b != null && b.getBooleanOr("stored", false)))
+      return false;
     return address(a).equals(address(b));
   }
 
   public static String label(CompoundTag ship) {
     var d = get(address(ship));
     return d.systemName + " / " + d.name;
+  }
+
+  public static String label(net.minecraft.server.MinecraftServer server, CompoundTag ship) {
+    var d = get(server, address(ship));
+    return d.systemName() + " / " + d.name();
   }
 
   private LocalSpaces() {}

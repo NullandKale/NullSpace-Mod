@@ -4,6 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "TransitPlayerMixin",
+    "VesselRespawnMixin",
     "TransitEntityMixin",
     "TransitDamageMixin",
     "CreeperStateMixin",
@@ -19,6 +20,7 @@
     "defaultRequire": 1
   },
   "client": [
+    "WorldStartMixin",
     "GlContextRequestMixin",
     "ScenePassBoundaryMixin",
     "NativeVolumeShaderMixin",
@@ -27,6 +29,7 @@
     "SceneLevelRendererMixin",
     "SceneEntityRendererMixin",
     "SpaceOptionsMixin",
+    "PauseRecoveryMixin",
     "PlanetSkyMixin",
     "PlanetCloudMixin",
     "PlanetFogMixin",

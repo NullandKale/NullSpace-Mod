@@ -6,9 +6,8 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 
 /**
- * Compiler and interpreter behavior that the end-to-end computer tests do not pin down. Tests
- * prefixed "KNOWN BUG" document defects found in review; they are disabled so the build stays green
- * and should be enabled together with the fix.
+ * Compiler and interpreter behavior that the end-to-end computer tests do not pin down. Previously
+ * disabled cases now prevent regressions in nested branches and bounded token parsing.
  */
 class ScriptLanguageRegressionTest {
   private static final ScriptLanguage.Syntax PY = ScriptLanguage.Syntax.PYTHON;
@@ -39,7 +38,6 @@ class ScriptLanguageRegressionTest {
   // --- Known defects -------------------------------------------------------------------------
 
   @Test
-  @Disabled("KNOWN BUG: else after a nested block is rejected (ScriptLanguage.compile, else guard)")
   void elseAfterANestedIfBelongsToTheOuterIf() {
     var job =
         run(
@@ -56,7 +54,6 @@ class ScriptLanguageRegressionTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: else after a nested block is rejected (ScriptLanguage.compile, else guard)")
   void elseAfterANestedLoopBelongsToTheOuterIf() {
     var job =
         run(
@@ -74,7 +71,6 @@ class ScriptLanguageRegressionTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: else after a nested block is rejected (ScriptLanguage.compile, else guard)")
   void innerAndOuterElseBranchesBothResolve() {
     var job =
         run(
@@ -93,7 +89,6 @@ class ScriptLanguageRegressionTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: long string literals overflow the host stack (CompiledExpression.TOKEN)")
   void longStringLiteralsNeverThrowAnError() {
     // StackOverflowError is not a RuntimeException, so it escapes every guest-error handler.
     for (int length : new int[] {1_000, 4_000, 16_000}) {
@@ -107,7 +102,6 @@ class ScriptLanguageRegressionTest {
   }
 
   @Test
-  @Disabled("KNOWN BUG: long string literals overflow the host stack (CompiledExpression.TOKEN)")
   void longStringLiteralsInExpressionsNeverThrowAnError() {
     try {
       CompiledExpression.compile("'" + "a".repeat(8_000) + "'");

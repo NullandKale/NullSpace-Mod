@@ -22,6 +22,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class TravelService {
   public static final int SPACE_SPACING = 4096;
+  private static final String DETACH = "@leave-loose-blocks";
 
   public static boolean spaceSlotFree(MinecraftServer server, int slot) {
     if (slot < 0 || slot > 7000) return false;
@@ -29,18 +30,31 @@ public final class TravelService {
     var area =
         new net.minecraft.world.phys.AABB(
             base.getX() - 128, -32, -128, base.getX() + 160, 256, 160);
-    return ShipStore.get(server).ships().stream()
-        .map(t -> (CompoundTag) t)
-        .noneMatch(
-            ship ->
-                ship.getStringOr("dimension", "").equals(SPACE.identifier().toString())
-                    && area.intersects(ShipStore.bounds(ship).box().inflate(128)));
+    return pending(server).values().stream()
+            .noneMatch(
+                p ->
+                    p.sourceDimension.equals(SPACE.identifier().toString())
+                            && area.intersects(p.sourceBounds.box().inflate(128))
+                        || p.targetDimension.equals(SPACE.identifier().toString())
+                            && area.intersects(p.targetBounds.box().inflate(128)))
+        && ShipStore.get(server).ships().stream()
+            .map(t -> (CompoundTag) t)
+            .noneMatch(
+                ship ->
+                    ship.getStringOr("dimension", "").equals(SPACE.identifier().toString())
+                        && area.intersects(ShipStore.bounds(ship).box().inflate(128)));
   }
 
   public static final ResourceKey<Level> SPACE =
       ResourceKey.create(Registries.DIMENSION, Identifier.parse("nullspace:space"));
-  private static final com.nullandkale.nullspace.server.ServerContext.Key<Pending> PENDING =
-      new com.nullandkale.nullspace.server.ServerContext.Key<>();
+  private static final com.nullandkale.nullspace.server.ServerContext.Key<Map<UUID, Pending>>
+      PENDING = new com.nullandkale.nullspace.server.ServerContext.Key<>();
+
+  private static Map<UUID, Pending> pending(MinecraftServer server) {
+    return com.nullandkale.nullspace.server.ServerContext.get(server)
+        .service(PENDING, LinkedHashMap::new);
+  }
+
   private static final com.nullandkale.nullspace.server.ServerContext.Key<Set<UUID>> ARRIVALS =
       new com.nullandkale.nullspace.server.ServerContext.Key<>();
 
@@ -52,24 +66,62 @@ public final class TravelService {
 
   public static final class SimulatedCrash extends Error {}
 
-  private static final class DestinationLoading extends RuntimeException {}
+  public enum Outcome {
+    COMPLETED,
+    WAITING,
+    REJECTED
+  }
+
+  /** Expected transfer outcomes never enter exception recovery or write an error stack trace. */
+  public record Result(Outcome outcome, String message) {
+    static Result rejected(String message) {
+      return new Result(Outcome.REJECTED, message);
+    }
+
+    static Result waiting() {
+      return new Result(Outcome.WAITING, "Ship passengers are still loading");
+    }
+  }
+
+  private static Result blocked(ServerLevel level, BlockPos at, String advice) {
+    return Result.rejected(
+        advice + "\nBlock: " + ShipMessages.block(level, at) + "\nLocation: " + at.toShortString());
+  }
 
   private static final class Pending {
     final UUID id = UUID.randomUUID();
     final UUID actor;
     final BlockPos computer;
     final String destination;
+    final String sourceDimension;
+    final ShipScan.Bounds sourceBounds;
+    String ship;
+    ShipScan.Bounds targetBounds;
+    BlockPos targetBase;
     final Map<UUID, Vec3> crew = new HashMap<>();
     final Set<UUID> ready = new HashSet<>(), arrived = new HashSet<>();
     int ticks;
     boolean moved;
     String targetDimension = "";
-    ShipScan.Bounds locked;
 
-    Pending(ServerPlayer actor, BlockPos pos, String destination) {
+    Pending(
+        ServerPlayer actor, BlockPos pos, String destination, ShipService.Inspection inspection) {
       this.actor = actor.getUUID();
       this.computer = pos;
       this.destination = destination;
+      sourceDimension = actor.level().dimension().identifier().toString();
+      ship = inspection.vessel() == null ? "" : inspection.vessel().getStringOr("id", "");
+      int width =
+          inspection.pad() != null
+              ? inspection.pad().bounds().width()
+              : inspection.vessel().getIntOr("width", 32);
+      int depth =
+          inspection.pad() != null
+              ? inspection.pad().bounds().depth()
+              : inspection.vessel().getIntOr("depth", 32);
+      sourceBounds =
+          new ShipScan.Bounds(
+              inspection.base(), inspection.base().offset(width - 1, 31, depth - 1));
     }
   }
 
@@ -98,38 +150,94 @@ public final class TravelService {
   }
 
   public static boolean locked(ServerLevel level, BlockPos pos) {
-    var p = com.nullandkale.nullspace.server.ServerContext.get(level.getServer()).existing(PENDING);
-    return com.nullandkale.nullspace.navigation.NavigationService.locked(level, pos)
-        || p != null
-            && p.moved
-            && p.locked != null
-            && p.targetDimension.equals(level.dimension().identifier().toString())
-            && p.locked.contains(pos);
+    if (worldMutation()) return false;
+    return TerraHarbor.protectedAt(level,pos)
+        || ShipRecall.locked(level, pos)
+        || com.nullandkale.nullspace.station.StationService.buildingAt(level, pos)
+        || com.nullandkale.nullspace.navigation.NavigationService.locked(level, pos)
+        || physicalAreaBusy(level, new ShipScan.Bounds(pos, pos), null);
+  }
+
+  private static boolean physicalAreaBusy(
+      ServerLevel level, ShipScan.Bounds bounds, Pending ignored) {
+    String dimension = level.dimension().identifier().toString();
+    return pending(level.getServer()).values().stream()
+        .anyMatch(
+            p ->
+                p != ignored
+                    && (p.sourceDimension.equals(dimension)
+                            && p.sourceBounds.box().intersects(bounds.box())
+                        || p.targetDimension.equals(dimension)
+                            && p.targetBounds.box().intersects(bounds.box())));
+  }
+
+  public static boolean areaBusy(ServerLevel level, ShipScan.Bounds bounds) {
+    return areaBusy(level, bounds, null, null);
+  }
+
+  static boolean areaBusy(ServerLevel level, ShipScan.Bounds bounds, UUID recallOwner) {
+    return areaBusy(level, bounds, null, recallOwner);
+  }
+
+  private static boolean areaBusy(
+      ServerLevel level, ShipScan.Bounds bounds, Pending ignored, UUID recallOwner) {
+    return physicalAreaBusy(level, bounds, ignored)
+        || ShipRecall.areaBusy(level, bounds, recallOwner)
+        || com.nullandkale.nullspace.navigation.NavigationService.areaBusy(level, bounds);
+  }
+
+  public static boolean inTransit(MinecraftServer server, CompoundTag ship) {
+    if (ship == null) return false;
+    String id = ship.getStringOr("id", "");
+    return physicalBusy(server, ship)
+        || ShipRecall.active(server, id)
+        || com.nullandkale.nullspace.navigation.NavigationService.pending(server, id);
+  }
+
+  public static boolean physicalBusy(MinecraftServer server, CompoundTag ship) {
+    if (ship == null) return false;
+    String id = ship.getStringOr("id", ""), dimension = ship.getStringOr("dimension", "");
+    var bounds = ShipStore.bounds(ship);
+    return pending(server).values().stream()
+        .anyMatch(
+            p ->
+                !id.isEmpty() && p.ship.equals(id)
+                    || p.sourceDimension.equals(dimension)
+                        && p.sourceBounds.box().intersects(bounds.box())
+                    || p.targetDimension.equals(dimension)
+                        && p.targetBounds.box().intersects(bounds.box()));
+  }
+
+  public static boolean busy(MinecraftServer server, CompoundTag ship) {
+    return inTransit(server, ship)
+        || ship != null
+            && com.nullandkale.nullspace.station.DockingService.boarding(
+                server, ship.getStringOr("id", ""));
   }
 
   public static boolean active(MinecraftServer server) {
-    return (com.nullandkale.nullspace.server.ServerContext.get(server).existing(PENDING) != null);
+    return ShipRecall.active(server) || physicalTransferActive(server);
+  }
+
+  static boolean physicalTransferActive(MinecraftServer server) {
+    return com.nullandkale.nullspace.station.StationService.exclusiveConstruction(server)
+        || !ShipStore.get(server).list("stationBoarding").isEmpty()
+        || !pending(server).isEmpty();
   }
 
   public static boolean physicalBusy(ServerPlayer player) {
-    var p =
-        com.nullandkale.nullspace.server.ServerContext.get(player.level().getServer())
-            .existing(PENDING);
-    return p != null && p.crew.containsKey(player.getUUID());
+    return pending(player.level().getServer()).values().stream()
+        .anyMatch(p -> p.crew.containsKey(player.getUUID()));
   }
 
   public static boolean busy(ServerPlayer player) {
-    var p =
-        com.nullandkale.nullspace.server.ServerContext.get(player.level().getServer())
-            .existing(PENDING);
-    return com.nullandkale.nullspace.navigation.NavigationService.busy(player)
-        || p != null && p.crew.containsKey(player.getUUID());
+    return com.nullandkale.nullspace.station.DockingService.busy(player)
+        || com.nullandkale.nullspace.navigation.NavigationService.busy(player)
+        || physicalBusy(player);
   }
 
   public static void ready(ServerPlayer player, TravelPackets.Ready packet) {
-    var pending =
-        com.nullandkale.nullspace.server.ServerContext.get(player.level().getServer())
-            .existing(PENDING);
+    var pending = pending(player.level().getServer()).get(packet.id());
     if (pending != null
         && pending.id.equals(packet.id())
         && pending.crew.containsKey(player.getUUID())) {
@@ -146,12 +254,50 @@ public final class TravelService {
       BlockPos controller,
       String destination,
       ShipService.Inspection inspection) {
-    var server = player.level().getServer();
-    if ((com.nullandkale.nullspace.server.ServerContext.get(server).existing(PENDING) != null)
-        || com.nullandkale.nullspace.navigation.NavigationService.pending(server))
-      throw new IllegalArgumentException("Another ship transfer is in progress; try again shortly");
+    request(player, controller, destination, inspection, false);
+  }
 
-    if (player.level().dimension().equals(SPACE) && !destination.isBlank()) {
+  static void requestDetachment(
+      ServerPlayer player, BlockPos controller, ShipService.Inspection inspection) {
+    request(player, controller, DETACH, inspection, true);
+  }
+
+  private static void request(
+      ServerPlayer player,
+      BlockPos controller,
+      String destination,
+      ShipService.Inspection inspection,
+      boolean detaching) {
+    var server = player.level().getServer();
+    if (detaching
+        && (!player.level().dimension().equals(SPACE)
+            || ShipDetachment.approved(player.level(), controller).isEmpty()))
+      throw new IllegalArgumentException(
+          "Review and confirm loose blocks before leaving them behind");
+    if (com.nullandkale.nullspace.navigation.JourneyService.cruising(inspection.vessel()))
+      throw new IllegalArgumentException("Finish the FTL journey before landing");
+    if (ShipRecall.active(player))
+      throw new IllegalArgumentException("Finish or cancel your recall before travelling");
+    if (com.nullandkale.nullspace.station.DockingService.motionLocked(inspection.vessel()))
+      throw new IllegalArgumentException(
+          "Undock and finish station construction before travel; stations cannot launch or land");
+    if (busy(player) || busy(server, inspection.vessel()))
+      throw new IllegalArgumentException("This ship or its crew is already travelling or boarding");
+
+    Pending pending = new Pending(player, controller, destination, inspection);
+    if (areaBusy(player.level(), pending.sourceBounds))
+      throw new IllegalArgumentException("This ship's area is already reserved for travel");
+    if (destination.isBlank() || detaching) {
+      int slot = 0;
+      while (slot <= 7000 && !spaceSlotFree(server, slot)) slot++;
+      if (slot > 7000) throw new IllegalArgumentException("No free physical ship regions remain");
+      pending.targetBase = new BlockPos(slot * SPACE_SPACING, 96, 0);
+      pending.targetDimension = SPACE.identifier().toString();
+      pending.targetBounds =
+          new ShipScan.Bounds(pending.targetBase, pending.targetBase.offset(31, 31, 31));
+    }
+
+    if (player.level().dimension().equals(SPACE) && !destination.isBlank() && !detaching) {
       var pad =
           PadRegistry.read(server).stream()
               .filter(
@@ -171,6 +317,16 @@ public final class TravelService {
                     ? "Sol / Terra"
                     : "the destination planet")
                 + " before landing at this pad");
+      pending.targetBase =
+          new BlockPos(pad.bounds().minX(), pad.bounds().y() + 1, pad.bounds().minZ());
+      pending.targetDimension = pad.dimension();
+      pending.targetBounds =
+          new ShipScan.Bounds(
+              pending.targetBase,
+              pending.targetBase.offset(pad.bounds().width() - 1, 31, pad.bounds().depth() - 1));
+      var target = ShipStore.level(server, pad.dimension());
+      if (areaBusy(target, pending.targetBounds))
+        throw new IllegalArgumentException("This landing pad is already reserved by another ship");
     }
     if (inspection.vessel() != null)
       com.nullandkale.nullspace.navigation.NavigationService.closeShip(
@@ -184,7 +340,6 @@ public final class TravelService {
     if (inspection.vessel() != null)
       com.nullandkale.nullspace.systems.ShipSystems.cancelTransit(
           player.level(), inspection.vessel());
-    Pending pending = new Pending(player, controller, destination);
     for (ServerPlayer member : player.level().players())
       if (inspection.scan().bounds().box().intersects(member.getBoundingBox())) {
         if (!inspection.scan().pressure().breathable(BlockPos.containing(member.getEyePosition())))
@@ -199,7 +354,7 @@ public final class TravelService {
         if (member != null && !pending.crew.containsKey(id))
           throw new IllegalArgumentException("Recall tethered crew from EVA before travel");
       }
-    com.nullandkale.nullspace.server.ServerContext.get(server).put(PENDING, pending);
+    pending(server).put(pending.id, pending);
     broadcast(server, pending, "Preparing ship", "", false);
   }
 
@@ -226,8 +381,10 @@ public final class TravelService {
         var player = server.getPlayerList().getPlayer(id);
         if (player != null) resolveArrival(player);
       }
-    Pending pending = com.nullandkale.nullspace.server.ServerContext.get(server).existing(PENDING);
-    if (pending == null) return;
+    for (var job : List.copyOf(pending(server).values())) tick(server, job);
+  }
+
+  private static void tick(MinecraftServer server, Pending pending) {
     pending.ticks++;
     if (!pending.moved) {
       if (pending.ticks > 200) {
@@ -241,19 +398,37 @@ public final class TravelService {
         return;
       }
       try {
-        var inspected = ShipService.inspect(actor.level(), pending.computer);
-        if (!inspected.scan().pressure().breathable(BlockPos.containing(actor.getEyePosition())))
-          throw new IllegalArgumentException("Pilot left the cabin");
-        transfer(actor, pending.computer, pending.destination, inspected);
+        ShipService.Inspection inspected;
+        try {
+          inspected = ShipService.inspect(actor.level(), pending.computer);
+        } catch (IllegalArgumentException changed) {
+          String message = "Travel cancelled: " + ShipMessages.failure(changed);
+          NullSpace.LOGGER.warn(
+              "{} | player={} controller={}",
+              message.replace('\n', ' '),
+              actor.getPlainTextName(),
+              pending.computer.toShortString());
+          if (changed instanceof ShipScan.Failure problem)
+            ShipDiagnostics.highlight(actor, problem);
+          finish(server, pending, message);
+          return;
+        }
+        if (!inspected.scan().pressure().breathable(BlockPos.containing(actor.getEyePosition()))) {
+          finish(server, pending, "Travel cancelled: pilot left the cabin");
+          return;
+        }
+        var result = transfer(actor, pending.computer, pending.destination, inspected);
+        if (result.outcome() == Outcome.WAITING) return;
+        if (result.outcome() == Outcome.REJECTED) {
+          finish(server, pending, "Travel cancelled: " + result.message());
+          return;
+        }
         pending.moved = true;
         pending.ticks = 0;
         pending.targetDimension = actor.level().dimension().identifier().toString();
         var vessel = ShipStore.get(server).at(actor.level(), actor.blockPosition());
-        pending.locked = vessel == null ? null : ShipStore.bounds(vessel);
+        if (vessel != null) pending.ship = vessel.getStringOr("id", pending.ship);
         broadcast(server, pending, "Boarding", pending.targetDimension, false);
-      } catch (DestinationLoading loading) {
-        // Chunk and entity IO complete between ticks, while passengers stay behind the loading
-        // screen.
       } catch (Exception error) {
         NullSpace.LOGGER.error("Ship transfer failed", error);
         try {
@@ -280,7 +455,7 @@ public final class TravelService {
 
   private static void finish(MinecraftServer server, Pending pending, String message) {
     broadcast(server, pending, message, pending.targetDimension, true);
-    com.nullandkale.nullspace.server.ServerContext.get(server).remove(PENDING);
+    pending(server).remove(pending.id, pending);
     var actor = server.getPlayerList().getPlayer(pending.actor);
     if (actor != null)
       actor.sendSystemMessage(net.minecraft.network.chat.Component.literal(message));
@@ -290,33 +465,70 @@ public final class TravelService {
    * Mutations occur in one server task: machines, mobs and menus cannot tick between journal
    * stages.
    */
-  public static void transfer(
+  public static Result transfer(
       ServerPlayer actor,
       BlockPos controller,
       String destination,
       ShipService.Inspection inspected) {
-    com.nullandkale.nullspace.computer.ComputerService.flush(actor.level().getServer());
+    return transferFrom(actor, actor.level(), controller, destination, inspected, false);
+  }
+
+  static Result transferRecall(
+      ServerPlayer actor,
+      ServerLevel source,
+      BlockPos controller,
+      String destination,
+      ShipService.Inspection inspected) {
+    return transferFrom(actor, source, controller, destination, inspected, true);
+  }
+
+  private static Result transferFrom(
+      ServerPlayer actor,
+      ServerLevel source,
+      BlockPos controller,
+      String destination,
+      ShipService.Inspection inspected,
+      boolean recall) {
+    var server = source.getServer();
+    var current =
+        recall
+            ? null
+            : pending(server).values().stream()
+                .filter(
+                    p ->
+                        p.actor.equals(actor.getUUID())
+                            && p.computer.equals(controller)
+                            && p.destination.equals(destination)
+                            && p.sourceDimension.equals(source.dimension().identifier().toString()))
+                .findFirst()
+                .orElse(null);
+    boolean detaching = current != null && current.destination.equals(DETACH);
+    if (detaching && ShipDetachment.approved(source, controller).isEmpty())
+      return Result.rejected("Loose blocks changed; review and confirm them again");
+    if (areaBusy(source, inspected.scan().bounds(), current, recall ? actor.getUUID() : null))
+      return Result.rejected("This ship's area is reserved by another travel or recall");
+    com.nullandkale.nullspace.computer.ComputerService.flush(source.getServer());
     if (inspected.vessel() != null) {
-      if (com.nullandkale.nullspace.systems.ShipSystems.enabled(inspected.vessel())
+      if (!recall
+          && !detaching
+          && com.nullandkale.nullspace.systems.ShipSystems.enabled(inspected.vessel())
           && com.nullandkale.nullspace.systems.ShipSystems.power(
-                  actor.level(),
+                  source,
                   inspected.vessel(),
                   com.nullandkale.nullspace.systems.PowerBus.System.ENGINES)
-              == 0) throw new IllegalArgumentException("Propulsion lost power before transfer");
-      com.nullandkale.nullspace.systems.ShipSystems.cancelTransit(
-          actor.level(), inspected.vessel());
+              == 0) return Result.rejected("Propulsion lost power before transfer");
+      com.nullandkale.nullspace.systems.ShipSystems.cancelTransit(source, inspected.vessel());
     }
-    var source = actor.level();
-    var server = source.getServer();
     var store = ShipStore.get(server);
     var scan = inspected.scan();
     var sourceBase = inspected.base();
+    boolean leavingPieces = !recall && !ShipDetachment.approved(source, controller).isEmpty();
     ServerLevel target;
     BlockPos targetBase;
     PadRegistry.Pad landing = null;
     var vessel = inspected.vessel();
     String id = vessel == null ? UUID.randomUUID().toString() : vessel.getStringOr("id", "");
-    if (source.dimension().equals(SPACE)) {
+    if (source.dimension().equals(SPACE) && !detaching) {
       landing =
           PadRegistry.read(server).stream()
               .filter(
@@ -325,31 +537,35 @@ public final class TravelService {
                           ? p.id().equals(destination.substring(3))
                           : p.name().equalsIgnoreCase(destination.strip()))
               .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Unknown landing pad; use destinations to list names"));
-      if (!landing
-          .dimension()
-          .equals(
-              com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(
-                      com.nullandkale.nullspace.navigation.LocalSpaces.address(vessel))
-                  .identifier()
-                  .toString()))
-        throw new IllegalArgumentException(
-            "Jump to the destination planet before landing at this pad");
-      target = ShipStore.level(server, landing.dimension());
-      PadRegistry.validate(target, landing);
+              .orElse(null);
+      if (landing == null)
+        return Result.rejected("Unknown landing pad; use destinations to list names");
+      if (!recall
+          && !landing
+              .dimension()
+              .equals(
+                  com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(
+                          com.nullandkale.nullspace.navigation.LocalSpaces.address(vessel))
+                      .identifier()
+                      .toString()))
+        return Result.rejected("Jump to the destination planet before landing at this pad");
+      target =
+          server.getLevel(
+              ResourceKey.create(Registries.DIMENSION, Identifier.parse(landing.dimension())));
+      if (target == null) return Result.rejected("Destination dimension is unavailable");
+      var validation = PadRegistry.check(target, landing);
+      if (validation.state() != PadRegistry.State.READY)
+        return Result.rejected(validation.detail());
       var b = landing.bounds();
       targetBase = new BlockPos(b.minX(), b.y() + 1, b.minZ());
       if (scan.bounds().max().getX() - sourceBase.getX() >= b.width()
           || scan.bounds().max().getZ() - sourceBase.getZ() >= b.depth())
-        throw new IllegalArgumentException("Ship does not fit this pad");
+        return Result.rejected("Ship does not fit this pad");
       for (int x = b.minX(); x <= b.maxX(); x++)
         for (int z = b.minZ(); z <= b.maxZ(); z++)
           for (int y = b.y() + 1; y <= target.getMaxY(); y++)
             if (!target.getBlockState(new BlockPos(x, y, z)).isAir())
-              throw ShipMessages.blockProblem(
+              return blocked(
                   target,
                   new BlockPos(x, y, z),
                   "The landing column is obstructed. Clear this block above the destination pad,"
@@ -357,25 +573,35 @@ public final class TravelService {
     } else {
       target = server.getLevel(SPACE);
       if (target == null)
-        throw new IllegalArgumentException(
-            "Space dimension is not loaded; restart with NullSpace enabled");
-      int slot = 0;
-      while (slot <= 7000 && !spaceSlotFree(server, slot)) slot++;
-      if (slot > 7000) throw new IllegalArgumentException("No free physical ship regions remain");
-      targetBase = new BlockPos(slot * SPACE_SPACING, 96, 0);
+        return Result.rejected("Space dimension is not loaded; restart with NullSpace enabled");
+      if (current != null) targetBase = current.targetBase;
+      else {
+        int slot = 0;
+        while (slot <= 7000 && !spaceSlotFree(server, slot)) slot++;
+        if (slot > 7000) return Result.rejected("No free physical ship regions remain");
+        targetBase = new BlockPos(slot * SPACE_SPACING, 96, 0);
+      }
     }
     BlockPos delta = targetBase.subtract(sourceBase),
         targetMin = scan.bounds().min().offset(delta),
         targetMax = scan.bounds().max().offset(delta);
+    if (areaBusy(
+        target,
+        new ShipScan.Bounds(targetMin, targetMax),
+        current,
+        recall ? actor.getUUID() : null))
+      return Result.rejected("This destination is reserved by another ship's travel or recall");
     if (targetMin.getY() < target.getMinY()
         || targetMax.getY() > target.getMaxY()
         || !target.getWorldBorder().isWithinBounds(targetMin)
         || !target.getWorldBorder().isWithinBounds(targetMax))
-      throw new IllegalArgumentException("Destination exceeds world limits");
+      return Result.rejected("Destination exceeds world limits");
     for (BlockPos pos : BlockPos.betweenClosed(targetMin, targetMax)) {
       target.getChunk(pos);
+      if (recall && !actor.mayInteract(target, pos))
+        return Result.rejected("You cannot build on part of this landing pad");
       if (!target.getBlockState(pos).isAir())
-        throw ShipMessages.blockProblem(
+        return blocked(
             target,
             pos,
             "The destination area is occupied. Clear this block or choose another landing pad.");
@@ -386,11 +612,8 @@ public final class TravelService {
             .getChunkSource()
             .addTicketWithRadius(
                 net.minecraft.server.level.TicketType.PORTAL, new ChunkPos(x, z), 2);
-    try {
-      ShipEntities.requireLoaded(target, new ShipScan.Bounds(targetMin, targetMax));
-    } catch (IllegalArgumentException notLoaded) {
-      throw new DestinationLoading();
-    }
+    if (!ShipEntities.loaded(target, new ShipScan.Bounds(targetMin, targetMax)))
+      return Result.waiting();
     var blockers = ShipEntities.inBounds(target, new ShipScan.Bounds(targetMin, targetMax));
     if (!blockers.isEmpty()) {
       var blocker = blockers.getFirst();
@@ -400,15 +623,19 @@ public final class TravelService {
           blocker.getUUID(),
           blocker.position(),
           target.dimension().identifier());
-      throw ShipMessages.entityProblem(
-          blocker,
-          "The destination is occupied. Move this occupant clear or choose another landing pad.");
+      return Result.rejected(
+          "The destination is occupied. Move this occupant clear or choose another landing pad."
+              + "\nOccupant: "
+              + ShipMessages.entity(blocker)
+              + "\nLocation: "
+              + blocker.blockPosition().toShortString());
     }
-    ShipEntities.requireLoaded(source, scan.bounds());
-    var occupants = ShipOccupants.inspect(source, scan);
+    if (!ShipEntities.loaded(source, scan.bounds())) return Result.waiting();
+    var occupants = ShipOccupants.inspect(source, scan, recall);
     var cargo = occupants.cargo();
     var crew = occupants.crew();
-    var current = com.nullandkale.nullspace.server.ServerContext.get(server).existing(PENDING);
+    if (recall && !crew.isEmpty())
+      return Result.rejected("Recall cancelled: someone boarded the ship");
     if (current != null
         && !crew.stream()
             .map(Entity::getUUID)
@@ -417,7 +644,22 @@ public final class TravelService {
                 current.crew.keySet().stream()
                     .filter(uuid -> server.getPlayerList().getPlayer(uuid) != null)
                     .collect(java.util.stream.Collectors.toSet())))
-      throw new IllegalArgumentException("Passenger list changed; inspect and launch again");
+      return Result.rejected("Passenger list changed; inspect and launch again");
+    var fuelShip = vessel == null ? new CompoundTag() : vessel;
+    if (vessel == null) {
+      fuelShip.putLong("base", sourceBase.asLong());
+      fuelShip.putLong("controller", controller.asLong());
+    }
+    int fuelCost =
+        com.nullandkale.nullspace.systems.FuelSystem.travelCost(
+            source, fuelShip, 400 + scan.blocks().size());
+    if (!recall
+        && !detaching
+        && !com.nullandkale.nullspace.systems.FuelSystem.spend(source, fuelShip, fuelCost))
+      return Result.rejected(
+          "Not enough shared fuel for travel ("
+              + fuelCost
+              + " burn units). Load furnace fuel into a connected generator.");
     StructureTemplate template = new StructureTemplate();
     BlockPos min = scan.bounds().min(), max = scan.bounds().max();
     template.fillFromWorld(
@@ -438,15 +680,19 @@ public final class TravelService {
     journal.putLong("max", max.asLong());
     journal.putLong("delta", delta.asLong());
     journal.put("template", template.save(new CompoundTag()));
+    VesselRespawns.captureSurface(source,id,sourceBase,scan.blocks());
     journal.put("before", store.snapshot());
     ListTag entities = new ListTag();
     for (Entity entity : cargo) {
       var output =
           TagValueOutput.createWithContext(ProblemReporter.DISCARDING, source.registryAccess());
       if (!entity.save(output))
-        throw ShipMessages.entityProblem(
-            entity,
-            "This passenger cannot be saved for travel. Move it off the ship and try again.");
+        return Result.rejected(
+            "This passenger cannot be saved for travel. Move it off the ship and try again."
+                + "\nOccupant: "
+                + ShipMessages.entity(entity)
+                + "\nLocation: "
+                + entity.blockPosition().toShortString());
       var entry = new CompoundTag();
       entry.putString("id", entity.getUUID().toString());
       entry.put("data", output.buildResult());
@@ -460,9 +706,35 @@ public final class TravelService {
       after.put("ships", ships);
     }
     ships.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(id));
+    if (detaching) {
+      // Independent physical allocation and scene actor: the debris cannot follow the ship
+      // through later local flight or an FTL region change. It keeps its original inventories.
+      var debris = new CompoundTag();
+      debris.putString("id", UUID.randomUUID().toString());
+      debris.putString("kind", "debris");
+      debris.putString("home", "Loose blocks");
+      debris.putString("dimension", source.dimension().identifier().toString());
+      debris.putLong("base", sourceBase.asLong());
+      for (String key :
+          List.of(
+              "width",
+              "depth",
+              "height",
+              "localSpace",
+              "simX",
+              "simY",
+              "simZ",
+              "simYaw",
+              "simPitch",
+              "simRoll",
+              "owner",
+              "access")) if (vessel.contains(key)) debris.put(key, vessel.get(key).copy());
+      ships.add(debris);
+    }
     var next = vessel == null ? new CompoundTag() : vessel.copy();
     next.putString("id", id);
     next.putString("dimension", target.dimension().identifier().toString());
+    if (!target.dimension().equals(SPACE)) next.remove("journey");
     next.putInt("width", landing == null ? 32 : landing.bounds().width());
     next.putInt("depth", landing == null ? 32 : landing.bounds().depth());
     next.putInt("height", landing == null ? 32 : PadRegistry.buildHeight(target, landing.bounds()));
@@ -472,6 +744,7 @@ public final class TravelService {
       if (address != null) next.putString("localSpace", address);
     }
     if (target.dimension().equals(SPACE) && !next.contains("simX")) {
+      com.nullandkale.nullspace.navigation.NavigationService.randomizeArrival(server, next);
       var arrival =
           com.nullandkale.nullspace.navigation.NavigationService.arrivalOrigin(server, next);
       next.putDouble("simX", arrival.x);
@@ -479,9 +752,17 @@ public final class TravelService {
       next.putDouble("simZ", arrival.z);
     }
     next.putLong("controller", controller.offset(delta).asLong());
-    if (inspected.pad() != null) {
-      next.putString("home", inspected.pad().name());
-      next.putString("homeId", inspected.pad().id());
+    var home = landing != null ? landing : inspected.pad();
+    if (home != null) {
+      next.putString("home", home.name());
+      next.putString("homeId", home.id());
+    }
+    ShipRecall.authorize(next, actor);
+    if (recall) {
+      String region = com.nullandkale.nullspace.navigation.PlanetSurfaces.address(target);
+      if (region != null) next.putString("localSpace", region);
+      com.nullandkale.nullspace.navigation.NavigationService.stop(next);
+      for (String field : List.of("simX", "simY", "simZ")) next.remove(field);
     }
     ListTag members = new ListTag();
     if (vessel != null)
@@ -489,6 +770,7 @@ public final class TravelService {
         var member = ((CompoundTag) t).copy();
         UUID uuid = UUID.fromString(member.getStringOr("id", ""));
         if (server.getPlayerList().getPlayer(uuid) == null) {
+          if (leavingPieces) safeOfflineArrival(source, scan, sourceBase, member);
           members.add(member);
           ShipStore.target(
               after,
@@ -544,14 +826,15 @@ public final class TravelService {
         member.putDouble("x", position.x - sourceBase.getX());
         member.putDouble("y", position.y - sourceBase.getY());
         member.putDouble("z", position.z - sourceBase.getZ());
+        if (leavingPieces) safeOfflineArrival(source, scan, sourceBase, member);
         members.add(member);
         ShipStore.target(
             after,
             uuid,
             target.dimension().identifier().toString(),
-            position.x + delta.getX(),
-            position.y + delta.getY(),
-            position.z + delta.getZ(),
+            targetBase.getX() + member.getDoubleOr("x", 0),
+            targetBase.getY() + member.getDoubleOr("y", 0),
+            targetBase.getZ() + member.getDoubleOr("z", 0),
             0,
             0);
         var original = new CompoundTag();
@@ -591,13 +874,16 @@ public final class TravelService {
       if (scan.bounds().box().inflate(8).contains(player.position())) player.closeContainer();
     var destinationSnapshot =
         ShipBlockSupport.destinationTemplate(
-            journal.getCompoundOrEmpty("template"), scan.blocks(), delta);
+            ShipBlockSupport.connectedTemplate(
+                journal.getCompoundOrEmpty("template"), min, scan.blocks()),
+            scan.blocks(),
+            delta);
     var destinationTemplate = new StructureTemplate();
     destinationTemplate.load(
         target.registryAccess().lookupOrThrow(Registries.BLOCK), destinationSnapshot);
     place(target, destinationTemplate, targetMin);
     checkpoint(file, journal, "DESTINATION_STAGED");
-    clear(source, min, max);
+    ShipPlacement.clear(source, scan.blocks());
     checkpoint(file, journal, "SOURCE_CLEARED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);
     for (Entity entity : cargo) {
@@ -626,12 +912,33 @@ public final class TravelService {
     store.save();
     server.saveEverything(true, true, true);
     checkpoint(file, journal, "COMMITTED");
+    return new Result(Outcome.COMPLETED, "Arrived");
   }
 
   private static void checkpoint(Path file, CompoundTag journal, String stage) {
     journal.putString("stage", stage);
     ShipStore.write(file, journal);
     failureInjector.accept(stage);
+  }
+
+  private static void safeOfflineArrival(
+      ServerLevel source, ShipScan.Result scan, BlockPos base, CompoundTag member) {
+    var feet =
+        BlockPos.containing(
+            base.getX() + member.getDoubleOr("x", 0),
+            base.getY() + member.getDoubleOr("y", 0),
+            base.getZ() + member.getDoubleOr("z", 0));
+    if (scan.pressure().breathable(feet)
+        && scan.pressure().breathable(feet.above())
+        && scan.blocks().contains(feet.below())
+        && source.getBlockState(feet.below()).isCollisionShapeFullBlock(source, feet.below()))
+      return;
+    // An offline passenger's old room may be in the abandoned component. Reconnect in the
+    // validated cabin, never at an offset that has become empty space in the departing ship.
+    var safe = scan.boarding().subtract(base);
+    member.putDouble("x", safe.getX() + .5);
+    member.putDouble("y", safe.getY());
+    member.putDouble("z", safe.getZ() + .5);
   }
 
   static void place(ServerLevel level, StructureTemplate template, BlockPos min) {

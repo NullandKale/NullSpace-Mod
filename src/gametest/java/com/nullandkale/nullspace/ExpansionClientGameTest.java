@@ -33,6 +33,7 @@ public final class ExpansionClientGameTest implements FabricClientGameTest {
 
   @Override
   public void runTest(ClientGameTestContext c) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = c.worldBuilder().create()) {
       world.getConnection().waitForChunksRender();

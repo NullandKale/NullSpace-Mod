@@ -16,6 +16,12 @@ public final class VisualCabins {
   private static final LinkedHashMap<String, Cached> CACHE = new LinkedHashMap<>(16, .75f, true);
 
   public static int[] mask(CompoundTag subject) {
+    var provided = subject.getIntArray("interiorMask");
+    if (provided.isPresent()) {
+      if (provided.get().length != 1024)
+        throw new IllegalArgumentException("Invalid section interior mask");
+      return provided.get();
+    }
     String id = subject.getStringOr("geometryId", subject.getStringOr("id", ""));
     int[] states = subject.getIntArray("blocks").orElse(new int[0]);
     var old = CACHE.get(id);

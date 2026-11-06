@@ -8,8 +8,18 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 public final class TravelPackets {
-  public record Progress(UUID id, String message, String dimension, boolean done)
+  public enum Kind {
+    TRANSFER,
+    JUMP,
+    BOARD
+  }
+
+  public record Progress(UUID id, String message, String dimension, boolean done, Kind kind)
       implements CustomPacketPayload {
+    public Progress(UUID id, String message, String dimension, boolean done) {
+      this(id, message, dimension, done, Kind.TRANSFER);
+    }
+
     public static final Type<Progress> TYPE = new Type<>(Identifier.parse("nullspace:travel"));
     public static final StreamCodec<RegistryFriendlyByteBuf, Progress> CODEC =
         StreamCodec.of(
@@ -18,8 +28,15 @@ public final class TravelPackets {
               b.writeUtf(p.message, 256);
               b.writeUtf(p.dimension, 256);
               b.writeBoolean(p.done);
+              b.writeEnum(p.kind);
             },
-            b -> new Progress(b.readUUID(), b.readUtf(256), b.readUtf(256), b.readBoolean()));
+            b ->
+                new Progress(
+                    b.readUUID(),
+                    b.readUtf(256),
+                    b.readUtf(256),
+                    b.readBoolean(),
+                    b.readEnum(Kind.class)));
 
     @Override
     public Type<Progress> type() {
@@ -53,6 +70,8 @@ public final class TravelPackets {
                 .server()
                 .execute(
                     () -> {
+                      if (com.nullandkale.nullspace.station.DockingService.ready(
+                          context.player(), packet)) return;
                       if (!com.nullandkale.nullspace.navigation.NavigationService.ready(
                           context.player(), packet)) TravelService.ready(context.player(), packet);
                     }));

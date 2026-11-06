@@ -26,7 +26,22 @@ public final class ShipBlueprints {
     }
 
     public BlockPos helm() {
-      return new BlockPos(width - 3, (decks - 1) * 5 + 1, 3);
+      if (ManufacturerShips.contains(id)) return ManufacturerShips.controller(id);
+      return new BlockPos(width - 3, (decks - 1) * 5 + 1, width == 9 ? 6 : 3);
+    }
+
+    public String manufacturer() {
+      return ManufacturerShips.manufacturer(id);
+    }
+
+    public String role() {
+      if (ManufacturerRoleShips.contains(id))
+        return ManufacturerRoleShips.explorer(id) ? "Explorer" : "Freighter";
+      return id.equals("mule")
+          ? "Freighter"
+          : id.equals("atlas") || id.equals("wayfarer")
+              ? "Explorer"
+              : id.equals("aegis") ? "Patrol" : "Scout";
     }
   }
 
@@ -97,7 +112,115 @@ public final class ShipBlueprints {
               "Three-deck expedition ship with workshops and cargo rooms.",
               "green",
               false,
-              true));
+              true),
+          new Preset(
+              "rivet_bolt",
+              "Rivet Bolt",
+              17,
+              7,
+              25,
+              1,
+              "Rivet Works scout: offset bridge, narrow spine and broad service pods.",
+              "orange",
+              false,
+              true),
+          new Preset(
+              "halcyon_swift",
+              "Halcyon Swift",
+              19,
+              7,
+              27,
+              1,
+              "Halcyon Aerospace scout: tapered bow, swept shoulders and observation bridge.",
+              "cyan",
+              false,
+              false),
+          new Preset(
+              "bastion_ward",
+              "Bastion Ward",
+              19,
+              7,
+              25,
+              1,
+              "Bastion Shipbuilding scout: angular shoulders, recessed bridge and bulkhead.",
+              "red",
+              false,
+              false),
+          new Preset(
+              "rivet_hauler",
+              "Rivet Hauler",
+              25,
+              8,
+              31,
+              1,
+              "Rivet Works freighter: cargo racks, crew mess and a dedicated repair shop.",
+              "orange",
+              false,
+              true),
+          new Preset(
+              "rivet_ranger",
+              "Rivet Ranger",
+              25,
+              12,
+              31,
+              2,
+              "Rivet Works explorer: reclamation bay, workshop, galley and crew berth.",
+              "orange",
+              false,
+              false),
+          new Preset(
+              "halcyon_courier",
+              "Halcyon Courier",
+              25,
+              8,
+              31,
+              1,
+              "Halcyon Aerospace freighter: glazed cargo hold, galley and courier cabin.",
+              "cyan",
+              false,
+              true),
+          new Preset(
+              "halcyon_horizon",
+              "Halcyon Horizon",
+              25,
+              12,
+              31,
+              2,
+              "Halcyon Aerospace explorer: observation bridge, survey lab, galley and crew cabin.",
+              "cyan",
+              false,
+              false),
+          new Preset(
+              "bastion_tender",
+              "Bastion Tender",
+              25,
+              8,
+              31,
+              1,
+              "Bastion Shipbuilding freighter: protected hold, provisions and maintenance bay.",
+              "red",
+              false,
+              true),
+          new Preset(
+              "bastion_pioneer",
+              "Bastion Pioneer",
+              25,
+              12,
+              31,
+              2,
+              "Bastion Shipbuilding explorer: raised command, workshop, sickbay and crew quarters.",
+              "red",
+              false,
+              false));
+
+  public static int airDemand(Preset preset) {
+    return Math.max(
+        4,
+        Math.min(
+            12,
+            (int) blocks(preset).values().stream().filter(s -> s.is(ShipBlocks.AIR_SUPPLY)).count()
+                * 2));
+  }
 
   public static Preset get(String id) {
     return PRESETS.stream()
@@ -131,6 +254,7 @@ public final class ShipBlueprints {
   }
 
   public static Map<BlockPos, BlockState> blocks(Preset p) {
+    if (ManufacturerShips.contains(p.id())) return ManufacturerShips.build(p);
     var out = new LinkedHashMap<BlockPos, BlockState>();
     Block hull =
         switch (p.color()) {
@@ -186,18 +310,15 @@ public final class ShipBlueprints {
     out.put(
         new BlockPos(middle, 0, 1),
         Blocks.STONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH));
-    machine(out, p.helm(), ShipBlocks.HELM, Direction.WEST);
+    machine(out, p.helm(), ShipBlocks.COMPUTER, Direction.WEST);
     machine(out, new BlockPos(1, 1, d - 4), ShipBlocks.GENERATOR, Direction.EAST);
-    machine(out, new BlockPos(w - 2, 1, d - 4), ShipBlocks.AIR_SUPPLY, Direction.WEST);
+    machine(out, new BlockPos(w - 2, 1, d - 3), ShipBlocks.AIR_SUPPLY, Direction.WEST);
     machine(out, new BlockPos(1, 1, d - 5), ShipBlocks.BATTERY, Direction.EAST);
-    machine(out, new BlockPos(1, 1, 3), ShipBlocks.DOOR_CONTROL, Direction.EAST);
-    machine(out, new BlockPos(w - 2, 1, 4), ShipBlocks.SYSTEMS_CONTROLLER, Direction.WEST);
     machine(out, new BlockPos(w - 2, 1, 5), ShipBlocks.TERMINAL, Direction.WEST);
     machine(out, new BlockPos(1, 2, d - 4), ShipBlocks.LOCAL_SCANNER, Direction.EAST);
-    machine(out, new BlockPos(w - 2, 2, d - 4), ShipBlocks.LONG_RANGE_SCANNER, Direction.WEST);
-    machine(out, new BlockPos(2, h - 1, d - 4), ShipBlocks.CAMERA, Direction.NORTH);
+    machine(out, new BlockPos(2, h - 2, d - 4), ShipBlocks.CAMERA, Direction.EAST);
     machine(
-        out, new BlockPos(w - 2, (p.decks() - 1) * 5 + 2, 3), ShipBlocks.MONITOR, Direction.WEST);
+        out, new BlockPos(w - 3, (p.decks() - 1) * 5 + 2, 3), ShipBlocks.MONITOR, Direction.WEST);
     if (p.id().equals("sparrow"))
       machine(out, new BlockPos(middle, 1, d - 2), ShipBlocks.ENGINE, Direction.SOUTH);
     else {
@@ -205,6 +326,10 @@ public final class ShipBlueprints {
       machine(out, new BlockPos(w - 3, 1, d - 2), ShipBlocks.ENGINE, Direction.SOUTH);
     }
     if (p.armed()) machine(out, new BlockPos(middle - 2, 1, 1), ShipBlocks.WEAPON, Direction.NORTH);
+    com.nullandkale.nullspace.station.StationBlueprint.compact(
+        out, new BlockPos(middle, 1, 1), Direction.NORTH);
+    machine(out, new BlockPos(w - 2, 1, d - 5), ShipBlocks.GENERATOR, Direction.WEST);
+    out.entrySet().removeIf(entry -> entry.getValue().isAir());
     for (var at : out.keySet())
       if (at.getX() < 1
           || at.getY() < 0
@@ -222,7 +347,10 @@ public final class ShipBlueprints {
 
   private static void machine(
       Map<BlockPos, BlockState> out, BlockPos at, Block block, Direction facing) {
-    out.put(at, block.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing));
+    var state = block.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
+    if (block == ShipBlocks.CAMERA || block == ShipBlocks.MONITOR)
+      state = state.setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, false);
+    out.put(at, state);
   }
 
   private static void door(Map<BlockPos, BlockState> out, int x, int y, int z) {

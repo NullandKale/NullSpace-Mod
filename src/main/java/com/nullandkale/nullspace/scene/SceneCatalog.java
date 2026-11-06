@@ -85,7 +85,20 @@ public final class SceneCatalog {
   }
 
   public static CompoundTag region(MinecraftServer server, String address) {
-    var destination = com.nullandkale.nullspace.navigation.LocalSpaces.get(address);
+    var destination = com.nullandkale.nullspace.navigation.LocalSpaces.get(server, address);
+    if (com.nullandkale.nullspace.navigation.JourneyService.special(server, address)) {
+      var space = new CompoundTag();
+      space.putInt("version", 2);
+      space.putInt("generator", 1);
+      space.putString("id", "nullspace:" + address);
+      space.putLong("seed", destination.seed());
+      space.putLong("revision", 1);
+      space.putDouble("epoch", 0);
+      space.put("bodies", new ListTag());
+      space.put("volumes", new ListTag());
+      space.put("fields", new ListTag());
+      return space;
+    }
     if (address.equals(com.nullandkale.nullspace.navigation.LocalSpaces.HOME)) return get(server);
     var store = ShipStore.get(server);
     var regions = store.section("localScenes");
@@ -93,6 +106,12 @@ public final class SceneCatalog {
       var saved = regions.getCompoundOrEmpty(address);
       if (CelestialLayout.migrate(saved, destination.name())) store.requestSave();
       return saved;
+    }
+    var generated = com.nullandkale.nullspace.navigation.StarSystems.scene(server, address);
+    if (generated.isPresent()) {
+      regions.put(address, generated.get());
+      store.requestSave();
+      return generated.get();
     }
     var template = get(server).copy();
     template.putString("id", "nullspace:" + address);

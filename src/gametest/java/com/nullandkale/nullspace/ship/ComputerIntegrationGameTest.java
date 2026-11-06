@@ -306,7 +306,7 @@ public final class ComputerIntegrationGameTest {
         });
   }
 
-  @GameTest(maxTicks = 100)
+  @GameTest(environment = "nullspace:cold_computer", maxTicks = 100)
   public void detachedComputerComputesWhileColdThenResumesItsWaitingWorldAction(
       GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();

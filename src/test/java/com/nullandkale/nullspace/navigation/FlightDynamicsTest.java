@@ -6,6 +6,29 @@ import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 class FlightDynamicsTest {
+  @Test
+  void arrivalsVaryInThreeDimensionsAndUseFiniteNormalizedRotations() {
+    var random = new java.util.Random(34);
+    var headings = new java.util.HashSet<Integer>();
+    var heights = new java.util.HashSet<Integer>();
+    boolean banked = false, pitched = false;
+    for (int i = 0; i < 64; i++) {
+      var frame = FlightDynamics.randomArrival(random);
+      var q = FlightDynamics.orientation(frame.yaw(), frame.pitch(), frame.roll());
+      assertEquals(1, q.lengthSquared(), 1e-10);
+      var up = FlightDynamics.rotate(q, new Vec3(0, 1, 0));
+      var forward = FlightDynamics.rotate(q, new Vec3(0, 0, 1));
+      banked |= Math.abs(up.x) > .2;
+      pitched |= Math.abs(forward.y) > .2;
+      assertTrue(Double.isFinite(frame.altitude()) && Math.abs(frame.altitude()) <= 240);
+      headings.add((int) frame.yaw());
+      heights.add((int) frame.altitude());
+    }
+    assertTrue(
+        banked && pitched && headings.size() > 40 && heights.size() > 40,
+        "Crews must not all arrive level or on the same horizontal plane");
+  }
+
   private FlightDynamics.State idle() {
     return new FlightDynamics.State(Vec3.ZERO, Vec3.ZERO, 0, 0, 0);
   }

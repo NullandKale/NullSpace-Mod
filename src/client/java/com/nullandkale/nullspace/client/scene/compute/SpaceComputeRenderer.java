@@ -188,6 +188,8 @@ public final class SpaceComputeRenderer implements AutoCloseable {
   private Matrix4f currentProjection = new Matrix4f();
   private Vec3 currentEye = Vec3.ZERO;
   private double currentTime;
+  private Vec3 starForward = new Vec3(0, 0, -1);
+  private float starFtl, starParallax;
   private String currentKey = "";
   private Prepared current;
   private int currentGeneration,
@@ -439,7 +441,7 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     try {
       bodyBytes = bytes(SpaceDefinition.MAX_INSTANCES * 80);
       nodeBytes = bytes(SpaceDefinition.MAX_INSTANCES * 64);
-      sceneBytes = bytes((80 + 4 * 261) * 16);
+      sceneBytes = bytes((80 + 64 * 261) * 16);
       radiance = own(Image.make("Space HDR", width, height, GpuFormat.RGBA16_FLOAT));
       geometry =
           own(Image.make("Space hit distance and ID", width, height, GpuFormat.RGBA32_FLOAT));
@@ -654,7 +656,7 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     while (sceneBytes.position() < 80 * 16) sceneBytes.putLong(0);
     cabinCount = 0;
     for (Tag tag : scene.getListOrEmpty("subjects")) {
-      if (cabinCount == 4) break;
+      if (cabinCount == 64) break;
       var subject = (CompoundTag) tag;
       var mask = VisualCabins.mask(subject);
       boolean interior = false;
@@ -802,6 +804,16 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     p.use();
     p.matrix("InvView", new Matrix4f(projection).invert());
     p.matrix("ViewProjection", projection);
+    glUniform3f(
+        p.uniform("StarEye"), (float) currentEye.x, (float) currentEye.y, (float) currentEye.z);
+    glUniform3f(
+        p.uniform("StarForward"),
+        (float) starForward.x,
+        (float) starForward.y,
+        (float) starForward.z);
+    p.scalar("StarFtl", starFtl);
+    p.scalar("StarParallax", starParallax);
+    p.scalar("StarTime", (float) (currentTime % 4096));
     p.integer("BodyCount", bodyCount);
     int[] lights =
         java.util.stream.IntStream.range(0, current.bodies.size())
@@ -911,6 +923,38 @@ public final class SpaceComputeRenderer implements AutoCloseable {
                     0,
                     (System.nanoTime() - scene.getLongOr("receivedNanos", System.nanoTime()))
                         / 1e9));
+    starParallax =
+        !scene.getBooleanOr("planetSky", false)
+                && scene
+                    .getStringOr("dimension", "")
+                    .equals(
+                        com.nullandkale.nullspace.ship.TravelService.SPACE.identifier().toString())
+            ? 1
+            : 0;
+    starFtl = 0;
+    for (var tag : scene.getListOrEmpty("subjects")) {
+      var subject = (CompoundTag) tag;
+      if (!subject.getStringOr("id", "").equals(scene.getStringOr("observer", ""))) continue;
+      var bow = net.minecraft.core.Direction.byName(subject.getStringOr("bow", "north"));
+      if (bow == null) bow = net.minecraft.core.Direction.NORTH;
+      starForward =
+          com.nullandkale.nullspace.navigation.FlightDynamics.rotate(
+              com.nullandkale.nullspace.navigation.FlightDynamics.orientation(
+                  subject.getDoubleOr("yaw", 0),
+                  subject.getDoubleOr("pitch", 0),
+                  subject.getDoubleOr("roll", 0)),
+              new Vec3(bow.getStepX(), bow.getStepY(), bow.getStepZ()));
+      if (subject.getBooleanOr("ftl", false)) {
+        double extra =
+            Math.clamp(currentTime - scene.getDoubleOr("simulationTime", currentTime), 0, 2);
+        starFtl =
+            (float)
+                com.nullandkale.nullspace.scene.TravelVisuals.streaks(
+                    subject.getDoubleOr("ftlElapsed", 0) + extra,
+                    subject.getDoubleOr("ftlDuration", 0));
+      }
+      break;
+    }
     metadata(projection);
     try (var state = new ComputeStateScope()) {
       poll();

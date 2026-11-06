@@ -55,6 +55,7 @@ public final class ShipBlockSupport {
           "copper_golem_statue");
 
   public static boolean portable(BlockEntityType<?> type) {
+    if (type == com.nullandkale.nullspace.systems.MachineMenus.ENTITY) return true;
     var id = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type);
     return id.getNamespace().equals("minecraft") && PORTABLE_ENTITIES.contains(id.getPath());
   }
@@ -198,6 +199,19 @@ public final class ShipBlockSupport {
       for (var bee : tag.getListOrEmpty("bees"))
         flower(((CompoundTag) bee).getCompoundOrEmpty("entity_data"), captured, delta);
     }
+    return copy;
+  }
+
+  /** Keep the complete original in the recovery journal, but move only the connected hull. */
+  static CompoundTag connectedTemplate(CompoundTag original, BlockPos min, Set<BlockPos> captured) {
+    var copy = original.copy();
+    copy.getListOrEmpty("blocks")
+        .removeIf(
+            entry -> {
+              var coords = ((CompoundTag) entry).getListOrEmpty("pos");
+              return !captured.contains(
+                  min.offset(coords.getIntOr(0, 0), coords.getIntOr(1, 0), coords.getIntOr(2, 0)));
+            });
     return copy;
   }
 

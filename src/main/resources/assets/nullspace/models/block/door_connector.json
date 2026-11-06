@@ -1,0 +1,8 @@
+﻿{
+    "textures":  {
+                     "front":  "minecraft:block/observer_front",
+                     "top":  "minecraft:block/iron_block",
+                     "side":  "minecraft:block/iron_block"
+                 },
+    "parent":  "minecraft:block/orientable"
+}

@@ -10,6 +10,20 @@ import org.junit.jupiter.api.Test;
 
 class ShipBlueprintsTest {
   @Test
+  void lastCatalogPageKeepsPurchaseVisibleAndBlankRowsCannotBuy() {
+    var t = new ControllerTerminal("shipyard", "Ready", "sparrow");
+    for (int i = 0; i < 14; i++) t.input(TerminalInput.Key.DOWN);
+    assertTrue(t.display().row(14).contains("Bastion Pioneer"));
+    t.input(new TerminalInput.Pointer(10, 15));
+    assertNull(t.pollAction(), "Blank catalog rows cannot trigger a purchase");
+    t.input(TerminalInput.Key.ENTER);
+    assertEquals(new ControllerTerminal.Action("ship_quote", "bastion_pioneer"), t.pollAction());
+    t.update("Pioneer details");
+    t.input(new TerminalInput.Pointer(10, 18));
+    assertEquals(new ControllerTerminal.Action("ship_buy", "bastion_pioneer"), t.pollAction());
+  }
+
+  @Test
   void presetsHaveStableUniqueIdentitiesAndFitTheShipEnvelope() {
     var ids = new HashSet<String>();
     for (var p : ShipBlueprints.PRESETS) {
@@ -17,10 +31,13 @@ class ShipBlueprintsTest {
       assertTrue(p.id().matches("[a-z_]{1,32}"));
       assertTrue(p.name().length() <= 17);
       assertTrue(p.width() <= 32 && p.height() <= 32 && p.depth() <= 32);
-      assertEquals(p.decks() * 5, p.height());
+      assertTrue(p.height() >= p.decks() * 5, "Declared height includes deck headroom and hull");
       assertSame(p, ShipBlueprints.get(p.id()));
     }
-    assertEquals(6, ids.size());
+    assertEquals(15, ids.size());
+    assertEquals(
+        List.of("sparrow", "skylark", "mule", "wayfarer", "aegis", "atlas"),
+        ShipBlueprints.PRESETS.subList(0, 6).stream().map(ShipBlueprints.Preset::id).toList());
     assertThrows(IllegalArgumentException.class, () -> ShipBlueprints.get("forged"));
     assertThrows(IllegalArgumentException.class, () -> ShipBlueprints.get(null));
   }
@@ -71,9 +88,10 @@ class ShipBlueprintsTest {
     t.input(TerminalInput.Key.ENTER);
     assertNull(t.pollAction(), "A waiting terminal cannot enqueue duplicate purchases");
     t.update("Skylark details");
-    t.input(new TerminalInput.Pointer(10, 18));
+    int buyRow = 18;
+    t.input(new TerminalInput.Pointer(10, buyRow));
     assertEquals(new ControllerTerminal.Action("ship_buy", "skylark"), t.pollAction());
-    assertTrue(t.display().row(18).contains("Skylark"));
+    assertTrue(t.display().row(buyRow).contains("Skylark"));
     assertTrue(t.display().row(23).contains("ESC Close"));
     assertTrue(t.display().row(1).contains("SHIPYARD"));
   }

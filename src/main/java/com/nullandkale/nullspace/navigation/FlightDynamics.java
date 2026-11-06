@@ -26,6 +26,17 @@ public final class FlightDynamics {
 
   public record State(Vec3 center, Vec3 velocity, double yaw, double pitch, double roll) {}
 
+  public record ArrivalFrame(double yaw, double pitch, double roll, double altitude) {}
+
+  /** Vary the rendered flight frame and altitude; crew keep their upright physical cabin. */
+  public static ArrivalFrame randomArrival(java.util.random.RandomGenerator random) {
+    return new ArrivalFrame(
+        random.nextDouble(-180, 180),
+        random.nextDouble(-65, 65),
+        random.nextDouble(-180, 180),
+        random.nextDouble(-240, 240));
+  }
+
   public static int axis(int bits, int positive, int negative) {
     return ((bits & positive) != 0 ? 1 : 0) - ((bits & negative) != 0 ? 1 : 0);
   }
@@ -44,15 +55,15 @@ public final class FlightDynamics {
     return new Vec3(v.x, v.y, v.z);
   }
 
-  public static State step(State old, int bits, int power, float helmYaw) {
-    if ((bits & ~ALL) != 0 || power < 0 || power > 8 || !Float.isFinite(helmYaw))
+  public static State step(State old, int bits, int power, float forwardYaw) {
+    if ((bits & ~ALL) != 0 || power < 0 || power > 8 || !Float.isFinite(forwardYaw))
       throw new IllegalArgumentException("Invalid flight input/power");
     if (!finite(old.center)
         || !finite(old.velocity)
         || !Double.isFinite(old.yaw)
         || !Double.isFinite(old.pitch)
         || !Double.isFinite(old.roll)) throw new IllegalArgumentException("Invalid flight state");
-    double angleLocal = Math.toRadians(helmYaw);
+    double angleLocal = Math.toRadians(forwardYaw);
     var localForward = new Vec3(-Math.sin(angleLocal), 0, Math.cos(angleLocal));
     var right = localForward.cross(new Vec3(0, 1, 0));
     var rotation =
@@ -70,7 +81,7 @@ public final class FlightDynamics {
         pitch = Math.toDegrees(euler.x),
         roll = wrap(Math.toDegrees(euler.z));
     var q = orientation(yaw, pitch, roll);
-    double angle = Math.toRadians(helmYaw);
+    double angle = Math.toRadians(forwardYaw);
     var forward = rotate(q, new Vec3(-Math.sin(angle), 0, Math.cos(angle)));
     var up = rotate(q, new Vec3(0, 1, 0));
     var acceleration =

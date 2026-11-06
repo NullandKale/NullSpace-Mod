@@ -49,6 +49,14 @@ public final class ReferenceShip {
             .defaultBlockState()
             .setValue(DoorBlock.FACING, Direction.NORTH)
             .setValue(DoorBlock.OPEN, false);
+    level.setBlock(base.offset(0, 3, 1), ShipBlocks.GENERATOR.defaultBlockState(), 18);
+    com.nullandkale.nullspace.systems.FuelSystem.provision(level, base.offset(0, 3, 1), 64);
+    level.setBlock(
+        base.offset(6, 3, 1),
+        ShipBlocks.AIR_SUPPLY
+            .defaultBlockState()
+            .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
+        18);
     level.setBlock(base.offset(3, 3, 0), door.setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER), 18);
     level.setBlock(base.offset(3, 4, 0), door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), 18);
     level.setBlock(base.offset(3, 4, 6), Blocks.GLASS.defaultBlockState(), 18);

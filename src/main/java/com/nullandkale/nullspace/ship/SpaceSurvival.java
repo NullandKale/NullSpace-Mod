@@ -13,6 +13,18 @@ import net.minecraft.world.phys.Vec3;
 
 public final class SpaceSurvival {
   public static final int TETHER_RANGE = 72;
+
+  public static double tetherDistance(CompoundTag vessel, Vec3 position) {
+    if (!com.nullandkale.nullspace.station.StationService.station(vessel))
+      return position.distanceTo(Vec3.atCenterOf(ShipStore.pos(vessel, "controller")));
+    var bounds = ShipStore.bounds(vessel).box();
+    return position.distanceTo(
+        new Vec3(
+            Math.clamp(position.x, bounds.minX, bounds.maxX),
+            Math.clamp(position.y, bounds.minY, bounds.maxY),
+            Math.clamp(position.z, bounds.minZ, bounds.maxZ)));
+  }
+
   private static final com.nullandkale.nullspace.server.ServerContext.Key<Map<UUID, Integer>> AIR =
       new com.nullandkale.nullspace.server.ServerContext.Key<>();
 
@@ -130,8 +142,7 @@ public final class SpaceSurvival {
               continue;
             }
             BlockPos anchor = ShipStore.pos(vessel, "controller");
-            Vec3 center = Vec3.atCenterOf(anchor);
-            if (player.position().distanceToSqr(center) > TETHER_RANGE * TETHER_RANGE) {
+            if (tetherDistance(vessel, player.position()) > TETHER_RANGE) {
               var anchorState = player.level().getBlockState(anchor);
               var boarding =
                   ShipBlocks.navigation(anchorState)
@@ -177,6 +188,8 @@ public final class SpaceSurvival {
               cabin = pressure.breathable(BlockPos.containing(player.getEyePosition()));
             }
             boolean protection = suited(player) && source;
+            protection |=
+                com.nullandkale.nullspace.station.DockingService.constructionAir(player, vessel);
             if (!player.isSpectator()) {
               boolean vacuumFlight = (player.isCreative() || suited(player)) && !cabin;
               // Vanilla lands the client on contact with a floor. Respect that state
@@ -234,7 +247,7 @@ public final class SpaceSurvival {
                               ? "CABIN SEALED"
                               : protection ? "SUIT / TETHER AIR" : "VACUUM - NO AIR")
                           + " | Tether "
-                          + (int) player.position().distanceTo(center)
+                          + (int) tetherDistance(vessel, player.position())
                           + "/72 | Air "
                           + Math.max(
                               0,
@@ -280,12 +293,16 @@ public final class SpaceSurvival {
                 return InteractionResult.FAIL;
             }
           }
+          if (player instanceof ServerPlayer p
+              && com.nullandkale.nullspace.station.DockingService.useCompactDoor(
+                  p, hit.getBlockPos())) return InteractionResult.SUCCESS;
           return InteractionResult.PASS;
         });
     AttackBlockCallback.EVENT.register(
         (player, world, hand, pos, face) -> {
           if (player instanceof ServerPlayer p
-              && (TravelService.busy(p)
+              && (com.nullandkale.nullspace.station.DockingTunnel.protectedAt(p.level(), pos)
+                  || TravelService.busy(p)
                   || TravelService.locked(p.level(), pos)
                   || (world.dimension().equals(TravelService.SPACE)
                       && ShipStore.get(p.level().getServer()).at(p.level(), pos) == null)))
@@ -295,7 +312,8 @@ public final class SpaceSurvival {
     PlayerBlockBreakEvents.BEFORE.register(
         (world, player, pos, state, be) ->
             !(player instanceof ServerPlayer p)
-                || (!TravelService.busy(p)
+                || (!com.nullandkale.nullspace.station.DockingTunnel.protectedAt(p.level(), pos)
+                    && !TravelService.busy(p)
                     && !TravelService.locked(p.level(), pos)
                     && (!world.dimension().equals(TravelService.SPACE)
                         || ShipStore.get(p.level().getServer()).at(p.level(), pos) != null)));
@@ -330,6 +348,7 @@ public final class SpaceSurvival {
     ServerLivingEntityEvents.AFTER_DEATH.register(
         (entity, damage) -> {
           if (entity instanceof ServerPlayer p) {
+            ShipRecall.rememberDeath(p);
             var store = ShipStore.get(p.level().getServer());
             for (Tag tag : store.ships())
               ((CompoundTag) tag)

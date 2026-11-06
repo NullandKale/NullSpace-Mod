@@ -65,5 +65,25 @@ public final class AirEffects {
           && ServerPlayNetworking.canSend(p, FlowPacket.TYPE)) ServerPlayNetworking.send(p, packet);
   }
 
+  public static void send(
+      ServerLevel level, BlockPos base, List<SpatialAir.Flow> flows, Atmosphere.Grid grid) {
+    var sections = new HashMap<BlockPos, List<SpatialAir.Flow>>();
+    for (var flow : flows) {
+      int x = grid.x(flow.cell()), y = grid.y(flow.cell()), z = grid.z(flow.cell());
+      var offset = new BlockPos(x / 32 * 32, y / 32 * 32, z / 32 * 32);
+      sections
+          .computeIfAbsent(offset, k -> new ArrayList<>())
+          .add(
+              new SpatialAir.Flow(
+                  Atmosphere.index(x % 32, y % 32, z % 32),
+                  flow.dx(),
+                  flow.dy(),
+                  flow.dz(),
+                  flow.amount(),
+                  flow.exterior()));
+    }
+    sections.forEach((offset, samples) -> send(level, base.offset(offset), samples));
+  }
+
   private AirEffects() {}
 }

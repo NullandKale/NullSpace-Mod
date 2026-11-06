@@ -63,7 +63,7 @@ final class EngineeringExecutor {
       var pos = BlockPos.containing(player.getEyePosition());
       var bounds = ShipStore.bounds(ship);
       if (!bounds.contains(pos)) return "OUTSIDE SHIP | No room at your position";
-      int room = r.atmosphere.roomAt()[local(ShipStore.pos(ship, "base"), pos)];
+      int room = r.atmosphere.roomAt()[local(ship, pos)];
       return room < 0
           ? "EXTERIOR / NO ROOM | No stored cabin air"
           : rooms(level, ship).get(room).description()

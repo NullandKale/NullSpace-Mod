@@ -1,5 +1,6 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'jacoco'
 }
 
 version = project.mod_version
@@ -22,6 +23,10 @@ loom {
             programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
             if (providers.gradleProperty('devWorld').isPresent()) {
                 programArgs '--quickPlaySingleplayer', providers.gradleProperty('devWorld').get()
+            }
+            if (providers.gradleProperty('devCreateWorld').isPresent()) {
+                vmArg '-Dnullspace.dev.createWorld=' + providers.gradleProperty('devCreateWorld').get()
+                vmArg '-Dnullspace.dev.startShip=' + providers.gradleProperty('devStartingShip').getOrElse('halcyon_horizon')
             }
         }
         playtest {
@@ -79,6 +84,10 @@ java {
     withSourcesJar()
 }
 
+tasks.withType(Jar).configureEach {
+    from('LICENSE') { into 'META-INF' }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 25
     options.encoding = 'UTF-8'
@@ -86,6 +95,46 @@ tasks.withType(JavaCompile).configureEach {
 
 test {
     useJUnitPlatform()
+    // Instrument only when requested; normal game and test launches keep their usual cost.
+    jacoco {
+        enabled = providers.gradleProperty('coverage').getOrElse('false').toBoolean()
+        includes = ['com.nullandkale.nullspace.*']
+    }
+}
+
+jacoco {
+    toolVersion = '0.8.16'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.register('exportCoverageAgent', Copy) {
+    from { zipTree(configurations.jacocoAgent.singleFile) }
+    include 'jacocoagent.jar'
+    into layout.buildDirectory.dir('coverage-agent')
+}
+
+tasks.register('combinedCoverageReport', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    sourceSets sourceSets.main
+    executionData layout.buildDirectory.file('jacoco/test.exec')
+    def runDirectory = providers.gradleProperty('coverageRun')
+    if (runDirectory.isPresent()) {
+        executionData fileTree(runDirectory.get()) { include '**/coverage.exec' }
+    }
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+if (providers.gradleProperty('coverage').getOrElse('false').toBoolean()) {
+    tasks.named('test') { finalizedBy jacocoTestReport }
 }
 
 // Opt-in pure systems benchmark; never starts Minecraft or opens player worlds.
@@ -98,6 +147,23 @@ tasks.register('benchmarkSystems', JavaExec) {
         providers.gradleProperty('benchmarkLabel').getOrElse('current')
 }
 
+
+// Interactive local multiplayer uses ordinary launches, without GameTest entrypoints.
+tasks.register('exportLocalPlayLaunches') {
+    notCompatibleWithConfigurationCache('Exports ordinary development JVM launches for local play')
+    dependsOn 'classes', 'clientClasses', 'configureClientLaunch', 'configureLaunch', 'generateDLIConfig', 'downloadAssets'
+    doLast {
+        ['client': 'runClient', 'server': 'runServer'].each { kind, taskName ->
+            def launch = tasks.named(taskName).get()
+            layout.buildDirectory.file("local-play-${kind}-launch.json").get().asFile.text =
+                groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                    executable: launch.javaLauncher.get().executablePath.asFile.absolutePath,
+                    jvmArgs: launch.allJvmArgs, classpath: launch.classpath.asPath,
+                    mainClass: launch.mainClass.get(), args: launch.args
+                ]))
+        }
+    }
+}
 
 // Explicitly invoked local verification only; never added to build/check or CI.
 tasks.register('exportLocalClientLaunch') {
@@ -139,6 +205,18 @@ if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) 
             layout.projectDirectory.file('scripts/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
     }
     tasks.named('runGameTest').configure { dependsOn 'pruneGameTestWorlds' }
+    tasks.register('cleanupGameTestWorlds', Exec) {
+        commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
+            layout.projectDirectory.file('scripts/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
+    }
+    tasks.register('cleanupClientGameTestWorlds', Exec) {
+        commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
+            layout.projectDirectory.file('scripts/Remove-TestWorlds.ps1').asFile.absolutePath,
+            '-WorkRoot', layout.buildDirectory.dir('run/clientGameTest').get().asFile.absolutePath
+    }
+    // Finalizers also run when a test JVM fails. Logs, XML and screenshots stay.
+    tasks.named('runGameTest').configure { finalizedBy 'cleanupGameTestWorlds' }
+    tasks.named('runClientGameTest').configure { finalizedBy 'cleanupClientGameTestWorlds' }
 }
 tasks.named('runGameTest', JavaExec).configure {
     def sessionsDirectory = serverTestSessions

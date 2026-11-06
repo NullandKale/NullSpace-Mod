@@ -1,7 +1,9 @@
 package com.nullandkale.nullspace.ship;
 
 import java.nio.file.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.StringTag;
@@ -70,11 +72,77 @@ public final class SaveCoordinatorGameTest {
       ctx.assertTrue(
           rejected && ShipStore.read(file).getStringOr("saveCoordinatorProbe", "").equals("retry"),
           "Synchronous checkpoints propagate failures and preserve durable state");
+      ShipStore.writeObserver = observer;
+      concurrentSaves(ctx, store);
     } finally {
       ShipStore.writeObserver = observer;
       store.document("saveCoordinatorProbe", null);
       store.save();
     }
     ctx.succeed();
+  }
+
+  private static void concurrentSaves(GameTestHelper ctx, ShipStore store) throws Exception {
+    var file = store.directory.resolve("ships.nbt");
+    store.document("saveCoordinatorProbe", StringTag.valueOf("concurrent-shutdown"));
+    var entered = new CountDownLatch(1);
+    var release = new CountDownLatch(1);
+    var secondAttempt = new CountDownLatch(1);
+    var secondWrite = new CountDownLatch(1);
+    var failure = new AtomicReference<Throwable>();
+    var firstProgress = new java.util.concurrent.atomic.AtomicBoolean();
+    Runnable save =
+        () -> {
+          try {
+            store.save();
+          } catch (Throwable error) {
+            failure.compareAndSet(null, error);
+          }
+        };
+    var first = new Thread(save, "first-shutdown-save");
+    var second =
+        new Thread(
+            () -> {
+              secondAttempt.countDown();
+              save.run();
+            },
+            "second-shutdown-save");
+    var observer = ShipStore.writeObserver;
+    boolean overlapped;
+    try {
+      ShipStore.writeObserver =
+          progress -> {
+            if (!progress.file().equals(file)) return;
+            if (Thread.currentThread() == second) secondWrite.countDown();
+            if (Thread.currentThread() == first && firstProgress.compareAndSet(false, true)) {
+              entered.countDown();
+              try {
+                if (!release.await(5, TimeUnit.SECONDS))
+                  throw new AssertionError("First save was not released");
+              } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
+              }
+            }
+          };
+      first.start();
+      ctx.assertTrue(
+          entered.await(5, TimeUnit.SECONDS), "First save reached the actual file write");
+      second.start();
+      ctx.assertTrue(
+          secondAttempt.await(5, TimeUnit.SECONDS), "Second save attempted concurrently");
+      overlapped = secondWrite.await(200, TimeUnit.MILLISECONDS);
+    } finally {
+      release.countDown();
+      first.join(5000);
+      second.join(5000);
+      ShipStore.writeObserver = observer;
+    }
+    ctx.assertTrue(!first.isAlive() && !second.isAlive(), "Both save callers finish");
+    ctx.assertTrue(!overlapped, "Concurrent saves cannot write the same temporary file");
+    ctx.assertTrue(failure.get() == null, "Concurrent saves complete without I/O failures");
+    ctx.assertTrue(
+        ShipStore.read(file).getStringOr("saveCoordinatorProbe", "").equals("concurrent-shutdown"),
+        "The complete shutdown snapshot survives both save callers");
   }
 }

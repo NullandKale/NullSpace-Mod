@@ -9,7 +9,6 @@ import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.*;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
 
@@ -17,6 +16,7 @@ import net.minecraft.world.level.Level;
 public final class LabArrivalClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     String previous = System.getProperty("nullspace.playtest");
     System.setProperty("nullspace.playtest", "true");
@@ -125,12 +125,8 @@ public final class LabArrivalClientGameTest implements FabricClientGameTest {
   }
 
   private static void send(ClientGameTestContext context, ComputerTerminal.Action action) {
-    context.runOnClient(
-        c -> {
-          var screen = (TerminalScreen) c.gui.screen();
-          ClientPlayNetworking.send(
-              new ComputerTerminal.Request(screen.sessionId(), action, "", ""));
-        });
+    ShipControlTestUi.action(
+        context, com.nullandkale.nullspace.navigation.ShipControl.Action.valueOf(action.name()));
   }
 
   private static void checkTracking(MinecraftServer server) {

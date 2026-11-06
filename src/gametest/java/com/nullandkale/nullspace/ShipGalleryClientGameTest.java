@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.*;
 public final class ShipGalleryClientGameTest implements FabricClientGameTest {
   @Override
   public void runTest(ClientGameTestContext context) {
+    ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
     try (var world = context.worldBuilder().create()) {
       var gallery =
@@ -80,14 +81,15 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest {
           40);
       context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
       context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
-      key(context, InputConstants.KEY_RETURN);
+      ShipControlTestUi.action(
+          context, com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT);
       context.waitFor(
           c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"),
           200);
       context.takeScreenshot("nullspace-gallery-scout-terminal");
       pause(context);
-      key(context, InputConstants.KEY_DOWN);
-      key(context, InputConstants.KEY_RETURN);
+      ShipControlTestUi.action(
+          context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
       context.waitFor(
           c ->
               c.level != null
@@ -108,17 +110,9 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest {
       context.waitTicks(2);
       context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
       context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
-      context.runOnClient(
-          c -> {
-            var t = (TerminalScreen) c.gui.screen();
-            t.keyPressed(new KeyEvent(InputConstants.KEY_DOWN, 0, 0));
-            t.keyPressed(new KeyEvent(InputConstants.KEY_DOWN, 0, 0));
-            t.keyPressed(new KeyEvent(InputConstants.KEY_A, 0, InputConstants.MOD_CONTROL));
-            c.keyboardHandler.textInput(
-                c.getWindow().handle(), gallery.name(ShipGallery.PLOTS.get(12)));
-            t.keyPressed(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
-            t.keyPressed(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
-          });
+      ShipControlTestUi.destination(context, gallery.name(ShipGallery.PLOTS.get(12)), "Pads");
+      ShipControlTestUi.action(
+          context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAND);
       context.waitFor(
           c ->
               c.level != null

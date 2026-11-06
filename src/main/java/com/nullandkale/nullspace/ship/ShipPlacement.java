@@ -72,5 +72,22 @@ final class ShipPlacement {
     }
   }
 
+  static void clear(ServerLevel level, java.util.Set<BlockPos> captured) {
+    boolean previous = WORLD_MUTATION.get();
+    WORLD_MUTATION.set(true);
+    try {
+      for (BlockPos pos : captured) {
+        var area = net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(pos, pos);
+        level.getBlockTicks().clearArea(area);
+        level.getFluidTicks().clearArea(area);
+        level.clearBlockEvents(area);
+        level.removeBlockEntity(pos);
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), ShipBlockSupport.TRANSFER_FLAGS);
+      }
+    } finally {
+      WORLD_MUTATION.set(previous);
+    }
+  }
+
   private ShipPlacement() {}
 }

@@ -18,6 +18,7 @@ import net.minecraft.world.item.crafting.*;
 public final class GuideContent {
   public static final List<String> RECIPES =
       com.nullandkale.nullspace.content.ContentCatalog.EQUIPMENT.stream()
+          .filter(d -> !d.has("retired"))
           .map(com.nullandkale.nullspace.content.ContentCatalog.EquipmentDefinition::id)
           .toList();
 
@@ -159,6 +160,16 @@ public final class GuideContent {
               BuiltInRegistries.ITEM.keySet().stream()
                   .map(Object::toString)
                   .filter(k -> k.startsWith("minecraft:") && k.endsWith("_planks"))
+                  .sorted()
+                  .toList());
+        else if (id.equals("#minecraft:wooden_doors"))
+          cells.add(
+              BuiltInRegistries.ITEM.keySet().stream()
+                  .filter(k -> k.getNamespace().equals("minecraft"))
+                  .map(Object::toString)
+                  .filter(
+                      k ->
+                          k.endsWith("_door") && !k.contains("copper") && !k.endsWith(":iron_door"))
                   .sorted()
                   .toList());
         else if (id.equals("#nullspace:rough_stone"))

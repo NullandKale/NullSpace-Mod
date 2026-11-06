@@ -231,6 +231,7 @@ float surfaceSunHeight()
     return LightCount > 0 ? dot(normalize(BodyData[Lights[0] * 5].xyz), SurfaceUp) : -1.;
 }
 
+#include "stars.glsl"
 float atmosphereStarVisibility();
 
 vec3 sky(vec3 d) 
@@ -269,6 +270,12 @@ vec3 sky(vec3 d)
     }
     // Extinction alone leaves high-radiance stars visible over the daytime sky. Fade their
     // visibility across twilight on atmospheric surfaces; space and airless moons keep them.
+    float angularPixel = length(a - b);
+    sum *= 1. - StarFtl * .85;
+    if (StarParallax > .001 && StarFtl < .999)
+        sum += nearbyStars(d, angularPixel) * StarParallax * (1. - StarFtl);
+    if (StarFtl > .001)
+        sum += ftlStars(d, angularPixel) * StarFtl;
     return sum * atmosphereStarVisibility();
 }
 
@@ -401,7 +408,8 @@ float sliceDistance(int i) {
 
 #include "atmosphere.glsl"
 
-float atmosphereStarVisibility() {
+float atmosphereStarVisibility() 
+{
     if (HasAtmosphere == 0) return 1.;
     if (length(AtmoCenter) < .0001) return 0.;
     float altitude = length(AtmoCenter) - AtmoRadius;
@@ -410,20 +418,28 @@ float atmosphereStarVisibility() {
     return mix(1., 1. - smoothstep(-.12, .02, solarHeight), inside);
 }
 
-vec3 surfaceAtmosphere(vec3 d, vec3 color, vec2 hit) {
+vec3 surfaceAtmosphere(vec3 d, vec3 color, vec2 hit) 
+{
     if (HasAtmosphere == 0) return color;
     vec3 L, T;
-    if (length(AtmoCenter) > AtmoRadius + AtmoHeight) {
+
+    if (length(AtmoCenter) > AtmoRadius + AtmoHeight) 
+    {
         // Outside the atmosphere its silhouette can be smaller than a sky-LUT texel.
         // Integrate only rays hitting that bounded shell, preserving the planet's crisp edge.
         L = vec3(0); T = vec3(1);
         atmoIntegrate(d, 0., hit.y >= 0. ? hit.x / AtmoDistanceScale : FAR, 24, CloudSteps, L, T);
-    } else {
+    } 
+    else 
+    {
         L = skyLutRead(SkyRadianceLut, d).rgb;
         T = skyLutRead(SkyTransmissionLut, d).rgb;
     }
     // Match the exposed sky's solar radiance without changing airless/celestial emission.
     if (hit.y >= 0. && BodyData[int(hit.y) * 5 + 1].w > 0.)
+    {
         color *= mix(4., 1., smoothstep(AtmoHeight * .5, AtmoHeight, length(AtmoCenter) - AtmoRadius));
+    }
+
     return color * T + L;
 }
