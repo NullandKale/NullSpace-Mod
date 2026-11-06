@@ -8,6 +8,41 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 
 final class MachineTestUi {
+  static void clickLabel(ClientGameTestContext context, String label) {
+    context.waitFor(
+        mc ->
+            mc.gui.screen() instanceof MachineScreen s
+                && s.children().stream()
+                    .anyMatch(
+                        w ->
+                            w instanceof net.minecraft.client.gui.components.Button b
+                                && b.visible
+                                && b.active
+                                && b.getMessage().getString().equals(label)),
+        200);
+    context.runOnClient(
+        mc -> {
+          var screen = (MachineScreen) mc.gui.screen();
+          var button =
+              screen.children().stream()
+                  .filter(
+                      w ->
+                          w instanceof net.minecraft.client.gui.components.Button b
+                              && b.visible
+                              && b.active
+                              && b.getMessage().getString().equals(label))
+                  .map(w -> (net.minecraft.client.gui.components.Button) w)
+                  .findFirst()
+                  .orElseThrow();
+          screen.mouseClicked(
+              new MouseButtonEvent(
+                  button.getX() + button.getWidth() / 2.0,
+                  button.getY() + button.getHeight() / 2.0,
+                  new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)),
+              false);
+        });
+  }
+
   static void click(ClientGameTestContext context, int x, int y) {
     context.runOnClient(
         mc -> {

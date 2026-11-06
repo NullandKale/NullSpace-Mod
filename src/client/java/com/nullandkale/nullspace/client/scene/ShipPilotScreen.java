@@ -19,7 +19,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
   private SceneViewport viewport;
   private int pulse, buttons, sequence, ticks, lastUpdate;
   private double orbit, elevation = 18, distance = 70;
-  private boolean focused, help = true;
+  private boolean focused, help;
 
   public ShipPilotScreen(SceneService.Frame frame) {
     super(Component.literal("Ship controls"));
@@ -58,19 +58,27 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
     focused = minecraft.isWindowActive();
     addRenderableWidget(
         net.minecraft.client.gui.components.Button.builder(
-                Component.literal("Controls (H)"), b -> help = !help)
-            .bounds(8, 23, 108, 18)
+                Component.literal("H"), b -> help = !help)
+            .tooltip(
+                net.minecraft.client.gui.components.Tooltip.create(
+                    Component.literal("Controls (H)")))
+            .bounds(8, 23, 24, 18)
             .build());
     if (canPilot()) {
       addRenderableWidget(
           net.minecraft.client.gui.components.Button.builder(
-                  Component.literal("Brake (R)"), b -> pulse |= FlightDynamics.BRAKE)
-              .bounds(120, 23, 96, 18)
+                  Component.literal("R"), b -> pulse |= FlightDynamics.BRAKE)
+              .tooltip(
+                  net.minecraft.client.gui.components.Tooltip.create(
+                      Component.literal("Brake (R)")))
+              .bounds(36, 23, 24, 18)
               .build());
       addRenderableWidget(
           net.minecraft.client.gui.components.Button.builder(
-                  Component.literal("Fire (F)"), b -> pulse |= FlightDynamics.FIRE)
-              .bounds(220, 23, 80, 18)
+                  Component.literal("F"), b -> pulse |= FlightDynamics.FIRE)
+              .tooltip(
+                  net.minecraft.client.gui.components.Tooltip.create(Component.literal("Fire (F)")))
+              .bounds(64, 23, 24, 18)
               .build());
     }
     addRenderableWidget(
@@ -247,7 +255,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
         false);
     g.text(font, hint, hintX, height - 11, TerminalTheme.MUTED, false);
     if (help) {
-      g.fill(4, height - 51, width - 4, height - 17, 0xc0060d16);
+      g.fill(4, height - 51, Math.min(width - 4, 430), height - 17, 0xc0060d16);
       g.text(
           font,
           canPilot() ? "W/S thrust | A/D yaw | Space/Ctrl lift" : "Observer camera",

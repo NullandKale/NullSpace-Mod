@@ -126,8 +126,8 @@ public final class MonitorRenderer {
       var pos = BlockPos.of(display.getLongOr("position", 0));
       if (mc.level.getBlockState(pos).getBlock()
           != com.nullandkale.nullspace.ship.ShipBlocks.MONITOR) continue;
-      int maxWidth = com.nullandkale.nullspace.client.SpaceSettings.width() / 2;
-      int maxHeight = com.nullandkale.nullspace.client.SpaceSettings.height() / 2;
+      int maxWidth = com.nullandkale.nullspace.client.SpaceSettings.cameraWidth() / 2;
+      int maxHeight = maxWidth * 9 / 16;
       double aspect =
           display.getIntOr("wallWidth", 1)
               / (double) Math.max(1, display.getIntOr("wallHeight", 1));

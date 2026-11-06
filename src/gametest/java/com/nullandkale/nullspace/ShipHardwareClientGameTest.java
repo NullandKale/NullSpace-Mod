@@ -1,13 +1,11 @@
 package com.nullandkale.nullspace;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.nullandkale.nullspace.client.*;
 import com.nullandkale.nullspace.client.scene.ViewportScreen;
 import com.nullandkale.nullspace.ship.*;
 import com.nullandkale.nullspace.systems.*;
 import net.fabricmc.fabric.api.client.gametest.v1.*;
 import net.fabricmc.fabric.api.client.gametest.v1.context.*;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 
@@ -118,8 +116,25 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest {
       c.takeScreenshot("nullspace-camera-setup");
       MachineTestUi.click(c, 120, 24);
       c.runOnClient(mc -> mc.keyboardHandler.textInput(mc.getWindow().handle(), "Draft camera"));
-      MachineTestUi.click(c, 60, 135);
+      MachineTestUi.clickLabel(c, "View fullscreen");
       c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen, 200);
+      c.waitFor(
+          mc ->
+              mc.gui.screen() instanceof ViewportScreen v
+                  && v.viewport() != null
+                  && v.viewport().target.width == SpaceSettings.cameraWidth()
+                  && v.viewport().renderedFrames() > 0,
+          200);
+      c.runOnClient(
+          mc -> {
+            var screen = (ViewportScreen) mc.gui.screen();
+            var target = screen.viewport().target;
+            if (Math.abs(
+                    target.width / (double) target.height - screen.width / (double) screen.height)
+                > .01)
+              throw new AssertionError("Fullscreen feed must preserve the display aspect ratio");
+          });
+      c.takeScreenshot("nullspace-camera-fullscreen");
       c.runOnClient(mc -> mc.gui.screen().onClose());
       c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen, 200);
       c.runOnClient(
@@ -135,7 +150,7 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest {
               throw new AssertionError(
                   "Returning from fullscreen must preserve unsaved name input");
           });
-      MachineTestUi.click(c, 60, 135);
+      MachineTestUi.clickLabel(c, "View fullscreen");
       c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen, 200);
       world
           .getServer()

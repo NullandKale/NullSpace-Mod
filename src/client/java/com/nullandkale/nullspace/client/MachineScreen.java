@@ -77,8 +77,11 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
   @Override
   public void renderFrame() {
     if (frame != null) {
-      if (viewport == null)
-        viewport = new com.nullandkale.nullspace.client.scene.SceneViewport(320, 180);
+      int w = SpaceSettings.cameraWidth() / 2, h = w * 9 / 16;
+      if (viewport == null || viewport.target.width != w || viewport.target.height != h) {
+        if (viewport != null) viewport.close();
+        viewport = new com.nullandkale.nullspace.client.scene.SceneViewport(w, h);
+      }
       viewport.render(frame.scene(), 0, 0, 70);
     }
   }
@@ -133,6 +136,28 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
             .build());
   }
 
+  private boolean videoMode() {
+    return mode.equals("camera") || mode.equals("monitor");
+  }
+
+  private void changeMonitorCamera(int step) {
+    var cameras = rows();
+    if (cameras.isEmpty()) return;
+    long source =
+        frame == null ? Long.MIN_VALUE : frame.scene().getLongOr("source", Long.MIN_VALUE);
+    int current = -1;
+    for (int i = 0; i < cameras.size(); i++)
+      if (cameras.get(i).getLongOr("at", 0) == source
+          || Long.toString(cameras.get(i).getLongOr("at", 0))
+              .equals(menu.reading.getStringOr("feed", ""))) current = i;
+    int chosen =
+        current < 0
+            ? step < 0 ? cameras.size() - 1 : 0
+            : Math.floorMod(current + step, cameras.size());
+    send(7, Long.toString(cameras.get(chosen).getLongOr("at", 0)));
+    refreshPreview = true;
+  }
+
   @Override
   protected void init() {
     super.init();
@@ -157,8 +182,13 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
               setFocused(name);
             });
     editName.visible = !editingName;
-    button("Details", 8, 184, 96, () -> details = !details);
-    button("Close", 8, 158, 96, this::onClose);
+    button(
+        "Details",
+        videoMode() ? 80 : 8,
+        videoMode() ? 220 : 184,
+        videoMode() ? 64 : 96,
+        () -> details = !details);
+    button("Close", 8, videoMode() ? 220 : 158, videoMode() ? 64 : 96, this::onClose);
     enabledButton =
         button(
             menu.reading.getBooleanOr("enabled", true) ? "On" : "Off",
@@ -166,8 +196,8 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
             16,
             96,
             () -> send(0, ""));
-    lessPower = button("-", 8, 220, 24, () -> send(15, "-1"));
-    morePower = button("+", 80, 220, 24, () -> send(15, "1"));
+    lessPower = button("-", videoMode() ? 220 : 8, 220, 24, () -> send(15, "-1"));
+    morePower = button("+", videoMode() ? 288 : 80, 220, 24, () -> send(15, "1"));
     if (mode.contains("scanner")) {
       button(
           "Nearby",
@@ -242,28 +272,10 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
                 updateControls();
               });
     } else if (mode.equals("monitor")) {
-      for (int i = 0; i < 4; i++) {
-        final int row = i;
-        resultButtons.add(
-            button(
-                "Camera " + (i + 1),
-                8,
-                56 + i * 16,
-                120,
-                () -> {
-                  var cameras = menu.reading.getListOrEmpty("cameras");
-                  if (page * 4 + row < cameras.size())
-                    send(
-                        7,
-                        Long.toString(
-                            ((CompoundTag) cameras.get(page * 4 + row)).getLongOr("at", 0)));
-                  refreshPreview = true;
-                }));
-      }
-      previous = button("<", 8, 126, 30, () -> page = Math.max(0, page - 1));
-      next = button(">", 42, 126, 30, () -> page++);
-      button("View fullscreen", 156, 126, 120, () -> send(6, ""));
-    } else if (mode.equals("camera")) button("View fullscreen", 8, 126, 120, () -> send(6, ""));
+      previous = button("Previous camera", 64, 160, 90, () -> changeMonitorCamera(-1));
+      next = button("Next camera", 166, 160, 90, () -> changeMonitorCamera(1));
+      button("View fullscreen", 100, 184, 120, () -> send(6, ""));
+    } else if (mode.equals("camera")) button("View fullscreen", 100, 184, 120, () -> send(6, ""));
     else if (mode.equals("air_supply")) {
       button("Show air opening", 8, 126, 108, () -> send(3, ""));
       button("Show leak", 120, 126, 88, () -> send(4, ""));
@@ -381,8 +393,11 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
     if (setDestination != null)
       setDestination.active =
           !pending && !selected.isBlank() && menu.reading.getBooleanOr("selectable", false);
-    if (previous != null) previous.active = page > 0;
-    if (next != null) next.active = (page + 1) * 4 < entries.size();
+    if (previous != null)
+      previous.active = mode.equals("monitor") ? !pending && entries.size() > 1 : page > 0;
+    if (next != null)
+      next.active =
+          mode.equals("monitor") ? !pending && entries.size() > 1 : (page + 1) * 4 < entries.size();
     for (int i = 0; i < resultButtons.size(); i++) {
       int index = page * 4 + i;
       var button = resultButtons.get(i);
@@ -408,8 +423,13 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
   @Override
   public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
     g.fill(leftPos - 2, topPos - 2, leftPos + imageWidth + 2, topPos + imageHeight + 2, 0xff343434);
-    g.fill(leftPos + 4, topPos + 38, leftPos + 316, topPos + 146, 0xff262626);
-    g.fill(leftPos + 4, topPos + 150, leftPos + 108, topPos + 240, 0xff292929);
+    g.fill(leftPos + 4, topPos + 38, leftPos + 316, topPos + (videoMode() ? 216 : 146), 0xff262626);
+    g.fill(
+        leftPos + 4,
+        topPos + (videoMode() ? 216 : 150),
+        leftPos + (videoMode() ? 316 : 108),
+        topPos + 240,
+        0xff292929);
     if (menu.machineHasSlots())
       g.fill(leftPos + 122, topPos + 150, leftPos + 292, topPos + 234, 0xff292929);
     for (var slot : menu.slots)
@@ -451,8 +471,8 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
     var data = menu.reading;
     int allocation = data.getIntOr("allocation", -1);
     if (allocation >= 0) {
-      text(g, "Power", 8, 208, 100);
-      text(g, allocation + " / 8", 38, 224, 40);
+      text(g, "Power", videoMode() ? 220 : 8, 208, 92);
+      text(g, allocation + " / 8", videoMode() ? 250 : 38, 224, 36);
     }
     if (java.util.Set.of("generator", "engine", "battery", "local_scanner", "long_range_scanner")
         .contains(mode)) {
@@ -461,15 +481,17 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
     }
     String status =
         pending ? "Waiting for server..." : data.getStringOr("status", "Getting machine status...");
-    if (frame != null && (mode.equals("camera") || mode.equals("monitor")))
+    if (videoMode() && frame == null && !pending) status = "Loading camera...";
+    if (frame != null && videoMode() && !pending)
       status = frame.scene().getStringOr("status", status);
-    int sy = 68;
-    for (var line :
-        font.split(
-            Component.literal(status.replace('\n', ' ')), mode.equals("monitor") ? 86 : 176)) {
-      if (sy > 92) break;
-      g.text(font, line, mode.equals("monitor") ? 226 : 140, sy, 0xffeeeecc, false);
-      sy += 9;
+    if (videoMode()) text(g, status.replace('\n', ' '), 8, 208, mode.equals("camera") ? 204 : 304);
+    else {
+      int sy = 68;
+      for (var line : font.split(Component.literal(status.replace('\n', ' ')), 176)) {
+        if (sy > 92) break;
+        g.text(font, line, 140, sy, 0xffeeeecc, false);
+        sy += 9;
+      }
     }
     if (java.util.Set.of("generator", "engine", "battery", "local_scanner").contains(mode)) {
       String benefit =
@@ -531,6 +553,8 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
       }
     }
     if (mode.equals("camera") || mode.equals("monitor")) {
+      g.fill(63, 47, 257, 157, 0xff777777);
+      g.fill(64, 48, 256, 156, 0xff080b10);
       if (viewport != null && viewport.target != null) {
         var sampler =
             com.mojang.blaze3d.systems.RenderSystem.getSamplerCache()
@@ -540,18 +564,16 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
                     com.mojang.renderpearl.api.textures.FilterMode.LINEAR,
                     com.mojang.renderpearl.api.textures.FilterMode.LINEAR,
                     false);
-        if (mode.equals("camera"))
-          g.blit(viewport.target.getColorTextureView(), sampler, 8, 48, 128, 116, 0, 1, 1, 0);
-        else g.blit(viewport.target.getColorTextureView(), sampler, 140, 44, 220, 89, 0, 1, 1, 0);
+        g.blit(viewport.target.getColorTextureView(), sampler, 64, 48, 256, 156, 0, 1, 1, 0);
       }
       text(
           g,
           mode.equals("camera")
               ? "Facing: " + data.getStringOr("facing", "")
               : "Wall: " + data.getIntOr("tiles", 1) + " tiles",
-          140,
-          108,
-          220);
+          8,
+          36,
+          304);
     }
     if (mode.equals("docking_base")) {
       text(g, "Connected to: " + data.getStringOr("partner", "None"), 8, 48, 304);
@@ -609,7 +631,9 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
     String actionNotice = data.getStringOr("notice", "");
     if (!actionNotice.isBlank()) text(g, actionNotice, 8, 145, 304);
     // Full status is available without clipping, including slot-removal and permission failures.
-    if (mx >= leftPos + 140 && mx < leftPos + 316 && my >= topPos + 64 && my < topPos + 99)
+    if (videoMode()
+        ? mx >= leftPos + 8 && mx < leftPos + 212 && my >= topPos + 202 && my < topPos + 216
+        : mx >= leftPos + 140 && mx < leftPos + 316 && my >= topPos + 64 && my < topPos + 99)
       g.setComponentTooltipForNextFrame(font, java.util.List.of(Component.literal(status)), mx, my);
   }
 

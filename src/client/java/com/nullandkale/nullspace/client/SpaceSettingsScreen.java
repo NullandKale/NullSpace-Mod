@@ -47,6 +47,21 @@ public final class SpaceSettingsScreen extends OptionsSubScreen {
               .width(310)
               .build());
     }
+    choice(
+        () -> "Camera resolution: " + SpaceSettings.cameraWidth(),
+        () -> {
+          var v = SpaceSettings.get();
+          v.cameraWidth =
+              switch (v.cameraWidth) {
+                case 640 -> 960;
+                case 960 -> 1280;
+                case 1280 -> 1920;
+                case 1920 -> 2560;
+                default -> 640;
+              };
+        },
+        "Camera and monitor feeds. Fullscreen keeps your display's proportions; higher resolution"
+            + " uses more GPU memory.");
     list.addBig(
         Button.builder(
                 Component.literal(advanced ? "Hide advanced graphics" : "Advanced graphics"),
@@ -65,7 +80,7 @@ public final class SpaceSettingsScreen extends OptionsSubScreen {
             var v = SpaceSettings.get();
             v.surfaceWidth = v.surfaceWidth == 640 ? 960 : v.surfaceWidth == 960 ? 1280 : 640;
           },
-          "Main sky and fullscreen feeds. Installed monitors use half this resolution.");
+          "Main sky and exterior ship views. Camera feeds have their own resolution setting.");
       choice(
           () -> "Volume resolution: " + Math.round(SpaceSettings.get().volumeScale * 100) + "%",
           () -> {

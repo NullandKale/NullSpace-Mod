@@ -44,6 +44,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
   public void update(SceneService.Frame next) {
     if (frame.lease().equals(next.lease()) && next.revision() > frame.revision()) {
       frame = next;
+      selection = next.scene().getIntOr("selection", selection);
       lastUpdate = ticks;
     }
   }
@@ -53,6 +54,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
   }
 
   public void renderFrame() {
+    resizeViewport();
     if (viewport != null) {
       if (ticks - lastUpdate > 60) viewport.clear();
       else viewport.render(frame.scene(), yaw, pitch, fov);
@@ -61,46 +63,40 @@ public final class ViewportScreen extends Screen implements SceneScreen {
 
   @Override
   protected void init() {
-    String[] labels = {"Left", "Up", "Down", "Right", "Zoom +", "Zoom -"};
-    Runnable[] actions = {
-      () -> yaw -= 5,
-      () -> pitch -= 5,
-      () -> pitch += 5,
-      () -> yaw += 5,
-      () -> fov = Math.max(20, fov - 5),
-      () -> fov = Math.min(110, fov + 5)
-    };
-    for (int i = 0; i < labels.length; i++) {
-      final int index = i;
+    if (!frame.scene().getBooleanOr("fixedCamera", false)) {
       addRenderableWidget(
           net.minecraft.client.gui.components.Button.builder(
-                  Component.literal(labels[i]), b -> actions[index].run())
-              .bounds(8 + i * 48, height - 40, 46, 18)
+                  Component.literal("Previous camera"), b -> changeCamera(-1))
+              .bounds(8, height - 24, 96, 18)
+              .build());
+      addRenderableWidget(
+          net.minecraft.client.gui.components.Button.builder(
+                  Component.literal("Next camera"), b -> changeCamera(1))
+              .bounds(width - 104, height - 24, 96, 18)
               .build());
     }
-    if (!frame.scene().getBooleanOr("fixedCamera", false))
-      addRenderableWidget(
-          net.minecraft.client.gui.components.Button.builder(
-                  Component.literal("Next camera"),
-                  b -> {
-                    selection++;
-                    ClientPlayNetworking.send(
-                        new SceneService.KeepAlive(frame.lease(), false, selection));
-                  })
-              .bounds(300, height - 40, 88, 18)
-              .build());
     addRenderableWidget(
         net.minecraft.client.gui.components.Button.builder(
                 Component.literal(
                     frame.scene().getBooleanOr("returnMachine", false) ? "Back" : "Close"),
                 b -> onClose())
-            .bounds(width - 72, height - 40, 64, 18)
+            .bounds(width - 62, 4, 54, 18)
             .build());
-    if (viewport == null)
-      viewport =
-          new SceneViewport(
-              com.nullandkale.nullspace.client.SpaceSettings.width(),
-              com.nullandkale.nullspace.client.SpaceSettings.height());
+    resizeViewport();
+  }
+
+  private void changeCamera(int step) {
+    selection = Math.clamp(selection + step, -10000, 10000);
+    ClientPlayNetworking.send(new SceneService.KeepAlive(frame.lease(), false, selection));
+  }
+
+  private void resizeViewport() {
+    int w = com.nullandkale.nullspace.client.SpaceSettings.cameraWidth();
+    int h = Math.max(16, (int) Math.round(w * Math.max(1, height) / (double) Math.max(1, width)));
+    if (viewport == null || viewport.target.width != w || viewport.target.height != h) {
+      if (viewport != null) viewport.close();
+      viewport = new SceneViewport(w, h);
+    }
   }
 
   @Override
@@ -141,8 +137,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
       case InputConstants.KEY_PAGEDOWN -> fov = Math.min(110, fov + 5);
       case InputConstants.KEY_TAB -> {
         if (!frame.scene().getBooleanOr("fixedCamera", false)) {
-          selection++;
-          ClientPlayNetworking.send(new SceneService.KeepAlive(frame.lease(), false, selection));
+          changeCamera(1);
         }
       }
       case InputConstants.KEY_F2 ->
@@ -170,11 +165,6 @@ public final class ViewportScreen extends Screen implements SceneScreen {
   @Override
   public void extractRenderState(GuiGraphicsExtractor graphics, int mx, int my, float delta) {
     graphics.fill(0, 0, width, height, TerminalTheme.BACKGROUND);
-    graphics.fill(0, 0, width, 19, TerminalTheme.PANEL);
-    int w = Math.min(width - 16, (height - 60) * 16 / 9),
-        h = w * 9 / 16,
-        x = (width - w) / 2,
-        y = 22;
     var sampler =
         RenderSystem.getSamplerCache()
             .getSampler(
@@ -183,21 +173,25 @@ public final class ViewportScreen extends Screen implements SceneScreen {
                 FilterMode.LINEAR,
                 FilterMode.LINEAR,
                 false);
-    graphics.blit(viewport.target.getColorTextureView(), sampler, x, y, x + w, y + h, 0, 1, 1, 0);
+    if (viewport != null)
+      graphics.blit(
+          viewport.target.getColorTextureView(), sampler, 0, 0, width, height, 0, 1, 1, 0);
+    graphics.fill(0, 0, width, 26, 0xc0101823);
+    int footerHeight = frame.scene().getBooleanOr("fixedCamera", false) ? 18 : 42;
+    graphics.fill(0, height - footerHeight, width, height, 0xa0101823);
     String status =
         ticks - lastUpdate > 60
             ? "STALE - source connection lost"
             : frame.scene().getStringOr("status", "Loading");
     int color = TerminalTheme.feedStatus(status);
-    graphics.fill(0, 0, 3, 19, color);
-    graphics.text(font, status, 8, 5, color, false);
+    graphics.fill(0, 0, 3, 26, color);
+    graphics.text(
+        font, font.plainSubstrByWidth(status, Math.max(0, width - 80)), 8, 9, color, false);
     graphics.text(
         font,
-        "Arrows aim | PgUp/Dn zoom | "
-            + (frame.scene().getBooleanOr("fixedCamera", false) ? "" : "Tab camera | ")
-            + "F2 snapshot | Esc back / close",
+        font.plainSubstrByWidth("Arrows aim | Wheel zoom | F2 snapshot | Esc back", width - 16),
         8,
-        height - 18,
+        height - footerHeight + 4,
         TerminalTheme.MUTED,
         false);
     super.extractRenderState(graphics, mx, my, delta);

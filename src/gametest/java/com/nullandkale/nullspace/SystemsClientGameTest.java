@@ -356,14 +356,19 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
         context.waitTicks(3);
       }
       context.takeScreenshot("nullspace-equipment-monitor");
-      MachineTestUi.click(context, 60, 80);
+      context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
+      MachineTestUi.clickLabel(context, "Next camera");
       context.waitFor(
           c ->
               c.gui.screen() instanceof MachineScreen screen
                   && !screen.getMenu().reading.getStringOr("feed", "").isBlank(),
           100);
       context.waitTicks(4);
-      MachineTestUi.click(context, 210, 135);
+      context.waitFor(
+          c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().contains("feed 2"),
+          200);
+      context.takeScreenshot("nullspace-monitor-centered-feed");
+      MachineTestUi.clickLabel(context, "View fullscreen");
       context.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 200);
       context.waitTicks(45);
       context.runOnClient(
@@ -544,7 +549,8 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
       context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
       context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
       context.waitTicks(12);
-      ShipControlTestUi.action(context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
+      ShipControlTestUi.action(
+          context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
       context.waitFor(
           c ->
               c.level != null

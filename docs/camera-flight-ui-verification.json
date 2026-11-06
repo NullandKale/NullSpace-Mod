@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-05",
+  "status": "passed-focused-checks-candidate",
+  "scope": "Centered Camera/Monitor previews, fullscreen feed, independent resolution, compact flight controls",
+  "unit": {"tests": 538, "failures": 0, "errors": 0, "skipped": 0},
+  "clientBatch": {
+    "receipt": "build/focused-tests/20261105-232547-ShipHardwareClientGameTest-d91f/result.json",
+    "classes": ["ShipHardwareClientGameTest", "SystemsClientGameTest", "ExpansionClientGameTest", "NavigationClientGameTest"]
+  },
+  "screenshotCorrection": {
+    "receipt": "build/focused-tests/20261105-233103-ShipHardwareClientGameTest-2b64/result.json",
+    "classes": ["ShipHardwareClientGameTest", "SystemsClientGameTest"],
+    "screenshots": "build/focused-tests/20261105-233103-ShipHardwareClientGameTest-2b64/screenshots",
+    "reviewed": ["0001_nullspace-camera-setup.png", "0002_nullspace-camera-fullscreen.png", "0009_nullspace-monitor-centered-feed.png"]
+  },
+  "coverage": [
+    "Live embedded feeds and actual monitor channel selection through packets",
+    "Fullscreen GPU target uses Camera resolution and preserves display proportions",
+    "Unsaved camera name survives fullscreen return; destroyed camera cannot reopen",
+    "Camera aiming, cached frames, real players/entities, terrain and space rendering",
+    "Manual flight and exterior views retain their keyboard controls"
+  ],
+  "qualification": "Gameplay/server code unchanged; focused client checks only. The candidate is not the deployed baseline and screenshot review does not establish player design approval."
+}
