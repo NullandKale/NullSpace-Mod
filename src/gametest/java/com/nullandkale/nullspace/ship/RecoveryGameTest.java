@@ -182,6 +182,30 @@ public final class RecoveryGameTest {
   }
 
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
+  public void shipBedsUseVanillaSleepWhereTheWorldAllowsItAndShipRespawnInSpace(
+      GameTestHelper ctx) {
+    var surface = ctx.getLevel();
+    var space = surface.getServer().getLevel(TravelService.SPACE);
+    var bed =
+        Blocks.BED.red().defaultBlockState()
+            .setValue(AbstractBedBlock.PART, BedPart.HEAD)
+            .setValue(AbstractBedBlock.FACING, Direction.EAST);
+    var onPlanet = ctx.absolutePos(new BlockPos(1, 2, 1));
+    var inSpace = ctx.absolutePos(new BlockPos(1, 120, 1));
+    surface.setBlock(onPlanet, bed, 18);
+    space.setBlock(inSpace, bed, 18);
+    ctx.assertTrue(
+        !VesselRespawns.replacesVanilla(surface, onPlanet),
+        "On a planet with day and night, a ship bed is an ordinary bed you can sleep in");
+    ctx.assertTrue(
+        VesselRespawns.replacesVanilla(space, inSpace),
+        "In space, where sleep is impossible, the bed sets ship respawn instead");
+    surface.setBlock(onPlanet, Blocks.AIR.defaultBlockState(), 18);
+    space.setBlock(inSpace, Blocks.AIR.defaultBlockState(), 18);
+    ctx.succeed();
+  }
+
+  @GameTest(environment = "nullspace:ship_recall", maxTicks = 100)
   public void playersWithoutAShipBedKeepVanillaRespawn(GameTestHelper ctx) {
     var player = ShipRecallGameTest.player(ctx, 205);
     ctx.assertTrue(

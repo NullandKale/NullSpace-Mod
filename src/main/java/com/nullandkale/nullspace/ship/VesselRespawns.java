@@ -100,8 +100,20 @@ public final class VesselRespawns {
     player.sendSystemMessage(Component.literal(reason+". Respawning at Terra Harbor."));
     return new TeleportTransition(server.overworld(),spot,Vec3.ZERO,0,0,post);
   }
+  /**
+   * Ship beds only replace vanilla where the world can never let you sleep (space has no
+   * day/night cycle and would destroy a bed). Elsewhere vanilla sleeps and sets the spawn; launch
+   * then converts that spawn into a ship-relative one (captureSurface).
+   */
+  static boolean replacesVanilla(net.minecraft.world.level.Level level,BlockPos at) {
+    var state=level.getBlockState(at);
+    if(!(state.getBlock() instanceof AbstractBedBlock bed)) return false;
+    var rule=bed.getBedRule(level,at);
+    return rule.destroyOnUse() || rule.canSleep()==net.minecraft.world.attribute.BedRule.Rule.NEVER;
+  }
   public static void initialize() {
-    UseBlockCallback.EVENT.register((player,level,hand,hit)->player instanceof ServerPlayer p && !p.isShiftKeyDown() && bind(p,hit.getBlockPos()) ? InteractionResult.SUCCESS : InteractionResult.PASS);
+    UseBlockCallback.EVENT.register((player,level,hand,hit)->player instanceof ServerPlayer p && !p.isShiftKeyDown()
+        && replacesVanilla(level,hit.getBlockPos()) && bind(p,hit.getBlockPos()) ? InteractionResult.SUCCESS : InteractionResult.PASS);
   }
   private VesselRespawns() {}
 }
