@@ -1,0 +1,21 @@
+title = "NullSpace secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "literal-password-assignment"
+description = "Literal password or token assignment"
+regex = '''(?i)(?:password|passwd|pwd|rcon[._]password|api[._]key|access[._]token)\s*(?:[:=]|is)\s*["']?([^\s"'`;#]{8,})'''
+secretGroup = 1
+
+[[rules.allowlists]]
+description = "setup-java prints the environment variable name, not its value"
+regexTarget = "secret"
+regexes = ['''^GITHUB_TOKEN$''']
+
+[[rules]]
+id = "documented-password"
+description = "A password or key documented inline"
+regex = '''(?i)(?:root password|server password|login password|private key)\s*(?:[:=]|is)\s*`?([^\s`]{6,})'''
+secretGroup = 1

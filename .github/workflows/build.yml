@@ -12,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -20,7 +21,22 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-      - run: ./gradlew build verifyContentAssets -Pcoverage=true --no-daemon
+      - name: Build and test with bounded diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-diagnostics
+          (
+            sleep 180
+            for pid in $(jps -q); do
+              jcmd "$pid" Thread.print > "build/ci-diagnostics/threads-$pid.txt" 2>/dev/null || true
+              jcmd "$pid" GC.heap_info > "build/ci-diagnostics/heap-$pid.txt" 2>/dev/null || true
+              sed -n '/^"Server thread"/,/^$/p' "build/ci-diagnostics/threads-$pid.txt"
+            done
+          ) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout --signal=QUIT --kill-after=30s 20m ./gradlew build verifyContentAssets -Pcoverage=true --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: nullspace
@@ -34,4 +50,5 @@ jobs:
             build/reports/
             build/test-results/
             build/run/**/logs/
+            build/ci-diagnostics/
 

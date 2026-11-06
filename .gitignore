@@ -27,7 +27,7 @@
 /options.txt
 /servers.dat
 /servers.dat_old
-/server.properties
+server.properties
 /usercache.json
 /usernamecache.json
 /ops.json
@@ -60,6 +60,17 @@ replay_pid*
 /.env.*
 !/.env.example
 !/.env.sample
+
+# Private credentials and key material never belong in source control.
+/.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.ppk
+id_rsa
+id_ed25519
 
 # Operating-system metadata
 .DS_Store
