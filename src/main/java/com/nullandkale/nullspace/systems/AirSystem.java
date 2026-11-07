@@ -43,18 +43,20 @@ final class AirSystem {
     if (level.getServer().getTickCount() % 5 == 0) {
       if (r.dirty) rebuild(level, ship, r, false);
       var supplies = new HashMap<Integer, Integer>();
-      int power = grant(r, PowerBus.System.AIR);
+      var outlets = new ArrayList<BlockPos>();
       for (var p : r.equipment)
-        if (power > 0 && level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY) && active(r, p)) {
+        if (level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY) && active(r, p)) {
           var front =
               p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING));
-          if (ShipStore.bounds(ship).contains(front)) {
-            // Each Air Supply draws up to SUPPLY_POWER units; output scales with what it gets.
-            int used = Math.min(SpatialAir.SUPPLY_POWER, power);
-            supplies.merge(local(ship, front), used, Integer::sum);
-            power -= used;
-          }
+          if (ShipStore.bounds(ship).contains(front)) outlets.add(front);
         }
+      // The air bus is shared evenly: that gets the most air from it, since power past
+      // normal output (4) buys only half as much (SpatialAir.output).
+      int power = grant(r, PowerBus.System.AIR);
+      for (int i = 0; i < outlets.size(); i++) {
+        int share = power / outlets.size() + (i < power % outlets.size() ? 1 : 0);
+        supplies.merge(local(ship, outlets.get(i)), SpatialAir.output(share), Integer::sum);
+      }
       var occupants = new HashMap<Integer, Integer>();
       for (var p : level.players())
         if (ShipStore.bounds(ship).contains(BlockPos.containing(p.getEyePosition())))

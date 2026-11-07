@@ -36,8 +36,6 @@ public final class ComputerImageCodec {
 
   public static String decode(Tag image) {
     if (image == null) return "";
-    // Read existing worlds without changing their image until the machine saves successfully.
-    if (image instanceof StringTag legacy) return legacy.value();
     if (!(image instanceof CompoundTag tag) || tag.getIntOr("version", -1) != 1)
       throw new IllegalArgumentException("Unsupported computer image envelope");
     byte[] bytes =

@@ -279,17 +279,8 @@ public final class DockingService {
       p.sendOverlayMessage(Component.literal("Wait for docking capture before opening the door"));
       return true;
     }
-    boolean opening = !ShipDoors.open(level.getBlockState(at));
-    if (opening
-        && level.dimension().equals(TravelService.SPACE)
-        && !sealedMate(level, at)
-        && !exempt(p)
-        && (!SpaceSurvival.suited(p) || p.getAirSupply() < 40)) {
-      p.sendOverlayMessage(
-          Component.literal("This door opens to vacuum. Dock first or equip a complete suit."));
-      return true;
-    }
-    ShipDoors.setOpen(level, at, opening);
+    // Opening to vacuum is the player's choice; the air system handles the consequences.
+    ShipDoors.setOpen(level, at, !ShipDoors.open(level.getBlockState(at)));
     return true;
   }
 
@@ -1383,25 +1374,24 @@ public final class DockingService {
     if (construction) to = ShipStore.pos(target, "base").offset(8, 3, 8);
     else if (other != null) to = anchor(p.level(), other);
     else {
+      // Prefer a breathable spot, but an airless ship can still be boarded.
+      BlockPos airless = null;
       to = null;
       for (var cell :
           BlockPos.betweenClosed(ShipStore.bounds(target).min(), ShipStore.bounds(target).max())) {
-        if (StationGraph.standing(p.level(), cell)
-            && ShipSystems.breathable(p.level(), target, cell.above())
-            && p.level().getEntities(null, new AABB(cell).expandTowards(0, 1, 0)).isEmpty()) {
+        if (!StationGraph.standing(p.level(), cell)
+            || !p.level().getEntities(null, new AABB(cell).expandTowards(0, 1, 0)).isEmpty())
+          continue;
+        if (ShipSystems.breathable(p.level(), target, cell.above())) {
           to = cell.immutable();
           break;
         }
+        if (airless == null) airless = cell.immutable();
       }
+      if (to == null) to = airless;
       if (to == null)
-        throw new IllegalArgumentException(
-            "Home ship has no safe cabin arrival position; repair its airlock first");
+        throw new IllegalArgumentException("Home ship has no room to stand in");
     }
-    if (construction
-        && !exempt(p)
-        && (!SpaceSurvival.suited(p) || !ShipSystems.tether(p.level(), source)))
-      throw new IllegalArgumentException(
-          "Construction requires a complete suit and oxygen from the connected ship");
     if (port != null && !port.inner().equals(port.outer())) close(p.level(), port);
     if (other != null && !other.inner().equals(other.outer())) close(p.level(), other);
     var t = new CompoundTag();
@@ -1538,13 +1528,6 @@ public final class DockingService {
                     !joined);
             if (!other.inner().equals(other.outer())) close(p.level(), other);
           }
-          boolean breathable = ShipSystems.breathable(p.level(), target, at.above());
-          if (!joined
-              && !breathable
-              && !exempt(p)
-              && (!SpaceSurvival.suited(p) || p.getAirSupply() < 40)) continue;
-          if (construction && !exempt(p) && !ShipSystems.tether(p.level(), source))
-            throw new IllegalArgumentException("Construction tether has lost its oxygen source");
           crew(p, source, target, construction);
           var view =
               BoardingView.between(
@@ -1627,16 +1610,6 @@ public final class DockingService {
       throw new IllegalArgumentException("Close the exterior door before opening the inner door");
     if (ShipDoors.powered(p.level(), port.inner()))
       throw new IllegalArgumentException("Inner door is overridden by redstone");
-    boolean chamber =
-        port.cells().stream()
-            .filter(c -> port.anchors().contains(c))
-            .allMatch(c -> ShipSystems.breathable(p.level(), s, c.above()));
-    var a = port.inner().relative(port.facing());
-    var b = port.inner().relative(port.facing().getOpposite());
-    if (!chamber
-        || !ShipSystems.breathable(p.level(), s, a.above())
-        || !ShipSystems.breathable(p.level(), s, b.above()))
-      throw new IllegalArgumentException("Inner door remains sealed: pressure is unsafe");
     ShipDoors.setOpen(
         p.level(), port.inner(), !ShipDoors.open(p.level().getBlockState(port.inner())));
   }
@@ -1727,11 +1700,6 @@ public final class DockingService {
           throw new IllegalArgumentException("Station access is private");
         var port = readPort(p.level(), s, at, true);
         if (!ShipDoors.open(p.level().getBlockState(port.outer()))) {
-          if (p.level().dimension().equals(TravelService.SPACE)
-              && !exempt(p)
-              && (!SpaceSurvival.suited(p) || p.getAirSupply() < 40))
-            throw new IllegalArgumentException(
-                "Equip a complete suit and usable oxygen before opening to vacuum");
           if (ShipDoors.powered(p.level(), port.inner()))
             throw new IllegalArgumentException("Inner door has a redstone override");
           ShipDoors.setOpen(p.level(), port.inner(), false);

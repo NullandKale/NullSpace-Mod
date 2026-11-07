@@ -36,7 +36,7 @@ public final class StationExpansionGameTest {
       level.setBlock(base.offset(e.getKey()), e.getValue(), 18);
     for (var at : plan.blocks().keySet()) FuelSystem.provision(level, base.offset(at), 64);
     ShipSystems.upgrade(level, s);
-    s.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 56, 1, 0, 2, 0});
+    s.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 0, 2, 0});
     ShipSystems.tick(level, s);
     return s;
   }
@@ -83,7 +83,9 @@ public final class StationExpansionGameTest {
     ctx.assertTrue(
         DockingService.ports(level, station).size() == 8, "Eight usable outward-facing berths");
     ctx.assertTrue(
-        ShipSystems.power(level, station, PowerBus.System.AIR) == 56, "All 28 pumps receive power");
+        ShipSystems.power(level, station, PowerBus.System.AIR) == 28 * SpatialAir.SUPPLY_POWER,
+        "All 28 pumps receive normal power: "
+            + ShipSystems.power(level, station, PowerBus.System.AIR));
     for (var room : StationLayout.harbor().rooms())
       ctx.assertTrue(
           ShipSystems.breathable(level, station, base.offset(room.origin()).offset(8, 4, 8)),

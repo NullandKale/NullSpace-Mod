@@ -29,9 +29,10 @@ public final class EngineeringCommands {
 
   private static final List<Profile> PROFILES =
       List.of(
-          new Profile("cruise", new int[] {1, 2, 1, 3, 1, 0}, new int[] {0, 1, 2, 3, 4, 5}),
+          new Profile("cruise", new int[] {1, 4, 1, 3, 1, 0}, new int[] {0, 1, 2, 3, 4, 5}),
+          // Combat runs air at half output so one generator also feeds the weapon.
           new Profile("combat", new int[] {1, 2, 1, 1, 1, 2}, new int[] {0, 1, 2, 3, 4, 5}),
-          new Profile("emergency", new int[] {1, 6, 1, 0, 0, 0}, new int[] {0, 2, 1, 3, 4, 5}));
+          new Profile("emergency", new int[] {1, 8, 1, 0, 0, 0}, new int[] {0, 2, 1, 3, 4, 5}));
 
   public static List<Profile> profiles() {
     return PROFILES;

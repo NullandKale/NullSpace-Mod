@@ -65,17 +65,15 @@ class ComputerBoundaryTest {
   }
 
   @Test
-  void legacyCompilerImagesMigrateWithoutChangingTheProgramCounter() {
+  void imagesWithoutACompilerAbiAreRejected() {
     var c = new VirtualComputer((n, a) -> 0);
     c.files.write("/home/crew/job.py", "x = 1\nsleep(10)\nx = 2");
-    int id = c.run("/home/crew/job.py", ScriptLanguage.Syntax.PYTHON, true);
+    c.run("/home/crew/job.py", ScriptLanguage.Syntax.PYTHON, true);
     c.tick(false, true);
-    int pc = c.processes.get(id).job().pc;
     var image = JsonParser.parseString(c.save()).getAsJsonObject();
     image.remove("compilerAbi");
     var restored = new VirtualComputer((n, a) -> 0);
-    restored.restore(image.toString());
-    assertEquals(pc, restored.processes.values().iterator().next().job().pc);
+    assertThrows(IllegalArgumentException.class, () -> restored.restore(image.toString()));
   }
 
   @Test

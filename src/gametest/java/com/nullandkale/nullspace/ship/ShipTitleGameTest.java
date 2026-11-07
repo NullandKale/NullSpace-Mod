@@ -26,6 +26,96 @@ public final class ShipTitleGameTest {
     return ItemStack.EMPTY;
   }
 
+  /**
+   * Store follow-ups: Show blocks outlines what Store takes, offline crew go to Terra Harbor
+   * instead of blocking, anyone may clear an abandoned ship off a pad, and Scrap ship needs a
+   * second press and then removes the ship for good.
+   */
+  @GameTest(environment = "nullspace:ship_recall", maxTicks = 900)
+  public void abandonedShipsCanBeClearedOfflineCrewGoToTheHarborAndScrapIsPermanent(
+      GameTestHelper ctx) throws Exception {
+    var f = new ShipRecallGameTest.Fixture(ctx, 219);
+    var server = f.surface.getServer();
+    String surface = f.surface.dimension().identifier().toString();
+    var visitor = ShipRecallGameTest.player(ctx, 220);
+    String owner = f.player.getUUID().toString();
+    String away = UUID.randomUUID().toString(), sleeper = UUID.randomUUID().toString();
+    String[] key = {""};
+    int[] phase = {0}, wait = {0};
+    ctx.assertTrue(
+        ShipRecall.request(f.player, f.computer, f.selection(), null).startsWith("Recall requested"),
+        "Recall onto the pad starts");
+    ctx.onEachTick(
+        () -> {
+          if (ShipRecall.active(server) || ++wait[0] < 5) return;
+          wait[0] = 0;
+          var ship = f.ship();
+          switch (phase[0]) {
+            case 0 -> {
+              ctx.assertTrue(ship.getStringOr("dimension", "").equals(surface), "On the pad");
+              key[0] = f.selection();
+              ctx.assertTrue(
+                  ShipRecall.show(f.player, f.computer, key[0]).startsWith("Showing the "),
+                  "Show blocks outlines the blocks Store takes");
+              // The owner leaves for a long time; one crew member is offline aboard.
+              ship.putString("owner", away);
+              ship.put("recallUsers", new CompoundTag());
+              var crew = new net.minecraft.nbt.ListTag();
+              var member = new CompoundTag();
+              member.putString("id", sleeper);
+              crew.add(member);
+              ship.put("crew", crew);
+              ShipStore.get(server)
+                  .section("lastSeen")
+                  .putLong(away, server.overworld().getGameTime() - ShipRecall.ABANDONED_TICKS - 1);
+              visitor.teleportTo(
+                  f.surface, f.computer.getX() + .5, f.computer.getY(), f.computer.getZ() + 1.5,
+                  Set.of(), 0, 0, true);
+              var listed =
+                  ShipRecall.candidates(visitor, f.computer).stream()
+                      .filter(d -> d.id().replace("-", "").equals(key[0]))
+                      .findFirst();
+              ctx.assertTrue(
+                  listed.isPresent() && listed.get().state().equals("ABANDONED"),
+                  "Another player sees the ship as abandoned");
+              String notice = ShipRecall.store(visitor, f.computer, key[0], null);
+              ctx.assertTrue(notice.startsWith("Storing"), "Anyone may clear it: " + notice);
+              phase[0] = 1;
+            }
+            case 1 -> {
+              ctx.assertTrue(
+                  ShipTitles.stored(ship)
+                      && ship.getStringOr("owner", "").equals(away)
+                      && !ShipTitles.holds(visitor, ship),
+                  "It moves to its owner's storage; the visitor gets no title");
+              ctx.assertTrue(
+                  ship.getListOrEmpty("crew").isEmpty()
+                      && ShipStore.get(server).list("targets").stream()
+                          .anyMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(sleeper)),
+                  "Offline crew are taken off and will log in at Terra Harbor");
+              // Back to the real owner, who scraps it.
+              ship.putString("owner", owner);
+              ctx.assertTrue(
+                  ShipRecall.scrap(visitor, f.computer, key[0]).startsWith("Only the owner"),
+                  "Only the owner can scrap a ship");
+              ctx.assertTrue(
+                  ShipRecall.scrap(f.player, f.computer, key[0]).contains("Press Scrap ship again"),
+                  "The first press asks for confirmation");
+              ctx.assertTrue(ShipStore.get(server).repository().find(f.id) != null, "Not yet");
+              String done = ShipRecall.scrap(f.player, f.computer, key[0]);
+              ctx.assertTrue(done.contains("was scrapped"), done);
+              ctx.assertTrue(
+                  ShipStore.get(server).repository().find(f.id) == null,
+                  "A scrapped ship is gone for good");
+              server.getPlayerList().remove(visitor);
+              f.close();
+              ctx.succeed();
+            }
+            default -> {}
+          }
+        });
+  }
+
   @GameTest(environment = "nullspace:ship_recall", maxTicks = 600)
   public void storingClearsThePadAndDeployReturnsTheSameShipOnlyWithItsTitle(GameTestHelper ctx)
       throws Exception {

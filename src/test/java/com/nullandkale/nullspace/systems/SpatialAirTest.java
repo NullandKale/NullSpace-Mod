@@ -82,19 +82,53 @@ class SpatialAirTest {
     assertTrue(ticks <= 45, "a 5x3 breach empties the room in about 2 s, took " + ticks);
   }
 
+  static final int NORMAL = SpatialAir.output(SpatialAir.SUPPLY_POWER);
+
   @Test
-  void twoFullPowerAirSuppliesExactlyHoldOneHole() {
+  void supplyOutputIsLinearToFourPowerThenHalfAsSteepToEight() {
+    assertEquals(4, SpatialAir.SUPPLY_POWER);
+    assertEquals(0, SpatialAir.output(0));
+    assertEquals(SpatialAir.FULL_OUTPUT / 2, SpatialAir.output(2));
+    assertEquals(SpatialAir.FULL_OUTPUT, SpatialAir.output(4));
+    assertEquals(SpatialAir.FULL_OUTPUT * 3 / 2, SpatialAir.output(8), "8 power is 150%");
+    assertEquals(SpatialAir.output(8), SpatialAir.output(20), "a supply uses at most 8 power");
+  }
+
+  @Test
+  void twoNormalPowerAirSuppliesExactlyHoldOneHole() {
     var s = room(1, 1);
     var a = empty();
     var t = breached(s, a, true);
     long full = capacity(t);
-    var pumps = Map.of(Atmosphere.index(11, 10, 11), 2, Atmosphere.index(12, 10, 12), 2);
+    var pumps = Map.of(Atmosphere.index(11, 10, 11), NORMAL, Atmosphere.index(12, 10, 12), NORMAL);
     for (int tick = 0; tick < 1200; tick++) SpatialAir.step(a, t, s, pumps, Map.of(), 1, 0);
-    assertTrue(total(a) >= full * 99 / 100, "two supplies hold a one-block leak");
+    assertTrue(total(a) >= full * 99 / 100, "two supplies at 4 power hold a one-block leak");
     // With a supply running the room settles at a trace of air, shown to players as 0.
-    var one = Map.of(Atmosphere.index(11, 10, 11), 2);
+    var one = Map.of(Atmosphere.index(11, 10, 11), NORMAL);
     int ticks = ticksUntil(a, t, s, one, 0, full / 100, false);
     assertTrue(ticks >= 1150 && ticks <= 1250, "one supply only halves the leak, took " + ticks);
+  }
+
+  @Test
+  void oneOverdrivenAirSupplyCoversThreeQuartersOfAHole() {
+    var s = room(1, 1);
+    var a = empty();
+    var t = breached(s, a, true);
+    long full = capacity(t);
+    var overdriven = Map.of(Atmosphere.index(11, 10, 11), SpatialAir.output(8));
+    // Net loss is a quarter of the hole: about 120 s from full to empty instead of 30 s.
+    int ticks = ticksUntil(a, t, s, overdriven, 0, full / 100, false);
+    assertTrue(ticks >= 2300 && ticks <= 2450, "one supply at 8 power holds 75%, took " + ticks);
+  }
+
+  @Test
+  void anIdleStarterShipBurnsAboutFourFuelAnHour() {
+    // Controls 1, one Air Supply at normal power, doors 1, scanner and camera 2.
+    int idle = 1 + SpatialAir.SUPPLY_POWER + 1 + 2;
+    double perHour = FuelSystem.fuelPerHour(idle);
+    assertTrue(perHour >= 3.5 && perHour <= 4.5, "idle ship: " + perHour + " fuel/hour");
+    double leak = FuelSystem.fuelPerHour(idle + SpatialAir.SUPPLY_POWER);
+    assertTrue(leak - perHour >= 1.5, "holding a leak with a second supply is a noticeable cost");
   }
 
   @Test
@@ -102,7 +136,7 @@ class SpatialAirTest {
     var s = room(5, 3);
     var a = empty();
     var t = breached(s, a, true);
-    var pumps = Map.of(Atmosphere.index(11, 10, 11), 2, Atmosphere.index(12, 10, 12), 2);
+    var pumps = Map.of(Atmosphere.index(11, 10, 11), NORMAL, Atmosphere.index(12, 10, 12), NORMAL);
     for (int tick = 0; tick < 200; tick++) SpatialAir.step(a, t, s, pumps, Map.of(), 1, 0);
     assertTrue(total(a) < capacity(t) / 100, "a large breach stays empty (0 to players) while open");
   }
@@ -113,10 +147,10 @@ class SpatialAirTest {
     var a = empty();
     var t = Atmosphere.rebuild(s, a, false);
     long full = capacity(t);
-    int ticks = ticksUntil(a, t, s, Map.of(Atmosphere.index(11, 10, 11), 2), 0, full, true);
+    int ticks = ticksUntil(a, t, s, Map.of(Atmosphere.index(11, 10, 11), NORMAL), 0, full, true);
     assertTrue(ticks >= 1190 && ticks <= 1210, "one supply: 0 to 100 in about 60 s, took " + ticks);
     long before = total(a);
-    SpatialAir.step(a, t, s, Map.of(Atmosphere.index(11, 10, 11), 2), Map.of(), 5, 0);
+    SpatialAir.step(a, t, s, Map.of(Atmosphere.index(11, 10, 11), NORMAL), Map.of(), 5, 0);
     assertEquals(before, total(a), "a full sealed room is never overfilled");
   }
 

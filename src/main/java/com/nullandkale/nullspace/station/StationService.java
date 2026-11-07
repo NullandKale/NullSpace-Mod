@@ -791,20 +791,7 @@ public final class StationService {
       s.getCompoundOrEmpty("systems")
           .putIntArray(
               "requests",
-              new int[] {
-                1,
-                Math.max(
-                    12,
-                    (int)
-                            ShipSystems.connected(level, s).stream()
-                                .filter(p -> level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY))
-                                .count()
-                        * 2),
-                1,
-                0,
-                2,
-                0
-              });
+              new int[] {1, com.nullandkale.nullspace.systems.SpatialAir.SUPPLY_POWER, 1, 0, 2, 0});
       ShipSystems.changed(level, base, false);
       s.remove("stationBuild");
       s.remove("piecesBefore");
@@ -910,13 +897,6 @@ public final class StationService {
           throw new IllegalArgumentException("Doors have no power");
         if (!ShipDoors.framed(p.level(), door) || ShipDoors.powered(p.level(), door))
           throw new IllegalArgumentException("Door is missing, unframed or overridden by redstone");
-        if (station(s) && !builder(p, s) && !ShipDoors.open(p.level().getBlockState(door))) {
-          var facing = p.level().getBlockState(door).getValue(DoorBlock.FACING);
-          if (!ShipSystems.breathable(p.level(), s, door.relative(facing).above())
-              || !ShipSystems.breathable(p.level(), s, door.relative(facing.getOpposite()).above()))
-            throw new IllegalArgumentException(
-                "This bulkhead remains closed because pressure is unsafe");
-        }
         ShipDoors.setOpen(p.level(), door, !ShipDoors.open(p.level().getBlockState(door)));
       }
       default -> {
@@ -959,13 +939,7 @@ public final class StationService {
               ? at.below()
               : at;
       if (p.level().getBlockState(door.below()).is(ShipBlocks.DOCKING_BASE)) return true;
-      var facing = state.getValue(DoorBlock.FACING);
-      return ShipDoors.framed(p.level(), door)
-          && (ShipDoors.open(state)
-              || SpaceSurvival.suited(p)
-              || ShipSystems.breathable(p.level(), s, door.relative(facing).above())
-                  && ShipSystems.breathable(
-                      p.level(), s, door.relative(facing.getOpposite()).above()));
+      return ShipDoors.framed(p.level(), door);
     }
     return builder(p, s)
         || (allowed(p, s) || returningVisitor(p, s))

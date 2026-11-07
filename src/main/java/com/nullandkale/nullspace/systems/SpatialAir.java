@@ -12,8 +12,10 @@ import java.util.*;
  * <ul>
  *   <li>Each open face of a room (its leak area) moves {@code cells * FULL / 600} per tick toward
  *       the outside pressure: one hole empties a full room in 30 s, a 5x5 breach in about 1.2 s.
- *   <li>An Air Supply at full power (2 units) adds {@code cells * FULL / 1200} per tick, so two of
+ *   <li>An Air Supply at normal power (4 units) adds {@code cells * FULL / 1200} per tick, so two of
  *       them exactly hold one hole and a large breach stays empty until it is patched.
+ *   <li>Overdriven to 8 units, one Air Supply gives 150% of normal output: three quarters of a
+ *       hole. Power above 4 buys half as much air per unit (player's balance spec, November 7).
  * </ul>
  */
 public final class SpatialAir {
@@ -28,15 +30,30 @@ public final class SpatialAir {
   /** Ticks for one full-power Air Supply to fill an empty sealed room. */
   public static final int SUPPLY_TICKS = 60 * 20;
 
-  /** Power units an Air Supply draws at full output. */
-  public static final int SUPPLY_POWER = 2;
+  /** Power units an Air Supply draws at normal (100%) output. */
+  public static final int SUPPLY_POWER = 4;
+
+  /** Most power one Air Supply can use, overdriven to 150% output. */
+  public static final int MAX_SUPPLY_POWER = 8;
+
+  /** Output of one Air Supply at normal power, in the units {@link #step} takes. */
+  public static final int FULL_OUTPUT = 1000;
+
+  /** One Air Supply's output for the power it receives: linear to 4, then half as steep to 8. */
+  public static int output(int power) {
+    int p = Math.clamp(power, 0, MAX_SUPPLY_POWER);
+    return p <= SUPPLY_POWER
+        ? p * FULL_OUTPUT / SUPPLY_POWER
+        : FULL_OUTPUT + (p - SUPPLY_POWER) * FULL_OUTPUT / (2 * SUPPLY_POWER);
+  }
 
   private static final int[] DX = {-1, 1, 0, 0, 0, 0},
       DY = {0, 0, -1, 1, 0, 0},
       DZ = {0, 0, 0, 0, -1, 1};
 
   /**
-   * @param pumps outlet cell to Air Supply power units (0..{@link #SUPPLY_POWER}) feeding it
+   * @param pumps outlet cell to the Air Supply output feeding it ({@link #output}; one supply at
+   *     normal power is {@link #FULL_OUTPUT})
    * @param consumers cell to air used per tick (crew breathing)
    */
   public static Result step(
@@ -61,7 +78,7 @@ public final class SpatialAir {
     for (var entry : pumps.entrySet()) {
       check(entry.getKey(), entry.getValue(), grid.cells());
       int room = topology.roomAt()[entry.getKey()];
-      if (room >= 0) power[room] += Math.min(SUPPLY_POWER, entry.getValue());
+      if (room >= 0) power[room] += entry.getValue();
     }
     for (var entry : consumers.entrySet()) {
       check(entry.getKey(), entry.getValue(), grid.cells());
@@ -89,7 +106,10 @@ public final class SpatialAir {
           entered += in;
           leaked[r] -= in;
         }
-        long add = Math.min(capacity * power[r] / (SUPPLY_POWER * (long) SUPPLY_TICKS), Math.max(0, capacity - quantity));
+        long add =
+            Math.min(
+                capacity * power[r] / (FULL_OUTPUT * (long) SUPPLY_TICKS),
+                Math.max(0, capacity - quantity));
         quantity += add;
         supplied += add;
         pumped[r] += add;

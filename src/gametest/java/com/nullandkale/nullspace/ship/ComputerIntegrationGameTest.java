@@ -84,7 +84,7 @@ public final class ComputerIntegrationGameTest {
           case 1 -> data.getCompoundOrEmpty("image").putInt("version", 999);
           case 2 -> data.put("image", ComputerImageCodec.encode("{invalid guest json"));
           case 3 -> data.putString("owner", "malformed-owner");
-          default -> data.putString("image", computer.save());
+          default -> {} // A healthy disk, for comparison.
         }
         var original = data.copy();
         String key = level.dimension().identifier() + "/" + pos.asLong();
@@ -112,7 +112,7 @@ public final class ComputerIntegrationGameTest {
           ctx.assertTrue(
               durable.get("image") instanceof CompoundTag
                   && restore(durable).files.read("/home/crew/precious").equals("changed\n"),
-              "A legacy disk migrates through the real service and remains writable");
+              "A healthy disk stays writable through the real service");
         store.replace(store.snapshot(), ShipRepository.Mutation.RECOVERY);
         ComputerService.open(player, pos);
         ComputerService.flush(server);

@@ -175,7 +175,7 @@ public final class MachineMenu extends AbstractContainerMenu {
     data.putBoolean("removalBlocked", !entity.canRemoveUpgrade());
     data.putString(
         "facing", entity.getBlockState().getValue(HorizontalDirectionalBlock.FACING).getName());
-    data.putInt("outputMax", 8 + 4 * entity.tier());
+    data.putInt("outputMax", FuelSystem.generatorOutput(entity.tier()));
     data.putInt("rate", 4 * (1 + entity.tier()));
     data.putInt("burn", entity.burn());
     data.putBoolean("enabled", ship == null || ShipSystems.active(ship, at));
@@ -254,6 +254,9 @@ public final class MachineMenu extends AbstractContainerMenu {
         data.putInt(
             "roomFloors", room == null ? 0 : ShipSystems.roomFloors(p.level(), ship, room.number()));
         data.putInt("leaks", room == null ? 0 : room.leaks());
+        var supply = ShipSystems.airSupplyReading(p.level(), ship, at);
+        data.putInt("supplyOutput", supply[0]);
+        data.putInt("leakCovered", supply[1]);
         data.putBoolean("breathable", oxygen >= Atmosphere.BREATHABLE * 100 / Atmosphere.FULL);
         boolean sealed =
             new ShipScan.LivePressure(p.level(), ShipStore.bounds(ship)).breathable(outlet);
@@ -358,7 +361,7 @@ public final class MachineMenu extends AbstractContainerMenu {
 
   private static String upgradeBenefit(String mode, int tier) {
     return switch (mode) {
-      case "generator" -> "Unit output up to " + (8 + 4 * tier) + "/tick";
+      case "generator" -> "Unit output up to " + FuelSystem.generatorOutput(tier) + "/tick";
       case "engine" ->
           "Max thrust " + Math.min(8, 2 * (1 + tier)) + "; travel uses the best engine tier";
       case "battery" -> "Capacity " + 1200 * (1 + tier) + "; transfer " + 4 * (1 + tier) + "/tick";

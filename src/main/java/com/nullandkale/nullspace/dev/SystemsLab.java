@@ -141,7 +141,7 @@ public final class SystemsLab {
           18);
       var ship = ShipTopology.resolve(level, SphereLab.controller(base));
       ShipSystems.upgrade(level, ship);
-      ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 2, 1, 3, 2, 0});
+      ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 3, 2, 0});
       ship.putDouble("simX", plot == 23 ? 0 : 180);
       ship.putDouble("simY", 0);
       ship.putDouble("simZ", 0);

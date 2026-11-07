@@ -44,6 +44,13 @@ public final class ShipSystems {
       }
   }
 
+  /**
+   * Power requests per system: controls, air (per Air Supply), doors, engines, cameras, weapons.
+   */
+  public static int[] defaultRequests() {
+    return new int[] {1, SpatialAir.SUPPLY_POWER, 1, 3, 1, 0};
+  }
+
   public static boolean enabled(CompoundTag ship) {
     return ship != null && ship.contains("systems");
   }
@@ -153,7 +160,7 @@ public final class ShipSystems {
     var s = new CompoundTag();
     s.putInt("version", 1);
     s.putString("profile", "cruise");
-    s.putIntArray("requests", new int[] {1, 2, 1, 3, 1, 0});
+    s.putIntArray("requests", defaultRequests());
     s.put("devices", new ListTag());
     ship.put("systems", s);
     var live = runtime(level, ship);
@@ -385,10 +392,18 @@ public final class ShipSystems {
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
     var grid = grid(ship);
-    var levels = new HashSet<Integer>();
+    var standing = new HashMap<Integer, Integer>();
     var rooms = r.atmosphere.roomAt();
-    for (int c = 0; c < rooms.length; c++) if (rooms[c] == room) levels.add(grid.y(c));
-    return levels.size();
+    // Room numbers shown to players start at 1; the room map counts from 0. A level is a height
+    // where at least six of the room's cells stand on a floor outside the room (so single stair
+    // steps do not count as levels).
+    int index = room - 1, below = grid.offsets()[2]; // offsets follow SpatialAir: [2] is one down
+    for (int c = 0; c < rooms.length; c++)
+      if (rooms[c] == index) {
+        int y = grid.y(c);
+        if (y == 0 || rooms[c + below] != index) standing.merge(y, 1, Integer::sum);
+      }
+    return (int) Math.max(1, standing.values().stream().filter(n -> n >= 6).count());
   }
 
   public record RoomReading(int number, int volume, int oxygenPercent, int leaks, long quantity) {
@@ -420,6 +435,54 @@ public final class ShipSystems {
               quantity));
     }
     return List.copyOf(result);
+  }
+
+  /** Air Supplies that feed a room, in the order the air bus is shared between them. */
+  static List<BlockPos> airOutlets(ServerLevel level, CompoundTag ship, ShipRuntime r) {
+    var outlets = new ArrayList<BlockPos>();
+    for (var p : r.equipment)
+      if (level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY) && active(r, p)) {
+        var front = p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING));
+        if (ShipStore.bounds(ship).contains(front)) outlets.add(p.immutable());
+      }
+    return outlets;
+  }
+
+  /** Power one Air Supply receives from the air bus, which is shared evenly. */
+  static int supplyShare(
+      ServerLevel level, CompoundTag ship, ShipRuntime r, BlockPos supply, int bus) {
+    var outlets = airOutlets(level, ship, r);
+    int i = outlets.indexOf(supply);
+    if (i < 0) return 0;
+    return bus / outlets.size() + (i < bus % outlets.size() ? 1 : 0);
+  }
+
+  /**
+   * For the Air Supply screen: this pump's output as a percent of normal, and the share of its
+   * room's leak that all pumps feeding the room cover (-1 when the room does not leak). One hole
+   * needs two pumps at normal output.
+   */
+  public static int[] airSupplyReading(ServerLevel level, CompoundTag ship, BlockPos supply) {
+    if (!enabled(ship)) return new int[] {0, -1};
+    var r = runtime(level, ship);
+    int bus = grant(r, PowerBus.System.AIR);
+    var outlets = airOutlets(level, ship, r);
+    int index = outlets.indexOf(supply);
+    if (index < 0) return new int[] {0, -1};
+    int own = SpatialAir.output(supplyShare(level, ship, r, supply, bus));
+    var front = supply.relative(level.getBlockState(supply).getValue(HorizontalDirectionalBlock.FACING));
+    var room = roomAt(level, ship, front);
+    if (room == null || room.leaks() == 0)
+      return new int[] {own * 100 / SpatialAir.FULL_OUTPUT, -1};
+    long total = 0;
+    for (var other : outlets) {
+      var out = other.relative(level.getBlockState(other).getValue(HorizontalDirectionalBlock.FACING));
+      var otherRoom = roomAt(level, ship, out);
+      if (otherRoom != null && otherRoom.number() == room.number())
+        total += SpatialAir.output(supplyShare(level, ship, r, other, bus));
+    }
+    long need = (long) room.leaks() * 2 * SpatialAir.FULL_OUTPUT;
+    return new int[] {own * 100 / SpatialAir.FULL_OUTPUT, (int) Math.min(999, total * 100 / need)};
   }
 
   public static boolean tether(ServerLevel level, CompoundTag ship) {
@@ -647,7 +710,7 @@ public final class ShipSystems {
       } else if (action == ComputerTerminal.Action.POWER_AIR
           || action == ComputerTerminal.Action.POWER_ENGINES
           || action == ComputerTerminal.Action.POWER_WEAPONS) {
-        var req = state(ship).getIntArray("requests").orElse(new int[] {1, 2, 1, 3, 1, 0});
+        var req = state(ship).getIntArray("requests").orElse(defaultRequests());
         int i =
             action == ComputerTerminal.Action.POWER_AIR
                 ? 1
@@ -834,7 +897,12 @@ public final class ShipSystems {
     if (system != null) {
       int[] requests = Arrays.copyOf(state(ship).getIntArray("requests").orElse(new int[0]), 6);
       lines.add(
-          "Power: " + delivered + " delivered / " + requests[system.ordinal()] + " requested");
+          "Power: "
+              + delivered
+              + " delivered / "
+              + requests[system.ordinal()]
+              + (system == PowerBus.System.AIR ? " per Air Supply" : "")
+              + " requested");
       if (on && requests[system.ordinal()] == 0)
         lines.add("Power allocation is off. Increase this system's allocation.");
       else if (on && delivered == 0)
@@ -847,7 +915,7 @@ public final class ShipSystems {
         lines.add(
             "Output: "
                 + (on && !state(ship).getBooleanOr("supplyDisabled", false)
-                    ? 8 + 4 * FuelSystem.tier(level, pos)
+                    ? FuelSystem.generatorOutput(FuelSystem.tier(level, pos))
                     : 0)
                 + " energy/t");
         lines.add(
@@ -863,21 +931,13 @@ public final class ShipSystems {
             "Charge / discharge limit: " + (4 * (1 + FuelSystem.tier(level, pos))) + " energy/t");
       }
       case "air_supply" -> {
-        int assigned = delivered;
-        for (var p : r.equipment) {
-          if (!level.getBlockState(p).is(ShipBlocks.AIR_SUPPLY) || !active(ship, p)) continue;
-          if (p.equals(pos)) break;
-          if (ShipStore.bounds(ship)
-              .contains(
-                  p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING))))
-            assigned = Math.max(0, assigned - 2);
-        }
+        int share = on ? supplyShare(level, ship, r, pos, delivered) : 0;
         lines.add(
             "This pump: "
-                + (on && ShipStore.bounds(ship).contains(pos.relative(facing))
-                    ? Math.min(2, assigned)
-                    : 0)
-                + " / 2 power");
+                + share
+                + " power, "
+                + SpatialAir.output(share) * 100 / SpatialAir.FULL_OUTPUT
+                + "% output (4 is normal, 8 gives 150%)");
         var outlet = pos.relative(facing);
         if (!ShipStore.bounds(ship).contains(outlet))
           lines.add("OUTLET OUTSIDE SHIP: rotate/place the pump facing a room.");

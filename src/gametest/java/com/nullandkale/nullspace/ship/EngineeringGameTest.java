@@ -193,8 +193,10 @@ public final class EngineeringGameTest {
           "Emergency cuts optional loads and cannot re-enable disabled air hardware");
       ShipSystems.equipmentAction(p, f.base.offset(4, 3, 6), ComputerTerminal.Action.DEVICE_ENABLE);
       ctx.assertTrue(
-          ShipSystems.power(level, f.ship, PowerBus.System.AIR) == 2,
-          "Air grant is capped by actual hardware, below the emergency request of six");
+          ShipSystems.power(level, f.ship, PowerBus.System.AIR)
+              == com.nullandkale.nullspace.systems.SpatialAir.MAX_SUPPLY_POWER,
+          "Emergency overdrives the one re-enabled Air Supply to its 8-power cap: "
+              + ShipSystems.power(level, f.ship, PowerBus.System.AIR));
       ShipSystems.equipmentAction(
           p, f.base.offset(1, 3, 6), ComputerTerminal.Action.DEVICE_DISABLE);
       ShipSystems.equipmentAction(

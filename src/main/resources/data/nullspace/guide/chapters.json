@@ -16,7 +16,7 @@
       "pages": [
         "Make a dirt or grass pad inside a cobblestone ring. Put a Pad Computer on the ring and click Register pad. You can keep its suggested name. Show pad area marks the ground that stays behind.",
         "Above the pad, build a sealed hull with a normal door, Ship Controller, outward-facing engine, generator and inward-facing Air Supply. Leave standing room at the controller and clear space behind the engine.",
-        "Load furnace fuel in the generator. Close the door and open the Ship Controller. Launch checks the ship before leaving. Read any problem, repair it and try again. Home stays selected: use Land to return. Check ship is optional."
+        "Load furnace fuel in the generator. Close the door and open the Ship Controller; it sets up systems once the generator and Air Supply connect. Launch checks the ship: fix any problem and retry. Use Land to return home."
       ]
     },
     {
@@ -75,7 +75,7 @@
       "id": "suit",
       "title": "Suits and EVA",
       "pages": [
-        "Wear all four suit pieces. A sealed breathable cabin refills your oxygen. A suit has no separate crafted oxygen tank yet; keep a working ship air source.",
+        "Wear all four suit pieces. Nothing stops you opening a door to vacuum without one, so check before you step out. Fill an Air Canister at an Air Supply for air away from the ship.",
         "In space, leaving the cabin enables flight. The tether limit is 72 blocks. Watch oxygen and return before it runs out. Airless planet surfaces retain normal gravity.",
         "Airless ground drains oxygen away from a safe cabin/source. Wearing armor alone is not unlimited life support. Repair the cabin and monitor air before exploring."
       ]

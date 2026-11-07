@@ -19,6 +19,11 @@ import net.minecraft.world.phys.Vec3;
 
 /** Shared controller/scanner destination. Every operation is authorized again on the server. */
 public final class ShipControl {
+  /** Without set-up systems there is no air aboard, so the ship stays on the ground. */
+  public static final String NO_SYSTEMS =
+      "Ship systems are not set up, so there is no air aboard. Connect a Generator and an Air"
+          + " Supply to the controller, then choose Upgrade systems.";
+
   public enum Action {
     SELECT,
     LAUNCH,
@@ -384,6 +389,12 @@ public final class ShipControl {
   public static View open(ServerPlayer p, BlockPos at, String message) {
     if (!accessible(p, at)) return null;
     if (p.containerMenu != p.inventoryMenu) p.closeContainer();
+    // Opening a controller placed aboard a derelict whose own controller is destroyed claims it.
+    var wreck = ShipStore.get(p.level().getServer()).at(p.level(), at);
+    if (wreck != null && EncounterClaims.damaged(p.level(), wreck)) {
+      String claimed = EncounterClaims.claimWreck(p, wreck, at);
+      if (!claimed.isEmpty()) message = claimed;
+    }
     var resolution = ShipTopology.find(p.level(), at);
     if (resolution.ship() == null) {
       var incomplete = new Session(p, at, new CompoundTag(), resolution.problem());
@@ -490,6 +501,9 @@ public final class ShipControl {
     var dock = ship.getCompoundOrEmpty("dock");
     String phase = dock.getStringOr("state", "");
     boolean incoming = !dock.getStringOr("source", "").equals(ship.getStringOr("id", ""));
+    if ((action == Action.ENGAGE || action == Action.LAUNCH)
+        && !ShipSystems.enabled(ship)
+        && !p.level().dimension().equals(TravelService.SPACE)) return NO_SYSTEMS;
     if (action == Action.ENGAGE) return CourseService.reason(p, ship, target);
     if (action == Action.DISENGAGE) return CourseService.active(ship) ? "" : "No engaged course";
     if (action == Action.MARK

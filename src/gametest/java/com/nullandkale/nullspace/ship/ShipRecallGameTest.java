@@ -16,41 +16,14 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 
 public final class ShipRecallGameTest {
   @GameTest(environment = "nullspace:ship_recall")
-  public void legacyUnclaimedShipCanBeRecoveredByAnAdministratorOnlyAtItsRecordedHomePad(
-      GameTestHelper ctx) throws Exception {
+  public void unclaimedShipsAreNotListedForAnyone(GameTestHelper ctx) throws Exception {
     var f = new Fixture(ctx, 7);
-    var pad =
-        PadRepository.get(f.surface.getServer())
-            .dimension(f.surface.dimension().identifier().toString())
-            .stream()
-            .filter(p -> p.computer().equals(f.computer))
-            .findFirst()
-            .orElseThrow();
     f.ship().remove("owner");
     f.ship().remove("recallUsers");
-    f.ship().putString("homeId", pad.id());
     ctx.assertTrue(
         ShipRecall.candidates(f.player, f.computer).isEmpty(),
-        "Unclaimed legacy ships are not free for arbitrary players to take");
-    f.surface
-        .getServer()
-        .getPlayerList()
-        .op(
-            f.player.nameAndId(),
-            Optional.of(net.minecraft.server.permissions.LevelBasedPermissionSet.ADMIN),
-            Optional.empty());
-    try {
-      ctx.assertTrue(
-          !ShipRecall.candidates(f.player, f.computer).isEmpty(),
-          "An administrator can recover a pre-update orphan at its original pad");
-      f.ship().putString("homeId", "different-home");
-      ctx.assertTrue(
-          ShipRecall.candidates(f.player, f.computer).isEmpty(),
-          "The legacy exception is bound to the saved home pad");
-    } finally {
-      f.surface.getServer().getPlayerList().deop(f.player.nameAndId());
-      f.close();
-    }
+        "Unclaimed ships are not free for any player to take");
+    f.close();
     ctx.succeed();
   }
 
@@ -328,9 +301,17 @@ public final class ShipRecallGameTest {
     var member = new CompoundTag();
     member.putString("id", visitor.getUUID().toString());
     f.ship().getListOrEmpty("crew").add(member);
+    // Offline passengers no longer block: they are taken off and log in at Terra Harbor.
+    ShipRecall.releaseOfflineCrew(f.surface.getServer(), f.ship(), f.player.getUUID());
     ctx.assertTrue(
-        ShipRecall.move(f.player, f.computer, f.ship()).message().contains("Offline crew"),
-        "Offline passengers are not relocated by remote recall");
+        f.ship().getListOrEmpty("crew").isEmpty()
+            && ShipStore.get(f.surface.getServer()).list("targets").stream()
+                .anyMatch(
+                    t ->
+                        ((CompoundTag) t)
+                            .getStringOr("id", "")
+                            .equals(visitor.getUUID().toString())),
+        "Offline passengers are moved to Terra Harbor instead of blocking recall");
     f.ship().put("crew", new ListTag());
     f.ship().put("dock", new CompoundTag());
     ctx.assertTrue(

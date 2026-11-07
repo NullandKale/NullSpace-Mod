@@ -89,8 +89,12 @@ public final class ManufacturerRoleGameTest {
       }
       int air = (int) plan.values().stream().filter(s -> s.is(ShipBlocks.AIR_SUPPLY)).count();
       ctx.assertTrue(
-          ShipSystems.power(level, ship, PowerBus.System.AIR) == air * 2,
-          "Every separated room's pump has power, not just the first two");
+          ShipSystems.power(level, ship, PowerBus.System.AIR)
+              == air * com.nullandkale.nullspace.systems.SpatialAir.SUPPLY_POWER,
+          "Every separated room's pump has normal power, not just the first two: "
+              + ShipSystems.power(level, ship, PowerBus.System.AIR)
+              + " for "
+              + air);
       if (!ManufacturerRoleShips.explorer(preset.id()))
         ctx.assertTrue(
             plan.values().stream().filter(s -> s.is(Blocks.BARREL)).count() >= 20,

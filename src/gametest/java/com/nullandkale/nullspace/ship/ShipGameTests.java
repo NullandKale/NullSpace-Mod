@@ -265,6 +265,9 @@ public final class ShipGameTests {
           var channel = new io.netty.channel.embedded.EmbeddedChannel(connection);
           server.getPlayerList().placeNewPlayer(connection, player, cookie);
           player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
+          // Ships take off only with systems set up.
+          com.nullandkale.nullspace.systems.ShipSystems.upgrade(
+              level, com.nullandkale.nullspace.systems.ShipTopology.resolve(level, controller));
           TravelService.request(player, controller, "", ShipService.preflight(level, controller));
           TravelService.ready(player, new TravelPackets.Ready(java.util.UUID.randomUUID(), false));
           ctx.runAfterDelay(

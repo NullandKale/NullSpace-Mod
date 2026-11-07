@@ -61,7 +61,8 @@ public final class EncounterClaimGameTest {
           var current = ShipStore.get(server).repository().find(id);
           ctx.assertTrue(current != null, "The derelict remains registered before the claim");
           if (!StationService.ready(current)) {
-            ctx.runAfterDelay(5, poll[0]);
+            // A fresh lambda: runAfterDelay drops a Runnable rescheduled from inside itself.
+            ctx.runAfterDelay(5, () -> poll[0].run());
             return;
           }
           ctx.assertTrue(EncounterClaims.claimable(current), "An unclaimed derelict can be claimed");

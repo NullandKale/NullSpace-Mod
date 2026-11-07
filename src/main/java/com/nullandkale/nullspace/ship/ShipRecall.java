@@ -11,7 +11,6 @@ import net.minecraft.nbt.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.*;
-import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.level.ChunkPos;
 
 /** Uncrewed recovery uses the same durable transfer journal as normal flight. */
@@ -58,6 +57,73 @@ public final class ShipRecall {
 
   public static void initialize() {
     ServerContext.tick(ServerContext.Phase.TRAVEL, ShipRecall::tick);
+    // When each player was last online, for deciding when a ship left on a pad is abandoned.
+    net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
+        (handler, sender, server) -> seen(server, handler.player.getUUID()));
+    net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
+        (handler, server) -> seen(server, handler.player.getUUID()));
+  }
+
+  /** A ship left on a pad counts as abandoned once its owner has been away this long. */
+  public static final long ABANDONED_TICKS = 24000;
+
+  private static void seen(MinecraftServer server, UUID player) {
+    ShipStore.get(server)
+        .section("lastSeen")
+        .putLong(player.toString(), server.overworld().getGameTime());
+    ShipStore.get(server).requestSave();
+  }
+
+  /**
+   * Whether a ship's owner has been away for an in-game day and none of its crew are online.
+   * Anyone at a pad may then store it, so it no longer blocks the pad; it stays the owner's ship.
+   */
+  public static boolean abandoned(MinecraftServer server, CompoundTag ship) {
+    String owner = ship.getStringOr("owner", "");
+    if (owner.isEmpty()) return false;
+    var online =
+        server.getPlayerList().getPlayers().stream()
+            .map(p -> p.getUUID().toString())
+            .collect(java.util.stream.Collectors.toSet());
+    if (online.contains(owner)) return false;
+    for (var item : ship.getListOrEmpty("crew"))
+      if (online.contains(((CompoundTag) item).getStringOr("id", ""))) return false;
+    long last = ShipStore.get(server).section("lastSeen").getLongOr(owner, -1);
+    return last < 0 || server.overworld().getGameTime() - last >= ABANDONED_TICKS;
+  }
+
+  /**
+   * Offline crew no longer hold a ship in place: they are taken off its crew list and will log
+   * in at Terra Harbor instead of inside a ship that has moved.
+   */
+  static void releaseOfflineCrew(MinecraftServer server, CompoundTag ship, UUID requester) {
+    var online =
+        server.getPlayerList().getPlayers().stream()
+            .map(p -> p.getUUID().toString())
+            .collect(java.util.stream.Collectors.toSet());
+    var crew = ship.getListOrEmpty("crew");
+    var store = ShipStore.get(server);
+    for (var item : List.copyOf(crew)) {
+      String id = ((CompoundTag) item).getStringOr("id", "");
+      if (id.isEmpty() || online.contains(id) || id.equals(requester.toString())) continue;
+      net.minecraft.world.phys.Vec3 at;
+      try {
+        at = TerraHarbor.arrival(server);
+      } catch (IllegalStateException busy) {
+        at = net.minecraft.world.phys.Vec3.atBottomCenterOf(TerraHarbor.ensure(server).offset(8, 1, 12));
+      }
+      var targets = store.list("targets");
+      targets.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(id));
+      var target = new CompoundTag();
+      target.putString("id", id);
+      target.putString("dimension", "minecraft:overworld");
+      target.putDouble("x", at.x);
+      target.putDouble("y", at.y);
+      target.putDouble("z", at.z);
+      targets.add(target);
+      crew.remove(item);
+    }
+    store.save();
   }
 
   public static boolean active(MinecraftServer server) {
@@ -129,17 +195,7 @@ public final class ShipRecall {
   private static boolean permitted(ServerPlayer p, CompoundTag ship, PadRegistry.Pad pad) {
     String user = p.getUUID().toString();
     return ship.getStringOr("owner", "").equals(user)
-        || ship.getCompoundOrEmpty("recallUsers").getBooleanOr(user, false)
-        // Existing saves did not record ownership. Administrators may recover an unclaimed ship
-        // only at its recorded home pad, rather than exposing other players' claimed ships.
-        || pad != null
-            && ship.getStringOr("owner", "").isEmpty()
-            && ship.getCompoundOrEmpty("recallUsers").isEmpty()
-            && (ship.getStringOr("homeId", "").equals(pad.id())
-                || ship.getStringOr("homeId", "").isEmpty()
-                    && ship.getStringOr("home", "").equalsIgnoreCase(pad.name()))
-            && (p.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)
-                || p.level().getServer().isSingleplayerOwner(p.nameAndId()));
+        || ship.getCompoundOrEmpty("recallUsers").getBooleanOr(user, false);
   }
 
   private static String unavailable(MinecraftServer server, CompoundTag ship, UUID requester) {
@@ -168,14 +224,7 @@ public final class ShipRecall {
             + " at "
             + p.blockPosition().toShortString()
             + ". Everyone must leave before recall";
-    for (var item : ship.getListOrEmpty("crew")) {
-      var member = (CompoundTag) item;
-      String id = member.getStringOr("id", "");
-      if (!id.equals(requester.toString())
-          && server.getPlayerList().getPlayers().stream()
-              .noneMatch(p -> p.getUUID().toString().equals(id)))
-        return "Offline crew aboard: " + id + ". They must log in and leave before recall";
-    }
+    // Offline crew are moved to Terra Harbor when the ship moves (releaseOfflineCrew).
     return "";
   }
 
@@ -193,7 +242,9 @@ public final class ShipRecall {
         .filter(
             s ->
                 s.getStringOr("dimension", "").equals(space) && permitted(p, s, pad)
-                    || pad != null && onPad(s, pad) && ShipTitles.owner(p, s))
+                    || pad != null
+                        && onPad(s, pad)
+                        && (ShipTitles.owner(p, s) || abandoned(server, s)))
         .sorted(Comparator.comparing(s -> s.getStringOr("home", "Ship")))
         .limit(128)
         .map(
@@ -210,10 +261,10 @@ public final class ShipRecall {
                           .substring(0, Math.min(8, s.getStringOr("id", "").length()));
               String state =
                   !problem.isEmpty()
-                      ? problem.startsWith("Undock")
-                          ? "DOCKED"
-                          : problem.startsWith("Offline") ? "OFFLINE CREW" : "CREW ABOARD"
-                      : here ? "ON_PAD" : ShipTitles.stored(s) ? "STORED" : "AVAILABLE";
+                      ? problem.startsWith("Undock") ? "DOCKED" : "CREW ABOARD"
+                      : here && !ShipTitles.owner(p, s)
+                          ? "ABANDONED"
+                          : here ? "ON_PAD" : ShipTitles.stored(s) ? "STORED" : "AVAILABLE";
               return new ComputerTerminal.Destination(
                   key(s), name.substring(0, Math.min(32, name.length())), state, problem);
             })
@@ -290,6 +341,7 @@ public final class ShipRecall {
           "Pad registration or ship access changed; reopen Recall ships");
     String problem = unavailable(server, ship, p.getUUID());
     if (!problem.isEmpty()) return TravelService.Result.rejected(problem);
+    releaseOfflineCrew(server, ship, p.getUUID());
     var padBounds =
         new ShipScan.Bounds(
             new BlockPos(
@@ -396,12 +448,6 @@ public final class ShipRecall {
         return "Crew aboard: "
             + p.getPlainTextName()
             + ". Everyone must leave the ship before it is stored";
-    for (var item : ship.getListOrEmpty("crew")) {
-      String id = ((CompoundTag) item).getStringOr("id", "");
-      if (server.getPlayerList().getPlayers().stream()
-          .noneMatch(p -> p.getUUID().toString().equals(id)))
-        return "Offline crew aboard: " + id + ". They must log in and leave first";
-    }
     return "";
   }
 
@@ -440,7 +486,8 @@ public final class ShipRecall {
     var ship = find(server, selection);
     if (ship == null) return "Choose one of your ships from the list";
     String name = ship.getStringOr("home", "This ship");
-    if (!ShipTitles.owner(p, ship)) return "Only the owner can store " + name;
+    boolean clearing = !ShipTitles.owner(p, ship) && onPad(ship, pad) && abandoned(server, ship);
+    if (!ShipTitles.owner(p, ship) && !clearing) return "Only the owner can store " + name;
     if (ShipTitles.stored(ship)) return name + " is already stored";
     if (onPad(ship, pad)) {
       String problem = surfaceProblem(server, p.level(), ship, p.getUUID());
@@ -451,6 +498,7 @@ public final class ShipRecall {
     if (ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString())) {
       String problem = unavailable(server, ship, p.getUUID());
       if (!problem.isEmpty()) return problem;
+      releaseOfflineCrew(server, ship, p.getUUID());
       markStored(p, ship);
       ShipStore.get(server).save();
       return name + " stored where it was. Its title is in your inventory; deploy it from My ships";
@@ -474,14 +522,127 @@ public final class ShipRecall {
     return "New title for " + name + " issued. Older copies no longer work";
   }
 
+  /** The blocks Store would capture for a ship on this pad: inside both the ship and the column. */
+  private static List<BlockPos> captured(ServerLevel level, CompoundTag ship, PadRegistry.Pad pad) {
+    var column = padColumn(pad);
+    var saved = ShipStore.bounds(ship);
+    var min =
+        new BlockPos(
+            Math.max(column.min().getX(), saved.min().getX()),
+            Math.max(column.min().getY(), saved.min().getY()),
+            Math.max(column.min().getZ(), saved.min().getZ()));
+    var max =
+        new BlockPos(
+            Math.min(column.max().getX(), saved.max().getX()),
+            Math.min(column.max().getY(), saved.max().getY()),
+            Math.min(column.max().getZ(), saved.max().getZ()));
+    var blocks = new ArrayList<BlockPos>();
+    for (var cursor : BlockPos.betweenClosed(min, max))
+      if (level.hasChunkAt(cursor) && !level.getBlockState(cursor).isAir())
+        blocks.add(cursor.immutable());
+    return blocks;
+  }
+
+  /** Outlines every block Store would take, for the asking player only. */
+  public static String show(ServerPlayer p, BlockPos at, String selection) {
+    String access = access(p, at);
+    if (!access.isEmpty()) return access;
+    var server = p.level().getServer();
+    var pad = pad(p, at);
+    var ship = find(server, selection);
+    if (pad == null || ship == null || !onPad(ship, pad))
+      return "Choose a ship standing on this pad";
+    var blocks = captured(p.level(), ship, pad);
+    for (var b : blocks)
+      p.level()
+          .sendParticles(
+              p,
+              net.minecraft.core.particles.ParticleTypes.END_ROD,
+              true,
+              false,
+              b.getX() + .5,
+              b.getY() + .5,
+              b.getZ() + .5,
+              1,
+              .2,
+              .2,
+              .2,
+              0);
+    return "Showing the "
+        + blocks.size()
+        + " blocks Store takes. Anything outside the pad's column stays behind";
+  }
+
+  private static final ServerContext.Key<Map<UUID, String>> SCRAP = new ServerContext.Key<>();
+
+  /**
+   * Scraps a ship permanently: its blocks and everything aboard are removed and every title stops
+   * working. Owner only, nobody aboard, and the button must be pressed twice.
+   */
+  public static String scrap(ServerPlayer p, BlockPos at, String selection) {
+    String access = access(p, at);
+    if (!access.isEmpty()) return access;
+    var server = p.level().getServer();
+    var pad = pad(p, at);
+    var ship = find(server, selection);
+    if (pad == null || ship == null) return "Choose one of your ships from the list";
+    String name = ship.getStringOr("home", "This ship");
+    if (!ShipTitles.owner(p, ship)) return "Only the owner can scrap " + name;
+    boolean here = onPad(ship, pad);
+    boolean space =
+        ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString());
+    if (!here && !space) return "Bring " + name + " to this pad or space to scrap it";
+    String problem =
+        here ? surfaceProblem(server, p.level(), ship, p.getUUID()) : unavailable(server, ship, p.getUUID());
+    if (!problem.isEmpty()) return problem;
+    var pending = ServerContext.get(server).service(SCRAP, HashMap::new);
+    String previous = pending.getOrDefault(p.getUUID(), "");
+    String id = ship.getStringOr("id", "");
+    boolean confirmed =
+        previous.startsWith(id + "@")
+            && server.getTickCount() - Long.parseLong(previous.substring(id.length() + 1)) <= 200;
+    if (!confirmed) {
+      pending.put(p.getUUID(), id + "@" + server.getTickCount());
+      return "Scrap "
+          + name
+          + " for good? Its blocks and everything aboard are lost. Press Scrap ship again to"
+          + " confirm";
+    }
+    pending.remove(p.getUUID());
+    releaseOfflineCrew(server, ship, p.getUUID());
+    NavigationService.closeShip(server, ship.getStringOr("id", ""));
+    var level = here ? p.level() : server.getLevel(TravelService.SPACE);
+    var blocks =
+        here
+            ? captured(level, ship, pad)
+            : BlockPos.betweenClosedStream(ShipStore.bounds(ship).min(), ShipStore.bounds(ship).max())
+                .map(BlockPos::immutable)
+                .toList();
+    if (!here)
+      for (int x = ShipStore.bounds(ship).min().getX() >> 4; x <= ShipStore.bounds(ship).max().getX() >> 4; x++)
+        for (int z = ShipStore.bounds(ship).min().getZ() >> 4; z <= ShipStore.bounds(ship).max().getZ() >> 4; z++)
+          level.getChunk(x, z);
+    for (var b : blocks)
+      if (!level.getBlockState(b).isAir()) {
+        level.removeBlockEntity(b);
+        level.setBlock(b, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+      }
+    ShipStore.get(server).ships().remove(ship);
+    ShipStore.get(server).save();
+    return name + " was scrapped. Its titles no longer work";
+  }
+
   static TravelService.Result storeMove(ServerPlayer p, BlockPos at, CompoundTag ship) {
     var server = p.level().getServer();
     var pad = pad(p, at);
-    if (pad == null || !ShipTitles.owner(p, ship) || !onPad(ship, pad))
+    if (pad == null
+        || !onPad(ship, pad)
+        || !ShipTitles.owner(p, ship) && !abandoned(server, ship))
       return TravelService.Result.rejected("The ship or pad changed; reopen My ships");
     var level = p.level();
     String problem = surfaceProblem(server, level, ship, p.getUUID());
     if (!problem.isEmpty()) return TravelService.Result.rejected(problem);
+    releaseOfflineCrew(server, ship, p.getUUID());
     var column = padColumn(pad);
     var saved = ShipStore.bounds(ship);
     // Capture only inside the pad column, never neighbouring terrain or builds.
@@ -562,6 +723,9 @@ public final class ShipRecall {
           notice =
               result.outcome() != TravelService.Outcome.COMPLETED || moved == null
                   ? result.message()
+                  : job.store && !ShipTitles.owner(p, moved)
+                      ? moved.getStringOr("home", "Ship")
+                          + " was moved to its owner's storage. The pad is clear"
                   : job.store
                       ? moved.getStringOr("home", "Ship")
                           + " stored. The pad is clear and the ship's title is in your inventory"

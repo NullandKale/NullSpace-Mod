@@ -19,7 +19,7 @@ final class PowerSystem {
 
   static Allocation allocate(ServerLevel level, CompoundTag ship, ShipRuntime r) {
     var s = state(ship);
-    int[] requests = s.getIntArray("requests").orElse(new int[] {1, 2, 1, 3, 1, 0});
+    int[] requests = s.getIntArray("requests").orElse(ShipSystems.defaultRequests());
     if (requests.length != 6) throw new IllegalStateException("Invalid saved allocations");
     var counts = new HashMap<Block, Integer>();
     for (var p : r.equipment)
@@ -38,7 +38,7 @@ final class PowerSystem {
               > 0
           ? 1
           : 0,
-      air * 2,
+      air * SpatialAir.MAX_SUPPLY_POWER,
       counts.getOrDefault(ShipBlocks.COMPUTER, 0)
                   + counts.getOrDefault(ShipBlocks.DOCKING_BASE, 0)
               > 0
@@ -68,7 +68,8 @@ final class PowerSystem {
                           .filter(p -> level.getBlockState(p).is(ShipBlocks.ENGINE) && active(r, p))
                           .mapToInt(p -> 2 * FuelSystem.tier(level, p))
                           .sum()
-                  : requests[i],
+                  // The air request is power per Air Supply: 4 is normal output, 8 is 150%.
+                  : i == 1 ? requests[i] * air : requests[i],
               caps[i],
               i == 2
                   ? (r.doors.isEmpty() ? 0 : 1)
@@ -115,7 +116,7 @@ final class PowerSystem {
     int output =
         r.equipment.stream()
             .filter(p -> level.getBlockState(p).is(ShipBlocks.GENERATOR) && active(r, p))
-            .mapToInt(p -> 8 + 4 * FuelSystem.tier(level, p))
+            .mapToInt(p -> FuelSystem.generatorOutput(FuelSystem.tier(level, p)))
             .sum();
     return new Allocation(
         PowerBus.tick(
@@ -144,7 +145,7 @@ final class PowerSystem {
           && level.getBlockState(position).is(ShipBlocks.GENERATOR)
           && active(r, position)) {
         int efficiency = FuelSystem.tier(level, position),
-            work = Math.min(used, 8 + 4 * efficiency);
+            work = Math.min(used, FuelSystem.generatorOutput(efficiency));
         // P7 balance: POWER_PER_FUEL_UNIT power units per fuel unit, upgrades cheaper still.
         // Fractions carry over per generator so small steady loads are charged exactly.
         var s = ShipSystems.state(ship);

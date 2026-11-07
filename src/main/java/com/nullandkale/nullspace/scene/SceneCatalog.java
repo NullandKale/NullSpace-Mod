@@ -104,7 +104,11 @@ public final class SceneCatalog {
     var store = ShipStore.get(server);
     var regions = store.section("localScenes");
     if (regions.contains(address)) {
-      return regions.getCompoundOrEmpty(address);
+      var cached = regions.getCompoundOrEmpty(address);
+      // Generated views from an older layout are rebuilt; hand-made ones are kept.
+      if (!cached.contains("systemGenerator")
+          || cached.getIntOr("layoutVersion", 1)
+              >= com.nullandkale.nullspace.navigation.StarSystems.SCENE_LAYOUT) return cached;
     }
     var generated = com.nullandkale.nullspace.navigation.StarSystems.scene(server, address);
     if (generated.isPresent()) {

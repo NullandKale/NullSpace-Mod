@@ -83,7 +83,9 @@ public final class ComputerTerminal {
     CONTROLLER_BACK,
     SHIP_STORE,
     SHIP_TITLE,
-    STATION_CLAIM
+    STATION_CLAIM,
+    SHIP_SHOW,
+    SHIP_SCRAP
   }
 
   public record Destination(String id, String name, String state, String detail) {
@@ -531,7 +533,9 @@ public final class ComputerTerminal {
                             Action.RECALL_CANCEL,
                             Action.RECALL_BACK,
                             Action.SHIP_STORE,
-                            Action.SHIP_TITLE)
+                            Action.SHIP_TITLE,
+                            Action.SHIP_SHOW,
+                            Action.SHIP_SCRAP)
                         : s.mode.equals("pad")
                             ? Set.of(
                                 Action.RECALL_LIST,
@@ -682,7 +686,13 @@ public final class ComputerTerminal {
                                                 player, a.position, a.argument, packet.session)
                                             : packet.action == Action.SHIP_TITLE
                                                 ? ShipRecall.title(player, a.position, a.argument)
-                                                : "";
+                                                : packet.action == Action.SHIP_SHOW
+                                                    ? ShipRecall.show(
+                                                        player, a.position, a.argument)
+                                                    : packet.action == Action.SHIP_SCRAP
+                                                        ? ShipRecall.scrap(
+                                                            player, a.position, a.argument)
+                                                        : "";
                             ShipRecall.open(player, a.position, notice);
                           }
                         } else if (a.mode.equals("pad")) {

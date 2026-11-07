@@ -47,14 +47,11 @@ public final class PersistenceBoundaryGameTest {
   }
 
   @GameTest
-  public void legacyStringsAndNewUnicodeImagesDecodeIdentically(GameTestHelper ctx) {
+  public void unicodeImagesDecodeIdentically(GameTestHelper ctx) {
     String text = "crew \u0000 \u661f \uD83D\uDE80\n";
     ctx.assertTrue(
         text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > text.length(),
         "Fixture must exercise multibyte UTF-8 and supplementary characters");
-    ctx.assertTrue(
-        text.equals(ComputerImageCodec.decode(StringTag.valueOf(text))),
-        "Read legacy string images");
     ctx.assertTrue(
         text.equals(ComputerImageCodec.decode(ComputerImageCodec.encode(text))),
         "New UTF-8 images preserve Unicode and NUL");

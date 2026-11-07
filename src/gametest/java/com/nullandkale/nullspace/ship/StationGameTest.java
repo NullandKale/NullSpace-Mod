@@ -153,7 +153,7 @@ public final class StationGameTest {
     ShipSystems.upgrade(level, s);
     s.getCompoundOrEmpty("systems")
         .putIntArray(
-            "requests", ship ? new int[] {1, 4, 1, 3, 2, 0} : new int[] {1, 12, 1, 0, 2, 0});
+            "requests", ship ? new int[] {1, 4, 1, 3, 2, 0} : new int[] {1, 4, 1, 0, 2, 0});
     ShipSystems.tick(level, s);
     return s;
   }
@@ -162,6 +162,43 @@ public final class StationGameTest {
     var helm = ShipStore.pos(s, "controller");
     var at = helm.relative(level.getBlockState(helm).getValue(HorizontalDirectionalBlock.FACING));
     return new Vec3(at.getX() + .5, at.getY(), at.getZ() + .5);
+  }
+
+  @GameTest(environment = "nullspace:stations", maxTicks = 60)
+  public void unsuitedCrewMayOpenAnyDoorButShipsWithoutSystemsCannotTakeOff(GameTestHelper ctx) {
+    var server = ctx.getLevel().getServer();
+    var level = server.getLevel(TravelService.SPACE);
+    var ship = fixture(level, new BlockPos(284000, 96, 280000), true);
+    var player = survivalPlayer(ctx);
+    var at = boardingPoint(level, ship);
+    player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
+    try {
+      ctx.assertFalse(SpaceSurvival.suited(player), "The player wears no suit");
+      var port = DockingService.ports(level, ship).getFirst();
+      DockingService.useCompactDoor(player, port.outer());
+      ctx.assertTrue(
+          ShipDoors.open(level.getBlockState(port.outer())),
+          "Without a suit you can still open an exterior door to vacuum");
+      ShipDoors.setOpen(level, port.outer(), false);
+      player.teleportTo(ctx.getLevel(), at.x, 120, at.z, Set.of(), 0, 0, true);
+      var systems = ship.getCompoundOrEmpty("systems").copy();
+      ship.remove("systems");
+      ctx.assertTrue(
+          com.nullandkale.nullspace.navigation.ShipControl.reason(
+                  player, ship, null, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH)
+              .equals(com.nullandkale.nullspace.navigation.ShipControl.NO_SYSTEMS),
+          "A ship without set-up systems has no air and cannot take off");
+      ship.put("systems", systems);
+      ctx.assertFalse(
+          com.nullandkale.nullspace.navigation.ShipControl.reason(
+                  player, ship, null, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH)
+              .equals(com.nullandkale.nullspace.navigation.ShipControl.NO_SYSTEMS),
+          "Once systems are set up, the systems rule no longer blocks take-off");
+      ctx.succeed();
+    } finally {
+      server.getPlayerList().remove(player);
+      cleanup(level, ship);
+    }
   }
 
   @GameTest(environment = "nullspace:stations", maxTicks = 100)
@@ -340,6 +377,111 @@ public final class StationGameTest {
       level.getServer().getPlayerList().remove(p);
       level.getServer().getPlayerList().remove(other);
       cleanup(level, s);
+    }
+  }
+
+  /** A derelict for claim tests: a waypoint layout recorded as unclaimed salvage. */
+  private static CompoundTag derelict(ServerLevel level, BlockPos base) {
+    var s = fixture(level, base, false);
+    s.putBoolean("salvage", true);
+    s.putInt("encounterKind", 1);
+    s.putString("owner", "");
+    return s;
+  }
+
+  @GameTest(environment = "nullspace:stations", maxTicks = 2200)
+  public void claimingADerelictYourShipIsDockedToThenUndockingSeparatesYourShip(
+      GameTestHelper ctx) {
+    var server = ctx.getLevel().getServer();
+    var level = server.getLevel(TravelService.SPACE);
+    var origin = ctx.absolutePos(new BlockPos(75000, 96, 75000));
+    var a = new BlockPos(origin.getX(), 96, origin.getZ());
+    var b = a.offset(512, 0, 0);
+    var ship = fixture(level, a, true);
+    var wreck = derelict(level, b);
+    // Away from the other docking tests' scene positions, which run at the same time.
+    for (var s : List.of(ship, wreck)) s.putDouble("simY", s.getDoubleOr("simY", 0) + 3000);
+    var wreckBase = ShipStore.pos(wreck, "base");
+    var p = ctx.makeMockServerPlayerInLevel();
+    var start = boardingPoint(level, ship);
+    p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
+    var target =
+        DockingService.ports(level, wreck).stream()
+            .filter(port -> port.facing() == Direction.EAST)
+            .findFirst()
+            .orElseThrow();
+    DockingService.request(p, ship, wreck.getStringOr("id", ""), target.controller().subtract(b));
+    ctx.runAfterDelay(
+        1000,
+        () -> {
+          var own = ShipStore.get(server).repository().find(ship.getStringOr("id", ""));
+          var found = ShipStore.get(server).repository().find(wreck.getStringOr("id", ""));
+          ctx.assertTrue(
+              own.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"),
+              "Your ship is docked to the derelict: "
+                  + own.getStringOr("flightStatus", "")
+                  + " / "
+                  + own.getCompoundOrEmpty("dock").getStringOr("state", "none"));
+          var center = ShipStore.bounds(found).box().getCenter();
+          p.teleportTo(level, center.x, center.y, center.z, Set.of(), 0, 0, true);
+          String claimed = EncounterClaims.claim(p, found);
+          ctx.assertTrue(claimed.startsWith("You claimed"), "Claim while docked: " + claimed);
+          p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
+          DockingService.action(p, own, ShipStore.pos(own, "controller"), "DOCK_UNDOCK");
+          ctx.runAfterDelay(
+              400,
+              () -> {
+                try {
+                  var after = ShipStore.get(server).repository().find(ship.getStringOr("id", ""));
+                  var prize = ShipStore.get(server).repository().find(wreck.getStringOr("id", ""));
+                  ctx.assertTrue(
+                      !after.contains("dock") && prize.getCompoundOrEmpty("dockLinks").isEmpty(),
+                      "Undocking releases the berth");
+                  ctx.assertTrue(
+                      ShipStore.pos(prize, "base").equals(wreckBase)
+                          && prize.getStringOr("owner", "").equals(p.getUUID().toString()),
+                      "Your own ship backs away; the claimed ship stays where it was, still yours");
+                  ctx.succeed();
+                } finally {
+                  server.getPlayerList().remove(p);
+                  cleanup(level, ship);
+                  cleanup(level, wreck);
+                }
+              });
+        });
+  }
+
+  @GameTest(environment = "nullspace:stations", maxTicks = 100)
+  public void aDerelictWithADestroyedControllerIsClaimedThroughAPlacedShipController(
+      GameTestHelper ctx) {
+    var server = ctx.getLevel().getServer();
+    var level = server.getLevel(TravelService.SPACE);
+    var wreck = derelict(level, new BlockPos(288000, 96, 280000));
+    var p = survivalPlayer(ctx);
+    try {
+      var core = ShipStore.pos(wreck, "controller");
+      var facing = level.getBlockState(core).getValue(HorizontalDirectionalBlock.FACING);
+      level.setBlock(core, Blocks.AIR.defaultBlockState(), 3);
+      ctx.assertTrue(EncounterClaims.damaged(level, wreck), "Without its core the derelict is damaged");
+      var center = Vec3.atBottomCenterOf(core.relative(facing));
+      p.teleportTo(level, center.x, center.y, center.z, Set.of(), 0, 0, true);
+      ctx.assertTrue(
+          EncounterClaims.claim(p, wreck).contains("Place a Ship Controller aboard"),
+          "Claiming a damaged derelict explains how to claim the wreck");
+      level.setBlock(
+          core,
+          ShipBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing),
+          3);
+      com.nullandkale.nullspace.navigation.ShipControl.open(p, core, "");
+      ctx.assertTrue(
+          wreck.getStringOr("owner", "").equals(p.getUUID().toString())
+              && wreck.getStringOr("kind", "").equals("ship")
+              && ShipTitles.holds(p, wreck),
+          "Opening a Ship Controller placed aboard claims the wreck");
+      ctx.succeed();
+    } finally {
+      server.getPlayerList().remove(p);
+      cleanup(level, wreck);
     }
   }
 

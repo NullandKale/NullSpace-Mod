@@ -73,8 +73,25 @@ public final class FuelSystem {
     return (400 + blocks) * 2;
   }
 
-  /** P7 balance: generators deliver this many power units per fuel unit (about 4 fuel/hour idle). */
-  public static final int POWER_PER_FUEL_UNIT = 7;
+  /**
+   * P7 balance: generators deliver this many power units per fuel unit. An idle starter ship
+   * drawing 8 power (controls 1, one Air Supply at 4, doors 1, scanner and camera 2) burns about
+   * 4 fuel an hour.
+   */
+  public static final int POWER_PER_FUEL_UNIT = 11;
+
+  /**
+   * Power one generator can deliver: 16, plus 8 per upgrade tier. Doubled with the Air Supply's
+   * move from 2 to 4 power (November 7), so ships keep the same headroom for everything else.
+   */
+  public static int generatorOutput(int tier) {
+    return 16 + 8 * tier;
+  }
+
+  /** Fuel (coal) per hour for a steady draw from tier-0 generators. */
+  public static double fuelPerHour(int power) {
+    return power * 72000.0 / POWER_PER_FUEL_UNIT / UNITS_PER_FUEL;
+  }
 
   public static int travelCost(ServerLevel level, CompoundTag ship, int base) {
     int best =

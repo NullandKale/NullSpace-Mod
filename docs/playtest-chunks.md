@@ -13,8 +13,8 @@ This breaks [the recovery, station and ship design](recovery-stations-and-ship-d
 | 4. Store a ship and clear a pad | Physical Ship Title and server-backed storage preserving blocks, cargo and damage | Store a ship, use the cleared pad, then deploy the same ship |
 | 5. Transfer and recover ships | Hand over titles, replace lost titles, recover stranded vessels | Two players can exchange the same vessel without duplication or old-title access |
 | 6. Take over an encounter | Explicit unclaimed/damaged controller states and Claim | Claim an existing derelict without refilling supplies or regenerating it at its old site |
-| 7. A useful ship and station | One redesigned workboat and two-berth service outpost; improve delivery previews | Exterior, rooms, signs, supplies and workstations make the visit understandable and worthwhile; delivery keeps its preferred catalog layout with a better-centered ship preview |
-| 8. Build a station | Starter dock, doorway-based room placement and revamped Station Controller | Place, dock with and expand a station through a clear player flow, with useful construction previews and a whole-station preview |
+| 7. A useful ship and station | Moved into [procedural generation step 3](procedural-generation.md#build-order) (November 7) | — |
+| 8. Build a station | Moved into [procedural generation step 4](procedural-generation.md#build-order) (November 7) | — |
 
 ## Playtest 2 batch (November 6): today's goal
 
@@ -34,7 +34,11 @@ From the player's first session on the hosted server. These come before chunks 7
 
 Player decisions for these chunks: the oxygen meter drifts rather than jumps; leak drain scales with total hole area; **1 coal = 1.00 fuel**, shown with two decimals everywhere (internal units stay integers); the P9 galaxy design below (new world, random non-home systems, engine range limits with a guaranteed hop route, a fully visible map, stations only in zones, fuel as the main resource with no refuelling).
 
-P7 proposal (pending confirmation): idle powered ship about 4 fuel/hour, launch + land about 0.5, local jump about 0.5; interstellar jumps scale with P9 distance; an Air Supply draws 4 power at full output so holding a leak is a noticeable cost. Balance targets for P7 still need the player's numbers; propose defaults and confirm.
+P7 settled (November 7). An Air Supply runs at **4 power for normal output**, and two of them at 4 just hold a one-block leak. Power above 4 buys half as much air per unit, so one supply at **8 power gives 150%** of normal output, three quarters of a leak. The ship's Air request is power per Air Supply (0-8), so the existing allocation screen covers it. Generators were doubled to 16 power (+8 per tier) to keep the same headroom for everything else, and an idle starter ship (8 power) burns about **4 fuel an hour**. Launch or landing costs about 0.25 fuel and a local jump 0.50. Unit tests pin the output curve, the leak balance and the idle fuel rate.
+
+P8 done (November 7). About one Terra village in three gets a **port** beside it, on levelled ground just outside the village. It is a registered 16 x 16 pad in a lit cobblestone ring, with a Pad Computer in a small stone-brick service hut (crafting table, furnace, barrel, smithing table). The village is detected when the chunk holding its start loads, and the decision is saved once per village. The port is named after a generated place name, for example "Oakhurst Port".
+
+Other rules agreed November 7: you can open any door without a suit, including exterior doors to vacuum and airlock doors whatever the air on either side. The only door rule left is that an airlock's outer door must be closed before its inner one opens. A ship whose systems are not set up has no air and **cannot take off** (Launch and Engage say why). The server address is handed out by the player; it is not published in the docs.
 
 ## P9 galaxy design
 
@@ -117,7 +121,9 @@ Public service stations (exchanges, waypoints) are never claimable, even though 
 
 Verification, November 5: focused native `EncounterClaimGameTest` (claimable only when unclaimed salvage; refused from outside; same record becomes the claimant's ship with a working controller and title; container contents unchanged; no second claim) plus `JourneyGameTest` and `StationGameTest`.
 
-Follow-ups, not in this slice: a **Damaged** controller state and **Claim wreck** for broken derelicts; claiming while your own ship is still docked to the derelict needs a dedicated check that Engage separates the right ship.
+Follow-ups done November 7:
+- **Damaged derelicts:** if a derelict's Station Core is destroyed, claiming says it is damaged. Place a Ship Controller aboard and open it to **claim the wreck**; that controller becomes the ship's.
+- **Docked claims:** claiming a derelict your own ship is docked to works. Undocking backs your own ship away and leaves the claimed ship where it was (`StationGameTest`).
 
 ### Try this
 
@@ -139,7 +145,12 @@ Decision taken while the player was away (reversible): a found or stolen title t
 
 Verification, November 5: focused native `ShipTitleGameTest` (store from a pad clears it and keeps every block; deploy without the title is refused, with it returns the same ship and cargo; replacement invalidates the old paper; owner-only storage in space; signed handover, refused unsigned handover, retired copies) plus `ShipRecallGameTest` and `RecoveryGameTest`; client `ShipRecallClientGameTest` and `PadPreviewClientGameTest`.
 
-Follow-ups, not in this slice: highlight the exact blocks to be captured before storing; a pad owner clearing an abandoned visitor's ship; offline crew still block storage (as they block recall) rather than being reconnected at the harbor; **Scrap ship permanently**.
+Follow-ups done November 7:
+- **Show blocks** outlines, for you only, every block Store will take.
+- **Abandoned ships:** once a ship's owner has been away for an in-game day and none of its crew are online, anyone at the pad sees it as Abandoned and can Store it. It moves to its owner's storage, and the owner keeps it and can deploy it as usual. Pads have no owners, so this replaces "a pad owner clearing a visitor's ship".
+- **Offline crew** no longer block Store or recall. They are taken off the crew list and log in at Terra Harbor.
+- **Scrap ship** (owner only, press twice within ten seconds) removes the ship and everything aboard for good, and every title stops working.
+- The old administrator recovery of unowned pre-update ships is removed.
 
 ### Try this
 

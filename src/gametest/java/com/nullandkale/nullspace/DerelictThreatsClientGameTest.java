@@ -26,7 +26,18 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
   public void runTest(ClientGameTestContext c) {
     ClientTestEvidence.started(getClass());
     if (System.getProperty("nullspace.local.role") != null) return;
-    try (var world = c.worldBuilder().create()) {
+    // A world whose galaxy has the pulsar, a rogue planet and an asteroid field (the black hole
+    // and nebula were reviewed in an earlier world).
+    long seed = 0;
+    for (; seed < 100_000; seed++) {
+      var types = new HashSet<GalaxyPlan.FeatureType>();
+      for (var f : GalaxyPlan.generate(seed).features()) types.add(f.type());
+      if (types.contains(GalaxyPlan.FeatureType.PULSAR)
+          && types.contains(GalaxyPlan.FeatureType.ROGUE_PLANET)
+          && types.contains(GalaxyPlan.FeatureType.ASTEROID_FIELD)) break;
+    }
+    String worldSeed = Long.toString(seed);
+    try (var world = c.worldBuilder().adjustSettings(s -> s.setSeed(worldSeed)).create()) {
       world.getConnection().waitForChunksRender();
       world
           .getServer()
@@ -97,6 +108,17 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                           space, new BlockPos(760000 + seen.size() * 4000, 96, 760000), true);
                   ship.putString("localSpace", feature.id());
                   id[0] = ship.getStringOr("id", "");
+                  // Where a ship actually arrives in this zone, level and facing the scene.
+                  ship.putDouble("arrivalAltitude", 0);
+                  var arrival =
+                      com.nullandkale.nullspace.navigation.NavigationService.arrivalOrigin(
+                          server, ship);
+                  ship.putDouble("simX", arrival.x);
+                  ship.putDouble("simY", arrival.y);
+                  ship.putDouble("simZ", arrival.z);
+                  ship.putDouble("simYaw", 0);
+                  ship.putDouble("simPitch", 0);
+                  ship.putDouble("simRoll", 0);
                   // Above the hull, looking out at the feature.
                   var top = ShipStore.bounds(ship).max();
                   var p = world.getConnection().getServerPlayer();
@@ -116,15 +138,17 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                 });
         world.getConnection().waitForChunksRender();
         c.waitTicks(60);
-        for (int heading = 0; heading < 4; heading++) {
-          float yaw = 30 + heading * 90;
+        for (int heading = 0; heading < 6; heading++) {
+          // Four level headings, then straight up and straight down.
+          float yaw = 30 + (heading % 4) * 90;
+          float pitch = heading < 4 ? -8 : heading == 4 ? -89 : 89;
           world
               .getServer()
               .runOnServer(
                   server -> {
                     var p = world.getConnection().getServerPlayer();
                     p.teleportTo(
-                        p.level(), p.getX(), p.getY(), p.getZ(), Set.of(), yaw, -8, true);
+                        p.level(), p.getX(), p.getY(), p.getZ(), Set.of(), yaw, pitch, true);
                   });
           c.waitTicks(10);
           c.takeScreenshot(

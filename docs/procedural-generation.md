@@ -169,6 +169,11 @@ A crafted item for reaching new ground on a planet without walking there.
 | 6 | **Journey sites** (done): random signals that vanish afterward, including ambushes by lost crew and repair bots | Claude builds | Journeys have surprises |
 | Later | Friendly ship repair bot; hostile ships | | |
 
+**Folded in from the original roadmap (November 7).** Two chunks from the [playtest plan](playtest-chunks.md) now belong to these steps instead of being separate work:
+
+- **A useful ship and station** (old chunk 7) joins **step 3**: one redesigned workboat and a two-berth service outpost whose exterior, rooms, signs, supplies and workstations make a visit understandable and worthwhile, plus a better-centred ship preview in the delivery catalog.
+- **Build a station** (old chunk 8) joins **step 4**: a starter dock, placing rooms by doorway and a revamped Station Controller with construction previews and a whole-station preview. Station rooms use the same manufacturer kits as generated stations.
+
 Each step ends in a playtest. Steps 3-5 are mostly content: drafts are built with the authoring tools and reviewed in the gallery before code depends on them.
 
 ## Later ideas

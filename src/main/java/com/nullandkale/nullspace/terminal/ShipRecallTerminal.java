@@ -85,7 +85,7 @@ public final class ShipRecallTerminal implements ControllerApplication {
       case "STORED" -> "Stored";
       case "AVAILABLE" -> "In space";
       case "DOCKED" -> "Docked";
-      case "OFFLINE CREW" -> "Offline crew aboard";
+      case "ABANDONED" -> "Abandoned: owner away";
       case "CREW ABOARD" -> "Crew aboard";
       default -> state;
     };
@@ -99,6 +99,7 @@ public final class ShipRecallTerminal implements ControllerApplication {
                     ? s.detail()
                     : switch (s.state()) {
                       case "ON_PAD" -> "Store frees this pad; you keep the ship's title";
+                      case "ABANDONED" -> "Its owner has been away a day: Store moves it to their storage";
                       case "STORED" -> "Deploy brings it here; carry its title";
                       default -> "Deploy brings it to this pad, or Store it where it is";
                     })
@@ -132,7 +133,7 @@ public final class ShipRecallTerminal implements ControllerApplication {
         else status = blocker();
       }
       case 12 -> {
-        if (can("ON_PAD", "AVAILABLE")) send("ship_store", key);
+        if (can("ON_PAD", "AVAILABLE", "ABANDONED")) send("ship_store", key);
         else status = blocker();
       }
       case 13 -> {
@@ -144,6 +145,14 @@ public final class ShipRecallTerminal implements ControllerApplication {
         if (active) send("recall_cancel", "");
       }
       case 16 -> actions.add(new ControllerTerminal.Action("recall_back", ""));
+      case 17 -> {
+        if (can("ON_PAD", "ABANDONED")) send("ship_show", key);
+        else status = "Show blocks works for a ship standing on this pad";
+      }
+      case 18 -> {
+        if (can("ON_PAD", "AVAILABLE", "STORED")) send("ship_scrap", key);
+        else status = blocker();
+      }
       default -> {}
     }
   }
@@ -185,9 +194,10 @@ public final class ShipRecallTerminal implements ControllerApplication {
     }
     if (active) button(55, 16, "[ Cancel ]", true, false, 15);
     button(2, 18, "[ Deploy here ]", can("AVAILABLE", "STORED"), true, 11);
-    button(20, 18, "[ Store ]", can("ON_PAD", "AVAILABLE"), false, 12);
+    button(20, 18, "[ Store ]", can("ON_PAD", "AVAILABLE", "ABANDONED"), false, 12);
     button(32, 18, "[ Get title ]", !waiting && chosen().isPresent(), false, 13);
     button(48, 18, "[ Refresh ]", true, false, 14);
+    button(62, 18, "[ Show blocks ]", can("ON_PAD", "ABANDONED"), false, 17);
     var lines = new ArrayList<String>();
     for (var line : status.replaceAll("[^ -~\\n]", "?").split("\\n"))
       for (int i = 0; i < Math.max(1, line.length()); i += 76)
@@ -196,6 +206,7 @@ public final class ShipRecallTerminal implements ControllerApplication {
     for (int row = 0; row < 3 && scroll + row < lines.size(); row++)
       text(20 + row, lines.get(scroll + row), TerminalTheme.TEXT);
     button(2, 24, "[ Back to pad ]", true, false, 16);
+    button(62, 24, "[ Scrap ship ]", can("ON_PAD", "AVAILABLE", "STORED"), false, 18);
     return buffer;
   }
 
@@ -216,12 +227,14 @@ public final class ShipRecallTerminal implements ControllerApplication {
       else if (r == 18 && c >= 32 && c < 45) selection = 13;
       else if (r == 18 && c >= 48 && c < 59) selection = 14;
       else if (r == 24 && c >= 2 && c < 17) selection = 16;
+      else if (r == 18 && c >= 62 && c < 77) selection = 17;
+      else if (r == 24 && c >= 62 && c < 76) selection = 18;
       else return;
       activate(selection);
     } else if (input instanceof TerminalInput.Key k)
       switch (k) {
-        case UP, LEFT -> selection = Math.floorMod(selection - 1, 17);
-        case DOWN, RIGHT, TAB -> selection = (selection + 1) % 17;
+        case UP, LEFT -> selection = Math.floorMod(selection - 1, 19);
+        case DOWN, RIGHT, TAB -> selection = (selection + 1) % 19;
         case ENTER -> activate(selection);
         // Escape always closes locally, so a lost server session can never trap the player.
         case ESCAPE -> close = true;

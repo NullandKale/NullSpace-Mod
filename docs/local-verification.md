@@ -1,5 +1,7 @@
 # Local verification
 
+Note (November 7): many of the older `docs/*-verification.json` receipts below cite logs and screenshots under `build/` that were deleted to free disk space. The JSON files remain as the record of what passed; the cited `build/` paths no longer exist.
+
 The [World 5 story review](world5-story-verification.json) passed 522 unit tests with zero skips, 176 mod server tests, the Minecraft smoke test and all 24 graphical cases on one build. It also created/reopened a native Horizon space start and reopened it through ordinary quick-play without the test mod before installing it. Reset path/lock checks and backup hashes are recorded alongside the test receipts.
 
 The [FTL journey pass](ftl-journeys-verification.json) passed 522 unit tests with zero skips, 173 mod server tests and the Minecraft smoke test. All 24 graphical entrypoints passed against the identical production JAR. Its native fixtures now restore temporary simulation poses and remove both hull blocks and metadata. The final server run reclaimed 616 MiB of disposable world data; logs and screenshots were retained.

@@ -33,7 +33,9 @@ public final class EncounterClaims {
     var controller = ShipStore.pos(s, "controller");
     var state = level.getBlockState(controller);
     if (!state.is(ShipBlocks.STATION_CORE))
-      return name + "'s controller is missing. Place a controller there before claiming";
+      return name
+          + " is damaged: its controller is destroyed. Place a Ship Controller aboard and open it"
+          + " to claim the wreck";
     // Take command: the derelict's core becomes an ordinary ship controller facing the same way.
     level.setBlock(
         controller,
@@ -42,6 +44,35 @@ public final class EncounterClaims {
             .setValue(
                 HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)),
         3);
+    return take(p, s, name);
+  }
+
+  /** An unclaimed derelict whose controller has been destroyed. */
+  public static boolean damaged(net.minecraft.server.level.ServerLevel level, CompoundTag s) {
+    return claimable(s)
+        && level.hasChunkAt(ShipStore.pos(s, "controller"))
+        && !level.getBlockState(ShipStore.pos(s, "controller")).is(ShipBlocks.STATION_CORE);
+  }
+
+  /**
+   * Claim wreck: a Ship Controller the player placed aboard a damaged derelict becomes its
+   * controller, and the vessel becomes theirs as with an ordinary claim.
+   */
+  public static String claimWreck(ServerPlayer p, CompoundTag s, net.minecraft.core.BlockPos at) {
+    if (!damaged(p.level(), s)) return "";
+    String name = s.getStringOr("home", "This vessel");
+    if (TravelService.busy(p) || TravelService.busy(p.level().getServer(), s))
+      return "Wait until travel and docking have finished";
+    if (!ShipStore.bounds(s).contains(at) || !p.level().getBlockState(at).is(ShipBlocks.COMPUTER))
+      return "";
+    if (!ShipStore.bounds(s).box().inflate(1).contains(p.position()))
+      return "Step aboard " + name + " to claim the wreck";
+    s.putLong("controller", at.asLong());
+    return take(p, s, name);
+  }
+
+  private static String take(ServerPlayer p, CompoundTag s, String name) {
+    var server = p.level().getServer();
     s.putString("kind", "ship");
     s.putString("owner", p.getUUID().toString());
     var users = new CompoundTag();

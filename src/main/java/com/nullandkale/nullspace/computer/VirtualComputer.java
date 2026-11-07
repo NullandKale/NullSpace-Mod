@@ -542,7 +542,7 @@ public final class VirtualComputer implements ScriptLanguage.Host {
     var root = parsed.getAsJsonObject();
     if (number(root, "version") != 1)
       throw new IllegalArgumentException("Unknown computer image version");
-    if (root.has("compilerAbi") && number(root, "compilerAbi") != ScriptLanguage.COMPILER_ABI)
+    if (!root.has("compilerAbi") || number(root, "compilerAbi") != ScriptLanguage.COMPILER_ABI)
       throw new IllegalArgumentException("Saved scripts require a different compiler ABI");
     clock = Math.max(0, number(root, "clock"));
     files.clear();

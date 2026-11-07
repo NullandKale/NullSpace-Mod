@@ -168,7 +168,8 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
             new EditBox(font, leftPos + 108, topPos + 16, 134, 18, Component.literal("Name")));
     name.setMaxLength(32);
     name.setValue(menu.reading.getStringOr("name", ""));
-    editingName = mode.equals("camera") || mode.equals("monitor") || mode.equals("docking_base");
+    // Every machine names the same way: a Name button that opens the field.
+    editingName = false;
     saveName = button("Save name", 246, 16, 70, () -> send(2, name.getValue()));
     editName =
         button(
@@ -432,6 +433,11 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
         0xff292929);
     if (menu.machineHasSlots())
       g.fill(leftPos + 122, topPos + 150, leftPos + 292, topPos + 234, 0xff292929);
+    // The upgrade column gets its own panel instead of straddling the readings panel's edge.
+    if (java.util.Set.of("generator", "engine", "battery", "local_scanner").contains(mode)) {
+      g.fill(leftPos + 244, topPos + 1, leftPos + 318, topPos + 66, 0xff4a4a4a);
+      g.fill(leftPos + 245, topPos + 2, leftPos + 317, topPos + 65, 0xff2c2c2c);
+    }
     for (var slot : menu.slots)
       if (slot.isActive()) {
         g.fill(
@@ -549,17 +555,35 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
       } else {
         // The Room air bar shows the level; do not repeat it as text.
         // Floors joined by an open stairwell are one room, so one vent fills them all.
+        int floors = data.getIntOr("roomFloors", 0);
         text(
             g,
             "Room: "
                 + data.getIntOr("roomCells", 0)
-                + " cells, "
-                + data.getIntOr("roomFloors", 0)
-                + (data.getIntOr("roomFloors", 0) == 1 ? " level" : " levels"),
+                + " blocks"
+                + (floors > 1 ? " on " + floors + " levels" : ""),
             8,
             46,
             124);
-        text(g, "Leaks: " + data.getIntOr("leaks", 0), 8, 62, 124);
+        text(g, "Leaks: " + data.getIntOr("leaks", 0), 8, 60, 124);
+        // What this pump gives and whether the room's pumps keep up with its leaks.
+        text(
+            g,
+            "This pump: " + data.getIntOr("supplyOutput", 0) + "% output",
+            8,
+            74,
+            124);
+        int covered = data.getIntOr("leakCovered", -1);
+        if (covered >= 0)
+          g.text(
+              font,
+              font.plainSubstrByWidth(
+                  covered >= 100 ? "Pumps hold the leak" : "Leak covered: " + covered + "%",
+                  124),
+              8,
+              88,
+              covered >= 100 ? 0xff8fd18a : 0xffdbad55,
+              false);
       }
     }
     if (mode.equals("camera") || mode.equals("monitor")) {
@@ -597,7 +621,8 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
           304);
     }
     if (mode.contains("scanner")) {
-      text(g, "Page " + (page + 1) + "/" + Math.max(1, (rows().size() + 3) / 4), 8, 112, 120);
+      // Beside the page arrows, clear of the fourth result row.
+      text(g, (page + 1) + "/" + Math.max(1, (rows().size() + 3) / 4), 156, 131, 40);
       var candidate =
           rows().stream().filter(r -> selected.equals(r.getStringOr("id", ""))).findFirst();
       int nameY = 44;
@@ -668,8 +693,17 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
             ? 0xffc4544c
             : mode.equals("air_supply") && current < 60 ? 0xffcba64b : 0xff5ca54d;
     g.fill(140, 106, 140 + (int) (172L * Math.clamp(current, 0, max) / max), 118, color);
-    if (mode.equals("air_supply")) g.fill(183, 106, 184, 118, 0xffeeeeee);
-    text(g, label + ": " + Math.clamp(current, 0, max) + " / " + max, 145, 108, 164);
+    // The label sits above the bar, so the breathing-threshold tick never cuts through it.
+    if (mode.equals("air_supply")) g.fill(183, 104, 184, 120, 0xffeeeeee);
+    text(
+        g,
+        label
+            + ": "
+            + Math.clamp(current, 0, max)
+            + (mode.equals("air_supply") ? "/" + max + ", need 25" : " / " + max),
+        140,
+        96,
+        172);
   }
 
   private void gauge(

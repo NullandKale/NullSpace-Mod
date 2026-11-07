@@ -485,7 +485,7 @@ public final class ShipSystemsGameTest {
                                                               PowerBus.System.CONTROLS)
                                                           == 1
                                                       && ShipSystems.summary(level, vessel)
-                                                          .contains("Generation 8"),
+                                                          .contains("Generation 16"),
                                                   "Local supply reset must recover an intentionally"
                                                       + " unpowered console");
                                               level.setBlock(

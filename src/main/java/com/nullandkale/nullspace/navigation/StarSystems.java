@@ -300,6 +300,12 @@ public final class StarSystems {
 
   private static final Vec3 VIEW = new Vec3(0, -2200, 5200);
 
+  /**
+   * Version of generated orbit views. Saved views with an older version are regenerated
+   * (2: asteroid fields with larger rocks and a dust haze; features lit by a distant star).
+   */
+  public static final int SCENE_LAYOUT = 2;
+
   /** The orbit view of one zone: its system translated around the body, or the feature itself. */
   public static CompoundTag scene(Galaxy galaxy, String zone) {
     var place = galaxy.placeOfZone(zone);
@@ -370,7 +376,7 @@ public final class StarSystems {
     var definition =
         new SpaceDefinition("nullspace:" + zone, 1, seed, 1, 0, bodies, volumes, fields);
     var scene = SpaceDefinitionCodec.encode(definition);
-    scene.putInt("layoutVersion", 1);
+    scene.putInt("layoutVersion", SCENE_LAYOUT);
     scene.putInt("systemGenerator", GalaxyPlan.VERSION);
     scene.putString("system", place.id());
     scene.putString("systemName", place.name());
@@ -402,14 +408,20 @@ public final class StarSystems {
                 0xffd07a9a, .25, .02, .25, -.1, f.seed() + 1, 0));
       }
       case ASTEROID_FIELD -> {
+        // Large rocks in a wide belt, a dense cluster close to the arrival point and a faint
+        // dust haze, so the field reads as a field from where ships arrive.
         fields.add(
             new SpaceDefinition.Field(
-                id + ":field", new Vec3(0, 0, 900), new Vec3(700, 160, 700), 48, .2, 2, 14,
+                id + ":field", new Vec3(0, 0, 1000), new Vec3(900, 200, 900), 64, .18, 6, 25,
                 f.seed(), f.type().color));
         fields.add(
             new SpaceDefinition.Field(
-                id + ":near", new Vec3(-200, 20, 260), new Vec3(160, 40, 160), 24, .15, 1, 6,
+                id + ":near", new Vec3(-120, 10, 220), new Vec3(240, 60, 240), 30, .3, 2, 12,
                 f.seed() + 1, 0xff6f655c));
+        volumes.add(
+            new SpaceDefinition.Volume(
+                id + ":dust", new Vec3(0, 0, 1000), new Vec3(1400, 400, 1400), Vec3.ZERO,
+                0xff8a7a68, .12, .02, .05, .2, f.seed() + 2, 0));
       }
       case ROGUE_PLANET -> {
         bodies.add(
@@ -438,6 +450,17 @@ public final class StarSystems {
                 id + ":disk", new Vec3(0, -600, 8000), new Vec3(3200, 220, 3200), Vec3.ZERO,
                 0xffff9a4a, .45, .02, 1.2, .2, f.seed(), 0));
       }
+    }
+    // Away from any system, the nearest star is a distant point of light: without one, rock and
+    // rogue planets would be black on black. The pulsar lights its own zone.
+    if (f.type() != GalaxyPlan.FeatureType.PULSAR) {
+      String star = id + ":far_star";
+      bodies.add(
+          new SpaceDefinition.Body(
+              // About 20,000 away: a small sun whose light (emission x r^2 / d^2) still reaches.
+              star, 0, new Vec3(-12000, 5000, 15000), Vec3.ZERO, 600, 0xfff4e6c8, 30, 0,
+              f.seed() + 3, 0));
+      names.put(star, "Distant star");
     }
     // Every feature has a little loose rock to fly around.
     String rock = id + ":rock";

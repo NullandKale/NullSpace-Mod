@@ -13,9 +13,10 @@ class ComputerImageCodecTest {
   }
 
   @Test
-  void aMissingImageDecodesToEmptyAndLegacyStringsStillLoad() {
+  void aMissingImageDecodesToEmptyAndOldPlainStringImagesAreRejected() {
     assertEquals("", ComputerImageCodec.decode(null));
-    assertEquals("legacy", ComputerImageCodec.decode(StringTag.valueOf("legacy")));
+    assertThrows(
+        IllegalArgumentException.class, () -> ComputerImageCodec.decode(StringTag.valueOf("old")));
   }
 
   @Test

@@ -133,7 +133,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                       SphereLab.controller(base),
                       com.nullandkale.nullspace.terminal.ComputerTerminal.Action.SYSTEMS));
       context.waitFor(
-          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 8"),
+          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"),
           200);
       world
           .getServer()
@@ -162,7 +162,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                       SphereLab.controller(base),
                       com.nullandkale.nullspace.terminal.ComputerTerminal.Action.SYSTEMS));
       context.waitFor(
-          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 8"),
+          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"),
           100);
       world
           .getServer()
@@ -182,7 +182,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                       .getCompoundOrEmpty("systems")
                       .putBoolean("supplyDisabled", false));
       context.waitFor(
-          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 8"),
+          c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"),
           200);
       context.takeScreenshot("nullspace-systems-controller");
       context.runOnClient(c -> c.gui.setScreen(null));

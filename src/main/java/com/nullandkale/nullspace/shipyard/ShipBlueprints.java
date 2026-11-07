@@ -213,13 +213,9 @@ public final class ShipBlueprints {
               false,
               false));
 
+  /** Air request (power per Air Supply) for a delivered ship: normal output. */
   public static int airDemand(Preset preset) {
-    return Math.max(
-        4,
-        Math.min(
-            12,
-            (int) blocks(preset).values().stream().filter(s -> s.is(ShipBlocks.AIR_SUPPLY)).count()
-                * 2));
+    return com.nullandkale.nullspace.systems.SpatialAir.SUPPLY_POWER;
   }
 
   public static Preset get(String id) {

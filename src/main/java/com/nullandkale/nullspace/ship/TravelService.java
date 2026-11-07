@@ -276,6 +276,10 @@ public final class TravelService {
           "Review and confirm loose blocks before leaving them behind");
     if (com.nullandkale.nullspace.navigation.JourneyService.cruising(inspection.vessel()))
       throw new IllegalArgumentException("Finish the FTL journey before landing");
+    if (!player.level().dimension().equals(SPACE)
+        && !com.nullandkale.nullspace.systems.ShipSystems.enabled(inspection.vessel()))
+      throw new IllegalArgumentException(
+          com.nullandkale.nullspace.navigation.ShipControl.NO_SYSTEMS);
     if (ShipRecall.active(player))
       throw new IllegalArgumentException("Finish or cancel your recall before travelling");
     if (com.nullandkale.nullspace.station.DockingService.motionLocked(inspection.vessel()))

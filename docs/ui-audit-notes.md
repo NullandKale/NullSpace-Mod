@@ -14,6 +14,12 @@ Establish a consistent design language across the interfaces.
 
 Implementation checkpoint, 2026-11-05: the player approved Scanner categories **All**, **Stations**, **Ships**, **Planets & moons**, **Landing pads**, with **Berths** as an optional detail; power labels **Generating**, **Ship demand**, **Charging batteries**, **Power stored**; and the Engine hint **Uses fuel stored in generators.** These are implemented in the navigation/equipment batch. Shared equipment screens now group readings, controls and inventory, with ordinary power allocation buttons instead of an Advanced entry. The Air Supply reads its whole room rather than a single vent cell and shows the breathing threshold. This is a first equipment pass; air/leak visualization tuning, camera/fullscreen presentation, station previews and the other audit work remain open. New screenshots include Battery and Ship Cannon; missing screenshots below describe the original audit.
 
+Equipment pass, 2026-11-07:
+- **Shared screen:** the upgrade column (Generator, Engine, Battery, Scanner) has its own panel instead of straddling the readings panel. Every machine names the same way, with a Name button that opens the field (Camera, Monitor and Docking Base used to show a bare text field). The Scanner's page number sits beside its arrows instead of over the fourth result.
+- **Air Supply:** the screen shows the room's size in blocks, with levels only when there are several (it used to read "0 levels"). It shows this pump's output in percent and whether the room's pumps hold its leak ("Pumps hold the leak" or "Leak covered: 50%"). The Room air label sits above its bar, so the breathing-threshold tick no longer cuts the text.
+- **Flight and camera:** the pilot view (compact H/R/F buttons, one-line control hint) and the edge-to-edge fullscreen camera already match the 1c feedback; reviewed in screenshots.
+- **My ships** gained Show blocks and Scrap ship.
+
 "Fine" means just barely good enough. It does not mean the player is satisfied with the UI or has approved its design. Apply this interpretation to earlier and later feedback.
 
 ## 1. Ship Controller
