@@ -1,8 +1,43 @@
 package com.nullandkale.nullspace;
 
-import com.nullandkale.nullspace.client.*;
-import com.nullandkale.nullspace.ship.*;
-import com.nullandkale.nullspace.terminal.*;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.guide.FieldGuide;
+import com.nullandkale.nullspace.content.guide.GuideContent;
+import com.nullandkale.nullspace.content.guide.GuideRecipes;
+import com.nullandkale.nullspace.core.save.PadRepository;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.dev.ShipGallery;
+import com.nullandkale.nullspace.dev.ShipLab;
+import com.nullandkale.nullspace.dev.SphereLab;
+import com.nullandkale.nullspace.gameplay.computer.ComputerService;
+import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.scene.SceneCatalog;
+import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.ship.structure.BlockSupport;
+import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
+import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
+import com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest;
+import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
+import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
+import com.nullandkale.nullspace.model.computer.VirtualComputer;
+import com.nullandkale.nullspace.model.space.SpaceDefinitionCodec;
+import com.nullandkale.nullspace.render.SpaceSettings;
+import com.nullandkale.nullspace.render.compute.SpaceComputeRenderer;
+import com.nullandkale.nullspace.render.effects.PreviewRenderer;
+import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
+import com.nullandkale.nullspace.testing.ShipControlTestUi;
+import com.nullandkale.nullspace.ui.screen.ShipPilotScreen;
+import com.nullandkale.nullspace.ui.screen.ShipyardScreen;
+import com.nullandkale.nullspace.ui.screen.TerminalScreen;
+import com.nullandkale.nullspace.ui.screen.ViewportScreen;
+import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.nio.file.*;
 import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.context.*;
@@ -18,7 +53,7 @@ public final class LocalMultiplayerTest {
   private static void verifyPilotViewport(ClientGameTestContext ctx) {
     ctx.runOnClient(
         c -> {
-          var s = (com.nullandkale.nullspace.client.scene.ShipPilotScreen) c.gui.screen();
+          var s = (ShipPilotScreen) c.gui.screen();
           var t = s.viewport().target;
           check(
               t.width <= SpaceSettings.width() && t.height <= SpaceSettings.height(),
@@ -32,8 +67,7 @@ public final class LocalMultiplayerTest {
   }
 
   private static void verifyGuide(ClientGameTestContext ctx) {
-    ctx.waitFor(
-        c -> c.player.getMainHandItem().is(com.nullandkale.nullspace.guide.FieldGuide.ITEM), 6000);
+    ctx.waitFor(c -> c.player.getMainHandItem().is(FieldGuide.ITEM), 6000);
     ctx.runOnClient(
         c -> c.gameMode.useItem(c.player, net.minecraft.world.InteractionHand.MAIN_HAND));
     ctx.waitFor(
@@ -42,19 +76,14 @@ public final class LocalMultiplayerTest {
     ctx.runOnClient(
         c -> {
           var stack = c.player.getMainHandItem();
-          var data = stack.get(com.nullandkale.nullspace.guide.GuideRecipes.COMPONENT);
+          var data = stack.get(GuideRecipes.COMPONENT);
           check(
-              data != null
-                  && data.recipes().size()
-                      == com.nullandkale.nullspace.guide.GuideContent.RECIPES.size(),
+              data != null && data.recipes().size() == GuideContent.RECIPES.size(),
               "Dedicated server must synchronize all graphical recipe snapshots");
           var access =
               net.minecraft.client.gui.screens.inventory.BookViewScreen.BookAccess.fromItem(stack);
           int first = access.getPageCount() - data.recipes().size();
-          int terminal =
-              first
-                  + com.nullandkale.nullspace.guide.GuideContent.RECIPES.indexOf(
-                      "computer_terminal");
+          int terminal = first + GuideContent.RECIPES.indexOf("computer_terminal");
           ((net.minecraft.client.gui.screens.inventory.BookViewScreen) c.gui.screen())
               .setPage(terminal);
           int left = (c.gui.screen().width - 192) / 2 + 36;
@@ -79,7 +108,7 @@ public final class LocalMultiplayerTest {
   private static String homePadName;
 
   private static void signal(String name) {
-    com.nullandkale.nullspace.NullSpace.LOGGER.info("MULTIPLAYER_CHECKPOINT {}", name);
+    NullSpace.LOGGER.info("MULTIPLAYER_CHECKPOINT {}", name);
     try {
       Files.writeString(directory.resolve(name), "ok");
     } catch (java.io.IOException e) {
@@ -96,13 +125,11 @@ public final class LocalMultiplayerTest {
     var computers = ship.getCompoundOrEmpty("computers");
     for (String key : computers.keySet()) {
       var disk =
-          new com.nullandkale.nullspace.computer.VirtualComputer(
+          new VirtualComputer(
               (n, a) -> {
                 throw new AssertionError("A persistence assertion must not invoke a device");
               });
-      disk.restore(
-          com.nullandkale.nullspace.computer.ComputerImageCodec.decode(
-              computers.getCompoundOrEmpty(key).get("image")));
+      disk.restore(ComputerImageCodec.decode(computers.getCompoundOrEmpty(key).get("image")));
       if (disk.files.files().containsKey("/home/crew/flightlog")
           && disk.files.read("/home/crew/flightlog").equals("multiplayer_flight_log\n"))
         return true;
@@ -160,25 +187,19 @@ public final class LocalMultiplayerTest {
 
   private static void verifyComputeScene(ClientGameTestContext ctx, String phase) {
     ctx.waitFor(
-        c ->
-            com.nullandkale.nullspace.client.scene.SpaceSceneRenderer.computeReady()
-                && NullSpaceClient.definitions().scene() != null,
+        c -> SpaceSceneRenderer.computeReady() && NullSpaceClient.definitions().scene() != null,
         6000);
     ctx.runOnClient(
         c -> {
           var definition = NullSpaceClient.definitions().scene();
           check(
-              com.nullandkale.nullspace.client.scene.SpaceSceneRenderer.viewport()
-                      .compute()
-                      .stats()
-                      .frames()
-                  > 0,
+              SpaceSceneRenderer.viewport().compute().stats().frames() > 0,
               "Each observer must render its own compute view");
           try {
             Files.writeString(
                 directory.resolve(
                     System.getProperty("nullspace.local.role") + "-" + phase + ".scene"),
-                com.nullandkale.nullspace.scene.SpaceDefinitionCodec.encode(definition).toString());
+                SpaceDefinitionCodec.encode(definition).toString());
             Files.writeString(
                 directory.resolve(
                     System.getProperty("nullspace.local.role") + "-" + phase + ".pose"),
@@ -200,9 +221,9 @@ public final class LocalMultiplayerTest {
         c -> c.gui.screen() instanceof TerminalScreen t && t.shipController())) {
       var control =
           switch (action) {
-            case INSPECT -> com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT;
-            case LAUNCH -> com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH;
-            case LAND -> com.nullandkale.nullspace.navigation.ShipControl.Action.LAND;
+            case INSPECT -> ShipControl.Action.INSPECT;
+            case LAUNCH -> ShipControl.Action.LAUNCH;
+            case LAND -> ShipControl.Action.LAND;
             default ->
                 throw new AssertionError("Unsupported unified controller test action: " + action);
           };
@@ -247,25 +268,19 @@ public final class LocalMultiplayerTest {
   private static void buyShipTogether(ClientGameTestContext ctx) {
     ctx.waitFor(
         c ->
-            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+            c.gui.screen() instanceof ShipyardScreen yard
                 && yard.status().contains("Two-player delivery test"),
         6000);
     ctx.waitTicks(5);
     int design =
-        java.util.stream.IntStream.range(
-                0, com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size())
-            .filter(
-                i ->
-                    com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS
-                        .get(i)
-                        .id()
-                        .equals("mule"))
+        java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size())
+            .filter(i -> ShipBlueprints.PRESETS.get(i).id().equals("mule"))
             .findFirst()
             .orElseThrow();
     ShipYardClientGameTest.choose(ctx, design);
     ctx.waitFor(
         c ->
-            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+            c.gui.screen() instanceof ShipyardScreen yard
                 && yard.selected().equals("mule")
                 && yard.ready(),
         6000);
@@ -273,17 +288,16 @@ public final class LocalMultiplayerTest {
     signal(role + "-shipyard-ready");
     await(ctx, "pilot-shipyard-ready");
     await(ctx, "crew-shipyard-ready");
-    ShipYardClientGameTest.choose(
-        ctx, com.nullandkale.nullspace.shipyard.ShipBlueprints.PRESETS.size());
+    ShipYardClientGameTest.choose(ctx, ShipBlueprints.PRESETS.size());
     ctx.waitFor(
         c ->
-            c.gui.screen() instanceof com.nullandkale.nullspace.client.ShipyardScreen yard
+            c.gui.screen() instanceof ShipyardScreen yard
                 && (yard.status().contains("DELIVERED:")
                     || yard.status().contains("Clear the pad")),
         6000);
     ctx.runOnClient(
         c -> {
-          var terminal = (com.nullandkale.nullspace.client.ShipyardScreen) c.gui.screen();
+          var terminal = (ShipyardScreen) c.gui.screen();
           try {
             Files.writeString(
                 directory.resolve(role + "-shipyard-result"),
@@ -329,7 +343,7 @@ public final class LocalMultiplayerTest {
             dedicated.computeOnServer(
                 s -> {
                   try {
-                    return com.nullandkale.nullspace.dev.ShipLab.ensure(s);
+                    return ShipLab.ensure(s);
                   } catch (java.io.IOException error) {
                     throw new java.io.UncheckedIOException(error);
                   }
@@ -364,7 +378,7 @@ public final class LocalMultiplayerTest {
                   .setBlock(
                       dropperPos,
                       net.minecraft.world.level.block.Blocks.DROPPER.defaultBlockState(),
-                      ShipBlockSupport.TRANSFER_FLAGS);
+                      BlockSupport.TRANSFER_FLAGS);
               var dropper =
                   (net.minecraft.world.level.block.entity.DropperBlockEntity)
                       s.overworld().getBlockEntity(dropperPos);
@@ -377,7 +391,7 @@ public final class LocalMultiplayerTest {
                   .setBlock(
                       brewerPos,
                       net.minecraft.world.level.block.Blocks.BREWING_STAND.defaultBlockState(),
-                      ShipBlockSupport.TRANSFER_FLAGS);
+                      BlockSupport.TRANSFER_FLAGS);
               var brewer =
                   (net.minecraft.world.level.block.entity.BrewingStandBlockEntity)
                       s.overworld().getBlockEntity(brewerPos);
@@ -415,10 +429,8 @@ public final class LocalMultiplayerTest {
             server -> {
               for (var p : server.getPlayerList().getPlayers()) {
                 var previous = p.getMainHandItem().copy();
-                var guide =
-                    new net.minecraft.world.item.ItemStack(
-                        com.nullandkale.nullspace.guide.FieldGuide.ITEM);
-                com.nullandkale.nullspace.guide.FieldGuide.refresh(guide, p.level());
+                var guide = new net.minecraft.world.item.ItemStack(FieldGuide.ITEM);
+                FieldGuide.refresh(guide, p.level());
                 p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, guide);
                 if (!previous.isEmpty()) p.getInventory().add(previous);
                 p.inventoryMenu.broadcastChanges();
@@ -444,8 +456,7 @@ public final class LocalMultiplayerTest {
                       .filter(player -> player.getGameProfile().name().equals("NullSpace_pilot"))
                       .findFirst()
                       .orElseThrow();
-              com.nullandkale.nullspace.pad.PadComputers.open(
-                  p, base.offset(-1, 1, 3), "Preview isolation test");
+              PadComputers.open(p, base.offset(-1, 1, 3), "Preview isolation test");
             });
         ctx.waitFor(
             c ->
@@ -491,8 +502,8 @@ public final class LocalMultiplayerTest {
               server
                   .overworld()
                   .setBlock(
-                      pc, ShipBlocks.TERMINAL.defaultBlockState(), ShipBlockSupport.TRANSFER_FLAGS);
-              com.nullandkale.nullspace.computer.ComputerService.open(pilot, pc);
+                      pc, ModBlocks.TERMINAL.defaultBlockState(), BlockSupport.TRANSFER_FLAGS);
+              ComputerService.open(pilot, pc);
             });
         ctx.waitFor(
             c ->
@@ -512,8 +523,8 @@ public final class LocalMultiplayerTest {
         ctx.waitTicks(10);
         dedicated.runOnServer(
             server -> {
-              com.nullandkale.nullspace.computer.ComputerService.flush(server);
-              var ship = ShipStore.get(server).at(server.overworld(), base.offset(4, 4, 6));
+              ComputerService.flush(server);
+              var ship = WorldStore.get(server).at(server.overworld(), base.offset(4, 4, 6));
               check(
                   hasFlightLog(ship),
                   "Real keyboard input must persist a guest file on the shared ship");
@@ -566,11 +577,11 @@ public final class LocalMultiplayerTest {
         await(ctx, "crew-initial.scene");
         dedicated.runOnServer(
             s -> {
-              var scene = com.nullandkale.nullspace.scene.SceneCatalog.get(s);
+              var scene = SceneCatalog.get(s);
               scene.putLong("revision", scene.getLongOr("revision", 0) + 1);
               ((net.minecraft.nbt.CompoundTag) scene.getListOrEmpty("bodies").getFirst())
                   .putInt("color", 0xffaa66ff);
-              ShipStore.get(s).save();
+              WorldStore.get(s).save();
             });
         signal("scene-edited");
         ctx.waitFor(
@@ -604,10 +615,10 @@ public final class LocalMultiplayerTest {
                           .filter(p -> p.getGameProfile().name().equals("NullSpace_pilot"))
                           .findFirst()
                           .orElseThrow();
-                  var vessel = com.nullandkale.nullspace.scene.SceneService.observer(pilot);
-                  var helm = ShipStore.pos(vessel, "controller");
+                  var vessel = SceneService.observer(pilot);
+                  var helm = WorldStore.pos(vessel, "controller");
                   vessel.putDouble("simVX", 99);
-                  com.nullandkale.nullspace.navigation.NavigationService.open(pilot, helm, true);
+                  NavigationService.open(pilot, helm, true);
                   check(
                       vessel.getDoubleOr("simVX", -1) == 0,
                       "Reacquiring a helm after restart must discard stale saved velocity");
@@ -618,45 +629,36 @@ public final class LocalMultiplayerTest {
                           .orElseThrow();
                   boolean rejected = false;
                   try {
-                    com.nullandkale.nullspace.navigation.NavigationService.open(crew, helm, true);
+                    NavigationService.open(crew, helm, true);
                   } catch (IllegalArgumentException expected) {
                     rejected = true;
                   }
                   check(rejected, "Only one real client can own pilot input");
-                  com.nullandkale.nullspace.navigation.NavigationService.open(crew, helm, false);
-                  return com.nullandkale.nullspace.scene.SceneService.pose(vessel).position();
+                  NavigationService.open(crew, helm, false);
+                  return SceneService.pose(vessel).position();
                 });
         signal("flight-ready");
-        ctx.waitFor(
-            c ->
-                c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ShipPilotScreen s
-                    && s.canPilot(),
-            6000);
+        ctx.waitFor(c -> c.gui.screen() instanceof ShipPilotScreen s && s.canPilot(), 6000);
         await(ctx, "crew-observing");
         verifyPilotViewport(ctx);
         ctx.runOnClient(
             c ->
-                ((com.nullandkale.nullspace.client.scene.ShipPilotScreen) c.gui.screen())
+                ((ShipPilotScreen) c.gui.screen())
                     .keyPressed(
                         new net.minecraft.client.input.KeyEvent(
                             com.mojang.blaze3d.platform.InputConstants.KEY_W, 0, 0)));
         ctx.waitTicks(25);
         ctx.runOnClient(
             c ->
-                ((com.nullandkale.nullspace.client.scene.ShipPilotScreen) c.gui.screen())
+                ((ShipPilotScreen) c.gui.screen())
                     .keyReleased(
                         new net.minecraft.client.input.KeyEvent(
                             com.mojang.blaze3d.platform.InputConstants.KEY_W, 0, 0)));
         dedicated.runOnServer(
             s -> {
-              var vessel =
-                  com.nullandkale.nullspace.scene.SceneService.observer(
-                      s.getPlayerList().getPlayers().getFirst());
+              var vessel = SceneService.observer(s.getPlayerList().getPlayers().getFirst());
               check(
-                  com.nullandkale.nullspace.scene.SceneService.pose(vessel)
-                          .position()
-                          .distanceTo(flightStart)
-                      > 1,
+                  SceneService.pose(vessel).position().distanceTo(flightStart) > 1,
                   "Actual network controls must move the shared ship pose");
             });
         ctx.takeScreenshot("local-multiplayer-flight");
@@ -671,18 +673,15 @@ public final class LocalMultiplayerTest {
                         .filter(player -> player.getGameProfile().name().equals("NullSpace_pilot"))
                         .findFirst()
                         .orElseThrow();
-                com.nullandkale.nullspace.navigation.NavigationService.navigation(
-                    p,
-                    ShipStore.pos(
-                        com.nullandkale.nullspace.scene.SceneService.observer(p), "controller"));
+                NavigationService.navigation(
+                    p, WorldStore.pos(SceneService.observer(p), "controller"));
               });
           ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
           ctx.waitTicks(15);
           signal(route.equals("sol_luna") ? "jump-luna" : "jump-home");
           ShipControlTestUi.destination(
               ctx, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra", "Regions");
-          ShipControlTestUi.action(
-              ctx, com.nullandkale.nullspace.navigation.ShipControl.Action.JUMP);
+          ShipControlTestUi.action(ctx, ShipControl.Action.JUMP);
           String sceneId =
               route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";
           ctx.waitFor(
@@ -708,9 +707,9 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               var p = s.getPlayerList().getPlayers().getFirst();
-              var vessel = ShipStore.get(s).at(p.level(), p.blockPosition());
+              var vessel = WorldStore.get(s).at(p.level(), p.blockPosition());
               ShipService.open(
-                  p, ShipStore.pos(vessel, "controller"), "Return while crew is offline");
+                  p, WorldStore.pos(vessel, "controller"), "Return while crew is offline");
             });
         ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
         ctx.waitTicks(15);
@@ -726,7 +725,7 @@ public final class LocalMultiplayerTest {
         dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 2, 6000);
         dedicated.runOnServer(
             server -> {
-              var ship = ShipStore.get(server).at(server.overworld(), base.offset(4, 4, 6));
+              var ship = WorldStore.get(server).at(server.overworld(), base.offset(4, 4, 6));
               check(
                   hasFlightLog(ship),
                   "Computer files must survive launch, jumps, offline crew and landing");
@@ -743,8 +742,7 @@ public final class LocalMultiplayerTest {
                     "Both inventories must survive reconnect and travel");
               for (var p : s.getPlayerList().getPlayers())
                 check(
-                    p.getInventory().countItem(com.nullandkale.nullspace.guide.FieldGuide.ITEM)
-                        == 1,
+                    p.getInventory().countItem(FieldGuide.ITEM) == 1,
                     "Graphical guide items must survive launch, travel and reconnect exactly once");
               check(
                   s.overworld().getEntity(mobId[0]) != null
@@ -793,31 +791,26 @@ public final class LocalMultiplayerTest {
             dedicated.computeOnServer(
                 s -> {
                   try {
-                    var origin =
-                        com.nullandkale.nullspace.dev.SphereLab.ensure(
-                                s, com.nullandkale.nullspace.dev.ShipGallery.ensure(s))
-                            .base();
+                    var origin = SphereLab.ensure(s, ShipGallery.ensure(s)).base();
                     for (int x = 14; x <= 19; x++)
                       s.overworld()
                           .setBlock(
                               origin.offset(x, 6, 21),
                               new net.minecraft.world.level.block.Block[] {
-                                    ShipBlocks.GENERATOR,
-                                    ShipBlocks.BATTERY,
-                                    ShipBlocks.AIR_SUPPLY,
-                                    ShipBlocks.LOCAL_SCANNER,
-                                    ShipBlocks.LOCAL_SCANNER,
-                                    ShipBlocks.MONITOR
+                                    ModBlocks.GENERATOR,
+                                    ModBlocks.BATTERY,
+                                    ModBlocks.AIR_SUPPLY,
+                                    ModBlocks.LOCAL_SCANNER,
+                                    ModBlocks.LOCAL_SCANNER,
+                                    ModBlocks.MONITOR
                                   }
                                   [x - 14].defaultBlockState(),
                               18);
                     s.overworld()
                         .setBlock(
-                            origin.offset(16, 7, 21), ShipBlocks.CAMERA.defaultBlockState(), 18);
-                    var vessel =
-                        com.nullandkale.nullspace.systems.ShipTopology.resolve(
-                            s.overworld(), com.nullandkale.nullspace.dev.SphereLab.controller(origin));
-                    com.nullandkale.nullspace.systems.ShipSystems.upgrade(s.overworld(), vessel);
+                            origin.offset(16, 7, 21), ModBlocks.CAMERA.defaultBlockState(), 18);
+                    var vessel = ShipTopology.resolve(s.overworld(), SphereLab.controller(origin));
+                    ShipSystems.upgrade(s.overworld(), vessel);
                     for (var p : s.getPlayerList().getPlayers()) {
                       p.teleportTo(
                           s.overworld(),
@@ -830,7 +823,7 @@ public final class LocalMultiplayerTest {
                           true);
                       s.overworld().getChunkSource().move(p);
                     }
-                    return com.nullandkale.nullspace.dev.SphereLab.controller(origin);
+                    return SphereLab.controller(origin);
                   } catch (java.io.IOException e) {
                     throw new java.io.UncheckedIOException(e);
                   }
@@ -839,8 +832,7 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               for (var p : s.getPlayerList().getPlayers())
-                com.nullandkale.nullspace.systems.ShipSystems.action(
-                    p, engineering, ComputerTerminal.Action.SYSTEMS);
+                ShipSystems.action(p, engineering, ComputerTerminal.Action.SYSTEMS);
             });
         ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
         signal("systems-ready");
@@ -866,7 +858,7 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               for (var p : s.getPlayerList().getPlayers())
-                com.nullandkale.nullspace.systems.ShipSystems.action(
+                ShipSystems.action(
                     p,
                     engineering,
                     ComputerTerminal.Action.CONFIGURE,
@@ -885,9 +877,7 @@ public final class LocalMultiplayerTest {
         await(ctx, "crew-page-preserved");
         dedicated.runOnServer(
             s -> {
-              var vessel =
-                  com.nullandkale.nullspace.systems.ShipTopology.resolve(
-                      s.overworld(), engineering);
+              var vessel = ShipTopology.resolve(s.overworld(), engineering);
               check(
                   vessel.getCompoundOrEmpty("systems").getIntArray("requests").orElseThrow()[4]
                       == 2,
@@ -899,10 +889,8 @@ public final class LocalMultiplayerTest {
                         engineering,
                         "",
                         "systems",
-                        Integer.toString(
-                            com.nullandkale.nullspace.systems.ShipSystems.revision(
-                                s.overworld(), vessel)));
-                com.nullandkale.nullspace.scene.SceneService.open(p, engineering.east());
+                        Integer.toString(ShipSystems.revision(s.overworld(), vessel)));
+                SceneService.open(p, engineering.east());
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
                     p,
                     new ComputerTerminal.Update(
@@ -911,9 +899,7 @@ public final class LocalMultiplayerTest {
                         9999));
               }
             });
-        ctx.waitFor(
-            c -> c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ViewportScreen,
-            6000);
+        ctx.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 6000);
         await(ctx, "crew-camera");
         ctx.takeScreenshot("local-multiplayer-camera");
         var remote = engineering.offset(4096, 0, 0);
@@ -975,9 +961,7 @@ public final class LocalMultiplayerTest {
             });
         signal("remote-camera-ready");
         ctx.waitFor(
-            c ->
-                c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ViewportScreen v
-                    && v.sourcePosition().equals(remote),
+            c -> c.gui.screen() instanceof ViewportScreen v && v.sourcePosition().equals(remote),
             6000);
         ctx.waitTicks(30);
         var content = new java.util.concurrent.atomic.AtomicInteger(-1);
@@ -987,9 +971,7 @@ public final class LocalMultiplayerTest {
                   !c.level.getChunkSource().hasChunk(remote.getX() >> 4, remote.getZ() >> 4),
                   "Remote camera must not populate either player's ordinary chunk cache");
               net.minecraft.client.Screenshot.takeScreenshot(
-                  ((com.nullandkale.nullspace.client.scene.ViewportScreen) c.gui.screen())
-                      .viewport()
-                      .target,
+                  ((ViewportScreen) c.gui.screen()).viewport().target,
                   image -> {
                     try {
                       int first = image.getPixel(0, 0), count = 0;
@@ -1037,12 +1019,11 @@ public final class LocalMultiplayerTest {
                     z <= (deliveryBase.getZ() + 20) >> 4;
                     z++) level.setChunkForced(x, z, true);
               try {
-                com.nullandkale.nullspace.shipyard.ShipYard.buildPad(
-                    level, deliveryBase, 16, 20, "Shared Delivery");
+                ShipYard.buildPad(level, deliveryBase, 16, 20, "Shared Delivery");
               } catch (java.io.IOException error) {
                 throw new java.io.UncheckedIOException(error);
               }
-              level.setBlock(deliveryBeacon, ShipBlocks.SHIP_BEACON.defaultBlockState(), 18);
+              level.setBlock(deliveryBeacon, ModBlocks.SHIP_BEACON.defaultBlockState(), 18);
               for (int z = 1; z <= 3; z++)
                 level.setBlock(
                     deliveryBase.offset(-3, 0, z),
@@ -1065,8 +1046,7 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               for (var p : s.getPlayerList().getPlayers())
-                com.nullandkale.nullspace.shipyard.ShipYardService.open(
-                    p, deliveryBeacon, "mule", "Two-player delivery test");
+                ShipYardService.open(p, deliveryBeacon, "mule", "Two-player delivery test");
             });
         buyShipTogether(ctx);
         await(ctx, "crew-shipyard-done");
@@ -1081,14 +1061,14 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               var deliveries =
-                  ShipStore.get(s).ships().stream()
+                  WorldStore.get(s).ships().stream()
                       .map(t -> (net.minecraft.nbt.CompoundTag) t)
                       .filter(t -> t.getStringOr("blueprint", "").equals("mule"))
                       .toList();
               check(
                   deliveries.size() == 1, "Concurrent purchases create exactly one ship identity");
               check(
-                  ShipStore.get(s).list("shipyardOrders").isEmpty(),
+                  WorldStore.get(s).list("shipyardOrders").isEmpty(),
                   "The completed purchase has no leftover order");
               for (var p : s.getPlayerList().getPlayers())
                 check(
@@ -1096,17 +1076,17 @@ public final class LocalMultiplayerTest {
                     "Neither buyer is charged for a free ship");
               var ship = deliveries.getFirst();
               var pad =
-                  com.nullandkale.nullspace.pad.PadRepository.get(s)
+                  PadRepository.get(s)
                       .dimension(s.overworld().dimension().identifier().toString())
                       .stream()
                       .filter(p -> p.name().equals("Shared Delivery"))
                       .findFirst()
                       .orElseThrow();
-              ShipScan.inspect(
-                  s.overworld(), ShipStore.pos(ship, "controller"), pad.bounds(), true);
-              com.nullandkale.nullspace.shipyard.ShipYardService.recover(s);
+              HullScan.inspect(
+                  s.overworld(), WorldStore.pos(ship, "controller"), pad.bounds(), true);
+              ShipYardService.recover(s);
               check(
-                  ShipStore.get(s).ships().stream()
+                  WorldStore.get(s).ships().stream()
                           .filter(
                               t ->
                                   ((net.minecraft.nbt.CompoundTag) t)
@@ -1134,10 +1114,7 @@ public final class LocalMultiplayerTest {
     ctx.runOnClient(
         c ->
             ClientPlayNetworking.send(
-                new com.nullandkale.nullspace.navigation.ShipControl.Input(
-                    UUID.randomUUID(),
-                    com.nullandkale.nullspace.navigation.ShipControl.Action.INSPECT,
-                    "")));
+                new ShipControl.Input(UUID.randomUUID(), ShipControl.Action.INSPECT, "")));
     ctx.waitTicks(30);
     ctx.runOnClient(
         c ->
@@ -1181,11 +1158,7 @@ public final class LocalMultiplayerTest {
         6000);
     verifyComputeScene(ctx, "edited");
     await(ctx, "flight-ready");
-    ctx.waitFor(
-        c ->
-            c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ShipPilotScreen s
-                && !s.canPilot(),
-        6000);
+    ctx.waitFor(c -> c.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 6000);
     verifyPilotViewport(ctx);
     signal("crew-observing");
     await(ctx, "flight-stop");
@@ -1214,8 +1187,7 @@ public final class LocalMultiplayerTest {
           c ->
               c.level == null
                   && NullSpaceClient.definitions().scene() == null
-                  && com.nullandkale.nullspace.client.scene.compute.SpaceComputeRenderer.liveViews()
-                      == 0,
+                  && SpaceComputeRenderer.liveViews() == 0,
           200);
     } catch (AssertionError timeout) {
       ctx.runOnClient(
@@ -1226,8 +1198,7 @@ public final class LocalMultiplayerTest {
                     + " definition="
                     + (NullSpaceClient.definitions().scene() != null)
                     + " GPU views="
-                    + com.nullandkale.nullspace.client.scene.compute.SpaceComputeRenderer
-                        .liveViews(),
+                    + SpaceComputeRenderer.liveViews(),
                 timeout);
           });
       throw timeout;
@@ -1267,14 +1238,13 @@ public final class LocalMultiplayerTest {
                 c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("CRUISE"),
                 "Crew must keep a separate profile page across automatic updates"));
     signal("crew-page-preserved");
-    ctx.waitFor(
-        c -> c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ViewportScreen, 6000);
+    ctx.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 6000);
     signal("crew-camera");
     await(ctx, "remote-camera-ready");
     ctx.waitTicks(40);
     ctx.runOnClient(
         c -> {
-          if (!(c.gui.screen() instanceof com.nullandkale.nullspace.client.scene.ViewportScreen))
+          if (!(c.gui.screen() instanceof ViewportScreen))
             throw new AssertionError("Crew must retain the remote viewport");
         });
     signal("crew-remote-camera");

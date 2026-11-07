@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.content;
 
 import com.google.gson.*;
+import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -51,8 +52,8 @@ public final class ContentCatalog {
   public static final List<PlanetDefinition> PLANETS = planets();
 
   /**
-   * The P9 surface pool: one landable dimension per slot, assigned to planets by the world's
-   * galaxy chart. Ocean and jungle worlds have breathable air.
+   * The P9 surface pool: one landable dimension per slot, assigned to planets by the world's galaxy
+   * chart. Ocean and jungle worlds have breathable air.
    */
   public static final List<PlanetDefinition> SURFACE_POOL = surfacePool();
 
@@ -62,16 +63,21 @@ public final class ContentCatalog {
 
   private static List<PlanetDefinition> surfacePool() {
     var pool = new ArrayList<PlanetDefinition>();
-    for (var entry : com.nullandkale.nullspace.navigation.GalaxyPlan.SURFACE_POOL.entrySet()) {
+    for (var entry : GalaxyPlan.SURFACE_POOL.entrySet()) {
       var type = entry.getKey();
-      boolean breathable =
-          type == com.nullandkale.nullspace.navigation.GalaxyPlan.BodyType.OCEAN
-              || type == com.nullandkale.nullspace.navigation.GalaxyPlan.BodyType.JUNGLE;
+      boolean breathable = type == GalaxyPlan.BodyType.OCEAN || type == GalaxyPlan.BodyType.JUNGLE;
       for (int i = 0; i < entry.getValue(); i++) {
-        String id = com.nullandkale.nullspace.navigation.GalaxyPlan.surfaceSlot(type, i);
+        String id = GalaxyPlan.surfaceSlot(type, i);
         pool.add(
             new PlanetDefinition(
-                id, "", "", type.label, id.hashCode(), type.color, false, breathable,
+                id,
+                "",
+                "",
+                type.label,
+                id.hashCode(),
+                type.color,
+                false,
+                breathable,
                 "nullspace:" + id));
       }
     }

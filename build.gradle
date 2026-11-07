@@ -146,7 +146,7 @@ tasks.register('benchmarkSystems', JavaExec) {
     dependsOn 'testClasses'
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.nullandkale.nullspace.systems.AtmosphereBenchmark'
+    mainClass = 'com.nullandkale.nullspace.model.air.AtmosphereBenchmark'
     args layout.buildDirectory.dir('performance').get().asFile.absolutePath,
         providers.gradleProperty('benchmarkLabel').getOrElse('current')
 }
@@ -206,16 +206,16 @@ def serverTestSessions = layout.buildDirectory.dir('run/gameTest-sessions')
 if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
     tasks.register('pruneGameTestWorlds', Exec) {
         commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
-            layout.projectDirectory.file('scripts/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
+            layout.projectDirectory.file('scripts/test/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
     }
     tasks.named('runGameTest').configure { dependsOn 'pruneGameTestWorlds' }
     tasks.register('cleanupGameTestWorlds', Exec) {
         commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
-            layout.projectDirectory.file('scripts/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
+            layout.projectDirectory.file('scripts/test/Remove-OldGameTestWorlds.ps1').asFile.absolutePath
     }
     tasks.register('cleanupClientGameTestWorlds', Exec) {
         commandLine 'powershell.exe', '-NoProfile', '-NonInteractive', '-File',
-            layout.projectDirectory.file('scripts/Remove-TestWorlds.ps1').asFile.absolutePath,
+            layout.projectDirectory.file('scripts/test/Remove-TestWorlds.ps1').asFile.absolutePath,
             '-WorkRoot', layout.buildDirectory.dir('run/clientGameTest').get().asFile.absolutePath
     }
     // Finalizers also run when a test JVM fails. Logs, XML and screenshots stay.

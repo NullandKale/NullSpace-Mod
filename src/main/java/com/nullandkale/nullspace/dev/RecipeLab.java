@@ -1,8 +1,9 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.*;
-import com.nullandkale.nullspace.ship.PadRegistry;
-import com.nullandkale.nullspace.ship.ShipStore;
+import com.nullandkale.nullspace.content.guide.GuideContent;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
+import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import java.nio.file.*;
 import java.util.*;
 import net.minecraft.core.*;
@@ -22,7 +23,7 @@ import net.minecraft.world.level.storage.LevelResource;
 
 /** A saved, editable display of real loaded recipes, never a second recipe implementation. */
 public final class RecipeLab {
-  public static final List<String> RECIPES = com.nullandkale.nullspace.guide.GuideContent.RECIPES;
+  public static final List<String> RECIPES = GuideContent.RECIPES;
   public static final int[] GRID_SLOTS = {1, 2, 3, 10, 11, 12, 19, 20, 21};
   public static final int OUTPUT_SLOT = 15;
   public static final int WIDTH = 33, DEPTH = 35;
@@ -42,12 +43,12 @@ public final class RecipeLab {
   public static Gallery ensure(MinecraftServer server) throws java.io.IOException {
     var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-recipe-lab-v1.nbt");
     if (Files.exists(marker)) {
-      var saved = ShipStore.read(marker);
+      var saved = WorldStore.read(marker);
       if (saved.getIntOr("version", 0) != 1 || !saved.getBooleanOr("complete", false))
         throw new IllegalStateException(
             "Recipe gallery creation was interrupted or has an unknown version; existing blocks"
                 + " preserved");
-      return new Gallery(ShipStore.pos(saved, "origin"));
+      return new Gallery(WorldStore.pos(saved, "origin"));
     }
     // Resolve everything before reserving or placing the gallery. Broken data must
     // not leave half-filled chests or a completed marker.
@@ -80,7 +81,7 @@ public final class RecipeLab {
     saved.putInt("version", 1);
     saved.putLong("origin", gallery.origin().asLong());
     saved.putBoolean("complete", false);
-    ShipStore.write(marker, saved);
+    WorldStore.write(marker, saved);
     for (int x = 0; x < WIDTH; x++)
       for (int z = 0; z < DEPTH; z++) {
         var floor = gallery.origin().offset(x, 0, z);
@@ -112,7 +113,7 @@ public final class RecipeLab {
       display(level, gallery.chest(index), index, recipes.get(index));
     server.saveEverything(true, true, true);
     saved.putBoolean("complete", true);
-    ShipStore.write(marker, saved);
+    WorldStore.write(marker, saved);
     return gallery;
   }
 

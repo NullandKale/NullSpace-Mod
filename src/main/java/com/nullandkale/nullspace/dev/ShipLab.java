@@ -1,7 +1,12 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.*;
-import com.nullandkale.nullspace.ship.*;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.guide.FieldGuide;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
+import com.nullandkale.nullspace.gameplay.pads.PadScanner;
+import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import java.nio.file.Files;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.loader.api.FabricLoader;
@@ -65,7 +70,7 @@ public final class ShipLab {
       if (TravelService.busy(player))
         throw new IllegalArgumentException(
             "Wait for ship travel to finish before visiting the lab");
-      com.nullandkale.nullspace.guide.FieldGuide.supply(player);
+      FieldGuide.supply(player);
       var server = player.level().getServer();
       var level = server.overworld();
       if (plot == -2) {
@@ -116,7 +121,7 @@ public final class ShipLab {
       } else {
         var base = ensure(server);
         var computer = base.offset(6, 3, 3);
-        if (level.getBlockState(computer).is(ShipBlocks.COMPUTER)) {
+        if (level.getBlockState(computer).is(ModBlocks.COMPUTER)) {
           player.teleportTo(
               level,
               base.getX() + 4.5,
@@ -160,10 +165,10 @@ public final class ShipLab {
   private static void supply(ServerPlayer player) {
     for (var item :
         new net.minecraft.world.item.Item[] {
-          ShipBlocks.HELMET,
-          ShipBlocks.CHEST,
-          ShipBlocks.LEGS,
-          ShipBlocks.BOOTS,
+          ModBlocks.HELMET,
+          ModBlocks.CHEST,
+          ModBlocks.LEGS,
+          ModBlocks.BOOTS,
           net.minecraft.world.item.Items.COOKED_BEEF
         }) {
       if (player.getInventory().countItem(item) > 0) continue;

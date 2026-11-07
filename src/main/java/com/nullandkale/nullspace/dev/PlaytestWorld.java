@@ -1,8 +1,11 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.PadComputerBlock;
-import com.nullandkale.nullspace.pad.PadComputers;
-import com.nullandkale.nullspace.ship.ShipBlocks;
+import com.nullandkale.nullspace.NullSpace;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.guide.FieldGuide;
+import com.nullandkale.nullspace.content.machine.PadComputerBlock;
+import com.nullandkale.nullspace.core.ServerContext;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import java.nio.file.Files;
 import java.util.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -18,8 +21,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelResource;
 
 public final class PlaytestWorld {
-  private static final com.nullandkale.nullspace.server.ServerContext.Key<Set<UUID>> ARRIVALS =
-      new com.nullandkale.nullspace.server.ServerContext.Key<>();
+  private static final ServerContext.Key<Set<UUID>> ARRIVALS = new ServerContext.Key<>();
 
   public static void initialize() {
     if (!FabricLoader.getInstance().isDevelopmentEnvironment()) return;
@@ -33,15 +35,12 @@ public final class PlaytestWorld {
           // JOIN precedes native registration in the captured login level. A lab
           // teleport here can register a space player in both worlds and corrupt
           // the entity callbacks and distance-manager membership.
-          com.nullandkale.nullspace.server.ServerContext.get(server)
-              .service(ARRIVALS, HashSet::new)
-              .add(handler.player.getUUID());
+          ServerContext.get(server).service(ARRIVALS, HashSet::new).add(handler.player.getUUID());
         });
-    com.nullandkale.nullspace.server.ServerContext.tick(
-        com.nullandkale.nullspace.server.ServerContext.Phase.FIXTURES,
+    ServerContext.tick(
+        ServerContext.Phase.FIXTURES,
         server -> {
-          var arrivals =
-              com.nullandkale.nullspace.server.ServerContext.get(server).remove(ARRIVALS);
+          var arrivals = ServerContext.get(server).remove(ARRIVALS);
           if (arrivals != null)
             for (var id : arrivals) {
               var player = server.getPlayerList().getPlayer(id);
@@ -49,11 +48,11 @@ public final class PlaytestWorld {
             }
         });
     ServerLifecycleEvents.SERVER_STOPPED.register(
-        server -> com.nullandkale.nullspace.server.ServerContext.get(server).remove(ARRIVALS));
+        server -> ServerContext.get(server).remove(ARRIVALS));
   }
 
   private static void prepare(ServerPlayer player) {
-    com.nullandkale.nullspace.guide.FieldGuide.supply(player);
+    FieldGuide.supply(player);
     var server = player.level().getServer();
     var root = server.getWorldPath(LevelResource.ROOT);
     String save = root.toAbsolutePath().normalize().getFileName().toString();
@@ -61,12 +60,12 @@ public final class PlaytestWorld {
     if (!Files.exists(supplies)) {
       for (var item :
           new net.minecraft.world.item.Item[] {
-            ShipBlocks.COMPUTER.asItem(),
-            ShipBlocks.ENGINE.asItem(),
-            ShipBlocks.HELMET,
-            ShipBlocks.CHEST,
-            ShipBlocks.LEGS,
-            ShipBlocks.BOOTS
+            ModBlocks.COMPUTER.asItem(),
+            ModBlocks.ENGINE.asItem(),
+            ModBlocks.HELMET,
+            ModBlocks.CHEST,
+            ModBlocks.LEGS,
+            ModBlocks.BOOTS
           }) {
         var stack = new ItemStack(item);
         player.getInventory().add(stack);
@@ -107,8 +106,7 @@ public final class PlaytestWorld {
                   + lab.getX()
                   + " and existing edits are preserved."));
     } catch (Exception error) {
-      com.nullandkale.nullspace.NullSpace.LOGGER.error(
-          "Could not prepare reference ship lab", error);
+      NullSpace.LOGGER.error("Could not prepare reference ship lab", error);
     }
     if (save.equals("NullSpace-Lab")) {
       var boarded = root.resolve("nullspace-lab-boarded-" + player.getUUID());

@@ -1,12 +1,26 @@
 package com.nullandkale.nullspace;
 
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.machine.PadComputerBlock;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.dev.ShipLab;
+import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ShipControlTestUi;
+import com.nullandkale.nullspace.ui.screen.TerminalScreen;
+import com.nullandkale.nullspace.ui.screen.TravelScreen;
+import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.StreamTerminal;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 
 @SuppressWarnings("UnstableApiUsage")
 public final class NullSpaceClientGameTest implements FabricClientGameTest {
-  static void shiftEscape(ClientGameTestContext context, int modifiers) {
+  public static void shiftEscape(ClientGameTestContext context, int modifiers) {
     // Fabric 26.3 TestInputImpl.pressOrReleaseKey hard-codes modifiers=0. Exercise the
     // real Minecraft callback with the left/right Shift flags supplied by native SDL events.
     context.runOnClient(
@@ -30,11 +44,9 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
       context.runOnClient(
           client -> {
             var stream =
-                new com.nullandkale.nullspace.terminal.StreamTerminal(
+                new StreamTerminal(
                     value -> bytes.add(new String(value, java.nio.charset.StandardCharsets.UTF_8)));
-            client.gui.setScreen(
-                new com.nullandkale.nullspace.client.TerminalScreen(
-                    stream, () -> {}, () -> closed[0]++));
+            client.gui.setScreen(new TerminalScreen(stream, () -> {}, () -> closed[0]++));
           });
       shiftEscape(context, modifiers);
       context.waitFor(client -> client.gui.screen() == null, 100);
@@ -61,17 +73,16 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
       context.runOnClient(
           client -> {
             var terminal =
-                new com.nullandkale.nullspace.client.TerminalScreen(
-                    new com.nullandkale.nullspace.terminal.ComputerTerminal.Open(
-                        new net.minecraft.core.BlockPos(0, 0, 0), ""));
+                new TerminalScreen(
+                    new ComputerTerminal.Open(new net.minecraft.core.BlockPos(0, 0, 0), ""));
             client.gui.setScreen(terminal);
 
             var bytes = new java.util.ArrayList<String>();
             var stream =
-                new com.nullandkale.nullspace.terminal.StreamTerminal(
+                new StreamTerminal(
                     value -> bytes.add(new String(value, java.nio.charset.StandardCharsets.UTF_8)));
             stream.write("boot\r\n\033[25;80H!");
-            var computerScreen = new com.nullandkale.nullspace.client.TerminalScreen(stream);
+            var computerScreen = new TerminalScreen(stream);
             client.gui.setScreen(computerScreen);
             client.keyboardHandler.textInput(client.getWindow().handle(), "native input");
             computerScreen.keyPressed(
@@ -88,8 +99,8 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
               throw new AssertionError("Generic computer output must reach column 80, row 25");
             client.gui.setScreen(terminal);
             var emptyShip =
-                new com.nullandkale.nullspace.client.TerminalScreen(
-                    new com.nullandkale.nullspace.terminal.ComputerTerminal.Open(
+                new TerminalScreen(
+                    new ComputerTerminal.Open(
                         new net.minecraft.core.BlockPos(0, 0, 0), "", "ship", ""));
             client.gui.setScreen(emptyShip);
             click(emptyShip, 10, 15);
@@ -118,11 +129,9 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                 var pos = new net.minecraft.core.BlockPos(-1, -59, 3);
                 level.setBlockAndUpdate(
                     pos,
-                    com.nullandkale.nullspace.pad.PadComputers.BLOCK
+                    PadComputers.BLOCK
                         .defaultBlockState()
-                        .setValue(
-                            com.nullandkale.nullspace.pad.PadComputerBlock.FACING,
-                            net.minecraft.core.Direction.EAST));
+                        .setValue(PadComputerBlock.FACING, net.minecraft.core.Direction.EAST));
                 player.teleportTo(-1, -58, 3);
                 server
                     .getCommands()
@@ -147,13 +156,12 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                         .count();
                 if (named != 1) throw new AssertionError("Pad registration was not persisted");
               });
-      context.waitFor(
-          client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen);
+      context.waitFor(client -> client.gui.screen() instanceof TerminalScreen);
       long ready = System.nanoTime();
       context.waitFor(client -> System.nanoTime() - ready > 600_000_000L);
       context.runOnClient(
           client -> {
-            var terminal = (com.nullandkale.nullspace.client.TerminalScreen) client.gui.screen();
+            var terminal = (TerminalScreen) client.gui.screen();
             if (!org.lwjgl.sdl.SDLKeyboard.SDL_TextInputActive(client.getWindow().handle()))
               throw new AssertionError("Terminal must activate native text input");
             click(terminal, 10, 5);
@@ -190,13 +198,13 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  com.nullandkale.nullspace.pad.PadComputers.open(
+                  PadComputers.open(
                       singleplayer.getConnection().getServerPlayer(),
                       new net.minecraft.core.BlockPos(-1, -59, 3),
                       "Reopened registered pad"));
       context.waitFor(
           client ->
-              client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen t
+              client.gui.screen() instanceof TerminalScreen t
                   && t.fieldValue().equals("Terminal Pad"));
 
       long padSaved = System.nanoTime();
@@ -209,27 +217,23 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                 var level = player.level();
                 net.minecraft.core.BlockPos base;
                 try {
-                  base = com.nullandkale.nullspace.dev.ShipLab.ensure(server);
+                  base = ShipLab.ensure(server);
                 } catch (java.io.IOException error) {
                   throw new java.io.UncheckedIOException(error);
                 }
                 var computer = base.offset(6, 3, 3);
                 player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
-                com.nullandkale.nullspace.ship.ShipService.open(
-                    player, computer, "Ready for launch test");
-                com.nullandkale.nullspace.ship.ShipService.inspect(level, computer);
+                ShipService.open(player, computer, "Ready for launch test");
+                ShipService.inspect(level, computer);
               });
-      context.waitFor(
-          client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen);
+      context.waitFor(client -> client.gui.screen() instanceof TerminalScreen);
       long shipReady = System.nanoTime();
       context.waitFor(client -> System.nanoTime() - shipReady > 600_000_000L);
       context.waitFor(
-          client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TerminalScreen t
-              && t.shipController());
-      ShipControlTestUi.action(context, com.nullandkale.nullspace.navigation.ShipControl.Action.LAUNCH);
+          client -> client.gui.screen() instanceof TerminalScreen t && t.shipController());
+      ShipControlTestUi.action(context, ShipControl.Action.LAUNCH);
       context.takeScreenshot("nullspace-launch-request");
-      context.waitFor(
-          client -> client.gui.screen() instanceof com.nullandkale.nullspace.client.TravelScreen);
+      context.waitFor(client -> client.gui.screen() instanceof TravelScreen);
       context.takeScreenshot("nullspace-loading");
       singleplayer
           .getServer()
@@ -240,17 +244,15 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                       .getServerPlayer()
                       .level()
                       .dimension()
-                      .equals(com.nullandkale.nullspace.ship.TravelService.SPACE));
+                      .equals(TravelService.SPACE));
       singleplayer
           .getServer()
           .runOnServer(
               server -> {
                 var player = singleplayer.getConnection().getServerPlayer();
-                var vessel =
-                    com.nullandkale.nullspace.ship.ShipStore.get(server)
-                        .at(player.level(), player.blockPosition());
-                var computer = com.nullandkale.nullspace.ship.ShipStore.pos(vessel, "controller");
-                if (!com.nullandkale.nullspace.ship.TravelService.busy(player))
+                var vessel = WorldStore.get(server).at(player.level(), player.blockPosition());
+                var computer = WorldStore.pos(vessel, "controller");
+                if (!TravelService.busy(player))
                   throw new AssertionError("Client must still be loading for quarantine check");
                 if (player
                     .level()
@@ -264,10 +266,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           client ->
               client.gui.screen() == null
                   && client.level != null
-                  && client
-                      .level
-                      .dimension()
-                      .equals(com.nullandkale.nullspace.ship.TravelService.SPACE));
+                  && client.level.dimension().equals(TravelService.SPACE));
       singleplayer.getConnection().waitForChunksRender();
       context.takeScreenshot("nullspace-space-cabin");
       singleplayer
@@ -275,10 +274,8 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           .runOnServer(
               server -> {
                 var player = singleplayer.getConnection().getServerPlayer();
-                var vessel =
-                    com.nullandkale.nullspace.ship.ShipStore.get(server)
-                        .at(player.level(), player.blockPosition());
-                var computer = com.nullandkale.nullspace.ship.ShipStore.pos(vessel, "controller");
+                var vessel = WorldStore.get(server).at(player.level(), player.blockPosition());
+                var computer = WorldStore.pos(vessel, "controller");
                 server
                     .getCommands()
                     .performPrefixedCommand(
@@ -312,15 +309,12 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           .runOnServer(
               server -> {
                 var player = singleplayer.getConnection().getServerPlayer();
-                var vessel =
-                    com.nullandkale.nullspace.ship.ShipStore.get(server)
-                        .at(player.level(), player.blockPosition());
+                var vessel = WorldStore.get(server).at(player.level(), player.blockPosition());
                 if (vessel == null
                     || !player
                         .level()
-                        .getBlockState(
-                            com.nullandkale.nullspace.ship.ShipStore.pos(vessel, "controller"))
-                        .is(com.nullandkale.nullspace.ship.ShipBlocks.COMPUTER))
+                        .getBlockState(WorldStore.pos(vessel, "controller"))
+                        .is(ModBlocks.COMPUTER))
                   throw new AssertionError("Ship must return to registered pad");
               });
       context.takeScreenshot("nullspace-returned");
@@ -328,8 +322,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
     ClientTestEvidence.passed(getClass());
   }
 
-  private static void click(
-      com.nullandkale.nullspace.client.TerminalScreen terminal, int column, int row) {
+  private static void click(TerminalScreen terminal, int column, int row) {
     double scale = Math.min((terminal.width - 16) / 480.0, (terminal.height - 16) / 250.0);
     double x = (terminal.width - 480 * scale) / 2 + (column * 6 + 3) * scale;
     double y = (terminal.height - 250 * scale) / 2 + (row * 10 + 5) * scale;

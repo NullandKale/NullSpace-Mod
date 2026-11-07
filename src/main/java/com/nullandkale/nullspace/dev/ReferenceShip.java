@@ -1,7 +1,9 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.*;
-import com.nullandkale.nullspace.ship.ShipBlocks;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.machine.PadComputerBlock;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import net.minecraft.core.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.*;
@@ -34,13 +36,13 @@ public final class ReferenceShip {
     BlockPos controller = base.offset(6, 3, 3);
     level.setBlock(
         controller,
-        ShipBlocks.COMPUTER
+        ModBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);
     level.setBlock(
         base.offset(0, 3, 3),
-        ShipBlocks.ENGINE
+        ModBlocks.ENGINE
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);
@@ -49,11 +51,11 @@ public final class ReferenceShip {
             .defaultBlockState()
             .setValue(DoorBlock.FACING, Direction.NORTH)
             .setValue(DoorBlock.OPEN, false);
-    level.setBlock(base.offset(0, 3, 1), ShipBlocks.GENERATOR.defaultBlockState(), 18);
-    com.nullandkale.nullspace.systems.FuelSystem.provision(level, base.offset(0, 3, 1), 64);
+    level.setBlock(base.offset(0, 3, 1), ModBlocks.GENERATOR.defaultBlockState(), 18);
+    FuelSystem.provision(level, base.offset(0, 3, 1), 64);
     level.setBlock(
         base.offset(6, 3, 1),
-        ShipBlocks.AIR_SUPPLY
+        ModBlocks.AIR_SUPPLY
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);

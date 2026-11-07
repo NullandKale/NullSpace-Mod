@@ -13,7 +13,7 @@
       "com.nullandkale.nullspace.NullSpace"
     ],
     "client": [
-      "com.nullandkale.nullspace.client.NullSpaceClient"
+      "com.nullandkale.nullspace.NullSpaceClient"
     ]
   },
   "depends": {

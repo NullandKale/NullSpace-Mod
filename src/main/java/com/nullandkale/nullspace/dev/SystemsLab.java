@@ -1,7 +1,12 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.ship.*;
-import com.nullandkale.nullspace.systems.*;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
+import com.nullandkale.nullspace.gameplay.pads.PadScanner;
+import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
+import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import java.nio.file.*;
 import net.minecraft.core.*;
 import net.minecraft.nbt.*;
@@ -18,11 +23,11 @@ public final class SystemsLab {
   public static BlockPos ensure(MinecraftServer server) throws java.io.IOException {
     var path = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-systems-lab-v1.nbt");
     if (Files.exists(path)) {
-      var saved = ShipStore.read(path);
+      var saved = WorldStore.read(path);
       if (!saved.getBooleanOr("complete", false))
         throw new IllegalStateException(
             "Systems lab creation was interrupted; existing blocks preserved");
-      return ShipStore.pos(saved, "origin");
+      return WorldStore.pos(saved, "origin");
     }
     var gallery = ShipGallery.ensure(server);
     var annex = SphereLab.ensure(server, gallery);
@@ -30,7 +35,7 @@ public final class SystemsLab {
     BlockPos origin = null;
     for (int attempt = 0; attempt < 8; attempt++) {
       int x = annex.origin().getX() + SphereLab.WIDTH + 8 + attempt * 96, z = annex.origin().getZ();
-      var area = new com.nullandkale.nullspace.pad.PadScanner.Pad(x, x + 79, 0, z, z + 45);
+      var area = new PadScanner.Pad(x, x + 79, 0, z, z + 45);
       if (PadRegistry.read(server).stream()
           .anyMatch(
               p ->
@@ -51,7 +56,7 @@ public final class SystemsLab {
     var saved = new CompoundTag();
     saved.putLong("origin", origin.asLong());
     saved.putBoolean("complete", false);
-    ShipStore.write(path, saved);
+    WorldStore.write(path, saved);
     for (int x = 0; x < 80; x++)
       for (int z = 0; z < 46; z++) {
         level.setBlock(
@@ -87,18 +92,18 @@ public final class SystemsLab {
           "Arrows / Enter");
       level.setBlock(
           SphereLab.controller(base),
-          ShipBlocks.COMPUTER
+          ModBlocks.COMPUTER
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
       var devices =
           new Block[] {
-            ShipBlocks.GENERATOR,
-            ShipBlocks.BATTERY,
-            ShipBlocks.AIR_SUPPLY,
-            ShipBlocks.AIR_SUPPLY,
-            ShipBlocks.LOCAL_SCANNER,
-            ShipBlocks.MONITOR
+            ModBlocks.GENERATOR,
+            ModBlocks.BATTERY,
+            ModBlocks.AIR_SUPPLY,
+            ModBlocks.AIR_SUPPLY,
+            ModBlocks.LOCAL_SCANNER,
+            ModBlocks.MONITOR
           };
       for (int i = 0; i < devices.length; i++)
         level.setBlock(
@@ -107,34 +112,34 @@ public final class SystemsLab {
                 .defaultBlockState()
                 .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
             18);
-      level.setBlock(base.offset(14, 6, 22), ShipBlocks.GENERATOR.defaultBlockState(), 18);
+      level.setBlock(base.offset(14, 6, 22), ModBlocks.GENERATOR.defaultBlockState(), 18);
       level.setBlock(
           base.offset(16, 7, 21),
-          ShipBlocks.CAMERA
+          ModBlocks.CAMERA
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
       level.setBlock(
           base.offset(16, 18, 31),
-          ShipBlocks.CAMERA
+          ModBlocks.CAMERA
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH),
           18);
       level.setBlock(
           base.offset(18, 16, 22),
-          ShipBlocks.TERMINAL
+          ModBlocks.TERMINAL
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
       level.setBlock(
           base.offset(18, 16, 23),
-          ShipBlocks.MONITOR
+          ModBlocks.MONITOR
               .defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
       level.setBlock(
           base.offset(plot == 23 ? 31 : 0, 16, 16),
-          ShipBlocks.WEAPON
+          ModBlocks.WEAPON
               .defaultBlockState()
               .setValue(
                   HorizontalDirectionalBlock.FACING, plot == 23 ? Direction.EAST : Direction.WEST),
@@ -155,10 +160,10 @@ public final class SystemsLab {
           "Engineering deck 1",
           "Camera: Tab changes");
     }
-    ShipStore.get(server).save();
+    WorldStore.get(server).save();
     server.saveEverything(true, true, true);
     saved.putBoolean("complete", true);
-    ShipStore.write(path, saved);
+    WorldStore.write(path, saved);
     return origin;
   }
 

@@ -1,7 +1,13 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.*;
-import com.nullandkale.nullspace.ship.*;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.machine.PadComputerBlock;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
+import com.nullandkale.nullspace.gameplay.pads.PadScanner;
+import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import java.nio.file.*;
 import java.util.*;
 import net.minecraft.core.*;
@@ -58,13 +64,13 @@ public final class SphereLab {
       throws java.io.IOException {
     Path marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-sphere-lab-v1.nbt");
     if (Files.exists(marker)) {
-      var data = ShipStore.read(marker);
+      var data = WorldStore.read(marker);
       if (data.getIntOr("version", 0) != 1 || !data.getBooleanOr("complete", false))
         throw new IllegalStateException(
             "Sphere lab creation was interrupted or has an unknown version; existing blocks are"
                 + " preserved");
       return new Annex(
-          ShipStore.pos(data, "origin"),
+          WorldStore.pos(data, "origin"),
           data.getStringOr("sphereName", "Meridian"),
           data.getStringOr("blankName", "XL Blank"));
     }
@@ -101,7 +107,7 @@ public final class SphereLab {
     data.putString("sphereName", annex.sphereName);
     data.putString("blankName", annex.blankName);
     data.putBoolean("complete", false);
-    ShipStore.write(marker, data);
+    WorldStore.write(marker, data);
     for (int x = 0; x < WIDTH; x++)
       for (int z = 0; z < DEPTH; z++) {
         var at = annex.origin.offset(x, 0, z);
@@ -136,7 +142,7 @@ public final class SphereLab {
     connect(level, gallery, annex);
     server.saveEverything(true, true, true);
     data.putBoolean("complete", true);
-    ShipStore.write(marker, data);
+    WorldStore.write(marker, data);
     return annex;
   }
 
@@ -291,22 +297,22 @@ public final class SphereLab {
       for (int z : new int[] {14, 17})
         level.setBlock(
             b.offset(x, 16, z),
-            ShipBlocks.ENGINE
+            ModBlocks.ENGINE
                 .defaultBlockState()
                 .setValue(
                     HorizontalDirectionalBlock.FACING, x == 0 ? Direction.WEST : Direction.EAST),
             18);
     level.setBlock(
         controller(b),
-        ShipBlocks.COMPUTER
+        ModBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);
-    level.setBlock(b.offset(10, 6, 20), ShipBlocks.GENERATOR.defaultBlockState(), 18);
-    com.nullandkale.nullspace.systems.FuelSystem.provision(level, b.offset(10, 6, 20), 64);
+    level.setBlock(b.offset(10, 6, 20), ModBlocks.GENERATOR.defaultBlockState(), 18);
+    FuelSystem.provision(level, b.offset(10, 6, 20), 64);
     level.setBlock(
         b.offset(10, 6, 21),
-        ShipBlocks.AIR_SUPPLY
+        ModBlocks.AIR_SUPPLY
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH),
         18);

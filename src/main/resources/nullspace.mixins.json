@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "com.nullandkale.nullspace.mixin",
+  "package": "com.nullandkale.nullspace.core.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "TransitPlayerMixin",
@@ -20,20 +20,20 @@
     "defaultRequire": 1
   },
   "client": [
-    "WorldStartMixin",
-    "GlContextRequestMixin",
-    "ScenePassBoundaryMixin",
-    "NativeVolumeShaderMixin",
-    "NativeVolumeProgramMixin",
-    "SceneGameRendererMixin",
-    "SceneLevelRendererMixin",
-    "SceneEntityRendererMixin",
-    "SpaceOptionsMixin",
-    "PauseRecoveryMixin",
-    "PlanetSkyMixin",
-    "PlanetCloudMixin",
-    "PlanetFogMixin",
-    "GuideBookAccessMixin",
-    "GuideBookScreenMixin"
+    "client.WorldStartMixin",
+    "client.GlContextRequestMixin",
+    "client.ScenePassBoundaryMixin",
+    "client.NativeVolumeShaderMixin",
+    "client.NativeVolumeProgramMixin",
+    "client.SceneGameRendererMixin",
+    "client.SceneLevelRendererMixin",
+    "client.SceneEntityRendererMixin",
+    "client.SpaceOptionsMixin",
+    "client.PauseRecoveryMixin",
+    "client.PlanetSkyMixin",
+    "client.PlanetCloudMixin",
+    "client.PlanetFogMixin",
+    "client.GuideBookAccessMixin",
+    "client.GuideBookScreenMixin"
   ]
 }

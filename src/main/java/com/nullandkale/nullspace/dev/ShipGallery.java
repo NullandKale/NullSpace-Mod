@@ -1,7 +1,13 @@
 package com.nullandkale.nullspace.dev;
 
-import com.nullandkale.nullspace.pad.*;
-import com.nullandkale.nullspace.ship.*;
+import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.content.guide.FieldGuide;
+import com.nullandkale.nullspace.content.machine.PadComputerBlock;
+import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.pads.PadComputers;
+import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
+import com.nullandkale.nullspace.gameplay.pads.PadScanner;
+import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import java.nio.file.*;
 import java.util.*;
 import net.minecraft.core.*;
@@ -78,7 +84,7 @@ public final class ShipGallery {
   public static Gallery ensure(MinecraftServer server) throws java.io.IOException {
     Path marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-ship-gallery-v1.nbt");
     if (Files.exists(marker)) {
-      var data = ShipStore.read(marker);
+      var data = WorldStore.read(marker);
       if (data.getIntOr("version", 0) != 1)
         throw new IllegalStateException("Unknown ship gallery version");
       if (!data.getBooleanOr("complete", false))
@@ -120,7 +126,7 @@ public final class ShipGallery {
     data.putString("prefix", gallery.prefix);
     data.putBoolean("complete", false);
     // Reserve the site first. An interrupted build must never trigger destructive regeneration.
-    ShipStore.write(marker, data);
+    WorldStore.write(marker, data);
     buildWalkways(level, gallery);
     for (var plot : PLOTS) {
       var base = gallery.base(plot.number);
@@ -146,7 +152,7 @@ public final class ShipGallery {
     buildSupplies(level, gallery);
     server.saveEverything(true, true, true);
     data.putBoolean("complete", true);
-    ShipStore.write(marker, data);
+    WorldStore.write(marker, data);
     return gallery;
   }
 
@@ -236,13 +242,13 @@ public final class ShipGallery {
     var controller = b.offset(8, number == 5 ? 4 : 2, 7);
     level.setBlock(
         controller,
-        ShipBlocks.COMPUTER
+        ModBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);
     level.setBlock(
         b.offset(2, 2, 6),
-        ShipBlocks.ENGINE
+        ModBlocks.ENGINE
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);
@@ -294,7 +300,7 @@ public final class ShipGallery {
       for (int z : new int[] {5, 7})
         level.setBlock(
             b.offset(2, 2, z),
-            ShipBlocks.ENGINE
+            ModBlocks.ENGINE
                 .defaultBlockState()
                 .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
             18);
@@ -319,11 +325,11 @@ public final class ShipGallery {
     if (number == 10) level.setBlock(b.offset(2, 2, 6), Blocks.STONE.defaultBlockState(), 18);
     if (number == 11) level.setBlock(b.offset(1, 2, 6), Blocks.STONE.defaultBlockState(), 18);
     if (number == 12) level.setBlock(b.offset(5, 36, 6), Blocks.GLASS.defaultBlockState(), 18);
-    level.setBlock(b.offset(2, 2, 7), ShipBlocks.GENERATOR.defaultBlockState(), 18);
-    com.nullandkale.nullspace.systems.FuelSystem.provision(level, b.offset(2, 2, 7), 64);
+    level.setBlock(b.offset(2, 2, 7), ModBlocks.GENERATOR.defaultBlockState(), 18);
+    FuelSystem.provision(level, b.offset(2, 2, 7), 64);
     level.setBlock(
         b.offset(8, 2, 6),
-        ShipBlocks.AIR_SUPPLY
+        ModBlocks.AIR_SUPPLY
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST),
         18);
@@ -347,16 +353,16 @@ public final class ShipGallery {
   private static void buildSupplies(ServerLevel level, Gallery g) {
     Item[][] supplies = {
       {
-        ShipBlocks.HELMET,
-        ShipBlocks.CHEST,
-        ShipBlocks.LEGS,
-        ShipBlocks.BOOTS,
-        com.nullandkale.nullspace.guide.FieldGuide.ITEM,
+        ModBlocks.HELMET,
+        ModBlocks.CHEST,
+        ModBlocks.LEGS,
+        ModBlocks.BOOTS,
+        FieldGuide.ITEM,
         Items.COOKED_BEEF
       },
       {
-        ShipBlocks.COMPUTER.asItem(),
-        ShipBlocks.ENGINE.asItem(),
+        ModBlocks.COMPUTER.asItem(),
+        ModBlocks.ENGINE.asItem(),
         PadComputers.BLOCK.asItem(),
         Items.OAK_DOOR,
         Items.IRON_DOOR,

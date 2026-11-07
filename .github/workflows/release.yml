@@ -3,7 +3,7 @@ name: Release
 # Builds, runs the full test suite and publishes a GitHub release when a version tag is pushed.
 #   vN.N.N             full release, marked Latest (N.N.N must equal mod_version)
 #   vN.N.N_<anything>  prerelease, for example v0.1.0_rc1 (N.N.N must equal mod_version)
-# Published releases are never changed; fix problems with a new tag. See docs/release-policy.md.
+# Published releases are never changed; fix problems with a new tag. See docs/release/release-policy.md.
 on:
   push:
     tags: ['v*']
@@ -100,7 +100,7 @@ jobs:
           if [ ! -f LICENSE ]; then
             echo "::warning::No LICENSE file in this commit. The release is public without stated distribution terms."
             echo "### No LICENSE in this commit" >> "$GITHUB_STEP_SUMMARY"
-            echo "See docs/release-license-proposal.md." >> "$GITHUB_STEP_SUMMARY"
+            echo "See docs/release/release-license-proposal.md." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Publish the release
