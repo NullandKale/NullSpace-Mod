@@ -339,17 +339,9 @@ public final class ShipGameTests {
     ctx.runAfterDelay(
         10,
         () -> {
-          boolean rejected = false;
-          try {
-            ShipOccupants.inspect(level, scan);
-          } catch (ShipScan.Failure expected) {
-            rejected =
-                expected.getMessage().contains("decoration")
-                    && expected.location.equals(stand.blockPosition());
-          }
           ctx.assertTrue(
-              rejected,
-              "Sensors must reject unsupported contents before transfer and identify the location");
+              ShipOccupants.inspect(level, scan).cargo().contains(stand),
+              "Decorations such as armor stands are accepted as cargo");
           stand.discard();
           var hole = base.offset(3, 4, 6);
           level.setBlock(hole, Blocks.AIR.defaultBlockState(), 18);

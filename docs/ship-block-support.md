@@ -10,7 +10,7 @@ Every captured block must connect to the ship by a face, stay inside its bounded
 
 Airtightness is separate from transport. Full collision cubes generally seal; leaves, plants, stairs, slabs, fences, panes, rails and other partial shapes do not. Doors retain their closed matching-half/frame rules. A closed framed trapdoor seals a floor/ceiling hatch; unframed trapdoors may travel as decorative panels without sealing or counting as the required exit. An open framed hatch still needs closing before launch.
 
-All mechanisms must finish pending scheduled block ticks and queued block events before travel. Stop redstone clocks, release buttons, finish brushing, and let pistons settle. Running **block-entity** machines such as furnaces, brewing stands, and hoppers may travel with their saved state; their server ticks pause during arrival quarantine and resume afterward. This distinction lets workshop machinery work without silently dropping queued redstone actions.
+Pending scheduled block and fluid ticks travel with the ship: a running redstone clock, a pressed button or a repeater mid-delay keeps going at the destination, as with Minecraft's `/clone`. Queued block events (a piston about to fire) and pistons mid-move must still settle first. Running **block-entity** machines such as furnaces, brewing stands, and hoppers travel with their saved state; their server ticks pause during arrival quarantine and resume afterward.
 
 ## Supported blocks and contents
 
@@ -22,40 +22,43 @@ All mechanisms must finish pending scheduled block ticks and queued block events
 | Workshop | Crafting/smithing tables, stonecutters, grindstones, looms, cartography/fletching tables, enchanting tables, anvils | Ordinary vanilla interactions. Enchanting still needs its bookshelves and vanilla resources. Anvils need support from below and must settle. |
 | Cooking and brewing | Furnaces, blast furnaces, smokers, brewing stands, campfires and soul campfires | Inventory, fuel/cooking/brewing data that vanilla saves. Campfires may be lit; open fire blocks are excluded. Vanilla campfire behavior does not add a new oxygen-consumption mechanic. |
 | Automation | Hoppers, dispensers, droppers, crafters | Contents and saved cooldown/configuration/disabled-slot state. Queued dispensing/crafting must finish before departure. |
-| Redstone | Wire, torches, repeaters, comparators, observers, levers, buttons, pressure plates, lamps, daylight detectors, rails and ordinary circuit blocks | Stable state may travel; pending ticks/events are rejected with an explanation. Resume circuit interaction after arrival. |
+| Redstone | Wire, torches, repeaters, comparators, observers, levers, buttons, pressure plates, lamps, daylight detectors, rails and ordinary circuit blocks | State and pending ticks travel; clocks keep running. Queued block events must finish first. |
 | Pistons | Normal/sticky pistons and stationary heads | Retracted pistons work; extended pistons require the matching stationary head/base and facing/type inside the captured ship. Moving or detached parts are rejected. |
 | Books and music | Lecterns, jukeboxes, chiseled bookshelves, shelves, ordinary bookshelves | Books/pages, music disc and saved song progress, slotted contents, and item components. Native playback and interactions remain vanilla. |
-| Decoration | Signs/hanging signs, banners, skulls/player heads, decorated pots, flower pots, bells, beds, copper golem statues, and ordinary decorative blocks | Saved block-entity data/components travel. This does not add painting, item-frame, armor-stand, or vehicle entity transport. |
-| Gardens and animals | Dirt/grass/farmland, compatible dry plants/crops, bee nests and beehives | Growth state, honey and stored bees travel. A hive's flower memory follows a captured flower; memories of flowers left on the planet are cleared, including stored bees' flower memories. Water and waterlogging remain excluded. |
-| Gravity blocks | Sand, gravel, concrete powder, anvils, dragon eggs, suspicious sand/gravel | Must have native support from below and no pending fall/brush tick. Falling-block entities are not transportable passengers. |
-| Explosives | Unprimed TNT blocks | TNT stays a block during transfer. Primed TNT entities cannot board. Activation and combat explosions after arrival retain their ordinary behavior. |
+| Decoration | Signs/hanging signs, banners, skulls/player heads, decorated pots, flower pots, bells, beds, copper golem statues, and ordinary decorative blocks | Saved block-entity data/components travel. Paintings, item frames, armor stands and other decoration entities travel too (see below). |
+| Gardens and animals | Dirt/grass/farmland, compatible dry plants/crops, bee nests and beehives | Growth state, honey and stored bees travel. A hive's flower memory follows a captured flower; memories of flowers left on the planet are cleared, including stored bees' flower memories. Water plants and waterlogged fittings travel. |
+| Gravity blocks | Sand, gravel, concrete powder, anvils, dragon eggs, suspicious sand/gravel | Must have native support from below. A block that is already falling travels as an entity and lands at the destination. |
+| Explosives | Unprimed TNT blocks | TNT stays a block during transfer. Primed TNT travels as an entity with its fuse running, so it explodes aboard. |
 | Cauldrons | Empty, water, lava, and powder-snow cauldrons | Contents are block-state levels, so these are portable; they are not free fluid cells. |
 | Special equipment | Beacons, dry conduits | Saved configuration travels; power/effects recalculate from destination conditions and native structure requirements. A dry conduit can travel but cannot operate without its vanilla water/frame arrangement. |
-| Sculk | Idle sensors/calibrated sensors, inactive catalysts, player-placed non-summoning shriekers | No pending vibration, scheduled action, or spreading cursors. Naturally summoning shriekers are excluded. |
+| Sculk | Idle sensors/calibrated sensors, inactive catalysts, player-placed non-summoning shriekers | No pending vibration or spreading cursors. All shriekers travel, including naturally summoning ones. |
 | NullSpace equipment | Ship Controller, generator, battery, Air Supply, engine, Scanner, Docking Base, camera, monitor and cannon | Existing shared ship systems and device IDs remain supported. The pad computer normally stays on the uncaptured cobblestone ring. Travel equipment requirements still apply. |
 
 Vanilla dimension/environment rules still apply. Beds and respawn anchors do not retarget an existing player's saved respawn location when moved. Existing lodestone compasses keep their original dimension and position. This feature does not make beds safe in dimensions where vanilla makes them explode.
 
-## Unsupported blocks and states
+## Liquids, fire, portals and special blocks
 
-| Block/state | Why / what to do |
+Water, lava, bubble columns, waterlogged blocks and water plants travel as blocks, with their pending fluid ticks. Fire travels. Portal blocks (Nether portals, End portals, End gateways) travel as blocks; a Nether portal needs its frame to survive, and an End gateway keeps its saved exit. Spawners, trial spawners, vaults, creaking hearts, potent sulfur, command blocks, structure blocks, jigsaws and test blocks travel with their saved data. Block entities from other mods travel with their saved data as well.
+
+## Entities
+
+Every entity fully inside the ship travels with its UUID and saved state: mobs, villagers and wandering traders, animals, vehicles (boats, minecarts with their contents), armor stands, item frames, paintings, display entities, projectiles, experience orbs, dropped items, falling blocks and primed TNT. Living occupants must be inside the sealed cabin; decorations and vehicles may sit anywhere in the ship.
+
+- **Riders** travel on their mount. A player riding a mob aboard is dismounted for the move and put back on afterwards.
+- **Leashes** are kept when the holder also travels: another mob (a wandering trader's llamas), a fence knot aboard, or a player aboard. The leash is detached for the move without dropping a lead and reattached afterwards. A leash tied to something that stays behind breaks and drops its lead aboard.
+
+## What still has to wait
+
+| State | What to do |
 | --- | --- |
-| Water, lava, bubble columns; waterlogged states; kelp, kelp plants, seagrass and tall seagrass | Fluid cells and scheduled fluid flow are not journaled. Drain the ship and dry its fittings. Filled cauldrons and fluid buckets in inventories are supported. |
-| Fire and soul fire | Extinguish open fire. Lit campfire blocks can travel. |
-| Nether portals, End portals, End gateways | Active dimension links/exit coordinates are not portable. Inactive frames and ordinary obsidian can travel. |
-| Moving piston blocks, short moving heads, broken stationary head/base pairs | Finish the motion or repair/retract the piston. |
-| Spawners, trial spawners, vaults | Encounter state can contain world/position/entity references; it has no reviewed transfer implementation. |
-| Creaking hearts | Protector references and active world behavior need dedicated relocation support. |
-| Potent sulfur | Eruption timing is not fully persisted by its native block entity. |
-| Command/chain/repeating command blocks, structure blocks, jigsaws, test blocks, test-instance blocks | World editing, commands, and test infrastructure remain excluded. |
-| Active summoning sculk shriekers, pending vibrations, catalysts still spreading | Use a player-placed non-summoning shrieker or let the device settle. |
-| Any block with a pending scheduled tick or queued block event | Let the action finish. Continuous clocks must stop before launch; their pending actions are not discarded to make travel pass. |
-| Unknown/unreviewed block-entity types | Fail closed with the friendly block name, exact type ID, location, and repair advice. No other gameplay mods are required or covered by the vanilla catalog. |
+| Moving piston blocks, short moving heads, broken stationary head/base pairs | Let the motion finish or repair/retract the piston. |
+| An unsupported gravity block (sand with air below) | Support it or let it fall first. |
+| Queued block events, pending vibrations, catalysts still spreading | Wait a moment for the device to settle. |
 | Air, cave air, void air | Empty space is not captured building material. |
 
 ## How transfer preserves data
 
-The policy is centralized in `ShipBlockSupport` and called by the real ship scan. Vanilla structure snapshots retain block states and block-entity data. Placement and removal suppress neighbor, placement, drop and block-entity removal side effects, so transporting a circuit does not count as placing fresh TNT, firing a dispenser, extending a piston, or breaking a full container. Source and destination stale tick/event queues are cleared only after preflight has rejected pending ship actions.
+The policy is centralized in `ShipBlockSupport` and called by the real ship scan. Vanilla structure snapshots retain block states and block-entity data. Placement and removal suppress neighbor, placement, drop and block-entity removal side effects, so transporting a circuit does not count as placing fresh TNT, firing a dispenser, extending a piston, or breaking a full container. Scheduled block and fluid ticks inside the ship are copied to the destination with the same delays.
 
 Vanilla structure placement randomizes container loot seeds. The transfer path reloads each block entity from the exact saved snapshot afterward, preserving unopened loot instead of rerolling it. Replacing an existing snapshot first removes its block entities without emptying their inventories: emptying a jukebox can notify neighbors and pop a flower above it, which the workshop rollback test caught. Hive position changes apply to a copy of the destination snapshot; the original journal retains the source coordinates for exact rollback.
 

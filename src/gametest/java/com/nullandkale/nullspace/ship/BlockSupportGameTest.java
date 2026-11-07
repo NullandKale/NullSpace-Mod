@@ -119,14 +119,14 @@ public final class BlockSupportGameTest {
           expected.equals(data(level, target)),
           "Clearing source cannot mutate destination inventory");
       TravelService.clear(level, target, target);
-      types.add(be.typeHolder().getRegisteredName().substring("minecraft:".length()));
+      types.add(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()).getPath());
       variants++;
     }
     ctx.assertTrue(
         types.equals(
-            java.util.stream.Stream.concat(
-                    ShipBlockSupport.PORTABLE_ENTITIES.stream(),
-                    java.util.stream.Stream.of("machine"))
+            BuiltInRegistries.BLOCK_ENTITY_TYPE.stream()
+                .filter(ShipBlockSupport::portable)
+                .map(t -> BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(t).getPath())
                 .collect(java.util.stream.Collectors.toSet())),
         "Every portable BE type must have a tested representative: " + types);
     ctx.assertTrue(
@@ -261,7 +261,7 @@ public final class BlockSupportGameTest {
     expect(ctx, () -> ShipScan.inspect(level, helm, pad, true), "matching stationary head");
     level.setBlock(at, Blocks.REPEATER.defaultBlockState(), FLAGS);
     level.scheduleTick(at, Blocks.REPEATER, 20);
-    expect(ctx, () -> ShipBlockSupport.validate(level, at), "pending action");
+    ShipBlockSupport.validate(level, at); // Pending block actions travel with the ship.
     level
         .getBlockTicks()
         .clearArea(net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(at, at));
@@ -272,9 +272,9 @@ public final class BlockSupportGameTest {
         net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(at, at));
     level.setBlock(
         at, Blocks.OAK_SLAB.defaultBlockState().setValue(SlabBlock.WATERLOGGED, true), FLAGS);
-    expect(ctx, () -> ShipBlockSupport.validate(level, at), "waterlogging");
+    ShipBlockSupport.validate(level, at); // Waterlogged blocks travel.
     level.setBlock(at, Blocks.FIRE.defaultBlockState(), FLAGS);
-    expect(ctx, () -> ShipBlockSupport.validate(level, at), "Extinguish");
+    ShipBlockSupport.validate(level, at); // Fire travels.
     level.setBlock(at, Blocks.SAND.defaultBlockState(), FLAGS);
     level.setBlock(at.below(), Blocks.AIR.defaultBlockState(), FLAGS);
     expect(ctx, () -> ShipBlockSupport.validate(level, at), "Support this falling block");

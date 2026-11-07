@@ -24,14 +24,11 @@ public final class ShipOccupants {
     List<ServerPlayer> crew = new ArrayList<>();
     for (Entity entity : contents) {
       if (recall && entity instanceof ServerPlayer p && !p.isAlive()) continue;
-      if (!(entity instanceof ServerPlayer)
-          && !(entity instanceof Mob)
-          && !(entity instanceof ItemEntity))
-        throw ShipMessages.entityProblem(
-            entity,
-            "This vehicle, projectile or decoration cannot travel yet. Remove it from the ship"
-                + " before launching.");
-      if (!recall && !scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
+      // Every entity fully inside the ship travels: mobs, vehicles, decorations, projectiles,
+      // items. Only living occupants must be inside the sealed cabin.
+      if (!recall
+          && entity instanceof LivingEntity
+          && !scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
         throw ShipMessages.entityProblem(
             entity,
             "Move fully inside a sealed cabin before launch; this occupant is outside the safe"
@@ -51,15 +48,9 @@ public final class ShipOccupants {
         throw ShipMessages.entityProblem(
             entity,
             "Move completely inside the ship; part of this occupant crosses the ship boundary.");
+      // Riders travel with their mount and leashes are kept; the transfer handles both.
       if (entity instanceof ServerPlayer player) crew.add(player);
-      else {
-        if (entity.isPassenger()
-            || entity.isVehicle()
-            || (entity instanceof Leashable leashed && leashed.isLeashed()))
-          throw ShipMessages.entityProblem(
-              entity, "Dismount passengers and detach leashes before launch.");
-        cargo.add(entity);
-      }
+      else cargo.add(entity);
     }
     return new Contents(List.copyOf(cargo), List.copyOf(crew));
   }

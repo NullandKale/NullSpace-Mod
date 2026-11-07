@@ -43,6 +43,7 @@
       "com.nullandkale.nullspace.navigation.EndRouteGameTest",
       "com.nullandkale.nullspace.generation.UpgradeTierGameTest",
       "com.nullandkale.nullspace.generation.AuthoringGameTest",
+      "com.nullandkale.nullspace.ship.CargoTravelGameTest",
       "com.nullandkale.nullspace.ship.CombatGameTest",
       "com.nullandkale.nullspace.ship.RecipeGameTest",
       "com.nullandkale.nullspace.ship.SceneCacheGameTest",

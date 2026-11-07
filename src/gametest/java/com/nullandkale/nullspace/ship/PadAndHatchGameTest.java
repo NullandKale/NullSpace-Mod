@@ -273,25 +273,14 @@ public final class PadAndHatchGameTest {
   }
 
   @GameTest
-  public void unsupportedMachineErrorsNameTheBlockAndTypeButFurnacesPass(GameTestHelper ctx) {
+  public void structureBlocksAndFurnacesPassInspection(GameTestHelper ctx) {
     var level = ctx.getLevel();
     var base = ctx.absolutePos(new BlockPos(36000, 64, 36000));
     var helm = ShipTestFixture.build(level, base);
     var at = base.offset(4, 3, 4);
-    level.setBlock(at, Blocks.STRUCTURE_BLOCK.defaultBlockState(), 18);
-    boolean named = false;
-    try {
-      ShipScan.inspect(level, helm, pad(base), true);
-    } catch (ShipScan.Failure expected) {
-      named =
-          expected.getMessage().contains("Structure Block")
-              && expected.getMessage().contains("minecraft:structure_block")
-              && expected.getMessage().contains("Remove this block")
-              && expected.location.equals(at);
-    }
-    ctx.assertTrue(
-        named, "A rejected machine needs its friendly name, exact type, location and remedy");
-    for (var block : List.of(Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER)) {
+    // Every block entity travels with its saved data, including operator blocks.
+    for (var block :
+        List.of(Blocks.STRUCTURE_BLOCK, Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER)) {
       level.setBlock(at, block.defaultBlockState(), 18);
       ShipScan.inspect(level, helm, pad(base), true);
     }

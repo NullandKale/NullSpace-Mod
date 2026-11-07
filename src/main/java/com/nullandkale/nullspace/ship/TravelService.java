@@ -681,7 +681,17 @@ public final class TravelService {
     VesselRespawns.captureSurface(source,id,sourceBase,scan.blocks());
     journal.put("before", store.snapshot());
     ListTag entities = new ListTag();
+    var cargoIds = new HashSet<UUID>();
+    for (Entity entity : cargo) cargoIds.add(entity.getUUID());
+    // Roots are entities not riding other cargo; riders move and are journaled with their mount.
+    var roots = new ArrayList<Entity>();
     for (Entity entity : cargo) {
+      var vehicle = entity.getVehicle();
+      if (vehicle != null && cargoIds.contains(vehicle.getUUID())) continue;
+      if (vehicle != null) entity.stopRiding(); // Riding something that stays behind.
+      roots.add(entity);
+    }
+    for (Entity entity : roots) {
       var output =
           TagValueOutput.createWithContext(ProblemReporter.DISCARDING, source.registryAccess());
       if (!entity.save(output))
@@ -694,6 +704,11 @@ public final class TravelService {
       var entry = new CompoundTag();
       entry.putString("id", entity.getUUID().toString());
       entry.put("data", output.buildResult());
+      var riders = new ListTag();
+      for (Entity rider : entity.getIndirectPassengers())
+        if (!(rider instanceof net.minecraft.world.entity.player.Player))
+          riders.add(StringTag.valueOf(rider.getUUID().toString()));
+      entry.put("riders", riders);
       entities.add(entry);
     }
     journal.put("entities", entities);
@@ -888,12 +903,31 @@ public final class TravelService {
       if (ShipScan.cover(target.getBlockState(at)))
         target.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
     place(target, destinationTemplate, targetMin);
+    var area = net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(min, max);
+    target.getBlockTicks().copyAreaFrom(source.getBlockTicks(), area, delta);
+    target.getFluidTicks().copyAreaFrom(source.getFluidTicks(), area, delta);
     checkpoint(file, journal, "DESTINATION_STAGED");
     ShipScan.clearCover(source, scan.blocks());
     ShipPlacement.clear(source, scan.blocks());
     checkpoint(file, journal, "SOURCE_CLEARED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);
-    for (Entity entity : cargo) {
+    // Leashes held by something that travels too are detached quietly and reattached after.
+    var leashes = new LinkedHashMap<UUID, UUID>();
+    var crewIds = new HashSet<UUID>();
+    for (ServerPlayer player : crew) crewIds.add(player.getUUID());
+    for (Entity entity : cargo)
+      if (entity instanceof Leashable leashed && leashed.getLeashHolder() instanceof Entity holder
+          && (cargoIds.contains(holder.getUUID()) || crewIds.contains(holder.getUUID()))) {
+        leashes.put(entity.getUUID(), holder.getUUID());
+        leashed.removeLeash();
+      }
+    var mounts = new LinkedHashMap<ServerPlayer, UUID>();
+    for (ServerPlayer player : crew)
+      if (player.getVehicle() != null && cargoIds.contains(player.getVehicle().getUUID())) {
+        mounts.put(player, player.getVehicle().getUUID());
+        player.stopRiding();
+      }
+    for (Entity entity : roots) {
       var moved =
           entity.teleport(
               new TeleportTransition(
@@ -914,12 +948,30 @@ public final class TravelService {
               player.getYRot(),
               player.getXRot(),
               TeleportTransition.PLACE_PORTAL_TICKET));
+    for (var mount : mounts.entrySet()) {
+      var vehicle = target.getEntity(mount.getValue());
+      if (vehicle != null) mount.getKey().startRiding(vehicle, true, true);
+    }
+    for (var leash : leashes.entrySet()) {
+      var holder = target.getEntity(leash.getValue());
+      if (target.getEntity(leash.getKey()) instanceof Leashable leashed && holder != null)
+        leashed.setLeashedTo(holder, true);
+    }
     checkpoint(file, journal, "PASSENGERS_MOVED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);
     store.save();
     server.saveEverything(true, true, true);
     checkpoint(file, journal, "COMMITTED");
     return new Result(Outcome.COMPLETED, "Arrived");
+  }
+
+  /** A journaled entity and every rider saved inside it. */
+  private static Set<UUID> journaled(CompoundTag entry) {
+    var ids = new HashSet<UUID>();
+    ids.add(UUID.fromString(entry.getStringOr("id", "")));
+    for (Tag rider : entry.getListOrEmpty("riders"))
+      ids.add(UUID.fromString(rider.asString().orElse("")));
+    return ids;
   }
 
   private static void checkpoint(Path file, CompoundTag journal, String stage) {
@@ -973,13 +1025,14 @@ public final class TravelService {
         store.replace(
             journal.getCompoundOrEmpty("before").copy(), ShipRepository.Mutation.RECOVERY);
         for (Tag tag : journal.getListOrEmpty("entities"))
-          authorityStore(
-              store,
-              UUID.fromString(((CompoundTag) tag).getStringOr("id", "")),
-              source.dimension().identifier().toString(),
-              target.dimension().identifier().toString(),
-              min.offset(delta),
-              max.offset(delta));
+          for (UUID moved : journaled((CompoundTag) tag))
+            authorityStore(
+                store,
+                moved,
+                source.dimension().identifier().toString(),
+                target.dimension().identifier().toString(),
+                min.offset(delta),
+                max.offset(delta));
         clear(target, min.offset(delta), max.offset(delta));
         var template = new StructureTemplate();
         template.load(
@@ -989,12 +1042,13 @@ public final class TravelService {
         for (Tag tag : journal.getListOrEmpty("entities")) {
           var entry = (CompoundTag) tag;
           UUID id = UUID.fromString(entry.getStringOr("id", ""));
+          var ids = journaled(entry);
           for (var old : ShipEntities.inBounds(source, new ShipScan.Bounds(min, max)))
-            if (old.getUUID().equals(id)) old.discard();
+            if (ids.contains(old.getUUID())) old.discard();
           for (var old :
               ShipEntities.inBounds(
                   target, new ShipScan.Bounds(min.offset(delta), max.offset(delta))))
-            if (old.getUUID().equals(id)) old.discard();
+            if (ids.contains(old.getUUID())) old.discard();
           var entity =
               EntityType.loadEntityRecursive(
                   TagValueInput.create(
@@ -1005,7 +1059,8 @@ public final class TravelService {
                   EntitySpawnReason.LOAD,
                   e -> e);
           if (entity == null) throw new IllegalStateException("Could not restore passenger " + id);
-          if (!source.addFreshEntity(entity))
+          source.addFreshEntityWithPassengers(entity);
+          if (entity.isRemoved() || source.getEntity(entity.getUUID()) != entity)
             throw new IllegalStateException("Could not establish authoritative passenger " + id);
         }
         for (Tag tag : journal.getListOrEmpty("players")) {

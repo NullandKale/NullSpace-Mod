@@ -54,10 +54,10 @@ public final class ShipBlockSupport {
           "crafter",
           "copper_golem_statue");
 
+  /** Every block entity travels with its saved data, except a piston that is mid-move. */
   public static boolean portable(BlockEntityType<?> type) {
-    if (type == com.nullandkale.nullspace.systems.MachineMenus.ENTITY) return true;
     var id = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type);
-    return id.getNamespace().equals("minecraft") && PORTABLE_ENTITIES.contains(id.getPath());
+    return id == null || !(id.getNamespace().equals("minecraft") && id.getPath().equals("piston"));
   }
 
   public static String entityRestriction(BlockEntityType<?> type) {
@@ -85,22 +85,12 @@ public final class ShipBlockSupport {
    * World-independent state restrictions. Empty means eligible, subject to the live checks below.
    */
   public static String stateRestriction(BlockState state) {
-    if (!state.getFluidState().isEmpty())
-      return "Drain liquids and remove waterlogging before launching. Filled cauldrons are"
-          + " supported.";
-    if (state.getBlock() instanceof BaseFireBlock)
-      return "Extinguish open fire before launching. Campfire blocks are supported.";
-    if (state.is(Blocks.NETHER_PORTAL)
-        || state.is(Blocks.END_PORTAL)
-        || state.is(Blocks.END_GATEWAY))
-      return "Active portals cannot travel. Remove the portal before launching.";
+    // Liquids, waterlogged blocks, fire, portals and shriekers all travel. Only a piston that is
+    // mid-move must settle first.
     if (state.is(Blocks.MOVING_PISTON))
       return "Wait for this piston to finish moving before launching.";
     if (state.getBlock() instanceof PistonHeadBlock && state.getValue(PistonHeadBlock.SHORT))
       return "Wait for this piston head to finish moving before launching.";
-    if (state.is(Blocks.SCULK_SHRIEKER) && state.getValue(SculkShriekerBlock.CAN_SUMMON))
-      return "A naturally generated shrieker can summon a world-bound encounter. Use a"
-          + " player-placed shrieker instead.";
     return "";
   }
 
@@ -126,13 +116,7 @@ public final class ShipBlockSupport {
           pos,
           "This block's saved data is still loading or missing. Wait a moment; if it persists,"
               + " replace the block before launching.");
-    if (level.getBlockTicks().hasScheduledTick(pos, state.getBlock())
-        || level.getBlockTicks().willTickThisTick(pos, state.getBlock()))
-      throw ShipMessages.blockProblem(
-          level,
-          pos,
-          "This block has a pending action. Stop clocks, release buttons, let mechanisms finish,"
-              + " then inspect again.");
+    // Pending block actions (clocks, buttons, repeaters) travel with the ship.
     if (state.getBlock() instanceof FallingBlock
         && FallingBlock.isFree(level.getBlockState(pos.below())))
       throw ShipMessages.blockProblem(
