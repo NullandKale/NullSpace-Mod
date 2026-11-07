@@ -15,7 +15,6 @@ public final class NullSpace implements ModInitializer {
     com.nullandkale.nullspace.pad.PadComputers.initialize();
     com.nullandkale.nullspace.pad.PreviewService.initialize();
     com.nullandkale.nullspace.ship.ShipBlocks.initialize();
-    com.nullandkale.nullspace.ship.LegacyHardware.initialize();
     com.nullandkale.nullspace.systems.MachineMenus.initialize();
     com.nullandkale.nullspace.guide.FieldGuide.initialize();
     com.nullandkale.nullspace.computer.ComputerService.initialize();
