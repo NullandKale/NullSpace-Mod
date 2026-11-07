@@ -73,6 +73,22 @@ Villages and structures are off on every surface except Terra; caves and ores st
 - Landing on each surface type shows only its biome set.
 - Every body and feature, landable or not, has a zone you can jump to and fly in. Generated stations are sparse.
 
+## Playtest 3 notes (November 6)
+
+Taken after P1-P9. The first five rows are fixed for the next release: only the owner is issued a title and the owner deploys without one, stale copies are marked "Void Ship Title"; a closed doorway breathes the best adjoining room; fuel is drawn from every generator in proportion to what it holds; Engage closes every door and stops if one will not close; the Air Supply screen shows how many cells and levels its room spans. Encounters still need a design pass.
+
+| Note | What was seen | Likely cause / direction |
+| --- | --- | --- |
+| Duplicate titles | It is easy to end up holding two Ship Titles for one ship. | Handle it gracefully: one title stays valid, extras are recognised as copies (or void) without breaking ownership or recall. |
+| Losing a title | Losing a title must not break anything. | Ownership and recall need a recovery path that does not depend on the physical title surviving. |
+| Standing in a door reads as vacuum | In a doorway the oxygen meter treats you as outside, not in the room. | A door cell belongs to no room; take the air of the adjoining room (best of the two sides). |
+| Fuel drawn unevenly | Fuel comes out of the generators in an odd order. | Spread draw across all connected generators instead of draining one first. |
+| Engage should close doors | Engaging a course leaves doors open. | Engage closes all doors (as Close all doors does) before departing. |
+| Air upstairs | Question: does an Air Supply fill a floor up a staircase? | Yes if the stairwell is open: stairs do not seal, so both floors are one room. A closed hatch or solid ceiling makes a separate room. Worth showing in the Air Supply screen. |
+| Encounters feel flat | Random encounters do not feel random or challenging. | Generated encounters need more variety and real threats (enemies, hazards, loot worth the risk). Needs its own design pass. |
+
+Separately, a cull of old-world compatibility code is pending now that P9 starts a new world: retired blocks, the `legacy_hull` camera/monitor state, legacy (pre-air) ship mode, station adoption from old saves, scene-layout migration, old power-allocation formats, and the legacy airlock path.
+
 ## UI refinement added after the navigation playtest
 
 Camera/flight checkpoint: Camera and Monitor now center the video; Monitor has Previous camera and Next camera directly below it. Fullscreen fills the display at its actual aspect ratio, with keyboard aiming, wheel zoom and compact overlays. Space Graphics exposes Camera resolution independently of sky resolution. Flight controls use small H/R/F buttons with tooltips. [Focused verification and screenshot paths](camera-flight-ui-verification.json) cover real camera changes, drafts surviving fullscreen return, player/entity rendering and manual flight. This candidate is separate from the deployed navigation/recovery/title baseline.

@@ -201,6 +201,11 @@ public final class CourseService {
     target = resolve(player, ship, target);
     String blocked = reason(player, ship, target);
     if (!blocked.isEmpty()) return blocked;
+    var stuck = ShipSystems.closeDoorsNow(player.level(), ship);
+    if (!stuck.isEmpty())
+      return "Engage stopped: the door at "
+          + stuck.getFirst().toShortString()
+          + " will not close (redstone or a block in the way). Close it, then Engage again";
     if (!JourneyService.cruising(ship)
         && (ShipDestination.selected(ship) == null
             || !ShipDestination.selected(ship).id().equals(target.id())))

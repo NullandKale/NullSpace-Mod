@@ -79,12 +79,10 @@ public final class ShipTitleGameTest {
               // The cleared pad is usable: build on it, then clear it again.
               f.surface.setBlock(pad.offset(5, 1, 5), Blocks.STONE.defaultBlockState(), 18);
               f.surface.setBlock(pad.offset(5, 1, 5), Blocks.AIR.defaultBlockState(), 18);
-              // Without the title the stored ship cannot be deployed.
+              // Playtest 3: the owner deploys without the paper, so losing a title costs nothing.
               oldTitle[0] = takeTitle(f);
-              String refused = ShipRecall.request(f.player, f.computer, f.selection(), null);
-              ctx.assertTrue(refused.startsWith("Carry "), "Deploy needs the title: " + refused);
-              f.player.getInventory().add(oldTitle[0].copy());
               String notice = ShipRecall.request(f.player, f.computer, f.selection(), null);
+              f.player.getInventory().add(oldTitle[0].copy());
               ctx.assertTrue(notice.startsWith("Recall requested"), notice);
               phase[0] = 2;
             }
@@ -110,6 +108,18 @@ public final class ShipTitleGameTest {
               ctx.assertTrue(
                   !ShipTitles.valid(oldTitle[0], ship) && ShipTitles.holds(f.player, ship),
                   "The replacement works and the old paper does not");
+              // A stale copy is visibly marked void, once; the real title is untouched.
+              var stale = oldTitle[0].copy();
+              ctx.assertTrue(
+                  ShipTitles.markIfVoid(f.surface.getServer(), stale)
+                      && stale.getHoverName().getString().startsWith("Void Ship Title")
+                      && !ShipTitles.markIfVoid(f.surface.getServer(), stale),
+                  "Stale titles are marked void exactly once");
+              var inventory = f.player.getInventory();
+              for (int i = 0; i < inventory.getContainerSize(); i++)
+                ctx.assertTrue(
+                    !ShipTitles.markIfVoid(f.surface.getServer(), inventory.getItem(i)),
+                    "The current title is never marked void");
               f.close();
               ctx.succeed();
             }
@@ -152,7 +162,7 @@ public final class ShipTitleGameTest {
             && ShipRecall.title(f.player, f.computer, key).startsWith("Only the owner"),
         "The former owner can neither deploy it nor issue a new title");
     ctx.assertTrue(
-        ShipTitles.use(f.player, copyBeforeHandover).startsWith("This title is no longer valid"),
+        ShipTitles.use(f.player, copyBeforeHandover).startsWith("This title is void"),
         "An old copy cannot sign the ship away again");
     f.surface.getServer().getPlayerList().remove(friend);
     f.close();

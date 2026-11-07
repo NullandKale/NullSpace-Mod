@@ -561,7 +561,8 @@ public final class TravelService {
       for (int x = b.minX(); x <= b.maxX(); x++)
         for (int z = b.minZ(); z <= b.maxZ(); z++)
           for (int y = b.y() + 1; y <= target.getMaxY(); y++)
-            if (!target.getBlockState(new BlockPos(x, y, z)).isAir())
+            if (!target.getBlockState(new BlockPos(x, y, z)).isAir()
+                && !ShipScan.cover(target.getBlockState(new BlockPos(x, y, z))))
               return blocked(
                   target,
                   new BlockPos(x, y, z),
@@ -597,7 +598,7 @@ public final class TravelService {
       target.getChunk(pos);
       if (recall && !actor.mayInteract(target, pos))
         return Result.rejected("You cannot build on part of this landing pad");
-      if (!target.getBlockState(pos).isAir())
+      if (!target.getBlockState(pos).isAir() && !ShipScan.cover(target.getBlockState(pos)))
         return blocked(
             target,
             pos,
@@ -882,8 +883,13 @@ public final class TravelService {
     var destinationTemplate = new StructureTemplate();
     destinationTemplate.load(
         target.registryAccess().lookupOrThrow(Registries.BLOCK), destinationSnapshot);
+    // Snow or grass on the pad gives way to the landing ship instead of ending up inside it.
+    for (var at : BlockPos.betweenClosed(targetMin, targetMax))
+      if (ShipScan.cover(target.getBlockState(at)))
+        target.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
     place(target, destinationTemplate, targetMin);
     checkpoint(file, journal, "DESTINATION_STAGED");
+    ShipScan.clearCover(source, scan.blocks());
     ShipPlacement.clear(source, scan.blocks());
     checkpoint(file, journal, "SOURCE_CLEARED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);

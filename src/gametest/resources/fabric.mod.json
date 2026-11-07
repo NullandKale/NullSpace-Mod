@@ -36,6 +36,7 @@
       "com.nullandkale.nullspace.ship.ShipGalleryGameTest",
       "com.nullandkale.nullspace.ship.SphereGameTest",
       "com.nullandkale.nullspace.ship.ShipSystemsGameTest",
+      "com.nullandkale.nullspace.ship.PlaytestThreeGameTest",
       "com.nullandkale.nullspace.ship.CombatGameTest",
       "com.nullandkale.nullspace.ship.RecipeGameTest",
       "com.nullandkale.nullspace.ship.SceneCacheGameTest",

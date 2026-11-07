@@ -27,11 +27,20 @@ public final class FuelSystem {
   public static boolean spend(ServerLevel level, CompoundTag ship, int amount) {
     if (amount <= 0) return true;
     if (available(level, ship) < amount) return false;
-    for (var generator : generators(level, ship)) {
-      amount -= generator.draw(amount);
-      if (amount == 0) return true;
+    // Spread the draw so generators empty together (playtest 3), not one after another.
+    var generators = generators(level, ship);
+    long total = generators.stream().mapToLong(MachineEntity::available).sum();
+    int remaining = amount;
+    for (var generator : generators) {
+      int share = (int) Math.min(remaining, (long) amount * generator.available() / Math.max(1, total));
+      remaining -= generator.draw(share);
     }
-    return false;
+    // Rounding leftovers come from whoever still has fuel.
+    for (var generator : generators) {
+      if (remaining == 0) break;
+      remaining -= generator.draw(remaining);
+    }
+    return remaining == 0;
   }
 
   public static int tier(ServerLevel level, BlockPos at) {

@@ -60,7 +60,10 @@ public final class ShipDetachment {
     for (var cursor : BlockPos.betweenClosed(base, base.offset(width - 1, height - 1, depth - 1))) {
       var p = cursor.immutable();
       var state = level.getBlockState(p);
-      if (state.isAir() || inspected.scan().blocks().contains(p) || tunnel.contains(p)) continue;
+      if (state.isAir()
+          || ShipScan.cover(state)
+          || inspected.scan().blocks().contains(p)
+          || tunnel.contains(p)) continue;
       loose.put(p, state);
       if (level.getBlockEntity(p) != null) containers++;
     }

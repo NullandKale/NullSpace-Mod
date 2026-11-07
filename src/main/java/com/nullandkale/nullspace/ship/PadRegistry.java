@@ -121,7 +121,8 @@ public final class PadRegistry {
     for (int x = b.minX(); x <= b.maxX(); x++)
       for (int z = b.minZ(); z <= b.maxZ(); z++)
         for (int y = b.y() + 1; y <= level.getMaxY(); y++)
-          if (!level.getBlockState(new BlockPos(x, y, z)).isAir())
+          if (!level.getBlockState(new BlockPos(x, y, z)).isAir()
+              && !ShipScan.cover(level.getBlockState(new BlockPos(x, y, z))))
             return new Status(
                 pad,
                 State.OCCUPIED,

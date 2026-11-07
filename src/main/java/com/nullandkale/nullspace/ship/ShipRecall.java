@@ -252,7 +252,8 @@ public final class ShipRecall {
             .orElse(null);
     if (ship == null || !permitted(p, ship, pad))
       return "Choose one of your ships from the recall list";
-    if (ShipTitles.stored(ship) && !ShipTitles.holds(p, ship))
+    // The owner never needs the paper; a title lets someone else deploy (playtest 3).
+    if (ShipTitles.stored(ship) && !ShipTitles.owner(p, ship) && !ShipTitles.holds(p, ship))
       return "Carry " + ship.getStringOr("home", "this ship") + "'s Ship Title to deploy it";
     String problem = unavailable(p.level().getServer(), ship, p.getUUID());
     if (!problem.isEmpty()) return problem;
@@ -419,7 +420,8 @@ public final class ShipRecall {
     NavigationService.closeShip(p.level().getServer(), ship.getStringOr("id", ""));
     NavigationService.stop(ship);
     ship.putBoolean("stored", true);
-    ShipTitles.ensureHeld(p, ship);
+    // Only the owner is issued a title: a crew member storing the ship must not void the owner's.
+    if (ShipTitles.owner(p, ship)) ShipTitles.ensureHeld(p, ship);
   }
 
   /**

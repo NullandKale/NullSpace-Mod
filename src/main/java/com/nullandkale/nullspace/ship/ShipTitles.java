@@ -89,8 +89,12 @@ public final class ShipTitles {
   public static String use(ServerPlayer player, ItemStack stack) {
     var server = player.level().getServer();
     var ship = shipFor(server, stack);
-    if (ship == null || !valid(stack, ship))
-      return "This title is no longer valid. Its owner has a newer one";
+    if (ship == null || !valid(stack, ship)) {
+      markIfVoid(server, stack);
+      return ship == null
+          ? "This title is void: its ship no longer exists"
+          : "This title is void. Its owner has a newer one";
+    }
     String name = ship.getStringOr("home", "This ship");
     int auth = ship.getIntOr("titleAuth", 0);
     boolean signed = ship.getIntOr("titleSigned", -1) == auth;
@@ -127,7 +131,43 @@ public final class ShipTitles {
     return "You now own " + name + ". Its cargo and crew access stay as they were";
   }
 
+  private static final String VOID = "nullspaceVoid";
+
+  /**
+   * A title replaced by a newer one (or for a ship that no longer exists) is visibly marked void,
+   * so a stale copy cannot be mistaken for the real one. Returns true if the stack changed.
+   */
+  static boolean markIfVoid(net.minecraft.server.MinecraftServer server, ItemStack stack) {
+    if (!stack.is(ShipBlocks.SHIP_TITLE)) return false;
+    var data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+    if (data.getBooleanOr(VOID, false) || data.getStringOr(SHIP, "").isEmpty()) return false;
+    var ship = shipFor(server, stack);
+    if (ship != null && valid(stack, ship)) return false;
+    data.putBoolean(VOID, true);
+    stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+    String name = ship == null ? "a scrapped ship" : ship.getStringOr("home", "Ship");
+    stack.set(DataComponents.CUSTOM_NAME, Component.literal("Void Ship Title - " + name));
+    stack.set(
+        DataComponents.LORE,
+        new ItemLore(
+            List.of(
+                Component.literal(
+                    ship == null ? "This ship no longer exists" : "Replaced by a newer title"),
+                Component.literal("No longer grants anything"))));
+    return true;
+  }
+
   public static void initialize() {
+    // Every two seconds, mark stale titles void in online players' inventories.
+    net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(
+        server -> {
+          if (server.getTickCount() % 40 != 0) return;
+          for (var player : server.getPlayerList().getPlayers()) {
+            var inventory = player.getInventory();
+            for (int i = 0; i < inventory.getContainerSize(); i++)
+              markIfVoid(server, inventory.getItem(i));
+          }
+        });
     net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
         (player, world, hand) -> {
           var stack = player.getItemInHand(hand);

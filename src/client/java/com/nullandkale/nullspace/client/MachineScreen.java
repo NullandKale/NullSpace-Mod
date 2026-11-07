@@ -548,7 +548,17 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
         }
       } else {
         // The Room air bar shows the level; do not repeat it as text.
-        text(g, "This vent's room", 8, 46, 124);
+        // Floors joined by an open stairwell are one room, so one vent fills them all.
+        text(
+            g,
+            "Room: "
+                + data.getIntOr("roomCells", 0)
+                + " cells, "
+                + data.getIntOr("roomFloors", 0)
+                + (data.getIntOr("roomFloors", 0) == 1 ? " level" : " levels"),
+            8,
+            46,
+            124);
         text(g, "Leaks: " + data.getIntOr("leaks", 0), 8, 62, 124);
       }
     }

@@ -61,7 +61,8 @@ public final class ShipScan {
       BlockPos pos = queue.removeFirst();
       if (blocks.contains(pos) || pos.getY() <= pad.y() || docking.contains(pos)) continue;
       var state = level.getBlockState(pos);
-      if (state.isAir()) continue;
+      // Snow that settled on the hull is weather, not ship: it never joins the scan.
+      if (state.isAir() || state.is(Blocks.SNOW) && !pos.equals(controller)) continue;
       if (!allowed.contains(pos))
         fail(
             level,
@@ -136,7 +137,8 @@ public final class ShipScan {
       for (int z = pad.minZ(); z <= pad.maxZ(); z++)
         for (int y = pad.y() + 1; y <= (sky ? level.getMaxY() : pad.y() + 32); y++) {
           var p = new BlockPos(x, y, z);
-          if (!level.getBlockState(p).isAir() && !blocks.contains(p) && !docking.contains(p)) {
+          var state = level.getBlockState(p);
+          if (!state.isAir() && !cover(state) && !blocks.contains(p) && !docking.contains(p)) {
             if (sky && columns.getOrDefault(BlockPos.asLong(x, 0, z), Integer.MAX_VALUE) < y)
               fail(
                   level,
@@ -245,6 +247,24 @@ public final class ShipScan {
       for (Direction d : Direction.values()) queue.add(p.relative(d));
     }
     return new Pressure(ship, outside, seals);
+  }
+
+  /**
+   * Loose ground cover that launch checks ignore: snow layers and replaceable plants such as grass
+   * and flowers on the pad. Never fluids. Plants attached to the ship still travel with it.
+   */
+  public static boolean cover(net.minecraft.world.level.block.state.BlockState state) {
+    return !state.isAir()
+        && (state.is(Blocks.SNOW) || state.canBeReplaced() && state.getFluidState().isEmpty());
+  }
+
+  /** Removes snow resting on top of the ship's blocks at departure, so none is left floating. */
+  public static void clearCover(ServerLevel level, Set<BlockPos> blocks) {
+    for (var p : blocks) {
+      var above = p.above();
+      if (!blocks.contains(above) && level.getBlockState(above).is(Blocks.SNOW))
+        level.setBlock(above, Blocks.AIR.defaultBlockState(), 18);
+    }
   }
 
   public static boolean seals(ServerLevel level, BlockPos pos) {

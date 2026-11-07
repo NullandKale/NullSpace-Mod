@@ -252,6 +252,8 @@ public final class MachineMenu extends AbstractContainerMenu {
         int oxygen = room == null ? 0 : Math.clamp(room.oxygenPercent(), 0, 100);
         data.putInt("oxygen", oxygen);
         data.putInt("roomCells", room == null ? 0 : room.volume());
+        data.putInt(
+            "roomFloors", room == null ? 0 : ShipSystems.roomFloors(p.level(), ship, room.number()));
         data.putInt("leaks", room == null ? 0 : room.leaks());
         data.putBoolean("breathable", oxygen >= Atmosphere.BREATHABLE * 100 / Atmosphere.FULL);
         boolean sealed =

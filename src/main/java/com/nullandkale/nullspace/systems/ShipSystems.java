@@ -290,7 +290,41 @@ public final class ShipSystems {
     if (!ShipStore.bounds(ship).contains(pos)) return 0;
     var r = runtime(level, ship);
     if (r.dirty) rebuild(level, ship, r, false);
-    return SpatialAir.percent(r.air[local(ship, pos)]);
+    int cell = local(ship, pos);
+    if (r.atmosphere.roomAt()[cell] >= 0) return SpatialAir.percent(r.air[cell]);
+    // A doorway (or any cell between rooms) belongs to no room: breathe the best adjoining room.
+    int best = SpatialAir.percent(r.air[cell]);
+    for (var d : Direction.values()) {
+      var next = pos.relative(d);
+      if (!ShipStore.bounds(ship).contains(next)) continue;
+      int neighbour = local(ship, next);
+      if (r.atmosphere.roomAt()[neighbour] >= 0)
+        best = Math.max(best, SpatialAir.percent(r.air[neighbour]));
+    }
+    return best;
+  }
+
+  /**
+   * Closes every ship door now (Engage, playtest 3). Doors owned by docking or disabled are left
+   * alone; returns the doors that could not close, for example ones held open by redstone.
+   */
+  public static List<BlockPos> closeDoorsNow(ServerLevel level, CompoundTag ship) {
+    if (!enabled(ship)) return List.of();
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    var stuck = new ArrayList<BlockPos>();
+    for (var p : List.copyOf(r.blocks)) {
+      var state = level.getBlockState(p);
+      if (!ShipDoors.root(state) || !ShipDoors.isDoor(state) || !ShipDoors.framed(level, p))
+        continue;
+      if (com.nullandkale.nullspace.station.DockingService.ownsDoor(level, p) || !active(r, p))
+        continue;
+      if (!state.getValue(DoorBlock.OPEN)) continue;
+      if (!ShipDoors.powered(level, p)) ShipDoors.setOpen(level, p, false);
+      if (level.getBlockState(p).getValue(DoorBlock.OPEN)) stuck.add(p.immutable());
+    }
+    r.revision++;
+    return stuck;
   }
 
   public static int pressure(ServerLevel level, CompoundTag ship, int x, int y, int z) {
@@ -344,6 +378,17 @@ public final class ShipSystems {
     if (r.dirty) rebuild(level, ship, r, false);
     int number = r.atmosphere.roomAt()[local(ship, pos)];
     return number < 0 ? null : rooms(level, ship).get(number);
+  }
+
+  /** How many block levels a room spans: an open stairwell joins floors into one room. */
+  public static int roomFloors(ServerLevel level, CompoundTag ship, int room) {
+    var r = runtime(level, ship);
+    if (r.dirty) rebuild(level, ship, r, false);
+    var grid = grid(ship);
+    var levels = new HashSet<Integer>();
+    var rooms = r.atmosphere.roomAt();
+    for (int c = 0; c < rooms.length; c++) if (rooms[c] == room) levels.add(grid.y(c));
+    return levels.size();
   }
 
   public record RoomReading(int number, int volume, int oxygenPercent, int leaks, long quantity) {
