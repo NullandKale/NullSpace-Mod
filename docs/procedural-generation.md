@@ -19,6 +19,9 @@ Add as little to Minecraft as possible. Reuse vanilla systems wherever they fit:
 | Hull plating, scrap | No. Generated builds use cheap vanilla blocks. Demolishing a wreck is allowed; it just must not pay out valuable blocks. |
 | New ores | None for now. Vanilla resources placed by planet type and rare vanilla loot do the job (below). |
 | Nether and End | Both stay reachable by portal, as in vanilla: we add to Minecraft, never take away. |
+| Site reset | A reset disposes of everything in the site's bounds, player blocks included. |
+| Surface sites | One guaranteed site per landable planet, near its landing pad; more scattered across the surface. |
+| Remote pads | A Pad Package item, used from orbit, places a new registered pad at a random spot on the planet below, at least 1,000 blocks from any other pad. |
 | End by ship | Ships can also fly to the End once someone has built and registered a pad there, and only from Sol / Terra. |
 | Materials | Generated builds must not be a source of valuable blocks. Iron blocks and similar are out. |
 | Danger | Grows with distance from Sol on the galaxy chart. |
@@ -117,14 +120,25 @@ Lava worlds are a second source of netherite, quartz and other Nether materials,
 | Planet surfaces | Crashed ships, abandoned outposts and landing sites, research domes, mining camps, ruins, supply caches in caves. Each planet type has its own set (lava-world foundries, ice-world research domes, jungle overgrown ruins, desert buried outposts) |
 | Between FTL locations | Random signals during journeys: distress calls, drifting cargo, ambushes at higher danger |
 
-**Proposal: surface density.** Each landable planet gets one guaranteed site within about 200 blocks of its landing pad, so every landing has something to do. Further sites sit on a coarse grid across the surface (roughly one per 300-500 blocks), for players who explore on foot.
+**Surface density.** Each landable planet gets one guaranteed site within about 200 blocks of its landing pad, so every landing has something to do. Further sites sit on a coarse grid across the surface (roughly one per 300-500 blocks), reached on foot or with a Pad Package.
+
+## Pad Package
+
+A crafted item for reaching new ground on a planet without walking there.
+
+- Use it aboard a ship in the orbit of a landable body. It places a new registered pad, with its Pad Computer, at a random spot on the surface below, at least 1,000 blocks from every existing pad on that surface.
+- The pad uses the same site finder as starter pads: the flattest dry ground near the chosen spot, levelled, with clear sky above. It is named after the planet (for example "Kelidia II Outpost 2") and becomes the ship's destination, so Land takes you straight there.
+- The package is used up. It fails with a clear message (and is not used up) if the ship is not in orbit of a landable body or no clear site is found.
+- Recipe: proposal, mid-cost vanilla materials (for example a Pad Computer, cobblestone and iron ingots), so a new pad is a deliberate choice.
+
 
 ## Persistence and reset
 
 - **Random journey sites** exist only while their signal is live, in the journey's temporary space. They are never saved.
 - **Fixed sites** (orbit and surface) reset 2-3 in-game days after a player last left them. A reset rebuilds the blocks and rolls a new variation of damage, loot and mobs.
 - A site never resets while a player is in or near it.
-- **Proposal: player blocks in a fixed site** are wiped by the reset, along with everything else in its bounds. To keep a site, claim it (the existing Claim action); a claimed site is no longer generated content and never resets. Player-built stations and bases outside site bounds are never touched.
+- A reset disposes of everything inside the site's bounds, including blocks and items players left there. Player-built stations and bases outside site bounds are never touched.
+- A derelict a player claims (the existing Claim action) becomes their ship and stops being a site.
 
 ## Build order
 
@@ -134,7 +148,7 @@ Lava worlds are a second source of netherite, quartz and other Nether materials,
 | 2 | **Foundations**: cheap-palette rule, danger level from the chart, loot tables per archetype and danger, the reset system for fixed sites, End pads reachable from Terra, upgrade tiers needing amethyst and netherite or echo shards | Claude builds | Loot and danger scale with distance; fixed sites reset; the End is a ship destination |
 | 3 | **Shipyard exteriors**: move the hand-built ships to templates, then improve their exteriors | Claude converts and drafts; player reviews and edits in-game | Shipyard ships look like spaceships from outside |
 | 4 | **Orbit sites**: manufacturer kits (nose, hull segments, engines, wings, rooms); derelicts and stations assembled from them with condition; lost crew and the repair bot | Claude drafts kits and code; player reviews | Derelicts vary, look good and fight back |
-| 5 | **Planet sites**: piece sets per planet type; one site near each landing pad plus a sparse grid; vanilla resources per planet type | Claude drafts; player reviews | Every landing has something to explore and something to mine |
+| 5 | **Planet sites**: piece sets per planet type; one site near each landing pad plus a sparse grid; vanilla resources per planet type; the Pad Package | Claude drafts; player reviews | Every landing has something to explore and something to mine |
 | 6 | **Journey sites**: random signals that vanish afterward, including ambushes by lost crew and repair bots | Claude builds | Journeys have surprises |
 | Later | Friendly ship repair bot; hostile ships | | |
 
@@ -142,5 +156,4 @@ Each step ends in a playtest. Steps 3-5 are mostly content: drafts are built wit
 
 ## Open questions
 
-1. Player blocks wiped on reset unless the site is claimed?
-2. Surface density: one guaranteed site near the pad plus a sparse grid across the planet?
+1. Pad Package recipe and whether it can also be used in the End or on Terra.
