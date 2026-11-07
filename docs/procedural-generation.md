@@ -21,7 +21,7 @@ Add as little to Minecraft as possible. Reuse vanilla systems wherever they fit:
 | Nether and End | Both stay reachable by portal, as in vanilla: we add to Minecraft, never take away. |
 | Site reset | A reset disposes of everything in the site's bounds, player blocks included. |
 | Surface sites | One guaranteed site per landable planet, near its landing pad; more scattered across the surface. |
-| Remote pads | A Pad Package item, used from orbit, places a new registered pad at a random spot on the planet below, at least 1,000 blocks from any other pad. |
+| Remote pads | A Pad Package item (crafting takes one diamond), used from orbit of any landable body except the End, places a new registered pad at a random spot on the surface below, at least 1,000 blocks from any other pad. |
 | End by ship | Ships can also fly to the End once someone has built and registered a pad there, and only from Sol / Terra. |
 | Materials | Generated builds must not be a source of valuable blocks. Iron blocks and similar are out. |
 | Danger | Grows with distance from Sol on the galaxy chart. |
@@ -126,10 +126,10 @@ Lava worlds are a second source of netherite, quartz and other Nether materials,
 
 A crafted item for reaching new ground on a planet without walking there.
 
-- Use it aboard a ship in the orbit of a landable body. It places a new registered pad, with its Pad Computer, at a random spot on the surface below, at least 1,000 blocks from every existing pad on that surface.
+- Use it aboard a ship in the orbit of any landable body, Terra included. It does not work for the End. It places a new registered pad, with its Pad Computer, at a random spot on the surface below, at least 1,000 blocks from every existing pad on that surface.
 - The pad uses the same site finder as starter pads: the flattest dry ground near the chosen spot, levelled, with clear sky above. It is named after the planet (for example "Kelidia II Outpost 2") and becomes the ship's destination, so Land takes you straight there.
 - The package is used up. It fails with a clear message (and is not used up) if the ship is not in orbit of a landable body or no clear site is found.
-- Recipe: proposal, mid-cost vanilla materials (for example a Pad Computer, cobblestone and iron ingots), so a new pad is a deliberate choice.
+- Recipe: one diamond plus cheap materials (for example cobblestone around a diamond and a redstone dust), so each new pad costs a diamond.
 
 
 ## Persistence and reset
@@ -154,6 +154,12 @@ A crafted item for reaching new ground on a planet without walking there.
 
 Each step ends in a playtest. Steps 3-5 are mostly content: drafts are built with the authoring tools and reviewed in the gallery before code depends on them.
 
+## Later ideas
+
+- **Ship weapons use materials as ammo:** copper, iron, gold and diamond, each doing more damage than the last. Fighting becomes expensive and deliberate. Planned for after hostile ships exist.
+- **Friendly repair bot** aboard the player's own ship.
+- **Hostile ships** with an AI pilot.
+
 ## Open questions
 
-1. Pad Package recipe and whether it can also be used in the End or on Terra.
+None for steps 1-2.
