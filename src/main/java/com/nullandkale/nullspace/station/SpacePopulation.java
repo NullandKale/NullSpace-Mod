@@ -67,27 +67,18 @@ public final class SpacePopulation {
     if (JourneyService.special(server, address)) return;
     var store = ShipStore.get(server);
     var ledger = store.section("spacePopulation");
-    var region = ledger.getCompoundOrEmpty(address);
-    if (region.getIntOr("version", 0) == SpacePopulationPlan.VERSION) return;
-    if (region.getIntOr("version", 0) > SpacePopulationPlan.VERSION)
-      throw new IllegalStateException("Unsupported orbital population version");
-    // Migrate additively: keep every existing identity, construction state and removal tombstone.
-    var sites = region.getListOrEmpty("sites");
-    var ids =
-        sites.stream()
-            .map(t -> ((CompoundTag) t).getStringOr("id", ""))
-            .collect(java.util.stream.Collectors.toSet());
+    // The first visit records the region's plan; later visits keep it, including removals.
+    if (ledger.contains(address)) return;
+    var region = new CompoundTag();
+    var sites = new ListTag();
     region.putInt("version", SpacePopulationPlan.VERSION);
-    for (var site :
-        plan(server, address)) {
+    for (var site : plan(server, address)) {
       var saved = new CompoundTag();
-      var legacy = store.repository().find(site.legacyId());
-      if (ids.contains(site.id()) || ids.contains(site.legacyId())) continue;
-      saved.putString("id", legacy == null ? site.id() : site.legacyId());
+      saved.putString("id", site.id());
       saved.putString("role", site.role());
       saved.putString("name", site.name());
       saved.putLong("seed", site.seed());
-      saved.putString("state", legacy == null ? "planned" : "placed");
+      saved.putString("state", "planned");
       sites.add(saved);
     }
     region.put("sites", sites);
@@ -143,8 +134,7 @@ public final class SpacePopulation {
               site.getStringOr("role", ""),
               site.getStringOr("id", ""),
               site.getStringOr("name", "Station"),
-              site.getLongOr("seed", 0),
-              "");
+              site.getLongOr("seed", 0));
       Vec3 position = null;
       for (int attempt = 0; attempt < 32; attempt++) {
         var candidate = plan.candidate(attempt);

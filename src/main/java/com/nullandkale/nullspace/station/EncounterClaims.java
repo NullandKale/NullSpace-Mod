@@ -37,7 +37,7 @@ public final class EncounterClaims {
     // Take command: the derelict's core becomes an ordinary ship controller facing the same way.
     level.setBlock(
         controller,
-        ShipBlocks.HELM
+        ShipBlocks.COMPUTER
             .defaultBlockState()
             .setValue(
                 HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)),

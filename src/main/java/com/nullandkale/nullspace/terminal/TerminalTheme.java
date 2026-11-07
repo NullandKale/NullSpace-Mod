@@ -50,7 +50,7 @@ public final class TerminalTheme {
       case "generator", "battery", "engine", "engines" -> AMBER;
       case "air_supply", "air" -> GREEN;
       case "weapon", "weapons" -> PURPLE;
-      case "pad", "door_control", "doors", "controls" -> BLUE;
+      case "pad", "doors", "controls" -> BLUE;
       default -> CYAN;
     };
   }

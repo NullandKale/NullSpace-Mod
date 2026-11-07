@@ -1,8 +1,0 @@
-﻿{
-    "textures":  {
-                     "front":  "minecraft:block/piston_top",
-                     "top":  "minecraft:block/iron_block",
-                     "side":  "minecraft:block/iron_block"
-                 },
-    "parent":  "minecraft:block/orientable"
-}

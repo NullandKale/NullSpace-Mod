@@ -88,7 +88,7 @@ public final class EncounterClaimGameTest {
                   && claimed.getStringOr("owner", "").equals(f.player.getUUID().toString()),
               "The same derelict record becomes the claimant's ship");
           ctx.assertTrue(
-              space.getBlockState(ShipStore.pos(claimed, "controller")).is(ShipBlocks.HELM),
+              space.getBlockState(ShipStore.pos(claimed, "controller")).is(ShipBlocks.COMPUTER),
               "Take command: the derelict's core becomes a ship controller");
           ctx.assertTrue(ShipTitles.holds(f.player, claimed), "The claimant receives its title");
           ctx.assertTrue(

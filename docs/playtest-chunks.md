@@ -87,6 +87,11 @@ Taken after P1-P9. The first five rows are fixed for the next release: only the 
 | Air upstairs | Question: does an Air Supply fill a floor up a staircase? | Yes if the stairwell is open: stairs do not seal, so both floors are one room. A closed hatch or solid ceiling makes a separate room. Worth showing in the Air Supply screen. |
 | Encounters feel flat | Random encounters do not feel random or challenging. | Generated encounters need more variety and real threats (enemies, hazards, loot worth the risk). Needs its own design pass. |
 
+## Next batches (agreed November 6)
+
+1. **Batch A: cleanup (done, not released).** Removed the six retired blocks, the old camera/monitor variant, station adoption from old saves, the scene-layout migration, the old power-allocation format and old player-data folders; reworded "legacy ship" as systems not set up; updated the README; deleted the stray `v0.2.0` tag. Still present, for a later pass: computer disk and string-format migrations, admin recovery of unclaimed old ships, and the setup-incomplete air rule (a sealed cabin without an Air Supply counts as breathable), which is a gameplay decision.
+2. **Procedural generation design.** One design for how planets, ships and stations are generated, covering variety, threats, difficulty by distance and rewards. Encounters, terrain resources, village ports, the useful ship/station and station building follow from it.
+
 Separately, a cull of old-world compatibility code is pending now that P9 starts a new world: retired blocks, the `legacy_hull` camera/monitor state, legacy (pre-air) ship mode, station adoption from old saves, scene-layout migration, old power-allocation formats, and the legacy airlock path.
 
 ## UI refinement added after the navigation playtest

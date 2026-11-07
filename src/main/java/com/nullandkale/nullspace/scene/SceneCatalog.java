@@ -20,6 +20,8 @@ public final class SceneCatalog {
       bodies.add(body("moon", "Luna", 2600, -1000, 4300, 600, 0xffaaaaad, false));
       bodies.add(body("asteroid", "Rock 1", -80, 12, 180, 12, 0xff76695a, false));
       data.put("bodies", bodies);
+      // Moons get their spacing once, when the scene is first created.
+      CelestialLayout.arrange(data, "Terra");
       store.section("scene").merge(data);
       store.requestSave();
     }
@@ -76,7 +78,6 @@ public final class SceneCatalog {
       SpaceDefinitionCodec.decode(data);
       store.requestSave();
     }
-    if (CelestialLayout.migrate(data, "Terra")) store.requestSave();
     return data;
   }
 
@@ -103,9 +104,7 @@ public final class SceneCatalog {
     var store = ShipStore.get(server);
     var regions = store.section("localScenes");
     if (regions.contains(address)) {
-      var saved = regions.getCompoundOrEmpty(address);
-      if (CelestialLayout.migrate(saved, destination.name())) store.requestSave();
-      return saved;
+      return regions.getCompoundOrEmpty(address);
     }
     var generated = com.nullandkale.nullspace.navigation.StarSystems.scene(server, address);
     if (generated.isPresent()) {

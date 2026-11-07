@@ -349,7 +349,7 @@ public final class ShipControlGameTest {
     var ship = StationGameTest.fixture(level, new BlockPos(350000, 96, 350000), true);
     var helm = ShipStore.pos(ship, "controller");
     var scanner = helm.above();
-    level.setBlock(scanner, ShipBlocks.LONG_RANGE_SCANNER.defaultBlockState(), 18);
+    level.setBlock(scanner, ShipBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
     ShipSystems.upgrade(level, ship);
     ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 0, 0, 0, 5, 0});
     ShipSystems.tick(level, ship);

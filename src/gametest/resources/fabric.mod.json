@@ -20,7 +20,7 @@
       "com.nullandkale.nullspace.ship.StationExpansionGameTest",
       "com.nullandkale.nullspace.ship.ManufacturerRoleGameTest",
       "com.nullandkale.nullspace.ship.ManufacturerTemplateGameTest",
-      "com.nullandkale.nullspace.ship.LegacyHardwareGameTest",
+      "com.nullandkale.nullspace.ship.DockRecipeGameTest",
       "com.nullandkale.nullspace.ship.ShipRecallGameTest",
       "com.nullandkale.nullspace.ship.ShipHardwareGameTest",
       "com.nullandkale.nullspace.ship.ShipControlGameTest",

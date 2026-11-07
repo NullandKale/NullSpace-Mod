@@ -11,8 +11,8 @@ import net.minecraft.server.level.*;
 import net.minecraft.world.level.block.*;
 
 /**
- * Ship-owned state is included in the existing before/after transfer journal. Legacy ships are
- * opt-in.
+ * Ship-owned state is included in the existing before/after transfer journal. A ship gets powered
+ * systems and finite air once a generator and an Air Supply are connected.
  */
 public final class ShipSystems {
   private static final String UPGRADE_QUERY = "upgrade readiness";
@@ -441,9 +441,8 @@ public final class ShipSystems {
 
   public static String summary(ServerLevel level, CompoundTag ship) {
     if (!enabled(ship))
-      return "Legacy ship. Upgrade enables finite air and powered systems. Install generator,"
-          + " battery, air supply, and door control before upgrading. Existing builds are"
-          + " preserved.";
+      return "Systems not set up. Connect a generator and an Air Supply to the hull, then set"
+          + " up systems at the ship controller to get power and finite air.";
     var r = runtime(level, ship);
     power(level, ship, PowerBus.System.CONTROLS);
     var p = r.power;
@@ -469,7 +468,6 @@ public final class ShipSystems {
                     + p.energy()))
             + " | ";
     int[] req = state(ship).getIntArray("requests").orElse(new int[6]);
-    if (req.length == 5) req = Arrays.copyOf(req, 6);
     for (var system : PowerBus.System.values())
       text += system + " " + grant(r, system) + "/" + req[system.ordinal()] + "; ";
     int room = 0;
@@ -530,7 +528,7 @@ public final class ShipSystems {
     if (!blocks.contains(controller))
       return new UpgradeCheck(
           false,
-          "Systems controller at "
+          "Controller at "
               + controller.toShortString()
               + " is disconnected from the main controller at "
               + helm.toShortString()
@@ -650,7 +648,6 @@ public final class ShipSystems {
           || action == ComputerTerminal.Action.POWER_ENGINES
           || action == ComputerTerminal.Action.POWER_WEAPONS) {
         var req = state(ship).getIntArray("requests").orElse(new int[] {1, 2, 1, 3, 1, 0});
-        if (req.length == 5) req = Arrays.copyOf(req, 6);
         int i =
             action == ComputerTerminal.Action.POWER_AIR
                 ? 1
@@ -749,8 +746,7 @@ public final class ShipSystems {
   }
 
   public static void use(ServerPlayer player, BlockPos pos) {
-    if (player.level().getBlockState(pos).is(ShipBlocks.LOCAL_SCANNER)
-        || player.level().getBlockState(pos).is(ShipBlocks.LONG_RANGE_SCANNER)) {
+    if (player.level().getBlockState(pos).is(ShipBlocks.LOCAL_SCANNER)) {
       equipmentAccess(player, pos);
       // The Scanner layout explains itself; keep the message line free for results.
       com.nullandkale.nullspace.navigation.ShipControl.open(player, pos, "");
@@ -805,8 +801,7 @@ public final class ShipSystems {
     return switch (mode) {
       case "air_supply" -> PowerBus.System.AIR;
       case "engine" -> PowerBus.System.ENGINES;
-      case "door_control" -> PowerBus.System.DOORS;
-      case "camera", "monitor", "local_scanner", "long_range_scanner" -> PowerBus.System.CAMERAS;
+      case "camera", "monitor", "local_scanner" -> PowerBus.System.CAMERAS;
       case "weapon" -> PowerBus.System.WEAPONS;
       default -> null;
     };
@@ -828,7 +823,9 @@ public final class ShipSystems {
     if (enabled(ship) && r.dirty) rebuild(level, ship, r, false);
     if (!(enabled(ship) ? r.blocks : ShipTopology.discover(level, ship)).contains(pos))
       return "DISCONNECTED\nAttach this device to the ship's connected hull.";
-    if (!enabled(ship)) return "LEGACY BUS\nEnable power and finite air at the systems controller.";
+    if (!enabled(ship))
+      return "SYSTEMS NOT SET UP\nConnect a generator and an Air Supply, then set up systems at"
+          + " the ship controller.";
     var device = equipmentDevice(ship, pos);
     boolean on = device.getBooleanOr("enabled", true);
     lines.add(on ? "CONNECTED | Switch ON" : "Switch OFF (disabled)");
@@ -908,26 +905,6 @@ public final class ShipSystems {
         lines.add(!on ? "DISABLED" : delivered == 0 ? "NO POWER" : "Power available for travel");
         lines.add("Exhaust: " + facing.getName());
       }
-      case "door_control" -> {
-        var doors = doors(ship, r);
-        long open =
-            doors.stream()
-                .filter(
-                    d -> {
-                      var b =
-                          level.getBlockState(base.offset(BlockPos.of(d.getLongOr("position", 0))));
-                      return b.hasProperty(DoorBlock.OPEN) && b.getValue(DoorBlock.OPEN);
-                    })
-                .count();
-        lines.add("Doors: " + open + " open / " + doors.size() + " total");
-        if (!r.doors.isEmpty()) lines.add("Queued: " + r.doors.size());
-        if (!r.doorResults.isEmpty())
-          lines.add(
-              r.doorResults
-                  .getLast()
-                  .replaceAll(" at -?\\d+, -?\\d+, -?\\d+", "")
-                  .replaceAll(" -?\\d+, -?\\d+, -?\\d+$", ""));
-      }
       case "camera", "monitor" -> {
         var cameras =
             r.equipment.stream()
@@ -957,7 +934,7 @@ public final class ShipSystems {
                       .getValue(HorizontalDirectionalBlock.FACING)
                       .getName());
       }
-      case "local_scanner", "long_range_scanner" -> {
+      case "local_scanner" -> {
         try {
           lines.add(ShipSensors.equipment(level, pos));
         } catch (IllegalArgumentException error) {

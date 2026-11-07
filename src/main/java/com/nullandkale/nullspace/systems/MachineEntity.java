@@ -35,8 +35,7 @@ public final class MachineEntity extends BaseContainerBlockEntity implements Wor
     return generator()
         || getBlockState().is(ShipBlocks.ENGINE)
         || getBlockState().is(ShipBlocks.BATTERY)
-        || getBlockState().is(ShipBlocks.LOCAL_SCANNER)
-        || getBlockState().is(ShipBlocks.LONG_RANGE_SCANNER);
+        || getBlockState().is(ShipBlocks.LOCAL_SCANNER);
   }
 
   public int tier() {

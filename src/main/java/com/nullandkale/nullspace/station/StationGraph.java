@@ -81,12 +81,10 @@ public final class StationGraph {
           state.getBlock() instanceof DoorBlock
               && state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER;
       if (ordinary
-          && (level.getBlockState(p.below()).is(ShipBlocks.DOCKING_BASE)
-              || level.getBlockState(p.above(2)).is(ShipBlocks.DOOR_CONNECTOR)
-              || level.getBlockState(p.above(2)).is(ShipBlocks.DOCKING_PORT))) continue;
-      boolean dock = state.is(ShipBlocks.DOCKING_PORT) || state.is(ShipBlocks.DOCKING_BASE);
-      boolean compact = state.is(ShipBlocks.DOCKING_BASE);
-      if (!dock && !state.is(ShipBlocks.DOOR_CONNECTOR) && !ordinary) continue;
+          && level.getBlockState(p.below()).is(ShipBlocks.DOCKING_BASE)) continue;
+      boolean dock = state.is(ShipBlocks.DOCKING_BASE);
+      boolean compact = dock;
+      if (!dock && !ordinary) continue;
       var at = p.immutable();
       var door = ordinary ? at : compact ? at.above() : at.below(2);
       var ds = level.getBlockState(door);

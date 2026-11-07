@@ -21,8 +21,7 @@ public final class ShipSensors {
         blocks.stream()
             .filter(
                 p ->
-                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER)
-                            || level.getBlockState(p).is(ShipBlocks.LONG_RANGE_SCANNER))
+                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER))
                         && ShipSystems.active(ship, p))
             .sorted(Comparator.comparingLong(BlockPos::asLong))
             .toList();
@@ -35,8 +34,7 @@ public final class ShipSensors {
         ShipSystems.connected(level, ship).stream()
             .filter(
                 p ->
-                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER)
-                            || level.getBlockState(p).is(ShipBlocks.LONG_RANGE_SCANNER))
+                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER))
                         && ShipSystems.active(ship, p))
             .filter(p -> powered(level, ship, p))
             .mapToInt(p -> FuelSystem.tier(level, p))
@@ -56,16 +54,13 @@ public final class ShipSensors {
         blocks.stream()
             .filter(
                 p ->
-                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER)
-                            || level.getBlockState(p).is(ShipBlocks.LONG_RANGE_SCANNER))
+                    (level.getBlockState(p).is(ShipBlocks.LOCAL_SCANNER))
                         && ShipSystems.active(ship, p))
             .sorted(java.util.Comparator.comparingLong(BlockPos::asLong))
             .toList();
     int granted = ShipSystems.power(level, ship, PowerBus.System.CAMERAS);
     for (int i = 0; i < sensors.size(); i++)
       if (granted > cameras + i
-          && level.getBlockState(sensors.get(i)).is(ShipBlocks.LONG_RANGE_SCANNER)) return true;
-      else if (granted > cameras + i
           && level.getBlockState(sensors.get(i)).is(ShipBlocks.LOCAL_SCANNER)
           && (!far || FuelSystem.tier(level, sensors.get(i)) > 0)) return true;
     return false;
@@ -191,7 +186,7 @@ public final class ShipSensors {
     return scan(
         level,
         ShipTopology.resolve(level, pos),
-        level.getBlockState(pos).is(ShipBlocks.LONG_RANGE_SCANNER));
+        FuelSystem.tier(level, pos) > 0);
   }
 
   private ShipSensors() {}

@@ -79,8 +79,7 @@ public final class ShipService {
                 "configure")
             .contains(action);
     if (!player.level().hasChunkAt(pos)
-        || !(ShipBlocks.navigation(player.level().getBlockState(pos))
-            || systemAction && player.level().getBlockState(pos).is(ShipBlocks.SYSTEMS_CONTROLLER))
+        || !ShipBlocks.navigation(player.level().getBlockState(pos))
         || player.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) > 64
         || !player.mayInteract(player.level(), pos)) {
       feedback(

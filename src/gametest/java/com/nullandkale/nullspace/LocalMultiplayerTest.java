@@ -805,8 +805,8 @@ public final class LocalMultiplayerTest {
                                     ShipBlocks.GENERATOR,
                                     ShipBlocks.BATTERY,
                                     ShipBlocks.AIR_SUPPLY,
-                                    ShipBlocks.DOOR_CONTROL,
-                                    ShipBlocks.SYSTEMS_CONTROLLER,
+                                    ShipBlocks.LOCAL_SCANNER,
+                                    ShipBlocks.LOCAL_SCANNER,
                                     ShipBlocks.MONITOR
                                   }
                                   [x - 14].defaultBlockState(),
@@ -816,21 +816,21 @@ public final class LocalMultiplayerTest {
                             origin.offset(16, 7, 21), ShipBlocks.CAMERA.defaultBlockState(), 18);
                     var vessel =
                         com.nullandkale.nullspace.systems.ShipTopology.resolve(
-                            s.overworld(), origin.offset(18, 6, 21));
+                            s.overworld(), com.nullandkale.nullspace.dev.SphereLab.controller(origin));
                     com.nullandkale.nullspace.systems.ShipSystems.upgrade(s.overworld(), vessel);
                     for (var p : s.getPlayerList().getPlayers()) {
                       p.teleportTo(
                           s.overworld(),
-                          origin.getX() + 18.5,
-                          origin.getY() + 6,
-                          origin.getZ() + 19.5,
+                          origin.getX() + 16.5,
+                          origin.getY() + 16,
+                          origin.getZ() + 23.5,
                           Set.of(),
                           0,
                           0,
                           true);
                       s.overworld().getChunkSource().move(p);
                     }
-                    return origin.offset(18, 6, 21);
+                    return com.nullandkale.nullspace.dev.SphereLab.controller(origin);
                   } catch (java.io.IOException e) {
                     throw new java.io.UncheckedIOException(e);
                   }

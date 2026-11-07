@@ -22,7 +22,7 @@ public final class PlaytestThreeGameTest {
     var helm = SphereLab.controller(base);
     level.setBlock(
         helm,
-        ShipBlocks.HELM
+        ShipBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);
@@ -31,7 +31,7 @@ public final class PlaytestThreeGameTest {
       ShipBlocks.GENERATOR,
       ShipBlocks.AIR_SUPPLY,
       ShipBlocks.BATTERY,
-      ShipBlocks.SYSTEMS_CONTROLLER
+      ShipBlocks.COMPUTER
     };
     for (int x = 14; x < 14 + row.length; x++)
       level.setBlock(
@@ -146,7 +146,7 @@ public final class PlaytestThreeGameTest {
     var helm = SphereLab.controller(base);
     level.setBlock(
         helm,
-        ShipBlocks.HELM
+        ShipBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);

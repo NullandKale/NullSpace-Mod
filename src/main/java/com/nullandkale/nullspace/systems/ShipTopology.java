@@ -150,7 +150,7 @@ public final class ShipTopology {
     for (BlockPos p : BlockPos.betweenClosed(bounds.min(), bounds.max())) {
       if (visited.contains(p) || !level.hasChunkAt(p)) continue;
       var state = level.getBlockState(p);
-      if (!state.is(ShipBlocks.SYSTEMS_CONTROLLER)
+      if (!state.is(ShipBlocks.COMPUTER)
           && !state.is(ShipBlocks.GENERATOR)
           && !state.is(ShipBlocks.BATTERY)) continue;
       var component = flood(level, bounds, p.immutable());

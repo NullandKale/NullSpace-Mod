@@ -23,7 +23,7 @@ public final class ShipSystemsGameTest {
     var helm = base.offset(1, 1, 1);
     var battery = base.offset(2, 5, 2);
     var outside = base.offset(8, 1, 2);
-    level.setBlock(helm, ShipBlocks.HELM.defaultBlockState(), 18);
+    level.setBlock(helm, ShipBlocks.COMPUTER.defaultBlockState(), 18);
     level.setBlock(base.offset(2, 1, 1), ShipBlocks.BATTERY.defaultBlockState(), 18);
     level.setBlock(battery, ShipBlocks.GENERATOR.defaultBlockState(), 18);
     level.setBlock(outside, ShipBlocks.AIR_SUPPLY.defaultBlockState(), 18);
@@ -61,7 +61,7 @@ public final class ShipSystemsGameTest {
           !ShipSystems.enabled(ship),
           "A blocked upgrade returns feedback without enabling systems");
       level.setBlock(outside, Blocks.AIR.defaultBlockState(), 18);
-      level.setBlock(base.offset(3, 1, 1), ShipBlocks.DOOR_CONTROL.defaultBlockState(), 18);
+      level.setBlock(base.offset(3, 1, 1), ShipBlocks.COMPUTER.defaultBlockState(), 18);
       level.setBlock(base.offset(4, 1, 1), ShipBlocks.AIR_SUPPLY.defaultBlockState(), 18);
       ctx.assertTrue(
           !ShipSystems.upgradeCheck(level, ship, helm).ready(),
@@ -79,55 +79,6 @@ public final class ShipSystemsGameTest {
           ShipSystems.enabled(ship), "Repairing all reported issues permits the upgrade");
       ctx.succeed();
     } finally {
-      level.getServer().getPlayerList().remove(player);
-      store.ships().remove(ship);
-    }
-  }
-
-  @GameTest
-  public void liveEngineeringRefreshSurvivesLostHelmConnection(GameTestHelper ctx)
-      throws java.io.IOException {
-    var level = ctx.getLevel();
-    var base = ctx.absolutePos(new BlockPos(14336, 64, 14336));
-    SphereLab.buildPad(level, base, "Disconnected " + UUID.randomUUID().toString().substring(0, 8));
-    var console = base.offset(4, 1, 4);
-    level.setBlock(console, ShipBlocks.SYSTEMS_CONTROLLER.defaultBlockState(), 18);
-    var store = ShipStore.get(level.getServer());
-    var ship = new net.minecraft.nbt.CompoundTag();
-    ship.putString("id", UUID.randomUUID().toString());
-    ship.putString("dimension", level.dimension().identifier().toString());
-    ship.putLong("base", base.above().asLong());
-    ship.putLong("controller", console.east().asLong());
-    ship.putString("homeId", "former-pad");
-    store.ships().add(ship);
-    var player = ctx.makeMockServerPlayerInLevel();
-    player.teleportTo(console.getX() + .5, console.getY(), console.getZ() + .5);
-    var session = ComputerTerminal.issue(player, console, "", "systems", "0");
-    try {
-      ctx.assertTrue(
-          !session.session().equals(ComputerTerminal.NONE), "Engineering session is live");
-      boolean disconnected = false;
-      try {
-        ShipTopology.resolve(level, console);
-      } catch (IllegalArgumentException expected) {
-        disconnected = expected.getMessage().contains("Connect this controller");
-      }
-      ctx.assertTrue(disconnected, "Fixture reproduces the lost helm topology from the crash");
-      for (var query : List.of("", "power")) {
-        ComputerTerminal.follow(player, console, query);
-        ctx.assertTrue(
-            ComputerTerminal.reading(player, console).contains("Connect this controller"),
-            "Live refresh reports a disconnected helm instead of throwing");
-      }
-      level.setBlock(console.east(), ShipBlocks.HELM.defaultBlockState(), 18);
-      ship.putString("homeId", PadRegistry.below(level, console).orElseThrow().id());
-      ComputerTerminal.follow(player, console, "");
-      ctx.assertTrue(
-          !ComputerTerminal.reading(player, console).contains("Connect this controller"),
-          "The same session resumes after repairing its helm connection");
-      ctx.succeed();
-    } finally {
-      ComputerTerminal.close(player, session.session());
       level.getServer().getPlayerList().remove(player);
       store.ships().remove(ship);
     }
@@ -155,8 +106,8 @@ public final class ShipSystemsGameTest {
     var player = ctx.makeMockServerPlayerInLevel();
     player.teleportTo(base.getX() + 2.5, base.getY() + 3, base.getZ() + 4.5);
     ctx.assertTrue(
-        ShipSystems.equipmentStatus(level, generator).contains("LEGACY BUS"),
-        "Legacy hardware must explain how to enable systems");
+        ShipSystems.equipmentStatus(level, generator).contains("SYSTEMS NOT SET UP"),
+        "Equipment on a ship without systems explains how to set them up");
     ShipSystems.upgrade(level, ship);
     ShipSystems.tick(level, ship);
     var system = ship.getCompoundOrEmpty("systems");
@@ -300,7 +251,7 @@ public final class ShipSystemsGameTest {
     var helm = SphereLab.controller(base);
     level.setBlock(
         helm,
-        ShipBlocks.HELM
+        ShipBlocks.COMPUTER
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);
@@ -311,14 +262,14 @@ public final class ShipSystemsGameTest {
                 ShipBlocks.GENERATOR,
                 ShipBlocks.BATTERY,
                 ShipBlocks.AIR_SUPPLY,
-                ShipBlocks.DOOR_CONTROL,
-                ShipBlocks.SYSTEMS_CONTROLLER,
+                ShipBlocks.LOCAL_SCANNER,
+                ShipBlocks.LOCAL_SCANNER,
                 ShipBlocks.MONITOR
               }
               [x - 14].defaultBlockState()
               .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
           18);
-    var console = base.offset(18, 6, 21);
+    var console = helm; // The ship controller also runs systems actions.
     level.setBlock(base.offset(10, 6, 20), Blocks.AIR.defaultBlockState(), 18);
     level.setBlock(base.offset(10, 6, 21), Blocks.AIR.defaultBlockState(), 18);
     FuelSystem.provision(level, base.offset(14, 6, 21), 64);
@@ -329,7 +280,8 @@ public final class ShipSystemsGameTest {
         "Helm and systems controller must share identity");
     ShipSystems.upgrade(level, ship);
     var player = ctx.makeMockServerPlayerInLevel();
-    player.teleportTo(base.getX() + 18.5, base.getY() + 6, base.getZ() + 19.5);
+    // Stand at the ship controller, which runs systems actions.
+    player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() - .5);
     for (int x = base.getX() >> 4; x <= (base.getX() + 31) >> 4; x++)
       for (int z = base.getZ() >> 4; z <= (base.getZ() + 31) >> 4; z++)
         level.setChunkForced(x, z, true);
@@ -512,10 +464,17 @@ public final class ShipSystemsGameTest {
                                                 .orElseThrow();
                                         generator.putBoolean("enabled", false);
                                         ShipSystems.tick(level, vessel);
+                                        // Walk to the generator to reset it, then back.
+                                        player.teleportTo(
+                                            base.getX() + 18.5,
+                                            base.getY() + 6,
+                                            base.getZ() + 19.5);
                                         ShipSystems.equipmentAction(
                                             player,
                                             base.offset(14, 6, 21),
                                             ComputerTerminal.Action.DEVICE_RESET);
+                                        player.teleportTo(
+                                            helm.getX() + .5, helm.getY(), helm.getZ() - .5);
                                         ctx.runAfterDelay(
                                             2,
                                             () -> {

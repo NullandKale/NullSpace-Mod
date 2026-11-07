@@ -168,7 +168,7 @@ public final class PadAndHatchGameTest {
     var hatch = base.offset(3, 6, 3);
     level.setBlock(hatch, Blocks.IRON_TRAPDOOR.defaultBlockState(), 18);
     level.setBlock(base.offset(1, 3, 6), ShipBlocks.GENERATOR.defaultBlockState(), 18);
-    level.setBlock(base.offset(4, 3, 6), ShipBlocks.DOOR_CONTROL.defaultBlockState(), 18);
+    level.setBlock(base.offset(4, 3, 6), ShipBlocks.COMPUTER.defaultBlockState(), 18);
     var ship = new CompoundTag();
     ship.putString("id", UUID.randomUUID().toString());
     ship.putString("dimension", level.dimension().identifier().toString());

@@ -10,7 +10,7 @@ class ContentCatalogTest {
   @Test
   void everyDefinedBlockHasWrappersLootRecipeAndAuthoredModel() {
     for (var d : ContentCatalog.EQUIPMENT) {
-      if (!d.has("retired")) {
+      {
         assertNotNull(getClass().getResource("/data/nullspace/recipe/" + d.id() + ".json"));
         assertNotNull(
             getClass().getResource("/data/nullspace/advancement/recipes/ship/" + d.id() + ".json"));
@@ -23,7 +23,7 @@ class ContentCatalogTest {
             getClass().getResource("/data/nullspace/loot_table/blocks/" + d.id() + ".json"));
       }
     }
-    assertEquals(30, ContentCatalog.EQUIPMENT.size());
+    assertEquals(24, ContentCatalog.EQUIPMENT.size());
   }
 
   @Test
@@ -60,7 +60,7 @@ class ContentCatalogTest {
   void capabilitiesDoNotTurnCraftingComponentsIntoActiveDevices() {
     assertFalse(ContentCatalog.equipment("computer_base").orElseThrow().has("device"));
     assertFalse(ContentCatalog.equipment("ship_beacon").orElseThrow().has("device"));
-    assertTrue(ContentCatalog.equipment("helm").orElseThrow().has("navigation"));
+    assertTrue(ContentCatalog.equipment("ship_computer").orElseThrow().has("navigation"));
     assertTrue(ContentCatalog.equipment("local_scanner").orElseThrow().has("equipment_menu"));
     assertFalse(ContentCatalog.equipment("space_helmet").orElseThrow().has("device"));
   }

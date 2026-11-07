@@ -660,9 +660,7 @@ public final class SceneService {
                             .count());
                 display.putInt(
                     "wallHeight", (int) tiles.stream().mapToInt(BlockPos::getY).distinct().count());
-                display.putBoolean(
-                    "mounted",
-                    !level.getBlockState(p).getValue(ShipBlocks.InventoryMachine.LEGACY_HULL));
+                display.putBoolean("mounted", true);
                 display.putString(
                     "facing",
                     level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING).getName());

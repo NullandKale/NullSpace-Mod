@@ -12,7 +12,6 @@ public final class MonitorWall {
   public static List<BlockPos> tiles(ServerLevel level, BlockPos at) {
     if (!level.getBlockState(at).is(ShipBlocks.MONITOR)) return List.of(at);
     var facing = level.getBlockState(at).getValue(HorizontalDirectionalBlock.FACING);
-    boolean legacy = level.getBlockState(at).getValue(ShipBlocks.InventoryMachine.LEGACY_HULL);
     var right = facing.getClockWise();
     var seen = new HashSet<BlockPos>();
     var queue = new ArrayDeque<BlockPos>();
@@ -22,7 +21,6 @@ public final class MonitorWall {
       if (!level.hasChunkAt(p)
           || !level.getBlockState(p).is(ShipBlocks.MONITOR)
           || level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING) != facing
-          || level.getBlockState(p).getValue(ShipBlocks.InventoryMachine.LEGACY_HULL) != legacy
           || !seen.add(p)) continue;
       for (var dir : List.of(right, right.getOpposite(), Direction.UP, Direction.DOWN))
         queue.add(p.relative(dir));

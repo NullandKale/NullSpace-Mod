@@ -3,24 +3,18 @@
     "values": [
         "nullspace:computer_base",
         "nullspace:pad_computer",
-        "nullspace:helm",
         "nullspace:ship_computer",
-        "nullspace:systems_controller",
         "nullspace:camera",
         "nullspace:monitor",
         "nullspace:engine",
         "nullspace:generator",
         "nullspace:battery",
         "nullspace:air_supply",
-        "nullspace:door_control",
         "nullspace:weapon",
         "nullspace:computer_terminal",
         "nullspace:local_scanner",
-        "nullspace:long_range_scanner",
         "nullspace:ship_beacon",
         "nullspace:station_core",
-        "nullspace:door_connector",
-        "nullspace:docking_port",
         "nullspace:docking_base"
     ]
 }

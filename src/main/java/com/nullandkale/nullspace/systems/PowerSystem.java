@@ -20,10 +20,6 @@ final class PowerSystem {
   static Allocation allocate(ServerLevel level, CompoundTag ship, ShipRuntime r) {
     var s = state(ship);
     int[] requests = s.getIntArray("requests").orElse(new int[] {1, 2, 1, 3, 1, 0});
-    if (requests.length == 5) {
-      requests = Arrays.copyOf(requests, 6);
-      s.putIntArray("requests", requests);
-    }
     if (requests.length != 6) throw new IllegalStateException("Invalid saved allocations");
     var counts = new HashMap<Block, Integer>();
     for (var p : r.equipment)
@@ -32,27 +28,19 @@ final class PowerSystem {
         air = counts.getOrDefault(ShipBlocks.AIR_SUPPLY, 0),
         cameras =
             counts.getOrDefault(ShipBlocks.CAMERA, 0)
-                + counts.getOrDefault(ShipBlocks.LOCAL_SCANNER, 0)
-                + counts.getOrDefault(ShipBlocks.LONG_RANGE_SCANNER, 0);
+                + counts.getOrDefault(ShipBlocks.LOCAL_SCANNER, 0);
     var batteries = batteries(ship, r);
     int energy = batteries.stream().mapToInt(b -> b.getIntOr("energy", 0)).sum();
     int[] caps = {
       counts.getOrDefault(ShipBlocks.COMPUTER, 0)
                   + counts.getOrDefault(ShipBlocks.STATION_CORE, 0)
-                  + counts.getOrDefault(ShipBlocks.HELM, 0)
-                  + counts.getOrDefault(ShipBlocks.SYSTEMS_CONTROLLER, 0)
                   + counts.getOrDefault(ShipBlocks.TERMINAL, 0)
               > 0
           ? 1
           : 0,
       air * 2,
-      counts.getOrDefault(ShipBlocks.DOOR_CONTROL, 0)
-                  + counts.getOrDefault(ShipBlocks.HELM, 0)
-                  + counts.getOrDefault(ShipBlocks.COMPUTER, 0)
-                  + counts.getOrDefault(ShipBlocks.SYSTEMS_CONTROLLER, 0)
+      counts.getOrDefault(ShipBlocks.COMPUTER, 0)
                   + counts.getOrDefault(ShipBlocks.DOCKING_BASE, 0)
-                  + counts.getOrDefault(ShipBlocks.DOCKING_PORT, 0)
-                  + counts.getOrDefault(ShipBlocks.DOOR_CONNECTOR, 0)
               > 0
           ? 1
           : 0,

@@ -9,7 +9,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SpacePopulationPlan {
   public static final int VERSION = 2;
 
-  public record Site(String role, String id, String name, long seed, String legacyId) {
+  public record Site(String role, String id, String name, long seed) {
     public Vec3 candidate(int attempt) {
       double angle = new Random(seed).nextDouble() * Math.PI * 2 + attempt * Math.PI / 4;
       double radius =
@@ -44,8 +44,7 @@ public final class SpacePopulationPlan {
               region,
               "waypoint",
               region.name() + " Waypoint Station",
-              waypointSeed,
-              "nullspace:waypoint:" + region.id()));
+              waypointSeed));
     if (population == null || population.exchange())
       sites.add(
           site(
@@ -53,8 +52,7 @@ public final class SpacePopulationPlan {
               region,
               "exchange",
               region.name() + " Manufacturer Exchange",
-              exchangeSeed,
-              "nullspace:manufacturer-showcase:v1:" + region.id()));
+              exchangeSeed));
     int ships = 1 + random.nextInt(3);
     if (population != null) ships = population.salvage();
     for (int i = 0; i < ships; i++) {
@@ -68,8 +66,7 @@ public final class SpacePopulationPlan {
               "salvage-" + i,
               com.nullandkale.nullspace.shipyard.ShipBlueprints.get(design).name()
                   + (kind == 1 ? " - abandoned freighter" : " - silent survey ship"),
-              seed,
-              "nullspace:salvage:" + region.id() + ":" + i));
+              seed));
     }
     return List.copyOf(sites);
   }
@@ -83,14 +80,12 @@ public final class SpacePopulationPlan {
       LocalSpaces.Destination region,
       String role,
       String name,
-      long seed,
-      String legacy) {
+      long seed) {
     return new Site(
         role,
         uuid("nullspace:population:v1:" + worldSeed + ":" + region.id() + ":" + role),
         name,
-        seed,
-        uuid(legacy));
+        seed);
   }
 
   private static String uuid(String value) {

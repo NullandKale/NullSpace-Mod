@@ -108,9 +108,6 @@ class ControllerTerminalTest {
             .anyMatch(e -> e.verb().equals("device_reset")));
     assertFalse(
         EquipmentMenus.entries("engine").stream().anyMatch(e -> e.verb().equals("device_reset")));
-    assertTrue(
-        EquipmentMenus.entries("door_control").stream()
-            .anyMatch(e -> e.verb().equals("close_doors")));
     for (String mode : EquipmentMenus.MODES)
       assertTrue(
           EquipmentMenus.entries(mode).stream()

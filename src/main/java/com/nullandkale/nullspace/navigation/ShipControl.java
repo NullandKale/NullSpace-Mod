@@ -358,7 +358,7 @@ public final class ShipControl {
 
   private static boolean scanner(ServerPlayer p, BlockPos at) {
     var block = p.level().getBlockState(at);
-    return block.is(ShipBlocks.LOCAL_SCANNER) || block.is(ShipBlocks.LONG_RANGE_SCANNER);
+    return block.is(ShipBlocks.LOCAL_SCANNER);
   }
 
   private static boolean accessible(ServerPlayer p, BlockPos at) {

@@ -18,7 +18,6 @@ import net.minecraft.world.item.crafting.*;
 public final class GuideContent {
   public static final List<String> RECIPES =
       com.nullandkale.nullspace.content.ContentCatalog.EQUIPMENT.stream()
-          .filter(d -> !d.has("retired"))
           .map(com.nullandkale.nullspace.content.ContentCatalog.EquipmentDefinition::id)
           .toList();
 
@@ -214,8 +213,6 @@ public final class GuideContent {
   public static String label(String name) {
     return switch (name) {
       case "computer_terminal" -> "Terminal";
-      case "systems_controller" -> "Systems panel";
-      case "long_range_scanner" -> "Long scanner";
       case "space_chestplate" -> "Suit chestplate";
       case "space_leggings" -> "Suit leggings";
       case "space_helmet" -> "Space helmet";

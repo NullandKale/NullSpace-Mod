@@ -26,7 +26,7 @@ public final class EngineeringGameTest {
                 case 1 -> ShipBlocks.GENERATOR;
                 case 2 -> ShipBlocks.BATTERY;
                 case 4 -> ShipBlocks.AIR_SUPPLY;
-                default -> ShipBlocks.DOOR_CONTROL;
+                default -> ShipBlocks.COMPUTER;
               })
               .defaultBlockState(),
           18);

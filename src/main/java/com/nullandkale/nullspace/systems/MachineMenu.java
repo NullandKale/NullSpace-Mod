@@ -42,8 +42,7 @@ public final class MachineMenu extends AbstractContainerMenu {
             generator
                 || state.is(ShipBlocks.BATTERY)
                 || state.is(ShipBlocks.ENGINE)
-                || state.is(ShipBlocks.LOCAL_SCANNER)
-                || state.is(ShipBlocks.LONG_RANGE_SCANNER);
+                || state.is(ShipBlocks.LOCAL_SCANNER);
     for (int i = 0; i < MachineEntity.SIZE; i++) {
       final int slot = i;
       addSlot(
@@ -58,7 +57,7 @@ public final class MachineMenu extends AbstractContainerMenu {
                 return slot < 3 ? e.upgrades() : e.generator();
               String mode = reading.getStringOr("mode", "");
               return slot < 3
-                  ? Set.of("generator", "engine", "battery", "local_scanner", "long_range_scanner")
+                  ? Set.of("generator", "engine", "battery", "local_scanner")
                       .contains(mode)
                   : mode.equals("generator");
             }
@@ -105,7 +104,7 @@ public final class MachineMenu extends AbstractContainerMenu {
   /** Whether this machine has upgrade or fuel slots, and so needs the player inventory. */
   public boolean machineHasSlots() {
     if (machine instanceof MachineEntity e) return e.upgrades() || e.generator();
-    return Set.of("generator", "engine", "battery", "local_scanner", "long_range_scanner")
+    return Set.of("generator", "engine", "battery", "local_scanner")
         .contains(reading.getStringOr("mode", ""));
   }
 
@@ -283,10 +282,9 @@ public final class MachineMenu extends AbstractContainerMenu {
                 ? "Charging: +" + flow + " / tick"
                 : flow < 0 ? "Discharging: " + flow + " / tick" : "Idle: no charge transfer";
       data.putString("status", state);
-      if (entity.getBlockState().is(ShipBlocks.LOCAL_SCANNER)
-          || entity.getBlockState().is(ShipBlocks.LONG_RANGE_SCANNER)) {
+      if (entity.getBlockState().is(ShipBlocks.LOCAL_SCANNER)) {
         var list = new ListTag();
-        boolean far = entity.tier() > 0 || entity.getBlockState().is(ShipBlocks.LONG_RANGE_SCANNER);
+        boolean far = entity.tier() > 0;
         boolean powered = ShipSensors.powered(p.level(), ship, at);
         data.putBoolean("selectable", powered);
         data.putBoolean("far", far);
@@ -364,7 +362,7 @@ public final class MachineMenu extends AbstractContainerMenu {
       case "engine" ->
           "Max thrust " + Math.min(8, 2 * (1 + tier)) + "; travel uses the best engine tier";
       case "battery" -> "Capacity " + 1200 * (1 + tier) + "; transfer " + 4 * (1 + tier) + "/tick";
-      case "local_scanner", "long_range_scanner" ->
+      case "local_scanner" ->
           "Range " + (1024 << tier) + "; interstellar travel";
       default -> "";
     };
@@ -397,7 +395,7 @@ public final class MachineMenu extends AbstractContainerMenu {
           case 4 -> block.is(ShipBlocks.AIR_SUPPLY);
           case 6, 9 -> block.is(ShipBlocks.CAMERA) || block.is(ShipBlocks.MONITOR);
           case 7 -> block.is(ShipBlocks.MONITOR);
-          case 8 -> block.is(ShipBlocks.LOCAL_SCANNER) || block.is(ShipBlocks.LONG_RANGE_SCANNER);
+          case 8 -> block.is(ShipBlocks.LOCAL_SCANNER);
           case 10, 11, 12, 13 -> block.is(ShipBlocks.DOCKING_BASE);
           case 14 -> block.is(ShipBlocks.GENERATOR) || block.is(ShipBlocks.BATTERY);
           case 15 -> ShipSystems.requestedAllocation(p.level(), at) >= 0;

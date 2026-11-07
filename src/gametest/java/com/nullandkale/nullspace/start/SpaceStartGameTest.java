@@ -36,8 +36,7 @@ public final class SpaceStartGameTest {
     var server = ctx.getLevel().getServer();
     var backup =
         server
-            .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
-            .resolve("playerdata")
+            .getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_DATA_DIR)
             .resolve(existing.getUUID() + ".dat_old");
     java.nio.file.Files.createDirectories(backup.getParent());
     java.nio.file.Files.writeString(backup, "existing player backup");

@@ -209,8 +209,7 @@ public final class ShipHardwareGameTest {
     var mounted =
         ShipBlocks.MONITOR
             .defaultBlockState()
-            .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH)
-            .setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, false);
+            .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH);
     for (int x = 2; x <= 4; x++)
       for (int y = 3; y <= 4; y++) level.setBlock(base.offset(x, y, 5), mounted, 18);
     var ship = ShipTopology.resolve(level, helm);
@@ -227,10 +226,6 @@ public final class ShipHardwareGameTest {
     ctx.assertTrue(
         !level.getBlockState(first).isCollisionShapeFullBlock(level, first),
         "New wall monitor is physically thin");
-    level.setBlock(first, mounted.setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, true), 18);
-    ctx.assertTrue(
-        level.getBlockState(first).isCollisionShapeFullBlock(level, first),
-        "Saved legacy cube monitors remain hull seals");
     ShipStore.get(level.getServer()).ships().remove(ship);
     ctx.succeed();
   }

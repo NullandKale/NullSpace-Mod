@@ -28,10 +28,6 @@ public final class EquipmentMenus {
         .orElseThrow()
         .has("power_allocation"))
       menu.add(new Entry("device_allocate", "allocate power", "Ship-wide request 0..8"));
-    if (mode.equals("door_control")) {
-      menu.add(new Entry("close_doors", "close all doors", ""));
-      menu.add(new Entry("open_doors", "open all doors", ""));
-    }
     if (mode.equals("monitor")) menu.add(new Entry("device_channel", "next camera", ""));
     if (mode.equals("monitor") || mode.equals("camera"))
       menu.add(new Entry("device_view", "view feed", "Fullscreen"));

@@ -113,9 +113,7 @@ public final class StationService {
   public static String mode(ServerLevel level, BlockPos at) {
     var state = level.getBlockState(at);
     if (state.is(ShipBlocks.STATION_CORE)) return "station_core";
-    if (state.is(ShipBlocks.DOCKING_PORT) || state.is(ShipBlocks.DOCKING_BASE))
-      return "docking_port";
-    if (state.is(ShipBlocks.DOOR_CONNECTOR)) return "door_connector";
+    if (state.is(ShipBlocks.DOCKING_BASE)) return "docking_port";
     return ShipBlocks.navigation(state) ? "docks" : "";
   }
 
@@ -129,8 +127,7 @@ public final class StationService {
 
   public static String status(ServerPlayer p, CompoundTag s, BlockPos at) {
     if (ShipBlocks.navigation(p.level().getBlockState(at))) return DockingService.contacts(p, s);
-    if (p.level().getBlockState(at).is(ShipBlocks.DOCKING_PORT)
-        || p.level().getBlockState(at).is(ShipBlocks.DOCKING_BASE))
+    if (p.level().getBlockState(at).is(ShipBlocks.DOCKING_BASE))
       return DockingService.status(p, s, at);
     var graph = StationGraph.inspect(p.level(), s);
     StringBuilder text = new StringBuilder(s.getStringOr("home", "Station"));
@@ -972,10 +969,8 @@ public final class StationService {
     }
     return builder(p, s)
         || (allowed(p, s) || returningVisitor(p, s))
-            && (state.is(ShipBlocks.DOCKING_PORT)
-                || state.is(ShipBlocks.DOCKING_BASE)
+            && (state.is(ShipBlocks.DOCKING_BASE)
                 || state.is(ShipBlocks.STATION_CORE)
-                || state.is(ShipBlocks.DOOR_CONNECTOR)
                 || state.is(Blocks.CRAFTING_TABLE)
                 || state.is(Blocks.STONECUTTER));
   }

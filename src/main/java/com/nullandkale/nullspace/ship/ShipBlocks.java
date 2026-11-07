@@ -20,14 +20,11 @@ import net.minecraft.world.phys.BlockHitResult;
 public final class ShipBlocks {
   public static final Block SHIP_BEACON = machine("ship_beacon");
   public static final Block STATION_CORE = machine("station_core");
-  public static final Block DOOR_CONNECTOR = machine("door_connector");
-  public static final Block DOCKING_PORT = machine("docking_port");
   public static final Block DOCKING_BASE = machine("docking_base");
   public static final Item SYSTEM_UPGRADE = component("system_upgrade");
   public static final Item STATION_MODULE = component("station_module");
   public static final Block TERMINAL = machine("computer_terminal");
   public static final Block LOCAL_SCANNER = machine("local_scanner");
-  public static final Block LONG_RANGE_SCANNER = machine("long_range_scanner");
   public static final Block COMPUTER_BASE = machine("computer_base");
   public static final Item MACHINE_CASING = component("machine_casing");
   public static final Item CIRCUIT_BOARD = component("circuit_board");
@@ -35,13 +32,10 @@ public final class ShipBlocks {
   /** Breathable air for a suited player away from ship air; durability is the air left. */
   public static final Item AIR_CANISTER = component("air_canister");
   public static final Block COMPUTER = machine("ship_computer");
-  public static final Block HELM = machine("helm");
-  public static final Block SYSTEMS_CONTROLLER = machine("systems_controller");
   public static final Block ENGINE = machine("engine");
   public static final Block GENERATOR = machine("generator");
   public static final Block BATTERY = machine("battery");
   public static final Block AIR_SUPPLY = machine("air_supply");
-  public static final Block DOOR_CONTROL = machine("door_control");
   public static final Block CAMERA = machine("camera");
   public static final Block MONITOR = machine("monitor");
   public static final Block WEAPON = machine("weapon");
@@ -125,7 +119,6 @@ public final class ShipBlocks {
                 "battery",
                 "engine",
                 "local_scanner",
-                "long_range_scanner",
                 "camera",
                 "monitor",
                 "air_supply",
@@ -174,7 +167,7 @@ public final class ShipBlocks {
   public static void initialize() {}
 
   public static boolean navigation(net.minecraft.world.level.block.state.BlockState state) {
-    return state.is(COMPUTER) || state.is(HELM);
+    return state.is(COMPUTER);
   }
 
   public static String equipmentMode(BlockState state) {
@@ -202,7 +195,7 @@ public final class ShipBlocks {
     @Override
     protected InteractionResult useWithoutItem(
         BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-      if (state.is(LOCAL_SCANNER) || state.is(LONG_RANGE_SCANNER)) {
+      if (state.is(LOCAL_SCANNER)) {
         if (player instanceof ServerPlayer sp) {
           try {
             com.nullandkale.nullspace.systems.ShipSystems.use(sp, pos);
@@ -214,7 +207,7 @@ public final class ShipBlocks {
           instanceof com.nullandkale.nullspace.systems.MachineEntity) {
         if (player instanceof ServerPlayer sp)
           com.nullandkale.nullspace.systems.MachineMenus.open(sp, pos);
-      } else if (state.is(STATION_CORE) || state.is(DOOR_CONNECTOR) || state.is(DOCKING_PORT)) {
+      } else if (state.is(STATION_CORE)) {
         if (player instanceof ServerPlayer serverPlayer) {
           try {
             com.nullandkale.nullspace.station.StationService.open(serverPlayer, pos, "");
@@ -234,17 +227,7 @@ public final class ShipBlocks {
               Component.translatable("tooltip.nullspace.computer_base"));
       } else if (navigation(state) && player instanceof ServerPlayer serverPlayer)
         ShipService.open(serverPlayer, pos, "Ready for inspection");
-      else if (state.is(SYSTEMS_CONTROLLER) && player instanceof ServerPlayer serverPlayer) {
-        try {
-          com.nullandkale.nullspace.systems.ShipSystems.action(
-              serverPlayer,
-              pos,
-              com.nullandkale.nullspace.terminal.ComputerTerminal.Action.SYSTEMS);
-        } catch (IllegalArgumentException error) {
-          com.nullandkale.nullspace.terminal.ComputerTerminal.send(
-              serverPlayer, pos, error.getMessage(), "systems", "0");
-        }
-      } else if (player instanceof ServerPlayer serverPlayer) {
+      else if (player instanceof ServerPlayer serverPlayer) {
         try {
           com.nullandkale.nullspace.systems.ShipSystems.use(serverPlayer, pos);
         } catch (IllegalArgumentException error) {
@@ -257,22 +240,11 @@ public final class ShipBlocks {
   }
 
   public static final class InventoryMachine extends Machine implements EntityBlock {
-    public static final net.minecraft.world.level.block.state.properties.BooleanProperty
-        LEGACY_HULL =
-            net.minecraft.world.level.block.state.properties.BooleanProperty.create("legacy_hull");
-
     private final String kind;
 
     public InventoryMachine(Properties props, String kind) {
       super(props);
       this.kind = kind;
-      registerDefaultState(defaultBlockState().setValue(LEGACY_HULL, true));
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-      super.createBlockStateDefinition(builder);
-      builder.add(LEGACY_HULL);
     }
 
     @Override
@@ -280,7 +252,7 @@ public final class ShipBlocks {
       var state = super.getStateForPlacement(context);
       if ("camera".equals(kind) || "monitor".equals(kind)) {
         if (context.getClickedFace().getAxis().isVertical()) return null;
-        return state.setValue(FACING, context.getClickedFace()).setValue(LEGACY_HULL, false);
+        return state.setValue(FACING, context.getClickedFace());
       }
       return state;
     }
@@ -291,7 +263,7 @@ public final class ShipBlocks {
         net.minecraft.world.level.BlockGetter level,
         BlockPos at,
         net.minecraft.world.phys.shapes.CollisionContext context) {
-      if (state.getValue(LEGACY_HULL) || !("camera".equals(kind) || "monitor".equals(kind)))
+      if (!("camera".equals(kind) || "monitor".equals(kind)))
         return net.minecraft.world.phys.shapes.Shapes.block();
       double min = "camera".equals(kind) ? 5 : 0,
           max = "camera".equals(kind) ? 11 : 16,
@@ -307,7 +279,7 @@ public final class ShipBlocks {
     @Override
     protected boolean canSurvive(
         BlockState state, net.minecraft.world.level.LevelReader level, BlockPos at) {
-      if (("camera".equals(kind) || "monitor".equals(kind)) && !state.getValue(LEGACY_HULL)) {
+      if ("camera".equals(kind) || "monitor".equals(kind)) {
         var back = at.relative(state.getValue(FACING).getOpposite());
         return level.getBlockState(back).isFaceSturdy(level, back, state.getValue(FACING));
       }

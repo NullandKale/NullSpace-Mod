@@ -474,7 +474,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
       text(g, "Power", videoMode() ? 220 : 8, 208, 92);
       text(g, allocation + " / 8", videoMode() ? 250 : 38, 224, 36);
     }
-    if (java.util.Set.of("generator", "engine", "battery", "local_scanner", "long_range_scanner")
+    if (java.util.Set.of("generator", "engine", "battery", "local_scanner")
         .contains(mode)) {
       text(g, "Upgrades", 250, 4, 66);
       text(g, data.getIntOr("tier", 0) + "/3", 250, 16, 66);

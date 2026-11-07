@@ -2,6 +2,8 @@
 
 A Minecraft total conversion built on **Minecraft Java 26.3**, **Fabric Loader**, and **Fabric API**. Gameplay starts with vanilla movement, combat, food, and world generation. No other gameplay mods are included.
 
+**Playing?** Follow [How to set up NullSpace](docs/how-to-setup.md) to install it with the Modrinth App and join the server. The rest of this README is for developers.
+
 ## Toolchain
 
 | Component | Pinned version |
@@ -62,7 +64,7 @@ The latest [test review and coverage additions](docs/test-gap-review.md) include
 
 The [runtime architecture](docs/architecture.md) describes ownership, persistence, catalogs and maintenance. The [regression coverage matrix](docs/regression-coverage.md) lists deterministic simulations, malformed-input checks, native server behavior and graphical/multiplayer scenarios.
 
-`build` and `check` include server GameTests. Multiplayer and process-crash harnesses are local opt-in scripts, excluded from build/check and CI; see [local verification](docs/local-verification.md). Client GameTests run separately because they need graphics. GitHub Actions builds the mod and runs the server tests; it uploads JARs on success and reports on failure.
+`build` and `check` include server GameTests. Multiplayer and process-crash harnesses are local opt-in scripts, excluded from build/check and CI; see [local verification](docs/local-verification.md). Client GameTests run separately because they need graphics. GitHub Actions builds and tests only for release tags (`vN.N.N` is a full release, `vN.N.N_<label>` a prerelease) and publishes the JAR to the release; see the [release policy](docs/release-policy.md).
 
 ## References
 
@@ -83,7 +85,7 @@ The legacy renderer remains selectable with the JVM argument `-Dnullspace.comput
 
 ## Build, launch, and return
 
-To obtain a preset ship, craft a [Ship Beacon](docs/shipyard.md), place it on a registered pad's ring and choose a design, then **Deliver ship**. Purchases are free for now. `/nullspace shipyard` builds and visits the operator showroom with fifteen preset ships and three empty delivery pads. The [manufacturer fleet](docs/procedural-ships.md#current-review-set) includes scouts, freighters and two-deck explorers. Earlier showrooms and existing builds are preserved.
+To obtain a preset ship, craft a [Ship Beacon](docs/shipyard.md), place it on a registered pad's ring and choose a design, then **Deliver ship**. Purchases are free for now. `/nullspace shipyard` builds and visits the operator showroom with fifteen preset ships and three empty delivery pads. The [manufacturer fleet](docs/procedural-ships.md#current-review-set) includes scouts, freighters and two-deck explorers.
 
 Launch with `./dev.ps1`, enable cheats in a development world, and obtain the block:
 
@@ -101,7 +103,7 @@ Obtain ship equipment with `/give @s nullspace:ship_computer` and `/give @s null
 
 Board, close all captured doors (including interior doors), right-click the ship computer, and select Inspect then Launch. The loading screen stays up through client readiness. In space, edit the ordinary stationary ship blocks and use its containers normally. Inspect reports engines, sealed compartments, air-source status, and cargo readiness; failures highlight the relevant position/leak path. Stair routes and elevation changes are validated with player collision/headroom. Select Destinations to list READY/OCCUPIED/UNAVAILABLE/UNKNOWN pads; edit Destination and choose Land to return. The departure pad is selected automatically, including after a rename. Landing preserves orientation, checks the current ship and destination, and carries your edits and cargo back.
 
-For EVA, equip all four `nullspace:space_helmet`, `nullspace:space_chestplate`, `nullspace:space_leggings`, and `nullspace:space_boots` items. They currently reuse iron-armor visuals. The automatic tether reaches **72 blocks** from the computer and supplies air only while the room in front of that computer remains sealed. Suit flight activates automatically outside a breathable cabin and turns off when you reenter one; no double-tap is needed. Sealed cabins have normal gravity; a breached cabin also activates suit flight. These are the legacy rules. Upgraded ships use finite room air, powered supplies, and tether consumption; portable oxygen tanks remain future work; generators now accept furnace fuel. Opening a direct exterior door vents its room; a manually operated two-door airlock protects a separate cabin. Missing suit pieces or a vented oxygen source consume air and then inflict vacuum damage, even with Water Breathing or full food. Creative and spectator are exempt from exposure. Space beds do not set spawn; death uses your normal planetary respawn.
+For EVA, wear a full space suit: the plain suit (`nullspace:space_helmet`, `space_chestplate`, `space_leggings`, `space_boots`) is the starting kit; the armored suit is crafted from it and gives real armor. Both currently reuse vanilla armor visuals. Air is measured 0-100: your oxygen meter drifts toward the air of the room you stand in, and at 0 you take damage. Rooms lose air through leaks (a one-block hole empties a room in about 30 seconds, a large breach almost at once) and are refilled by powered Air Supplies. Suited and tethered within **72 blocks** of the ship, your oxygen never drops below 20. Away from ship air, an Air Canister filled at an Air Supply keeps a suited player breathing for about two minutes. Suit flight activates automatically outside a breathable cabin. Without air or a suit you die in about 20 seconds. Creative and spectator are exempt. A bed aboard a ship uses normal sleep on planets and sets a ship respawn in space.
 
 Containers supported for travel: chests, barrels, and shulker boxes; signs are also supported. Contained mobs and dropped items travel with UUID/state intact, including elapsed creeper fuses. Other block entities, active contraptions, scheduled block ticks, fluids, falling blocks, TNT, vehicles, mounts, and leashes fail preflight. Build placement in space stays inside the ship's 32-cube allocation. All named pads are public in this first version.
 
@@ -109,7 +111,7 @@ Ship metadata and pending reconnect positions live in the save's `nullspace/ship
 
 Powered systems and the scene renderer are described in [ship systems, power, and remote viewports](docs/ship-systems-and-viewports.md), including current implementation limits. Use `/nullspace lab systems` for plot 23 or `/nullspace lab plot 24` for its target ship. These powered spheres have one Ship Controller for travel, weapons and Advanced power/air/door commands, and live camera monitors. Engineering has arrow-key actions and a text command field (`help`, `power cameras 2`, `doors list`, `doors all close`). A ready Ship Controller initializes ship systems automatically. Right-click machinery for native fuel/upgrade slots and live controls; detailed terminals are under Advanced. Each Engine, Generator, Battery and Scanner accepts three universal System Upgrade items. Generators share real furnace fuel with engines and support top/side hopper insertion and bottom container-return extraction. Thin wall monitors join in rectangles and use a named camera picker. See the [editable UI reference](docs/ship-block-ui-design.md). Space contains a shared simulated scene with stars, finite bodies, and other real ships.
 
-[Space stations and automatic docking](docs/stations.md) are available from the ship controller. Use **Find Waypoint**, select a port as the **Destination**, then press **Dock**. New preset ships include a door on one Docking Base. After mating, open the door and walk through to board. Build your own station directly in space with a Station Core and room kits; ordinary bulkhead doors form the graph used by room assembly and route diagnostics. Existing saved ships are preserved.
+[Space stations and automatic docking](docs/stations.md) are available from the ship controller. Use **Find Waypoint**, select a port as the **Destination**, then press **Dock**. New preset ships include a door on one Docking Base. After mating, open the door and walk through to board. Build your own station directly in space with a Station Core and room kits; ordinary bulkhead doors form the graph used by room assembly and route diagnostics.
 
 After dying in space, use a **Pad Computer**, choose **Recall ships**, then **Recall selected ship** to recover your empty ship to a clear registered pad. Recovery preserves cargo and damage and needs no ship fuel. See [ship recall](docs/ship-recall.md).
 
@@ -153,4 +155,4 @@ Pad computers work from any side or corner of the cobblestone ring, regardless o
 
 See [supported blocks, conditions, and exclusions](docs/ship-block-support.md), plus the [complete vanilla block catalog](docs/ship-block-catalog.md). Ships now support workshop/storage machinery, decoration, stored bees, onboard soil, settled redstone and stationary pistons. Pending actions, fluids, and world-bound special blocks still fail preflight with a specific explanation.
 
-Computer scripts, flat planetary surfaces, scanners, spatial air and graphics controls are documented in [the implementation guide](docs/planet-computers-and-rendering.md). See [NullOS](docs/nullos.md) for shell commands, language syntax, native ship APIs and isolation limits.
+Each world has its own [galaxy](docs/star-systems.md): Sol and four random systems, features such as nebulae, landable planets with real terrain by planet type, engine jump ranges and a star map at the Scanner. Computer scripts, scanners, spatial air and graphics controls are documented in [the implementation guide](docs/planet-computers-and-rendering.md). See [NullOS](docs/nullos.md) for shell commands, language syntax, native ship APIs and isolation limits.

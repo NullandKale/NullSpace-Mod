@@ -23,7 +23,10 @@ public final class ExpansionGameTest {
     var terminal = base.offset(3, 3, 6);
     level.setBlock(terminal, ShipBlocks.TERMINAL.defaultBlockState(), 18);
     level.setBlock(base.offset(4, 3, 6), ShipBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
-    level.setBlock(base.offset(5, 3, 6), ShipBlocks.LONG_RANGE_SCANNER.defaultBlockState(), 18);
+    // A Local Scanner with an upgrade reaches other places.
+    level.setBlock(base.offset(5, 3, 6), ShipBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
+    ((com.nullandkale.nullspace.systems.MachineEntity) level.getBlockEntity(base.offset(5, 3, 6)))
+        .setItem(0, new net.minecraft.world.item.ItemStack(ShipBlocks.SYSTEM_UPGRADE));
     var ship = new CompoundTag();
     ship.putString("id", UUID.randomUUID().toString());
     ship.putString("dimension", level.dimension().identifier().toString());

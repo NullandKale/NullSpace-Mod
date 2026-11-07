@@ -84,7 +84,6 @@ public final class VesselTemplate {
   public void machine(BlockPos at, Block block, Direction facing) {
     var state = block.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
     if (block == ShipBlocks.CAMERA || block == ShipBlocks.MONITOR) {
-      state = state.setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, false);
       var backing = at.relative(facing.getOpposite());
       var behind = blocks.get(backing);
       if (behind == null || behind.isAir())

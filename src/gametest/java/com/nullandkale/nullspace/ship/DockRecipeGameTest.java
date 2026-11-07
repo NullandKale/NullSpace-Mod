@@ -15,7 +15,7 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.level.block.*;
 
-public final class LegacyHardwareGameTest {
+public final class DockRecipeGameTest {
   @GameTest(environment = "nullspace:hardware_retirement")
   public void dockRecipeAcceptsEveryWoodenDoorAndGuideListsOnlyCurrentHardware(GameTestHelper ctx) {
     var level = ctx.getLevel();
@@ -41,22 +41,6 @@ public final class LegacyHardwareGameTest {
       }
     ctx.assertTrue(
         doors >= 12, "All vanilla wood families are present, including bamboo and Nether woods");
-    for (String retired :
-        List.of(
-            "helm",
-            "systems_controller",
-            "door_control",
-            "long_range_scanner",
-            "door_connector",
-            "docking_port")) {
-      ctx.assertTrue(!GuideContent.RECIPES.contains(retired), "No retired guide recipe " + retired);
-      var key =
-          net.minecraft.resources.ResourceKey.create(
-              net.minecraft.core.registries.Registries.RECIPE,
-              net.minecraft.resources.Identifier.parse("nullspace:" + retired));
-      ctx.assertTrue(
-          level.getServer().getRecipeManager().byKey(key).isEmpty(), "No retired crafting recipe");
-    }
     var shown =
         GuideContent.recipes(level.getServer()).stream()
             .filter(r -> r.name().equals("docking_base"))

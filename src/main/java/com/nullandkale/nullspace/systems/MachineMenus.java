@@ -27,7 +27,6 @@ public final class MachineMenus {
                   ShipBlocks.BATTERY,
                   ShipBlocks.ENGINE,
                   ShipBlocks.LOCAL_SCANNER,
-                  ShipBlocks.LONG_RANGE_SCANNER,
                   ShipBlocks.CAMERA,
                   ShipBlocks.MONITOR,
                   ShipBlocks.AIR_SUPPLY,

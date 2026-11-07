@@ -12,16 +12,13 @@ def generatedContent = { ->
         def id = definition.id
         def variants = [:]
         ['north','east','south','west'].eachWithIndex { facing, index ->
-            if(id in ['camera','monitor']) {
-                variants["facing=$facing,legacy_hull=false"]=[model:"nullspace:block/$id",y:index*90]
-                variants["facing=$facing,legacy_hull=true"]=[model:"nullspace:block/${id}_legacy",y:index*90]
-            } else variants["facing=$facing"] = [model:"nullspace:block/$id", y:index*90]
+            variants["facing=$facing"] = [model:"nullspace:block/$id", y:index*90]
         }
         outputs["assets/nullspace/blockstates/${id}.json"] = [variants:variants]
         outputs["assets/nullspace/items/${id}.json"] = [model:[type:'minecraft:model',model:"nullspace:block/$id"]]
         outputs["data/nullspace/loot_table/blocks/${id}.json"] = [type:'minecraft:block',pools:[[rolls:1,entries:[[type:'minecraft:item',name:"nullspace:$id"]],conditions:[[condition:'minecraft:survives_explosion']]]]]
     }
-    equipment.findAll { !it.capabilities.contains('retired') }.each { definition ->
+    equipment.each { definition ->
         def recipe="nullspace:${definition.id}"
         outputs["data/nullspace/advancement/recipes/ship/${definition.id}.json"] = [parent:'minecraft:recipes/root',criteria:[has_component:[trigger:'minecraft:inventory_changed',conditions:[items:[definition.unlock]]],has_the_recipe:[trigger:'minecraft:recipe_unlocked',conditions:[recipes:recipe]]],requirements:[['has_component','has_the_recipe']],rewards:[recipes:[recipe]]]
     }
@@ -49,7 +46,7 @@ tasks.register('verifyContentAssets') {
         }
         if (!mismatches.empty) throw new GradleException("Generated content differs: $mismatches. Run generateContentAssets.")
         def equipment = parser.parse(new File(resourcesRoot, 'data/nullspace/catalog/equipment.json'))
-        def active = equipment.findAll { !it.capabilities.contains('retired') }
+        def active = equipment
         def guideChapters = parser.parse(new File(resourcesRoot, 'data/nullspace/guide/chapters.json')).chapters
         // Same native book structure: cover, chapter indexes/pages, recipe indexes/pages.
         int guidePages = 1 + ((guideChapters.size() + 7).intdiv(8)) + guideChapters.sum { it.pages.size() } + ((active.size() + 7).intdiv(8)) + active.size()

@@ -11,42 +11,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.Blocks;
 
 public final class SpacePopulationGameTest {
-  @GameTest(environment = "nullspace:space_population_legacy", maxTicks = 40)
-  public void addingShipTrafficKeepsOldStationRecordsAndRemovalTombstones(GameTestHelper ctx) {
-    var server = ctx.getLevel().getServer();
-    var store = ShipStore.get(server);
-    // P9: the home orbit has a Waypoint, an Exchange and a salvage ship.
-    String address = LocalSpaces.HOME;
-    var plan = SpacePopulation.plan(server, address);
-    var old = new CompoundTag();
-    old.putInt("version", 1);
-    var sites = new net.minecraft.nbt.ListTag();
-    for (int i = 0; i < 2; i++) {
-      var saved = new CompoundTag();
-      saved.putString("id", plan.get(i).id());
-      saved.putString("state", i == 0 ? "removed" : "placed");
-      saved.putString("name", "Player-edited station " + i);
-      sites.add(saved);
-    }
-    var original = sites.copy();
-    old.put("sites", sites);
-    store.section("spacePopulation").put(address, old);
-    SpacePopulation.discover(server, address);
-    var migrated = store.section("spacePopulation").getCompoundOrEmpty(address);
-    var actual = migrated.getListOrEmpty("sites");
-    ctx.assertTrue(
-        migrated.getIntOr("version", 0) == SpacePopulationPlan.VERSION
-            && actual.size() == plan.size()
-            && actual.get(0).equals(original.get(0))
-            && actual.get(1).equals(original.get(1)),
-        "Migration only appends new ships, preserving both station records exactly");
-    var once = migrated.copy();
-    SpacePopulation.discover(server, address);
-    ctx.assertTrue(once.equals(migrated), "Repeated discovery cannot append duplicate ships");
-    store.section("spacePopulation").remove(address);
-    ctx.succeed();
-  }
-
   @GameTest(environment = "nullspace:space_population", maxTicks = 900)
   public void enteringSpacePopulatesDockablePlacesOnceAndPreservesChangesAfterReload(
       GameTestHelper ctx) {
@@ -179,65 +143,6 @@ public final class SpacePopulationGameTest {
               });
         };
     ctx.runAfterDelay(5, poll[0]);
-  }
-
-  @GameTest(environment = "nullspace:space_population_legacy", maxTicks = 40)
-  public void existingStationsAreAdoptedWithoutMovingRepairingOrRefillingThem(GameTestHelper ctx) {
-    var server = ctx.getLevel().getServer();
-    var store = ShipStore.get(server);
-    var space = server.getLevel(TravelService.SPACE);
-    // An orbit no other test uses: the last one the chart populates (the build test uses the
-    // first, and Sol's home orbit is populated at startup).
-    var populated =
-        new ArrayList<>(GalaxyPlan.population(StarSystems.galaxy(server)).keySet());
-    String address = populated.getLast();
-    var sites = SpacePopulation.plan(server, address);
-    for (var site : sites) {
-      var old = new CompoundTag();
-      old.putString("id", site.legacyId());
-      old.putString("kind", "station");
-      old.putString("localSpace", address);
-      old.putString("home", "Player-edited name");
-      old.putString("dimension", TravelService.SPACE.identifier().toString());
-      old.putLong("base", new BlockPos(1400000, 96, 1400000).asLong());
-      old.putDouble("simX", 9876);
-      store.ships().add(old);
-    }
-    // Simulate a save from before orbital population: other tests in the same run may already
-    // have discovered (and built) this region, which would make discover() a no-op.
-    store.section("spacePopulation").remove(address);
-    var replacements = new HashSet<String>();
-    for (var site : sites) replacements.add(site.id());
-    var removed = new ArrayList<net.minecraft.nbt.Tag>();
-    store
-        .ships()
-        .removeIf(
-            t -> {
-              boolean built = replacements.contains(((CompoundTag) t).getStringOr("id", ""));
-              if (built) removed.add(t);
-              return built;
-            });
-    SpacePopulation.discover(server, address);
-    var manifest =
-        store.section("spacePopulation").getCompoundOrEmpty(address).getListOrEmpty("sites");
-    for (int i = 0; i < sites.size(); i++) {
-      var site = (CompoundTag) manifest.get(i);
-      ctx.assertTrue(
-          site.getStringOr("id", "").equals(sites.get(i).legacyId()), "Adopts old identity");
-      var old = store.repository().find(sites.get(i).legacyId());
-      ctx.assertTrue(
-          old.getDoubleOr("simX", 0) == 9876
-              && old.getStringOr("home", "").equals("Player-edited name")
-              && !old.contains("stationBuild"),
-          "Existing edited station is untouched");
-      ctx.assertTrue(
-          store.repository().find(sites.get(i).id()) == null, "No duplicate replacement station");
-      store.ships().remove(old);
-    }
-    store.section("spacePopulation").remove(address);
-    store.ships().addAll(removed);
-    store.save();
-    ctx.succeed();
   }
 
   private static void cleanup(net.minecraft.server.level.ServerLevel level, CompoundTag station) {

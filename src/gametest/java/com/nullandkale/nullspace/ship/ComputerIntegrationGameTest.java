@@ -158,7 +158,7 @@ public final class ComputerIntegrationGameTest {
     var helm = ShipTestFixture.build(level, base);
     level.setBlock(base.offset(1, 3, 6), ShipBlocks.GENERATOR.defaultBlockState(), 18);
     level.setBlock(base.offset(2, 3, 6), ShipBlocks.BATTERY.defaultBlockState(), 18);
-    level.setBlock(base.offset(4, 3, 6), ShipBlocks.DOOR_CONTROL.defaultBlockState(), 18);
+    level.setBlock(base.offset(4, 3, 6), ShipBlocks.COMPUTER.defaultBlockState(), 18);
     var terminal = base.offset(3, 3, 6);
     level.setBlock(terminal, ShipBlocks.TERMINAL.defaultBlockState(), 18);
     var ship = new CompoundTag();

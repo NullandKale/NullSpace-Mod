@@ -9,31 +9,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class SpaceDefinitionGameTest {
   @GameTest
-  public void oldDefaultMoonLayoutMigratesOnceAndKeepsIdentity(GameTestHelper ctx) {
-    var catalog = SceneCatalog.get(ctx.getLevel().getServer()).copy();
-    catalog.remove("layoutVersion");
-    var moon =
-        catalog.getListOrEmpty("bodies").stream()
-            .map(t -> (CompoundTag) t)
-            .filter(t -> t.getStringOr("name", "").equals("Luna"))
-            .findFirst()
-            .orElseThrow();
-    String id = moon.getStringOr("id", "");
-    moon.putDouble("x", 2600);
-    moon.putDouble("y", -1000);
-    moon.putDouble("z", 4300);
-    long revision = catalog.getLongOr("revision", 0);
-    ctx.assertTrue(
-        CelestialLayout.migrate(catalog, "Terra"), "Legacy generated layout needs one migration");
-    ctx.assertTrue(
-        moon.getStringOr("id", "").equals(id)
-            && moon.getDoubleOr("radius", 0) == 600
-            && catalog.getLongOr("revision", 0) == revision + 1,
-        "Move the default moon without changing identity/radius and invalidate client definitions");
-    var saved = catalog.copy();
-    ctx.assertTrue(
-        !CelestialLayout.migrate(catalog, "Terra") && saved.equals(catalog),
-        "Repeated reads must not move or revise bodies again");
+  public void generatedCompanionsFitTheSurfaceAngularSizeBound(GameTestHelper ctx) {
     for (var destination : com.nullandkale.nullspace.navigation.LocalSpaces.DESTINATIONS) {
       var scene = SceneCatalog.region(ctx.getLevel().getServer(), destination.id());
       var bodies = scene.getListOrEmpty("bodies").stream().map(t -> (CompoundTag) t).toList();
@@ -59,26 +35,6 @@ public final class SpaceDefinitionGameTest {
               "Generated companion must fit the surface angular-size bound in " + destination.id());
         }
     }
-    ctx.succeed();
-  }
-
-  @GameTest
-  public void customMoonGeometryIsPreserved(GameTestHelper ctx) {
-    var catalog = SceneCatalog.get(ctx.getLevel().getServer()).copy();
-    catalog.remove("layoutVersion");
-    var moon =
-        catalog.getListOrEmpty("bodies").stream()
-            .map(t -> (CompoundTag) t)
-            .filter(t -> t.getStringOr("kind", "").equals("moon"))
-            .findFirst()
-            .orElseThrow();
-    moon.putDouble("x", 12345);
-    var original = moon.copy();
-    long revision = catalog.getLongOr("revision", 0);
-    CelestialLayout.migrate(catalog, "Terra");
-    ctx.assertTrue(
-        original.equals(moon) && catalog.getLongOr("revision", 0) == revision,
-        "Do not replace custom saved geometry with a default layout");
     ctx.succeed();
   }
 

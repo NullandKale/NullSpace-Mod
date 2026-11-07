@@ -93,15 +93,10 @@ public final class SpaceStart {
             .getCompoundOrEmpty(player.getUUID().toString());
     if (previous.getBooleanOr("completed", false)) return false;
     if (!previous.isEmpty()) return true; // A saved construction intent can resume after login.
-    // Use the native layout, including its backup. Keep pre-migration layouts protected too.
-    for (var data :
-        List.of(
-            server.getWorldPath(LevelResource.PLAYER_DATA_DIR),
-            server.getWorldPath(LevelResource.PLAYER_OLD_DATA_DIR),
-            server.getWorldPath(LevelResource.ROOT).resolve("playerdata")))
-      if (Files.exists(data.resolve(player.getUUID() + ".dat"))
-          || Files.exists(data.resolve(player.getUUID() + ".dat_old"))) return false;
-    return true;
+    // A player with saved data (or its backup) has played this world before.
+    var data = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+    return !Files.exists(data.resolve(player.getUUID() + ".dat"))
+        && !Files.exists(data.resolve(player.getUUID() + ".dat_old"));
   }
 
   /** Stable random choice per new player and world; only landable planets, never moons. */

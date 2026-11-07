@@ -23,7 +23,6 @@ public final class StationBlueprint {
       Map<BlockPos, BlockState> out, BlockPos at, Block block, Direction face) {
     var state = block.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, face);
     if (block == ShipBlocks.CAMERA || block == ShipBlocks.MONITOR) {
-      state = state.setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, false);
       var backing = at.relative(face.getOpposite());
       if (!out.containsKey(backing) || out.get(backing).isAir())
         out.put(backing, Blocks.QUARTZ_BLOCK.defaultBlockState());

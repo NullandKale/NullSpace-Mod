@@ -196,87 +196,9 @@ public final class DockingService {
   public static Port readPort(
       ServerLevel level, CompoundTag s, BlockPos controller, boolean requirePower) {
     var state = level.getBlockState(controller);
-    if (state.is(ShipBlocks.DOCKING_BASE)) return compactPort(level, s, controller, requirePower);
-    if (!state.is(ShipBlocks.DOCKING_PORT) || !ShipStore.bounds(s).contains(controller))
-      throw new IllegalArgumentException("Docking port controller is missing");
-    var outer = controller.below(2);
-    var ds = level.getBlockState(outer);
-    if (!ds.is(Blocks.IRON_DOOR)
-        || ds.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER
-        || !ShipDoors.framed(level, outer))
-      throw new IllegalArgumentException("Place the port directly above a framed outer iron door");
-    var face = state.getValue(HorizontalDirectionalBlock.FACING);
-    var start = outer.relative(face.getOpposite());
-    var cells = new HashSet<BlockPos>();
-    var doors = new HashSet<BlockPos>();
-    var q = new ArrayDeque<BlockPos>();
-    q.add(start);
-    var bounds = ShipStore.bounds(s);
-    while (!q.isEmpty()) {
-      var p = q.removeFirst();
-      if (cells.contains(p)) continue;
-      if (!bounds.contains(p))
-        throw new IllegalArgumentException("Docking chamber is open to space; repair its seal");
-      var bs = level.getBlockState(p);
-      if (bs.getBlock() instanceof DoorBlock) {
-        var root = bs.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER ? p : p.below();
-        doors.add(root.immutable());
-        continue;
-      }
-      if (ShipScan.seals(level, p)) continue;
-      if (cells.size() >= 512)
-        throw new IllegalArgumentException(
-            "Dock needs a separate sealed chamber; add its inner door");
-      cells.add(p.immutable());
-      for (var direction : Direction.values()) q.add(p.relative(direction));
-    }
-    if (doors.size() != 2 || !doors.contains(outer))
-      throw new IllegalArgumentException("Airlock must have exactly one outer and one inner door");
-    var inner = doors.stream().filter(p -> !p.equals(outer)).findFirst().orElseThrow();
-    if (!level.getBlockState(inner).is(Blocks.IRON_DOOR) || !ShipDoors.framed(level, inner))
-      throw new IllegalArgumentException("Frame the inner iron door with sealing blocks");
-    var anchors =
-        cells.stream()
-            .filter(p -> StationGraph.standing(level, p) && cells.contains(p.above()))
-            .sorted(Comparator.comparingLong(BlockPos::asLong))
-            .toList();
-    if (anchors.size() < 2)
-      throw new IllegalArgumentException(
-          "Airlock needs at least two safe standing cells, two blocks high");
-    boolean supply = false;
-    for (var cell : cells)
-      for (var d : Direction.values()) {
-        var at = cell.relative(d);
-        var bs = level.getBlockState(at);
-        if (bs.is(ShipBlocks.AIR_SUPPLY)
-            && ShipSystems.active(s, at)
-            && at.relative(bs.getValue(HorizontalDirectionalBlock.FACING)).equals(cell))
-          supply = true;
-      }
-    if (!supply)
-      throw new IllegalArgumentException(
-          "Install an air supply with its outlet inside the closed chamber");
-    if (requirePower) {
-      if (!ShipSystems.enabled(s))
-        throw new IllegalArgumentException("Upgrade powered systems before using docking");
-      for (var system :
-          List.of(PowerBus.System.CONTROLS, PowerBus.System.DOORS, PowerBus.System.AIR))
-        if (ShipSystems.power(level, s, system) == 0)
-          throw new IllegalArgumentException(system + " has no delivered power");
-      if (!ShipSystems.connected(level, s).contains(controller)
-          || !ShipSystems.active(s, controller))
-        throw new IllegalArgumentException("Port is disconnected or disabled");
-    }
-    var identities = s.getCompoundOrEmpty("doorNodes");
-    if (!s.contains("doorNodes")) s.put("doorNodes", identities);
-    String key = Long.toString(controller.subtract(ShipStore.pos(s, "base")).asLong());
-    String identity = identities.getStringOr(key, "");
-    if (identity.isEmpty()) {
-      identity = UUID.randomUUID().toString();
-      identities.putString(key, identity);
-    }
-    return new Port(
-        identity, controller.immutable(), outer, inner, face, Set.copyOf(cells), anchors);
+    if (!state.is(ShipBlocks.DOCKING_BASE))
+      throw new IllegalArgumentException("Docking base is missing");
+    return compactPort(level, s, controller, requirePower);
   }
 
   private static Port compactPort(
@@ -426,8 +348,7 @@ public final class DockingService {
     if (!StationService.ready(s)) return List.of();
     var ports = new ArrayList<Port>();
     for (var at : ShipSystems.connected(level, s))
-      if (level.getBlockState(at).is(ShipBlocks.DOCKING_PORT)
-          || level.getBlockState(at).is(ShipBlocks.DOCKING_BASE)) {
+      if (level.getBlockState(at).is(ShipBlocks.DOCKING_BASE)) {
         try {
           ports.add(readPort(level, s, at, false));
         } catch (IllegalArgumentException invalid) {
@@ -441,8 +362,7 @@ public final class DockingService {
     var ports = ports(level, s);
     if (ports.isEmpty()) {
       for (var at : ShipSystems.connected(level, s).stream().sorted().toList())
-        if (level.getBlockState(at).is(ShipBlocks.DOCKING_BASE)
-            || level.getBlockState(at).is(ShipBlocks.DOCKING_PORT)) {
+        if (level.getBlockState(at).is(ShipBlocks.DOCKING_BASE)) {
           try {
             return readPort(level, s, at, true);
           } catch (IllegalArgumentException invalid) {
@@ -493,8 +413,7 @@ public final class DockingService {
           // Request performs the authoritative block/airlock checks before reserving anything.
           for (var tagDevice : s.getCompoundOrEmpty("systems").getListOrEmpty("devices")) {
             var device = (CompoundTag) tagDevice;
-            if (!device.getStringOr("type", "").equals("nullspace:docking_port")
-                && !device.getStringOr("type", "").equals("nullspace:docking_base")) continue;
+            if (!device.getStringOr("type", "").equals("nullspace:docking_base")) continue;
             var local = BlockPos.of(device.getLongOr("position", 0));
             var node =
                 s.getCompoundOrEmpty("doorNodes").getStringOr(Long.toString(local.asLong()), "");
@@ -629,9 +548,7 @@ public final class DockingService {
   public static String status(ServerPlayer p, CompoundTag s, BlockPos at) {
     var port = readPort(p.level(), s, at, false);
     var d = link(p.level().getServer(), s, at);
-    return (port.inner().equals(port.outer())
-            ? "Door + docking base ready\n"
-            : "Legacy airlock ready\n")
+    return "Door + docking base ready\n"
         + (d == null ? "No connection" : d.getStringOr("state", ""))
         + "\nPower controls/doors/air: "
         + ShipSystems.power(p.level(), s, PowerBus.System.CONTROLS)

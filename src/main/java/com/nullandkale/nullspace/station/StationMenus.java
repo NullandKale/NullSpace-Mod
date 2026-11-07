@@ -6,7 +6,7 @@ import java.util.*;
 /** Client/server menu contract, with a single editable argument for names and room selection. */
 public final class StationMenus {
   public static boolean supports(String mode) {
-    return Set.of("station_core", "docking_port", "door_connector", "docks").contains(mode);
+    return Set.of("station_core", "docking_port", "docks").contains(mode);
   }
 
   public static List<Entry> entries(String mode) {
@@ -46,9 +46,6 @@ public final class StationMenus {
               e("station_expand", "Expand station build area"),
               e("dock_return", "Return to construction ship"),
               e("station_claim", "Claim and take command"));
-      case "door_connector" ->
-          List.of(
-              e("station_refresh", "Inspect door and routes"), e("station_door", "Cycle bulkhead"));
       default -> throw new IllegalArgumentException("Unknown station terminal");
     };
   }

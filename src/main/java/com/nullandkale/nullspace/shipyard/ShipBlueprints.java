@@ -356,8 +356,6 @@ public final class ShipBlueprints {
   private static void machine(
       Map<BlockPos, BlockState> out, BlockPos at, Block block, Direction facing) {
     var state = block.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
-    if (block == ShipBlocks.CAMERA || block == ShipBlocks.MONITOR)
-      state = state.setValue(ShipBlocks.InventoryMachine.LEGACY_HULL, false);
     out.put(at, state);
   }
 

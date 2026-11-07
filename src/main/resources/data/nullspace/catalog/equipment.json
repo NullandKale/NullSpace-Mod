@@ -32,37 +32,12 @@
     }
   },
   {
-    "id": "helm",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "navigation",
-      "controller",
-      "retired"
-    ],
-    "unlock": {
-      "items": "nullspace:computer_base"
-    }
-  },
-  {
     "id": "ship_computer",
     "kind": "block",
     "capabilities": [
       "device",
       "navigation",
       "controller"
-    ],
-    "unlock": {
-      "items": "nullspace:computer_base"
-    }
-  },
-  {
-    "id": "systems_controller",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "controller",
-      "retired"
     ],
     "unlock": {
       "items": "nullspace:computer_base"
@@ -138,19 +113,6 @@
     }
   },
   {
-    "id": "door_control",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "equipment_menu",
-      "power_allocation",
-      "retired"
-    ],
-    "unlock": {
-      "items": "nullspace:machine_casing"
-    }
-  },
-  {
     "id": "weapon",
     "kind": "block",
     "capabilities": [
@@ -218,19 +180,6 @@
     }
   },
   {
-    "id": "long_range_scanner",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "equipment_menu",
-      "power_allocation",
-      "retired"
-    ],
-    "unlock": {
-      "items": "nullspace:computer_base"
-    }
-  },
-  {
     "id": "field_guide",
     "kind": "item",
     "capabilities": [],
@@ -252,28 +201,6 @@
     "capabilities": [
       "device",
       "controller"
-    ],
-    "unlock": {
-      "items": "nullspace:computer_base"
-    }
-  },
-  {
-    "id": "door_connector",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "retired"
-    ],
-    "unlock": {
-      "items": "nullspace:circuit_board"
-    }
-  },
-  {
-    "id": "docking_port",
-    "kind": "block",
-    "capabilities": [
-      "device",
-      "retired"
     ],
     "unlock": {
       "items": "nullspace:computer_base"

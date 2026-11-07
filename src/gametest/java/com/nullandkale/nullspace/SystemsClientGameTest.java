@@ -53,8 +53,8 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                             ShipBlocks.GENERATOR,
                             ShipBlocks.BATTERY,
                             ShipBlocks.AIR_SUPPLY,
-                            ShipBlocks.DOOR_CONTROL,
-                            ShipBlocks.SYSTEMS_CONTROLLER,
+                            ShipBlocks.LOCAL_SCANNER,
+                            ShipBlocks.LOCAL_SCANNER,
                             ShipBlocks.MONITOR
                           }
                           [x - 14].defaultBlockState()
@@ -102,21 +102,21 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                     18);
                 level.setBlock(
                     SphereLab.controller(base),
-                    ShipBlocks.HELM
+                    ShipBlocks.COMPUTER
                         .defaultBlockState()
                         .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
                     18);
                 FuelSystem.provision(level, base.offset(14, 6, 21), 64);
-                var ship = ShipTopology.resolve(level, base.offset(18, 6, 21));
+                var ship = ShipTopology.resolve(level, SphereLab.controller(base));
                 ShipSystems.upgrade(level, ship);
                 ship.getCompoundOrEmpty("systems")
                     .putIntArray("requests", new int[] {1, 2, 1, 1, 2, 0});
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(
                     level,
-                    base.getX() + 18.5,
-                    base.getY() + 6,
-                    base.getZ() + 19.5,
+                    base.getX() + 16.5,
+                    base.getY() + 16,
+                    base.getZ() + 23.5,
                     java.util.Set.of(),
                     0,
                     0,
@@ -130,7 +130,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
               server ->
                   ShipSystems.action(
                       world.getConnection().getServerPlayer(),
-                      base.offset(18, 6, 21),
+                      SphereLab.controller(base),
                       com.nullandkale.nullspace.terminal.ComputerTerminal.Action.SYSTEMS));
       context.waitFor(
           c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 8"),
@@ -141,7 +141,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
               server ->
                   ShipSystems.action(
                       world.getConnection().getServerPlayer(),
-                      base.offset(18, 6, 21),
+                      SphereLab.controller(base),
                       com.nullandkale.nullspace.terminal.ComputerTerminal.Action.CONFIGURE,
                       "rooms"));
       context.waitFor(
@@ -159,7 +159,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
               server ->
                   ShipSystems.action(
                       world.getConnection().getServerPlayer(),
-                      base.offset(18, 6, 21),
+                      SphereLab.controller(base),
                       com.nullandkale.nullspace.terminal.ComputerTerminal.Action.SYSTEMS));
       context.waitFor(
           c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 8"),
@@ -168,7 +168,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  ShipTopology.resolve(server.overworld(), base.offset(18, 6, 21))
+                  ShipTopology.resolve(server.overworld(), SphereLab.controller(base))
                       .getCompoundOrEmpty("systems")
                       .putBoolean("supplyDisabled", true));
       context.waitFor(
@@ -178,7 +178,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  ShipTopology.resolve(server.overworld(), base.offset(18, 6, 21))
+                  ShipTopology.resolve(server.overworld(), SphereLab.controller(base))
                       .getCompoundOrEmpty("systems")
                       .putBoolean("supplyDisabled", false));
       context.waitFor(
@@ -193,7 +193,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
               server -> {
                 var p = world.getConnection().getServerPlayer();
                 var owner = SceneService.observer(p);
-                var direct = ShipTopology.resolve(server.overworld(), base.offset(18, 6, 21));
+                var direct = ShipTopology.resolve(server.overworld(), SphereLab.controller(base));
                 var blocks = ShipTopology.discover(server.overworld(), direct);
                 if (owner == null
                     || !owner.getStringOr("id", "").equals(direct.getStringOr("id", ""))
@@ -215,6 +215,24 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
             if (MonitorRenderer.preparedCount() == 0)
               throw new AssertionError("No installed display: " + MonitorRenderer.status());
           });
+      world
+          .getServer()
+          .runOnServer(
+              server ->
+                  world
+                      .getConnection()
+                      .getServerPlayer()
+                      .teleportTo(
+                          server.overworld(),
+                          base.getX() + 18.5,
+                          base.getY() + 6,
+                          base.getZ() + 19.5,
+                          java.util.Set.of(),
+                          0,
+                          0,
+                          true));
+      world.getConnection().waitForChunksRender();
+      context.waitTicks(10);
       context.getInput().lookAt(base.offset(19, 6, 21));
       context.waitTicks(10);
       context.takeScreenshot("nullspace-placed-monitor");
@@ -514,7 +532,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                 ShipService.inspect(level, SphereLab.controller(base));
                 if (!ship.getStringOr("id", "")
                     .equals(
-                        ShipTopology.resolve(level, base.offset(18, 6, 21)).getStringOr("id", "")))
+                        ShipTopology.resolve(level, SphereLab.controller(base)).getStringOr("id", "")))
                   throw new AssertionError("Helm and systems console must share ship identity");
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(
