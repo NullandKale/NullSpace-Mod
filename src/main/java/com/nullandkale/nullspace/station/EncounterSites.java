@@ -22,6 +22,7 @@ public final class EncounterSites {
 
   public static StationBlueprint.Plan plan(int kind, long seed) {
     if (kind == 0) return growing(seed);
+    if (kind == 3) return cargoPod(seed);
     String design = design(kind, seed);
     var preset = ShipBlueprints.get(design);
     var blocks = new LinkedHashMap<>(ShipBlueprints.blocks(preset));
@@ -43,7 +44,7 @@ public final class EncounterSites {
   }
 
   public static String design(int kind, long seed) {
-    if (kind == 0) return "";
+    if (kind == 0 || kind == 3) return "";
     var designs =
         kind == 1
             ? List.of("rivet_hauler", "halcyon_courier", "bastion_tender")
@@ -113,8 +114,93 @@ public final class EncounterSites {
     return new StationBlueprint.Plan(blocks, core.above(), docks(blocks));
   }
 
+  /** Barrels in the drifting cargo pod; the first holds the site's treasure. */
+  static final List<BlockPos> POD_CRATES =
+      List.of(
+          new BlockPos(11, 1, 4),
+          new BlockPos(11, 1, 5),
+          new BlockPos(11, 1, 7),
+          new BlockPos(11, 1, 8),
+          new BlockPos(10, 1, 8),
+          new BlockPos(11, 2, 8));
+
+  /** A small sealed cargo pod, adrift with no power or air: one dock, a core and a few crates. */
+  private static StationBlueprint.Plan cargoPod(long seed) {
+    var t = new VesselTemplate();
+    var footprint = new LinkedHashSet<BlockPos>();
+    VesselTemplate.rectangle(footprint, 2, 2, 12, 10);
+    var hull =
+        switch ((int) Math.floorMod(seed, 3)) {
+          case 0 -> Blocks.DYED_TERRACOTTA.orange();
+          case 1 -> Blocks.DYED_TERRACOTTA.lightGray();
+          default -> Blocks.DYED_TERRACOTTA.cyan();
+        };
+    t.shell(footprint, 0, 6, hull, Blocks.SMOOTH_STONE);
+    t.dock(new BlockPos(7, 1, 2), Direction.NORTH, hull);
+    var core = new BlockPos(3, 1, 6);
+    t.machine(core, ShipBlocks.STATION_CORE, Direction.EAST);
+    for (var crate : POD_CRATES) t.put(crate.getX(), crate.getY(), crate.getZ(), Blocks.BARREL);
+    t.light(7, 5, 6);
+    // A mast with a red beacon so the pod reads as cargo from outside.
+    t.put(7, 6, 8, Blocks.END_ROD);
+    t.put(7, 7, 8, Blocks.REDSTONE_LAMP);
+    var blocks = new LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
+    t.finish(15, 9, 13).forEach(blocks::put);
+    return new StationBlueprint.Plan(blocks, core, docks(blocks));
+  }
+
+  /**
+   * Journey signals vanish: once no ship's journey refers to a signal and no other ship is in its
+   * region, its site is disposed of and the region forgotten. A claimed site is a player's ship and
+   * keeps its region. FTL corridors left behind by finished journeys are forgotten the same way.
+   */
+  static void vanish(MinecraftServer server) {
+    var store = ShipStore.get(server);
+    var referenced = new HashSet<String>();
+    var present = new HashMap<String, Set<String>>();
+    for (var tag : store.ships()) {
+      var ship = (CompoundTag) tag;
+      var journey = ship.getCompoundOrEmpty("journey");
+      if (!journey.isEmpty()) {
+        referenced.add(journey.getStringOr("encounter", ""));
+        referenced.add(journey.getStringOr("corridor", ""));
+      }
+      if (ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString()))
+        present
+            .computeIfAbsent(LocalSpaces.address(ship), k -> new HashSet<>())
+            .add(ship.getStringOr("id", ""));
+    }
+    var sites = store.section("encounters");
+    var regions = store.section("journeyRegions");
+    boolean changed = false;
+    for (var id : List.copyOf(sites.keySet())) {
+      if (referenced.contains(id)) continue;
+      var site = sites.getCompoundOrEmpty(id);
+      String vesselId = site.getStringOr("vessel", "");
+      var others = new HashSet<>(present.getOrDefault(id, Set.of()));
+      others.remove(vesselId);
+      if (!others.isEmpty()) continue;
+      var vessel = store.repository().find(vesselId);
+      if (vessel != null) {
+        if (!vessel.getStringOr("owner", "").isEmpty() || !StationService.ready(vessel)) continue;
+        SpacePopulation.dispose(server, vessel);
+      }
+      sites.remove(id);
+      regions.remove(id);
+      changed = true;
+      NullSpace.LOGGER.info("Signal {} faded", id);
+    }
+    for (var id : List.copyOf(regions.keySet()))
+      if (!referenced.contains(id) && !sites.contains(id) && !present.containsKey(id)) {
+        regions.remove(id);
+        changed = true;
+      }
+    if (changed) store.requestSave();
+  }
+
   public static void tick(MinecraftServer server) {
     if (server.getTickCount() % 20 != 0 || StationService.building(server)) return;
+    vanish(server);
     var store = ShipStore.get(server);
     var retry = ServerContext.get(server).service(RETRY, HashMap::new);
     for (var tag : List.copyOf(store.ships())) {
@@ -134,6 +220,7 @@ public final class EncounterSites {
         metadata.putBoolean("salvage", true);
         metadata.putInt("encounterKind", site.getIntOr("kind", 0));
         metadata.putLong("encounterSeed", site.getLongOr("seed", 1));
+        metadata.putInt("encounterDanger", site.getIntOr("danger", 0));
         metadata.putString(
             "encounterDesign", design(site.getIntOr("kind", 0), site.getLongOr("seed", 1)));
         var vessel =
@@ -178,7 +265,16 @@ public final class EncounterSites {
     String treasure =
         com.nullandkale.nullspace.generation.SiteLoot.treasure(
             level.getServer(), com.nullandkale.nullspace.navigation.LocalSpaces.address(ship));
-    if (kind == 0) {
+    if (kind == 3) {
+      int index = 0;
+      for (var crate : POD_CRATES)
+        com.nullandkale.nullspace.generation.SiteLoot.assign(
+            level,
+            base.offset(crate),
+            index == 0 ? treasure : "cargo",
+            seed + index++,
+            "Drifting cargo");
+    } else if (kind == 0) {
       com.nullandkale.nullspace.generation.SiteLoot.assign(
           level,
           base.offset(15, 2, 5),

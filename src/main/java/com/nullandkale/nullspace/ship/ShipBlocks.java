@@ -52,8 +52,15 @@ public final class ShipBlocks {
   public static final Block WEAPON = machine("weapon");
   /**
    * The starting space suit: vacuum and air protection with almost no armor, so new players do
-   * not begin in the equivalent of iron armor. Keeps the familiar iron look.
+   * not begin in the equivalent of iron armor. White with orange trim and a tinted visor.
    */
+  private static net.minecraft.resources.ResourceKey<net.minecraft.world.item.equipment.EquipmentAsset>
+      suitLook(String name) {
+    return net.minecraft.resources.ResourceKey.create(
+        net.minecraft.world.item.equipment.EquipmentAssets.ROOT_ID,
+        Identifier.parse("nullspace:" + name));
+  }
+
   public static final net.minecraft.world.item.equipment.ArmorMaterial PLAIN_SUIT =
       new net.minecraft.world.item.equipment.ArmorMaterial(
           15,
@@ -65,9 +72,9 @@ public final class ShipBlocks {
           0,
           0,
           net.minecraft.tags.ItemTags.REPAIRS_IRON_ARMOR,
-          net.minecraft.world.item.equipment.EquipmentAssets.IRON);
+          suitLook("space_suit"));
 
-  /** The crafted armored suit: iron-level protection with a little toughness, darker look. */
+  /** The crafted armored suit: iron-level protection with a little toughness, gunmetal look. */
   public static final net.minecraft.world.item.equipment.ArmorMaterial ARMORED_SUIT =
       new net.minecraft.world.item.equipment.ArmorMaterial(
           25,
@@ -79,7 +86,7 @@ public final class ShipBlocks {
           1,
           0,
           net.minecraft.tags.ItemTags.REPAIRS_IRON_ARMOR,
-          net.minecraft.world.item.equipment.EquipmentAssets.NETHERITE);
+          suitLook("armored_space_suit"));
 
   public static final Item HELMET = suit("space_helmet", ArmorType.HELMET, PLAIN_SUIT);
   public static final Item CHEST = suit("space_chestplate", ArmorType.CHESTPLATE, PLAIN_SUIT);

@@ -78,7 +78,7 @@ New development fixtures are **plots 23 and 24**, two powered Meridian spheres. 
 
 Implemented rules and starting limits:
 
-- Systems enforcement is opt-in through **Upgrade systems**, requiring a connected generator and air supply. Identity and diagnostics work before strict travel validation. Existing legacy ships retain their earlier air/power behavior until upgraded.
+- Systems enforcement is opt-in through **Upgrade systems**, requiring a connected generator and air supply. Identity and diagnostics work before strict travel validation. A ship whose systems are not set up has no air: crew need suits until a generator and an Air Supply are connected and set up.
 - Each development generator supplies 8 power units/tick. Batteries store 1,200 energy with charge/discharge limits of 4 per tick; new batteries start empty. Fuel recipes remain separate balance work. Disabled/destroyed/detached devices cannot supply power. Replacing a destroyed battery does not restore its charge.
 - Atmosphere uses conserved per-cell quantities, bounded connected rooms, a 25% breathability threshold, powered pumps, occupant consumption, gradual vacuum leakage, and consumption from tether oxygen sources. Open planetary rooms refill from ambient air. Unattended ships pause; observing them through a camera does not run their machinery.
 - Installed framed doors are queued one per tick under the delivered door budget. Individual, group, open-all, and close-all operations read back the real result, respect redstone override, and cancel on power/controller/session loss or transfer.

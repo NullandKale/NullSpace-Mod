@@ -89,25 +89,28 @@ public final class SpacePopulation {
     }
   }
 
+  /** Removes a generated site completely: every entity and block in its bounds, and its record. */
+  public static void dispose(MinecraftServer server, CompoundTag ship) {
+    var level = server.getLevel(TravelService.SPACE);
+    var bounds = ShipStore.bounds(ship);
+    for (var entity :
+        level.getEntities(
+            (net.minecraft.world.entity.Entity) null,
+            bounds.box(),
+            e -> !(e instanceof net.minecraft.world.entity.player.Player)))
+      entity.discard();
+    for (var at : net.minecraft.core.BlockPos.betweenClosed(bounds.min(), bounds.max()))
+      if (!level.getBlockState(at).isAir()) {
+        level.removeBlockEntity(at);
+        level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+      }
+    ShipStore.get(server).ships().remove(ship);
+  }
+
   /** Disposes of a site's contents and plans it again with a new variation. */
   static void reset(MinecraftServer server, CompoundTag site, CompoundTag ship) {
     var store = ShipStore.get(server);
-    if (ship != null) {
-      var level = server.getLevel(TravelService.SPACE);
-      var bounds = ShipStore.bounds(ship);
-      for (var entity :
-          level.getEntities(
-              (net.minecraft.world.entity.Entity) null,
-              bounds.box(),
-              e -> !(e instanceof net.minecraft.world.entity.player.Player)))
-        entity.discard();
-      for (var at : net.minecraft.core.BlockPos.betweenClosed(bounds.min(), bounds.max()))
-        if (!level.getBlockState(at).isAir()) {
-          level.removeBlockEntity(at);
-          level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
-        }
-      store.ships().remove(ship);
-    }
+    if (ship != null) dispose(server, ship);
     long resets = site.getLongOr("resets", 0) + 1;
     site.putLong("resets", resets);
     site.putLong("seed", site.getLongOr("seed", 0) ^ resets * 0x9e3779b97f4a7c15L);

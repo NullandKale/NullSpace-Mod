@@ -65,6 +65,8 @@ final class DevStoryFixture {
             target.systemName() + " / " + target.name(),
             "Orbit"));
     var plan = JourneyService.preview(server, ship, target.id());
+    // The story meets the route's own signal rather than a random one.
+    ship.putLong("nextSignalNonce", plan.seed());
     var profile = new JsonObject();
     profile.addProperty("version", 1);
     profile.addProperty("player", player.getPlainTextName());

@@ -51,15 +51,29 @@ public final class JourneyService {
 
   public static CompoundTag plan(
       MinecraftServer server, CompoundTag ship, String destination, int cost) {
-    var plan = preview(server, ship, destination);
+    // Every journey rolls its own signal; tests may fix the next one with nextSignalNonce.
+    long nonce =
+        ship.contains("nextSignalNonce")
+            ? ship.getLongOr("nextSignalNonce", 0)
+            : java.util.concurrent.ThreadLocalRandom.current().nextLong();
+    ship.remove("nextSignalNonce");
+    var plan = preview(server, ship, destination, nonce);
     var from = LocalSpaces.get(server, LocalSpaces.address(ship));
+    // A signal is as dangerous as the more dangerous end of the trip.
+    int danger =
+        Math.max(StarSystems.danger(server, from.id()), StarSystems.danger(server, destination));
+    String contact =
+        danger >= 2 && (plan.kind() == 1 || plan.kind() == 2)
+            ? "Distress call: " + plan.name()
+            : plan.name();
     var j = new CompoundTag();
     j.putInt("version", 1);
     j.putString("destination", destination);
     j.putString("from", from.id());
     j.putString("corridor", "j_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24));
     j.putString("encounter", plan.site());
-    j.putString("contact", plan.name());
+    j.putString("contact", contact);
+    j.putInt("danger", danger);
     j.putLong("seed", plan.seed());
     j.putInt("kind", plan.kind());
     j.putInt("duration", plan.seconds() * 20);
@@ -73,6 +87,11 @@ public final class JourneyService {
   }
 
   public static JourneyPlan preview(MinecraftServer server, CompoundTag ship, String destination) {
+    return preview(server, ship, destination, null);
+  }
+
+  private static JourneyPlan preview(
+      MinecraftServer server, CompoundTag ship, String destination, Long nonce) {
     var level = ShipStore.level(server, ship.getStringOr("dimension", ""));
     var from = LocalSpaces.get(server, LocalSpaces.address(ship));
     var to = LocalSpaces.get(server, destination);
@@ -80,12 +99,11 @@ public final class JourneyService {
         StarSystems.sameSystem(server, from.id(), to.id())
             ? 0
             : StarSystems.lightYears(server, from.id(), to.id());
-    return JourneyPlan.between(
-        server.overworld().getSeed(),
-        from.id(),
-        to.id(),
-        lightYears,
-        StarSystems.engineTier(level, ship));
+    long seed = server.overworld().getSeed();
+    int tier = StarSystems.engineTier(level, ship);
+    return nonce == null
+        ? JourneyPlan.between(seed, from.id(), to.id(), lightYears, tier)
+        : JourneyPlan.between(seed, from.id(), to.id(), lightYears, tier, nonce);
   }
 
   public static void register(MinecraftServer server, CompoundTag j) {
@@ -105,6 +123,7 @@ public final class JourneyService {
       site.putInt("kind", j.getIntOr("kind", 0));
       site.putLong("seed", j.getLongOr("seed", 1));
       site.putString("name", j.getStringOr("contact", "Signal"));
+      site.putInt("danger", j.getIntOr("danger", 0));
       sites.put(id, site);
     }
   }

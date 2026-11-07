@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "nullspace:space_suit"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "nullspace:space_suit"
+      }
+    ]
+  }
+}

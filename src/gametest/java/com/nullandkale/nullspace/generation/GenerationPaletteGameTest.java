@@ -58,7 +58,7 @@ public final class GenerationPaletteGameTest {
       cheap(ctx, preset.id(), ShipBlueprints.blocks(preset));
     cheap(ctx, "Manufacturer Exchange", ManufacturerStation.build().blocks());
     cheap(ctx, "Station foundation", StationBlueprint.foundation().blocks());
-    for (int kind = 0; kind < 3; kind++)
+    for (int kind = 0; kind < com.nullandkale.nullspace.navigation.JourneyPlan.KINDS; kind++)
       for (long seed = 0; seed < 8; seed++)
         cheap(ctx, "Encounter " + kind + "/" + seed, EncounterSites.plan(kind, seed).blocks());
     ctx.succeed();

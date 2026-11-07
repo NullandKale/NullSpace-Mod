@@ -144,13 +144,11 @@ public final class SpaceSurvival {
     return meter;
   }
 
-  /** Oxygen at the player's head inside this vessel (legacy vessels: breathable or not). */
-  private static int localOxygen(ServerPlayer player, CompoundTag ship, boolean breathableLegacy) {
-    if (ship == null) return 0;
-    if (com.nullandkale.nullspace.systems.ShipSystems.enabled(ship))
-      return com.nullandkale.nullspace.systems.ShipSystems.oxygen(
-          player.level(), ship, BlockPos.containing(player.getEyePosition()));
-    return breathableLegacy ? 100 : 0;
+  /** Oxygen at the player's head inside this vessel. Air comes only from working ship systems. */
+  private static int localOxygen(ServerPlayer player, CompoundTag ship) {
+    if (ship == null || !com.nullandkale.nullspace.systems.ShipSystems.enabled(ship)) return 0;
+    return com.nullandkale.nullspace.systems.ShipSystems.oxygen(
+        player.level(), ship, BlockPos.containing(player.getEyePosition()));
   }
 
   private static void surfaceAir(ServerPlayer player, ShipStore store, CompoundTag savedAir) {
@@ -160,21 +158,17 @@ public final class SpaceSurvival {
         || player.isSpectator()) return;
     var ship = store.at(player.level(), player.blockPosition());
     boolean cabin = false, source = false;
-    if (ship != null) {
-      if (com.nullandkale.nullspace.systems.ShipSystems.enabled(ship)) {
-        cabin =
-            com.nullandkale.nullspace.systems.ShipSystems.breathable(
-                player.level(), ship, BlockPos.containing(player.getEyePosition()));
-        source =
-            !cabin
-                && suited(player)
-                && com.nullandkale.nullspace.systems.ShipSystems.tether(player.level(), ship);
-      } else {
-        var pressure = new ShipScan.LivePressure(player.level(), ShipStore.bounds(ship));
-        cabin = pressure.breathable(BlockPos.containing(player.getEyePosition()));
-      }
+    // A ship whose systems are not set up (no generator and Air Supply) has no air to give.
+    if (ship != null && com.nullandkale.nullspace.systems.ShipSystems.enabled(ship)) {
+      cabin =
+          com.nullandkale.nullspace.systems.ShipSystems.breathable(
+              player.level(), ship, BlockPos.containing(player.getEyePosition()));
+      source =
+          !cabin
+              && suited(player)
+              && com.nullandkale.nullspace.systems.ShipSystems.tether(player.level(), ship);
     }
-    int local = localOxygen(player, ship, cabin);
+    int local = localOxygen(player, ship);
     int meter = breathe(player, suitTarget(player, local, source), savedAir);
     if (player.level().getServer().getTickCount() % 20 == 0)
       player.sendOverlayMessage(
@@ -194,7 +188,6 @@ public final class SpaceSurvival {
     com.nullandkale.nullspace.server.ServerContext.tick(
         com.nullandkale.nullspace.server.ServerContext.Phase.SURVIVAL,
         server -> {
-          Map<String, ShipScan.LivePressure> rooms = new HashMap<>();
           var store = ShipStore.get(server);
 
           var savedAir = store.section("oxygen");
@@ -262,7 +255,8 @@ public final class SpaceSurvival {
               player.sendOverlayMessage(
                   net.minecraft.network.chat.Component.literal("Tether limit: 72 blocks"));
             } else last(player.level().getServer()).put(player.getUUID(), player.position());
-            boolean source = false, cabin;
+            boolean source = false, cabin = false;
+            // A ship whose systems are not set up has no air: suits are needed until it does.
             if (com.nullandkale.nullspace.systems.ShipSystems.enabled(vessel)) {
               cabin =
                   com.nullandkale.nullspace.systems.ShipSystems.breathable(
@@ -272,22 +266,6 @@ public final class SpaceSurvival {
                       && suited(player)
                       && com.nullandkale.nullspace.systems.ShipSystems.tether(
                           player.level(), vessel);
-            } else {
-              String id = vessel.getStringOr("id", "");
-              var selected = vessel;
-              var pressure =
-                  rooms.computeIfAbsent(
-                      id,
-                      key -> new ShipScan.LivePressure(player.level(), ShipStore.bounds(selected)));
-              var state = player.level().getBlockState(anchor);
-              if (ShipBlocks.navigation(state))
-                source =
-                    pressure.breathable(
-                        anchor.relative(
-                            state.getValue(
-                                net.minecraft.world.level.block.HorizontalDirectionalBlock
-                                    .FACING)));
-              cabin = pressure.breathable(BlockPos.containing(player.getEyePosition()));
             }
             boolean construction =
                 com.nullandkale.nullspace.station.DockingService.constructionAir(player, vessel);
@@ -306,7 +284,7 @@ public final class SpaceSurvival {
               }
             }
             if (!player.isCreative() && !player.isSpectator()) {
-              int local = localOxygen(player, vessel, cabin);
+              int local = localOxygen(player, vessel);
               breathe(player, construction ? 100 : suitTarget(player, local, source), savedAir);
             }
             if (server.getTickCount() % 20 == 0) {

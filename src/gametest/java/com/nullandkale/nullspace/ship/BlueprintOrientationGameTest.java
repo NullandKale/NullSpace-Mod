@@ -18,7 +18,7 @@ public final class BlueprintOrientationGameTest {
     for (long seed = 1; seed <= 6; seed++)
       plans.put("station-" + seed, StationBlueprint.build(StationLayout.generate(seed)).blocks());
     plans.put("manufacturer-station", ManufacturerStation.build().blocks());
-    for (int kind = 0; kind < 3; kind++)
+    for (int kind = 0; kind < com.nullandkale.nullspace.navigation.JourneyPlan.KINDS; kind++)
       for (long seed = 0; seed < 6; seed++)
         plans.put("encounter-" + kind + "-" + seed, EncounterSites.plan(kind, seed).blocks());
     for (var preset : ShipBlueprints.PRESETS) {

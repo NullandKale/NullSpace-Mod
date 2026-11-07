@@ -31,5 +31,6 @@
   "item.nullspace.armored_space_helmet": "Armored Space Helmet",
   "item.nullspace.armored_space_chestplate": "Armored Space Chestplate",
   "item.nullspace.armored_space_leggings": "Armored Space Leggings",
-  "item.nullspace.armored_space_boots": "Armored Space Boots"
+  "item.nullspace.armored_space_boots": "Armored Space Boots",
+  "entity.nullspace.repair_bot": "Repair Bot"
 }

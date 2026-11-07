@@ -134,7 +134,7 @@ public final class JourneyGameTest {
   }
 
   @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 300)
-  public void twoCrewsShareTheSameSignalButKeepIndependentSavedProgress(GameTestHelper ctx)
+  public void twoCrewsMeetTheirOwnSignalsAndKeepIndependentSavedProgress(GameTestHelper ctx)
       throws Exception {
     var a = ConcurrentShipActionsGameTest.client(ctx, 41);
     var b = ConcurrentShipActionsGameTest.client(ctx, 42);
@@ -155,8 +155,8 @@ public final class JourneyGameTest {
             var ja = a.fixture().ship().getCompoundOrEmpty("journey");
             var jb = b.fixture().ship().getCompoundOrEmpty("journey");
             ctx.assertTrue(
-                ja.getStringOr("encounter", "a").equals(jb.getStringOr("encounter", "b")),
-                "Crews on the same route discover the same persistent encounter");
+                !ja.getStringOr("encounter", "a").equals(jb.getStringOr("encounter", "a")),
+                "Each journey meets its own random signal, even on the same route");
             ctx.assertTrue(
                 !LocalSpaces.together(a.fixture().ship(), b.fixture().ship()),
                 "Independent FTL corridors do not expose unrelated ships to each other");
@@ -196,13 +196,13 @@ public final class JourneyGameTest {
   }
 
   @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 600)
-  public void allThreeEncounterTypesHaveSafeDocksAccessibleFiniteSuppliesAndRealCrops(
+  public void allEncounterTypesHaveSafeDocksAccessibleFiniteSuppliesAndRealCrops(
       GameTestHelper ctx) throws Exception {
     var c = ConcurrentShipActionsGameTest.client(ctx, 43);
     var server = ctx.getLevel().getServer();
     var level = c.fixture().space;
     var vessels = new ArrayList<CompoundTag>();
-    for (int kind = 0; kind < 3; kind++) {
+    for (int kind = 0; kind < JourneyPlan.KINDS; kind++) {
       var vessel =
           StationService.queue(
               server,
@@ -255,7 +255,7 @@ public final class JourneyGameTest {
             ctx.assertTrue(
                 fuel > 0 && (kind != 0 || crops == 48),
                 "Encounter rewards are real loot and growing blocks for role " + kind);
-            if (kind != 0) {
+            if (kind == 1 || kind == 2) {
               var rooms =
                   ShipRooms.rooms(
                       EncounterSites.design(kind, vessel.getLongOr("encounterSeed", 1)));
@@ -475,13 +475,14 @@ public final class JourneyGameTest {
               r.unpackLootTable(c.player());
             int slot = -1;
             for (int i = 0; supplies != null && i < supplies.getContainerSize(); i++)
-              if (supplies.getItem(i).is(Items.COAL)) {
+              if (supplies.getItem(i).is(Items.COAL) || supplies.getItem(i).is(Items.CHARCOAL)) {
                 slot = i;
                 break;
               }
             ctx.assertTrue(
                 StationService.mayUse(c.player(), fuelLocker) && slot >= 0,
                 "Engineering's fuel locker is usable by a visitor");
+            var fuelItem = supplies.getItem(slot).getItem();
             c.player().getInventory().add(supplies.removeItem(slot, 1));
             int left = 0;
             for (int i = 0; i < supplies.getContainerSize(); i++)
@@ -493,7 +494,7 @@ public final class JourneyGameTest {
                 cargo[0] != null
                     && c.player()
                         .getInventory()
-                        .contains(new net.minecraft.world.item.ItemStack(Items.COAL)),
+                        .contains(new net.minecraft.world.item.ItemStack(fuelItem)),
                 "Actual coal transfers from cargo into player inventory");
             ShipStore.get(server).save();
             ctx.assertTrue(
@@ -546,6 +547,9 @@ public final class JourneyGameTest {
                 ship.getCompoundOrEmpty("journey").getIntOr("elapsed", -2) >= paused[0]
                     && !JourneyService.contact(ship),
                 "Progress survives the stop and the contact is consumed");
+            ctx.assertTrue(
+                count((Container) level.getBlockEntity(cargo[0])) == remaining[0],
+                "Collected supplies never restock on resume");
             var j = ship.getCompoundOrEmpty("journey");
             j.putInt("elapsed", j.getIntOr("duration", 0));
             phase[0] = 8;
@@ -555,9 +559,12 @@ public final class JourneyGameTest {
             ctx.assertTrue(
                 LocalSpaces.address(ship).equals("sol_luna"),
                 "Automatic arrival completes the original destination");
+            // The signal fades once the journey that found it is over.
+            if (ShipStore.get(server).section("encounters").contains(siteId[0])) return;
             ctx.assertTrue(
-                count((Container) level.getBlockEntity(cargo[0])) == remaining[0],
-                "Collected supplies never restock on resume");
+                ShipStore.get(server).repository().find(vesselId[0]) == null
+                    && level.getBlockEntity(cargo[0]) == null,
+                "After arrival the visited signal fades: its site is gone");
             phase[0] = 9;
             removeVessels(server, List.of(c.fixture().id, vesselId[0]));
             c.close();

@@ -1,6 +1,6 @@
 # Procedural generation: planets, ships and stations
 
-Status: design agreed (November 6). Steps 1 and 2 are implemented (not released); see [authoring](authoring.md) for the tools. Items marked **proposal** still need the player's decision.
+Status: design agreed (November 6). Steps 1, 2 and 6 are implemented; see [authoring](authoring.md) for the tools. Items marked **proposal** still need the player's decision.
 
 ## Goal and limits
 
@@ -132,6 +132,23 @@ A crafted item for reaching new ground on a planet without walking there.
 - Recipe: a Pad Computer and one diamond, plus cheap materials (for example cobblestone), so each new pad costs a diamond and a computer.
 
 
+## Journey signals (step 6, built)
+
+- **A new signal every journey.** The trip's length still comes from its route, but the signal is rolled fresh each time: an abandoned growing station, a damaged freighter, a salvage ship, or **drifting cargo** (a small unpowered pod with one dock and a few crates). The signal arrives between a quarter and half of the way.
+- **Danger** is the higher of the two ends of the trip. From danger 2, freighters and salvage ships are announced as a **Distress call**, which is the ambush.
+- **Threats** appear aboard any unclaimed derelict (journey signals and orbit derelicts) the first time a player reaches its zone, and do not despawn:
+
+| Danger | Lost crew zombies | Lost crew skeletons (bows) | Repair bots |
+| --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 |
+| 1 | 2 | 0 | 0 |
+| 2 | 2 | 1 | 1 |
+| 3 | 3 | 2 | 2 |
+
+- **Lost crew** wear the plain space suit (8% drop chance per piece) and carry a crew name.
+- **Repair bot:** a small hovering drone (16 health, 3 damage) that flies but cannot pass through walls, attacks players, and every 2 seconds patches itself and nearby wounded crew for 2 health. It drops iron nuggets and sometimes redstone or copper. Repairing the derelict's blocks is a later addition.
+- **Fading.** Once no ship's journey refers to a signal and no other ship is in its zone, the site is disposed of completely and its zone forgotten. A claimed site is a player's ship and stays.
+
 ## Persistence and reset
 
 - **Random journey sites** exist only while their signal is live, in the journey's temporary space. They are never saved.
@@ -149,7 +166,7 @@ A crafted item for reaching new ground on a planet without walking there.
 | 3 | **Shipyard exteriors**: move the hand-built ships to templates, then improve their exteriors | Claude converts and drafts; player reviews and edits in-game | Shipyard ships look like spaceships from outside |
 | 4 | **Orbit sites**: manufacturer kits (nose, hull segments, engines, wings, rooms); derelicts and stations assembled from them with condition; lost crew and the repair bot | Claude drafts kits and code; player reviews | Derelicts vary, look good and fight back |
 | 5 | **Planet sites**: piece sets per planet type; one site near each landing pad plus a sparse grid; vanilla resources per planet type; the Pad Package | Claude drafts; player reviews | Every landing has something to explore and something to mine |
-| 6 | **Journey sites**: random signals that vanish afterward, including ambushes by lost crew and repair bots | Claude builds | Journeys have surprises |
+| 6 | **Journey sites** (done): random signals that vanish afterward, including ambushes by lost crew and repair bots | Claude builds | Journeys have surprises |
 | Later | Friendly ship repair bot; hostile ships | | |
 
 Each step ends in a playtest. Steps 3-5 are mostly content: drafts are built with the authoring tools and reviewed in the gallery before code depends on them.

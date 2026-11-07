@@ -46,6 +46,21 @@ class JourneyPlanTest {
       assertTrue(local.contactSecond() > 0 && local.contactSecond() < local.seconds());
       kinds.add(local.kind());
     }
-    assertEquals(Set.of(0, 1, 2), kinds);
+    assertEquals(Set.of(0, 1, 2, 3), kinds);
+  }
+
+  @Test
+  void eachJourneyMeetsItsOwnSignalButKeepsTheRouteLength() {
+    var sites = new HashSet<String>();
+    var kinds = new HashSet<Integer>();
+    for (long nonce = 0; nonce < 200; nonce++) {
+      var trip = JourneyPlan.between(42, "a", "b", 10, 0, nonce * 0x9e3779b97f4a7c15L);
+      assertEquals(JourneyPlan.between(42, "a", "b", 10, 0).seconds(), trip.seconds());
+      assertTrue(trip.contactSecond() >= trip.seconds() / 4 && trip.contactSecond() < trip.seconds());
+      sites.add(trip.site());
+      kinds.add(trip.kind());
+    }
+    assertEquals(200, sites.size(), "Every journey's signal is a new site");
+    assertEquals(Set.of(0, 1, 2, 3), kinds);
   }
 }

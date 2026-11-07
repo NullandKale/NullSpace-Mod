@@ -19,7 +19,7 @@ foreach ($status in @('SUPPORTED','CONDITIONAL','UNSUPPORTED')) {
     $null = $builder.AppendLine("- ${status}: $count block IDs")
 }
 $null = $builder.AppendLine()
-$null = $builder.AppendLine('These are **transport eligibility** labels, not proof that every possible state or arrangement works. Every row requires a connected, bounded ship; no pending scheduled ticks or queued actions; an intact cabin and usable exit; and clear launch/landing columns. Conditions describe additional restrictions. Supported transport does not make a partial block airtight, retarget respawn/compass bindings, or supply a machine with power, water, fuel, or a valid vanilla structure.')
+$null = $builder.AppendLine('These are **transport eligibility** labels, not proof that every possible state or arrangement works. Every row requires a connected, bounded ship; no pistons mid-move or queued block events (pending ticks travel with the ship); an intact cabin and usable exit; and clear launch/landing columns. Conditions describe additional restrictions. Supported transport does not make a partial block airtight, retarget respawn/compass bindings, or supply a machine with power, water, fuel, or a valid vanilla structure.')
 $null = $builder.AppendLine()
 $null = $builder.AppendLine('| Block ID | Name | Transport | Block entity | Additional conditions |')
 $null = $builder.AppendLine('| --- | --- | --- | --- | --- |')

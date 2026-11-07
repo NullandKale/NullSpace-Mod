@@ -557,7 +557,7 @@ public final class ShipGameTests {
     ctx.succeed();
   }
 
-  @GameTest(maxTicks = 200)
+  @GameTest(maxTicks = 2000)
   public void survivalSuitVacuumAndTether(GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();
     var space = server.getLevel(TravelService.SPACE);
@@ -608,7 +608,12 @@ public final class ShipGameTests {
     member.putString("id", player.getUUID().toString());
     members.add(member);
     ship.put("crew", members);
+    ship.putInt("width", 7);
+    ship.putInt("depth", 7);
+    ship.putInt("height", 6);
     store.ships().add(ship);
+    // Air comes only from working systems: the reference ship's generator and Air Supply.
+    com.nullandkale.nullspace.systems.ShipSystems.upgrade(space, ship);
     ctx.runAfterDelay(
         25,
         () -> {
@@ -627,11 +632,23 @@ public final class ShipGameTests {
           player.setItemSlot(
               net.minecraft.world.entity.EquipmentSlot.FEET,
               new net.minecraft.world.item.ItemStack(ShipBlocks.BOOTS));
-          ctx.runAfterDelay(
-              20,
+          int[] waited = {0};
+          Runnable[] refilled = {null};
+          refilled[0] =
               () -> {
+                // The Air Supply refills the sealed cabin over a few seconds.
+                // Breathable cabin air (not just the suit tether) also turns suit flight off.
+                boolean cabinAir = player.getAirSupply() > 0 && !player.getAbilities().mayfly;
+                if (!cabinAir && (waited[0] += 10) < 400) {
+                  // A new Runnable each time: the helper keys scheduled work by the Runnable.
+                  ctx.runAfterDelay(10, () -> refilled[0].run());
+                  return;
+                }
                 ctx.assertTrue(
-                    player.getAirSupply() > 0, "Closing leak must restore breathable air");
+                    player.getAirSupply() > 0,
+                    "Closing leak must restore breathable air within 20 seconds");
+                com.nullandkale.nullspace.NullSpace.LOGGER.info(
+                    "Vacuum test: cabin air restored after {} ticks", waited[0]);
                 ctx.assertTrue(
                     SpaceSurvival.suited(player)
                         && !player.getAbilities().mayfly
@@ -672,12 +689,20 @@ public final class ShipGameTests {
                                 new net.minecraft.world.item.ItemStack(ShipBlocks.HELMET));
                             space.setBlock(window, Blocks.AIR.defaultBlockState(), 18);
                             int ventedAir = player.getAirSupply();
-                            ctx.runAfterDelay(
-                                5,
+                            int[] drained = {0};
+                            Runnable[] vented = {null};
+                            vented[0] =
                                 () -> {
+                                  // The room drains through the open window, then the tether
+                                  // has no breathable outlet to draw from.
+                                  if (player.getAirSupply() >= ventedAir
+                                      && (drained[0] += 10) < 400) {
+                                    ctx.runAfterDelay(10, () -> vented[0].run());
+                                    return;
+                                  }
                                   ctx.assertTrue(
                                       player.getAirSupply() < ventedAir,
-                                      "Vented controller room must stop tether air");
+                                      "Vented Air Supply room must stop tether air");
                                   ctx.assertTrue(
                                       player.getAbilities().flying,
                                       "Restoring the complete suit outside must reactivate flight");
@@ -697,9 +722,16 @@ public final class ShipGameTests {
                                             "Server must enforce the tether boundary");
                                         player.teleportTo(
                                             base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
-                                        ctx.runAfterDelay(
-                                            2,
+                                        int[] refill = {0};
+                                        Runnable[] reentered = {null};
+                                        reentered[0] =
                                             () -> {
+                                              // The vented cabin refills before it has gravity.
+                                              if (player.getAbilities().mayfly
+                                                  && (refill[0] += 10) < 500) {
+                                                ctx.runAfterDelay(10, () -> reentered[0].run());
+                                                return;
+                                              }
                                               ctx.assertTrue(
                                                   !player.getAbilities().flying
                                                       && !player.getAbilities().mayfly,
@@ -738,12 +770,15 @@ public final class ShipGameTests {
                                                           ctx.succeed();
                                                         });
                                                   });
-                                            });
+                                            };
+                                        ctx.runAfterDelay(2, () -> reentered[0].run());
                                       });
-                                });
+                                };
+                            ctx.runAfterDelay(10, () -> vented[0].run());
                           });
                     });
-              });
+              };
+          ctx.runAfterDelay(10, refilled[0]);
         });
   }
 
