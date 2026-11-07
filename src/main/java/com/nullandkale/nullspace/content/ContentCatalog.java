@@ -28,12 +28,6 @@ public final class ContentCatalog {
       boolean breathable,
       String dimension) {}
 
-  public record SystemSlot(String id, List<PlanetDefinition> regions) {
-    public SystemSlot {
-      regions = List.copyOf(regions);
-    }
-  }
-
   private static JsonArray read(String name) {
     try (var in =
         ContentCatalog.class.getResourceAsStream("/data/nullspace/catalog/" + name + ".json")) {
@@ -55,41 +49,38 @@ public final class ContentCatalog {
 
   public static final List<EquipmentDefinition> EQUIPMENT = equipment();
   public static final List<PlanetDefinition> PLANETS = planets();
-  public static final List<SystemSlot> SYSTEM_SLOTS = systemSlots();
-  public static final List<PlanetDefinition> SURFACES =
-      java.util.stream.Stream.concat(
-              PLANETS.stream(), SYSTEM_SLOTS.stream().flatMap(s -> s.regions().stream()))
-          .toList();
 
-  private static List<SystemSlot> systemSlots() {
-    var slots = new ArrayList<SystemSlot>();
-    for (var value : read("star_system_slots")) {
-      var o = value.getAsJsonObject();
-      String id = o.get("id").getAsString();
-      var regions = new ArrayList<PlanetDefinition>();
-      for (var region : o.getAsJsonArray("regions")) {
-        var r = region.getAsJsonObject();
-        var template =
-            PLANETS.stream()
-                .filter(p -> p.id().equals(r.get("template").getAsString()))
-                .findFirst()
-                .orElseThrow();
-        String address = r.get("id").getAsString();
-        regions.add(
+  /**
+   * The P9 surface pool: one landable dimension per slot, assigned to planets by the world's
+   * galaxy chart. Ocean and jungle worlds have breathable air.
+   */
+  public static final List<PlanetDefinition> SURFACE_POOL = surfacePool();
+
+  /** Every surface dimension, keyed by surface id: Sol's fixed worlds, then the pool. */
+  public static final List<PlanetDefinition> SURFACES =
+      java.util.stream.Stream.concat(PLANETS.stream(), SURFACE_POOL.stream()).toList();
+
+  private static List<PlanetDefinition> surfacePool() {
+    var pool = new ArrayList<PlanetDefinition>();
+    for (var entry : com.nullandkale.nullspace.navigation.GalaxyPlan.SURFACE_POOL.entrySet()) {
+      var type = entry.getKey();
+      boolean breathable =
+          type == com.nullandkale.nullspace.navigation.GalaxyPlan.BodyType.OCEAN
+              || type == com.nullandkale.nullspace.navigation.GalaxyPlan.BodyType.JUNGLE;
+      for (int i = 0; i < entry.getValue(); i++) {
+        String id = com.nullandkale.nullspace.navigation.GalaxyPlan.surfaceSlot(type, i);
+        pool.add(
             new PlanetDefinition(
-                address,
-                id,
-                id,
-                address,
-                template.seed(),
-                template.color(),
-                template.moon(),
-                template.breathable(),
-                "nullspace:" + address));
+                id, "", "", type.label, id.hashCode(), type.color, false, breathable,
+                "nullspace:" + id));
       }
-      slots.add(new SystemSlot(id, unique(regions, PlanetDefinition::id)));
     }
-    return unique(slots, SystemSlot::id);
+    return unique(pool, PlanetDefinition::id);
+  }
+
+  /** The surface whose dimension this is, if any. */
+  public static Optional<PlanetDefinition> surfaceOfDimension(String dimension) {
+    return SURFACES.stream().filter(s -> s.dimension().equals(dimension)).findFirst();
   }
 
   private static List<EquipmentDefinition> equipment() {

@@ -220,7 +220,11 @@ public final class ShipRecallGameTest {
   public void damagedFuelEmptyShipReturnsWithCargoModulesAndIdentityWhilePlayerStaysOnPlanet(
       GameTestHelper ctx) throws Exception {
     var f = new Fixture(ctx, 1);
-    f.ship().putString("localSpace", "vega_cinder");
+    f.ship()
+        .putString(
+            "localSpace",
+            com.nullandkale.nullspace.navigation.TestZones.otherSystem(
+                ctx.getLevel().getServer()));
     var generator =
         ShipSystems.connected(f.space, f.ship()).stream()
             .filter(p -> f.space.getBlockState(p).is(ShipBlocks.GENERATOR))

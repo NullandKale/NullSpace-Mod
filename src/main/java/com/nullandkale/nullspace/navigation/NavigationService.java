@@ -499,16 +499,12 @@ public final class NavigationService {
       throw new IllegalArgumentException("This ship or its crew is already travelling or boarding");
     if (destination.equals(LocalSpaces.address(s)))
       throw new IllegalArgumentException("Already in that local space");
+    String range = StarSystems.rangeReason(p.level(), s, destination);
+    if (!range.isEmpty()) throw new IllegalArgumentException(range);
     jumpInspection(p, at);
     int cost =
         com.nullandkale.nullspace.systems.FuelSystem.travelCost(
-            p.level(),
-            s,
-            LocalSpaces.get(server, destination)
-                    .system()
-                    .equals(LocalSpaces.get(server, LocalSpaces.address(s)).system())
-                ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
-                : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
+            p.level(), s, StarSystems.jumpBase(server, LocalSpaces.address(s), destination));
     if (com.nullandkale.nullspace.systems.FuelSystem.available(p.level(), s) < cost)
       throw new IllegalArgumentException(
           "Not enough fuel for this jump: needs "

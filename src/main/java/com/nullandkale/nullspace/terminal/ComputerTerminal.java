@@ -345,13 +345,10 @@ public final class ComputerTerminal {
                           var ship =
                               ShipStore.get(player.level().getServer()).at(player.level(), pos);
                           return !player.level().dimension().equals(TravelService.SPACE)
-                              || pad.dimension()
-                                  .equals(
-                                      com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(
-                                              com.nullandkale.nullspace.navigation.LocalSpaces
-                                                  .address(ship))
-                                          .identifier()
-                                          .toString());
+                              || com.nullandkale.nullspace.navigation.PlanetSurfaces.surfaceOf(
+                                  player.level().getServer(),
+                                  com.nullandkale.nullspace.navigation.LocalSpaces.address(ship),
+                                  pad.dimension());
                         })
                     .toList()
                 : List.<PadRegistry.Pad>of());

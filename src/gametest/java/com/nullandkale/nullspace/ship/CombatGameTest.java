@@ -23,7 +23,9 @@ public final class CombatGameTest {
     build(level, target, 2000032, simY, simZ, 0);
     var isolatedBase = target.offset(8192, 0, 0);
     var isolated = build(level, isolatedBase, 2000032, simY, simZ, 0);
-    isolated.putString("localSpace", "vega_cinder");
+    isolated.putString(
+        "localSpace",
+        com.nullandkale.nullspace.navigation.TestZones.otherSystem(level.getServer()));
     for (var center : List.of(base, target, isolatedBase))
       for (int x = center.getX() >> 4; x <= (center.getX() + 33) >> 4; x++)
         for (int z = center.getZ() >> 4; z <= (center.getZ() + 31) >> 4; z++)

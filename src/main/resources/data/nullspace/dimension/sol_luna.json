@@ -1,28 +1,66 @@
 {
-    "type": "minecraft:overworld",
-    "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-            "biome": "minecraft:desert",
-            "layers": [
-                {
-                    "height": 1,
-                    "block": "minecraft:bedrock"
-                },
-                {
-                    "height": 124,
-                    "block": "minecraft:stone"
-                },
-                {
-                    "height": 4,
-                    "block": "minecraft:gravel"
-                }
+  "type": "minecraft:overworld",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "nullspace:planet_barren",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "nullspace:planet/barren_stony_peaks",
+          "parameters": {
+            "temperature": [
+              -1.0,
+              0.0
             ],
-            "lakes": false,
-            "features": false,
-            "structure_overrides": [
-                
-            ]
+            "humidity": [
+              -1.0,
+              1.0
+            ],
+            "continentalness": [
+              -1.0,
+              1.0
+            ],
+            "erosion": [
+              -1.0,
+              1.0
+            ],
+            "depth": 0.0,
+            "weirdness": [
+              -1.0,
+              1.0
+            ],
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "nullspace:planet/barren_stony_shore",
+          "parameters": {
+            "temperature": [
+              0.0,
+              1.0
+            ],
+            "humidity": [
+              -1.0,
+              1.0
+            ],
+            "continentalness": [
+              -1.0,
+              1.0
+            ],
+            "erosion": [
+              -1.0,
+              1.0
+            ],
+            "depth": 0.0,
+            "weirdness": [
+              -1.0,
+              1.0
+            ],
+            "offset": 0.0
+          }
         }
+      ]
     }
+  }
 }

@@ -29,12 +29,12 @@ class ContentCatalogTest {
   @Test
   void planetsKeepTheirAddressesAndBreathableSurfaces() {
     assertEquals(
-        Set.of("sol_terra", "sol_luna", "sol_ares", "vega_pelagos", "vega_cinder"),
+        Set.of("sol_terra", "sol_luna", "sol_ares"),
         ContentCatalog.PLANETS.stream()
             .map(ContentCatalog.PlanetDefinition::id)
             .collect(java.util.stream.Collectors.toSet()));
     assertEquals(
-        Set.of("sol_terra", "vega_pelagos"),
+        Set.of("sol_terra"),
         ContentCatalog.PLANETS.stream()
             .filter(ContentCatalog.PlanetDefinition::breathable)
             .map(ContentCatalog.PlanetDefinition::id)
@@ -43,6 +43,17 @@ class ContentCatalogTest {
       if (!planet.id().equals("sol_terra"))
         assertNotNull(getClass().getResource("/data/nullspace/dimension/" + planet.id() + ".json"));
     assertThrows(IllegalArgumentException.class, () -> ContentCatalog.planet("made_up"));
+    // P9 surface pool: every slot has a generated dimension, ocean and jungle have air.
+    int pool = 0;
+    for (var e : com.nullandkale.nullspace.navigation.GalaxyPlan.SURFACE_POOL.entrySet()) pool += e.getValue();
+    assertEquals(pool, ContentCatalog.SURFACE_POOL.size());
+    for (var surface : ContentCatalog.SURFACE_POOL) {
+      assertNotNull(getClass().getResource("/data/nullspace/dimension/" + surface.id() + ".json"));
+      assertEquals(
+          surface.id().startsWith("surface_ocean") || surface.id().startsWith("surface_jungle"),
+          surface.breathable(),
+          surface.id());
+    }
   }
 
   @Test

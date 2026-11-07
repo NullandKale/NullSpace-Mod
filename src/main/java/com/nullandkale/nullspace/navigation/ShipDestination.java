@@ -46,16 +46,12 @@ public record ShipDestination(
               BlockPos.ZERO,
               region.id(),
               region.systemName() + " / " + region.name(),
-              "Orbit"));
+              StarSystems.describe(p.level().getServer(), region.id())));
     for (var pad : PadRegistry.read(p.level().getServer())) {
       var region =
           LocalSpaces.destinations(p.level().getServer()).stream()
               .filter(
-                  r ->
-                      PlanetSurfaces.dimension(r.id())
-                          .identifier()
-                          .toString()
-                          .equals(pad.dimension()))
+                  r -> PlanetSurfaces.surfaceOf(p.level().getServer(), r.id(), pad.dimension()))
               .findFirst();
       if (region.isEmpty()) continue;
       var status = PadRegistry.state(p.level().getServer(), pad);

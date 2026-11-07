@@ -43,13 +43,16 @@ public final class ExpansionGameTest {
   public void flatSurfacesExistAndStarterPadsAreIdempotent(GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();
     for (var d : LocalSpaces.DESTINATIONS) {
-      var level = server.getLevel(PlanetSurfaces.dimension(d.id()));
+      var level = server.getLevel(PlanetSurfaces.dimension(server, d.id()));
       ctx.assertTrue(level != null, "Surface dimension must exist: " + d.id());
       if (d.id().equals(LocalSpaces.HOME)) continue;
+      // P9: surfaces are real terrain, so there is ground somewhere above the bottom of the world.
       ctx.assertTrue(
-          !level.getBlockState(new BlockPos(48, 64, 48)).isAir()
-              && level.getBlockState(new BlockPos(48, 65, 48)).isAir(),
-          "Flat surface must end at Y64");
+          level
+                  .getChunk(3, 3)
+                  .getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, 0, 0)
+              > level.getMinY() + 8,
+          "Surface has terrain");
       PlanetSurfaces.ensureLanding(server, d.id());
       var pad =
           PadRegistry.read(server).stream()
@@ -66,7 +69,7 @@ public final class ExpansionGameTest {
           "Returning to a site must preserve construction");
       level.setBlock(marker, Blocks.AIR.defaultBlockState(), 18);
       ctx.assertTrue(
-          PlanetSurfaces.breathable(level) == d.id().equals("vega_pelagos"),
+          PlanetSurfaces.breathable(level) == d.id().equals(LocalSpaces.HOME),
           "Surface breathing must follow metadata");
     }
     ctx.succeed();
@@ -78,7 +81,9 @@ public final class ExpansionGameTest {
     var level = ctx.getLevel();
     ctx.assertTrue(
         ShipSensors.scan(level, f.ship, false).contains("LOCAL SPACE")
-            && ShipSensors.scan(level, f.ship, true).contains("vega_cinder"),
+            && ShipSensors.scan(level, f.ship, true)
+                .contains(
+                    com.nullandkale.nullspace.navigation.TestZones.otherSystem(level.getServer())),
         "Local and long-range scanners expose their own domains");
     ShipSystems.automation(level, f.ship, f.terminal, "power cameras 0");
     boolean rejected = false;
@@ -125,7 +130,7 @@ public final class ExpansionGameTest {
 
   @GameTest
   public void surfaceSkyHasAnExplicitFrameAndOmitsItsOwnBody(GameTestHelper ctx) {
-    var level = ctx.getLevel().getServer().getLevel(PlanetSurfaces.dimension("sol_luna"));
+    var level = ctx.getLevel().getServer().getLevel(PlanetSurfaces.dimension(ctx.getLevel().getServer(), "sol_luna"));
     var scene = new CompoundTag();
     var subjects = new ListTag();
     var item = new CompoundTag();

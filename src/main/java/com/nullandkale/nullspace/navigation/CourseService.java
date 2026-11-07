@@ -105,9 +105,8 @@ public final class CourseService {
     if (!player.level().dimension().equals(TravelService.SPACE)) steps.add("Launch");
     if (!LocalSpaces.address(ship).equals(target.region()))
       steps.add(
-          LocalSpaces.get(player.level().getServer(), LocalSpaces.address(ship))
-                  .system()
-                  .equals(LocalSpaces.get(player.level().getServer(), target.region()).system())
+          StarSystems.sameSystem(
+                  player.level().getServer(), LocalSpaces.address(ship), target.region())
               ? "Local travel"
               : "Interstellar jump");
     steps.add(
@@ -120,9 +119,7 @@ public final class CourseService {
   }
 
   public static String scannerReason(ServerPlayer player, CompoundTag ship, String region) {
-    return LocalSpaces.get(player.level().getServer(), LocalSpaces.address(ship))
-                .system()
-                .equals(LocalSpaces.get(player.level().getServer(), region).system())
+    return StarSystems.sameSystem(player.level().getServer(), LocalSpaces.address(ship), region)
             || ShipSensors.installed(player.level(), ship, false)
         ? ""
         : "Interstellar travel needs an enabled, powered Scanner. Local travel does not.";
@@ -143,11 +140,8 @@ public final class CourseService {
           FuelSystem.travelCost(
               player.level(),
               ship,
-              LocalSpaces.get(player.level().getServer(), LocalSpaces.address(ship))
-                      .system()
-                      .equals(LocalSpaces.get(player.level().getServer(), target.region()).system())
-                  ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
-                  : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
+              StarSystems.jumpBase(
+                  player.level().getServer(), LocalSpaces.address(ship), target.region()));
     return cost;
   }
 
@@ -185,6 +179,10 @@ public final class CourseService {
     if (!JourneyService.active(ship)) {
       String scanner = scannerReason(player, ship, target.region());
       if (!scanner.isEmpty()) return scanner;
+      if (!LocalSpaces.address(ship).equals(target.region())) {
+        String range = StarSystems.rangeReason(player.level(), ship, target.region());
+        if (!range.isEmpty()) return range;
+      }
     }
     if (NavigationService.propulsion(player.level(), ship) == 0)
       return "Load fuel and power controls and an engine";

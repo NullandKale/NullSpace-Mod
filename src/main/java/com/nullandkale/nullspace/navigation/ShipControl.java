@@ -56,6 +56,24 @@ public final class ShipControl {
   public record Entry(
       String id, ShipDestination.Kind kind, String name, String region, String state) {}
 
+  /**
+   * One place on the star map (P9). {@code x}/{@code y} are chart thousandths; {@code zone} is the
+   * destination to select for it; fuel and range are from the ship's current place.
+   */
+  public record ChartPlace(
+      String id,
+      String name,
+      String kind,
+      int x,
+      int y,
+      String zone,
+      double lightYears,
+      double fuel,
+      boolean inRange,
+      boolean here,
+      String summary,
+      String route) {}
+
   public record Button(Action action, String reason) {
     public boolean enabled() {
       return reason.isEmpty();
@@ -96,8 +114,32 @@ public final class ShipControl {
       int response,
       String here,
       String connection,
-      String details)
+      String details,
+      List<ChartPlace> chart,
+      double range)
       implements CustomPacketPayload {
+    public View(
+        UUID session,
+        BlockPos position,
+        boolean scanner,
+        boolean opening,
+        String ship,
+        String summary,
+        String selected,
+        String destination,
+        String location,
+        String message,
+        List<Entry> entries,
+        List<Button> buttons,
+        int response,
+        String here,
+        String connection,
+        String details) {
+      this(
+          session, position, scanner, opening, ship, summary, selected, destination, location,
+          message, entries, buttons, response, here, connection, details, List.of(), 0);
+    }
+
     public View(
         UUID session,
         BlockPos position,
@@ -194,6 +236,22 @@ public final class ShipControl {
                 b.writeEnum(a.action);
                 b.writeUtf(a.reason, 256);
               }
+              b.writeDouble(p.range);
+              b.writeVarInt(p.chart.size());
+              for (var c : p.chart) {
+                b.writeUtf(c.id, 32);
+                b.writeUtf(c.name, 64);
+                b.writeUtf(c.kind, 32);
+                b.writeVarInt(c.x);
+                b.writeVarInt(c.y);
+                b.writeUtf(c.zone, 32);
+                b.writeDouble(c.lightYears);
+                b.writeDouble(c.fuel);
+                b.writeBoolean(c.inRange);
+                b.writeBoolean(c.here);
+                b.writeUtf(c.summary, 160);
+                b.writeUtf(c.route, 160);
+              }
             },
             b -> {
               var session = b.readUUID();
@@ -225,6 +283,25 @@ public final class ShipControl {
               var buttons = new ArrayList<Button>();
               for (int i = 0; i < count; i++)
                 buttons.add(new Button(b.readEnum(Action.class), b.readUtf(256)));
+              double range = b.readDouble();
+              count = b.readVarInt();
+              if (count < 0 || count > 64) throw new IllegalArgumentException("Invalid chart");
+              var chart = new ArrayList<ChartPlace>();
+              for (int i = 0; i < count; i++)
+                chart.add(
+                    new ChartPlace(
+                        b.readUtf(32),
+                        b.readUtf(64),
+                        b.readUtf(32),
+                        b.readVarInt(),
+                        b.readVarInt(),
+                        b.readUtf(32),
+                        b.readDouble(),
+                        b.readDouble(),
+                        b.readBoolean(),
+                        b.readBoolean(),
+                        b.readUtf(160),
+                        b.readUtf(160)));
               return new View(
                   session,
                   position,
@@ -241,7 +318,9 @@ public final class ShipControl {
                   response,
                   here,
                   connection,
-                  details);
+                  details,
+                  List.copyOf(chart),
+                  range);
             });
 
     @Override
@@ -490,15 +569,10 @@ public final class ShipControl {
               ? "Reach this signal using Investigate during a journey"
               : LocalSpaces.address(ship).equals(target.region())
                   ? "Already in the destination's region"
-                  : fuelReason(
-                      p,
-                      ship,
-                      LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship))
-                              .system()
-                              .equals(
-                                  LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
-                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP);
+                  : !StarSystems.rangeReason(p.level(), ship, target.region()).isEmpty()
+                      ? StarSystems.rangeReason(p.level(), ship, target.region())
+                      : fuelReason(p, ship, StarSystems.jumpBase(
+                          p.level().getServer(), LocalSpaces.address(ship), target.region()));
     if (action == Action.LAND && target.kind() != ShipDestination.Kind.PAD)
       return "Choose a landing pad as the destination";
     if (action == Action.DOCK && target.kind() != ShipDestination.Kind.PORT)
@@ -625,15 +699,8 @@ public final class ShipControl {
       costs +=
           " | Jump "
               + FuelSystem.display(
-                  FuelSystem.travelCost(
-                      p.level(),
-                      ship,
-                      LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship))
-                              .system()
-                              .equals(
-                                  LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
-                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP));
+                  FuelSystem.travelCost(p.level(), ship, StarSystems.jumpBase(
+                          p.level().getServer(), LocalSpaces.address(ship), target.region())));
     costs += " | Dock: burns while moving";
     if (target != null
         && !JourneyService.active(ship)
@@ -691,7 +758,79 @@ public final class ShipControl {
             + "\n"
             + costs
             + "\n"
-            + resources);
+            + resources,
+        s.scanner ? chart(p, ship) : List.of(),
+        s.scanner ? StarSystems.range(p.level(), ship) : 0);
+  }
+
+  /** The star map from this ship's place: every system and feature, with jump fuel and range. */
+  private static List<ChartPlace> chart(ServerPlayer p, CompoundTag ship) {
+    var server = p.level().getServer();
+    var galaxy = StarSystems.galaxy(server);
+    String address = LocalSpaces.address(ship);
+    GalaxyPlan.Place here =
+        StarSystems.placeOf(server, address);
+    double range = StarSystems.range(p.level(), ship);
+    var out = new ArrayList<ChartPlace>();
+    for (var place : galaxy.places()) {
+      double ly = GalaxyPlan.distance(here, place);
+      String kind, zone, summary;
+      if (place instanceof GalaxyPlan.StarSystem s) {
+        kind = "System";
+        var planets = s.planets();
+        long landable = s.bodies().stream().filter(GalaxyPlan.Body::landable).count();
+        long moons = s.bodies().size() - planets.size();
+        zone =
+            s.bodies().stream()
+                .filter(b -> b.id().equals(address))
+                .findFirst()
+                .orElse(planets.getFirst())
+                .id();
+        summary =
+            s.spectralClass() + " star | " + planets.size() + " planets, " + moons + " moons, "
+                + landable + " landable";
+      } else {
+        var f = (GalaxyPlan.Feature) place;
+        kind = f.type().label;
+        zone = f.id();
+        summary = f.type().label + (f.steppingStone() ? " | stepping stone" : "");
+      }
+      boolean inRange = ly <= range + 1e-9;
+      double fuel = place == here ? 0 : GalaxyPlan.jumpFuel(ly);
+      String route = "";
+      if (!inRange) {
+        // Too far for one jump: the cheapest hop route with these engines, and its total fuel.
+        var hops = GalaxyPlan.route(galaxy, here.id(), place.id(), range);
+        fuel = 0;
+        for (int i = 1; i < hops.size(); i++)
+          fuel += GalaxyPlan.jumpFuel(GalaxyPlan.distance(hops.get(i - 1), hops.get(i)));
+        route =
+            hops.size() < 2
+                ? "no route"
+                : (hops.size() - 1)
+                    + " hops via "
+                    + String.join(
+                        ", ",
+                        hops.subList(1, hops.size() - 1).stream()
+                            .map(GalaxyPlan.Place::name)
+                            .toList());
+      }
+      out.add(
+          new ChartPlace(
+              place.id(),
+              limit(place.name(), 64),
+              kind,
+              (int) Math.round(place.x() / GalaxyPlan.SIZE * 1000),
+              (int) Math.round(place.y() / GalaxyPlan.SIZE * 1000),
+              zone,
+              ly,
+              fuel,
+              inRange,
+              place == here,
+              limit(summary, 160),
+              limit(route, 160)));
+    }
+    return List.copyOf(out);
   }
 
   private static String locationHere(ServerPlayer p, CompoundTag ship) {
@@ -929,12 +1068,8 @@ public final class ShipControl {
             case SHOW_PROBLEM -> {
               int base =
                   session.problemAction == Action.JUMP && target != null
-                      ? (LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship))
-                              .system()
-                              .equals(
-                                  LocalSpaces.get(p.level().getServer(), target.region()).system())
-                          ? com.nullandkale.nullspace.systems.FuelSystem.LOCAL_JUMP
-                          : com.nullandkale.nullspace.systems.FuelSystem.INTERSTELLAR_JUMP)
+                      ? StarSystems.jumpBase(
+                          p.level().getServer(), LocalSpaces.address(ship), target.region())
                       : com.nullandkale.nullspace.systems.FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size());
               if (FuelSystem.available(p.level(), ship)
                   < FuelSystem.travelCost(p.level(), ship, base)) {

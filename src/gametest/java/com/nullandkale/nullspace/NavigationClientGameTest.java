@@ -202,10 +202,17 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
       c.runOnClient(mc -> mc.gui.screen().onClose());
       c.waitTicks(3);
       ShipControlTestUi.ensureScanner(world);
-      for (String destination :
-          new String[] {
-            "sol_luna", "vega_pelagos", "frontier_a_outer", "frontier_a_moon", "sol_terra"
-          }) {
+      ShipControlTestUi.starMap(c, world);
+      // P9: a local jump, a jump to another chart place in starting range, back to land on
+      // Ares (real generated terrain), then home.
+      var elsewhere = new String[1];
+      world
+          .getServer()
+          .runOnServer(
+              server ->
+                  elsewhere[0] =
+                      com.nullandkale.nullspace.navigation.TestZones.elsewhere(server));
+      for (String destination : new String[] {"sol_luna", elsewhere[0], "sol_ares", "sol_terra"}) {
         world
             .getServer()
             .runOnServer(
@@ -359,7 +366,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                 });
         c.waitTicks(10);
         c.takeScreenshot("nullspace-arrival-" + destination);
-        if (destination.equals("frontier_a_outer")) {
+        if (destination.equals("sol_ares")) {
           // Travel through a generated system using the same controller and real surface transfer.
           world
               .getServer()
@@ -376,7 +383,11 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
           c.waitFor(
               mc ->
                   mc.level != null
-                      && mc.level.dimension().equals(PlanetSurfaces.dimension(destination))
+                      && mc.level
+                          .dimension()
+                          .identifier()
+                          .toString()
+                          .equals("nullspace:sol_ares")
                       && mc.gui.screen() == null,
               600);
           world.getConnection().waitForChunksRender();

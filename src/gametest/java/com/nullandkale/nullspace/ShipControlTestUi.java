@@ -182,6 +182,87 @@ final class ShipControlTestUi {
         100);
   }
 
+  /** Opens the Scanner, backs out to the star map (P9), screenshots it and closes. */
+  static void starMap(
+      ClientGameTestContext c,
+      net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world) {
+    String[] shipId = {""};
+    world
+        .getServer()
+        .runOnServer(
+            server -> {
+              var p = world.getConnection().getServerPlayer();
+              var ship = com.nullandkale.nullspace.scene.SceneService.observer(p);
+              shipId[0] = ship.getStringOr("id", "");
+              var scanner =
+                  com.nullandkale.nullspace.systems.ShipSystems.connected(p.level(), ship).stream()
+                      .filter(
+                          pos ->
+                              p.level()
+                                  .getBlockState(pos)
+                                  .is(com.nullandkale.nullspace.ship.ShipBlocks.LOCAL_SCANNER))
+                      .findFirst()
+                      .orElseThrow();
+              p.teleportTo(scanner.getX() + .5, scanner.getY(), scanner.getZ() + 1.5);
+              p.gameMode.useItemOn(
+                  p,
+                  p.level(),
+                  net.minecraft.world.item.ItemStack.EMPTY,
+                  net.minecraft.world.InteractionHand.MAIN_HAND,
+                  new net.minecraft.world.phys.BlockHitResult(
+                      net.minecraft.world.phys.Vec3.atCenterOf(scanner),
+                      net.minecraft.core.Direction.SOUTH,
+                      scanner,
+                      false));
+            });
+    c.waitFor(
+        mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"),
+        100);
+    c.runOnClient(
+        mc -> {
+          var screen = (TerminalScreen) mc.gui.screen();
+          for (int i = 0; i < 3 && !screen.buffer().row(6).contains("STAR MAP"); i++)
+            click(screen, 3, 2);
+          if (!screen.buffer().row(6).contains("STAR MAP"))
+            throw new AssertionError("The Scanner's top level is the star map");
+          boolean you = false;
+          for (int y = 7; y <= 18; y++) you |= screen.buffer().row(y).contains("@ ");
+          if (!you) throw new AssertionError("The star map marks where you are");
+        });
+    c.waitTicks(4);
+    c.takeScreenshot("nullspace-star-map");
+    c.runOnClient(
+        mc -> {
+          var screen = (TerminalScreen) mc.gui.screen();
+          // Select the first place that is not you, to show its distance and jump fuel.
+          for (int y = 7; y <= 18; y++) {
+            String row = screen.buffer().row(y);
+            for (int x = 2; x < 78; x++) {
+              char ch = row.charAt(x);
+              if ("*~:o+#".indexOf(ch) >= 0 && x + 1 < 80 && row.charAt(x + 1) == ' ') {
+                click(screen, x, y);
+                return;
+              }
+            }
+          }
+        });
+    c.waitTicks(4);
+    c.takeScreenshot("nullspace-star-map-selected");
+    c.runOnClient(mc -> click((TerminalScreen) mc.gui.screen(), 67, 24));
+    c.waitFor(mc -> mc.gui.screen() == null, 100);
+    world
+        .getServer()
+        .runOnServer(
+            server -> {
+              var p = world.getConnection().getServerPlayer();
+              var ship =
+                  com.nullandkale.nullspace.ship.ShipStore.get(server).repository().find(shipId[0]);
+              var at =
+                  com.nullandkale.nullspace.ship.StationGameTest.boardingPoint(p.level(), ship);
+              p.teleportTo(at.x, at.y, at.z);
+            });
+  }
+
   private static void search(
       ClientGameTestContext c, TerminalScreen screen, String name, String kind) {
     click(screen, 11, 3);

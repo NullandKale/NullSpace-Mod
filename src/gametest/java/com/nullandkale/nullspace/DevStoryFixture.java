@@ -47,7 +47,7 @@ final class DevStoryFixture {
                           boolean same = d.system().equals(here.system());
                           int kind =
                               JourneyPlan.between(
-                                      server.overworld().getSeed(), here.id(), d.id(), !same, 3)
+                                      server.overworld().getSeed(), here.id(), d.id(), same ? 0 : 30, 3)
                                   .kind();
                           return (kind == 1 ? 0 : 2) + (same ? 0 : 1);
                         })

@@ -181,6 +181,43 @@ public final class GalaxyPlan {
     }
   }
 
+  /** What a zone starts with: a Waypoint Station, a Manufacturer Exchange, salvage ships. */
+  public record Population(boolean waypoint, boolean exchange, int salvage) {
+    public static final Population NONE = new Population(false, false, 0);
+  }
+
+  /**
+   * Sparse generated places (P9), because players build their own: Sol's home orbit has the full
+   * set; two or three stations sit in orbit-only zones of other systems or stepping stones; one or
+   * two derelicts drift at features. Every other zone starts empty.
+   */
+  public static Map<String, Population> population(Galaxy galaxy) {
+    var random = new Random(galaxy.seed() ^ 0x70b17a7e5eedL);
+    var out = new LinkedHashMap<String, Population>();
+    out.put(LocalSpaces.HOME, new Population(true, true, 1));
+    var candidates = new ArrayList<String>();
+    for (var s : galaxy.systems().subList(1, galaxy.systems().size())) {
+      var orbitOnly = s.bodies().stream().filter(b -> !b.landable() && !b.moon()).toList();
+      var pick = orbitOnly.isEmpty() ? s.bodies() : orbitOnly;
+      candidates.add(pick.get(random.nextInt(pick.size())).id());
+    }
+    for (var f : galaxy.features()) if (f.steppingStone()) candidates.add(f.id());
+    Collections.shuffle(candidates, random);
+    int stations = Math.min(candidates.size(), 2 + random.nextInt(2));
+    for (int i = 0; i < stations; i++)
+      out.put(candidates.get(i), new Population(i % 2 == 0, i % 2 == 1, 0));
+    var features = new ArrayList<>(galaxy.features());
+    Collections.shuffle(features, random);
+    int derelicts = 1 + random.nextInt(2);
+    for (var f : features) {
+      if (derelicts == 0) break;
+      if (out.containsKey(f.id())) continue;
+      out.put(f.id(), new Population(false, false, 1));
+      derelicts--;
+    }
+    return Collections.unmodifiableMap(out);
+  }
+
   public static double distance(Place a, Place b) {
     return Math.hypot(a.x() - b.x(), a.y() - b.y());
   }
@@ -382,9 +419,48 @@ public final class GalaxyPlan {
                 rng.nextLong(),
                 moonSurface));
       }
-      orbit += 35000 + rng.nextInt(30000) + (planetType == BodyType.GAS_GIANT ? 25000 : 0);
+      orbit += 25000 + rng.nextInt(20000) + (planetType == BodyType.GAS_GIANT ? 15000 : 0);
     }
+    if (!home && bodies.stream().noneMatch(Body::landable)) guaranteeLanding(bodies, rng, pool);
     return new StarSystem(id, name, at[0], at[1], spectral, color, starRadius, seed, bodies);
+  }
+
+  /**
+   * Every non-home system has somewhere to land: make one body landable, preferring one whose
+   * type has a free surface, otherwise turning the last planet into a type that still does.
+   */
+  private static void guaranteeLanding(
+      List<Body> bodies, Random rng, Map<BodyType, Integer> pool) {
+    for (int i = 0; i < bodies.size(); i++) {
+      var b = bodies.get(i);
+      if (b.type().surface && free(b.type(), pool)) {
+        bodies.set(i, withSurface(b, b.type(), pool));
+        return;
+      }
+    }
+    for (int i = bodies.size() - 1; i >= 0; i--) {
+      var b = bodies.get(i);
+      if (b.moon()) continue;
+      for (var type : List.of(BodyType.BARREN, BodyType.DESERT, BodyType.ICE, BodyType.LAVA,
+          BodyType.OCEAN, BodyType.JUNGLE))
+        if (free(type, pool)) {
+          bodies.set(i, withSurface(b, type, pool));
+          return;
+        }
+    }
+  }
+
+  private static boolean free(BodyType type, Map<BodyType, Integer> pool) {
+    return pool.getOrDefault(type, 0) < SURFACE_POOL.get(type);
+  }
+
+  private static Body withSurface(Body b, BodyType type, Map<BodyType, Integer> pool) {
+    int used = pool.getOrDefault(type, 0);
+    pool.put(type, used + 1);
+    double radius = type == b.type() ? b.radius() : Math.min(b.radius(), 1900);
+    return new Body(
+        b.id(), b.name(), type, b.parent(), b.orbitRadius(), b.angle(), radius,
+        type == b.type() ? b.color() : type.color, b.seed(), "nullspace:" + surfaceSlot(type, used));
   }
 
   private static String homePlanetId(int p) {

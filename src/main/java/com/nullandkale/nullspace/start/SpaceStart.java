@@ -106,7 +106,15 @@ public final class SpaceStart {
 
   /** Stable random choice per new player and world; only landable planets, never moons. */
   public static String planet(MinecraftServer server, UUID player) {
-    var planets = LocalSpaces.destinations(server).stream().filter(p -> !p.moon()).toList();
+    // P9: start in the home system, over a planet you can land on.
+    var planets =
+        com.nullandkale.nullspace.navigation.StarSystems.galaxy(server)
+            .place(com.nullandkale.nullspace.navigation.GalaxyPlan.HOME) instanceof
+                com.nullandkale.nullspace.navigation.GalaxyPlan.StarSystem sol
+            ? sol.planets().stream()
+                .filter(com.nullandkale.nullspace.navigation.GalaxyPlan.Body::landable)
+                .toList()
+            : List.<com.nullandkale.nullspace.navigation.GalaxyPlan.Body>of();
     if (planets.isEmpty()) throw new IllegalStateException("No starting planets are available");
     var random =
         new Random(

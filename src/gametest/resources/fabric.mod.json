@@ -66,6 +66,7 @@
       "com.nullandkale.nullspace.ManufacturerRoleClientGameTest",
       "com.nullandkale.nullspace.ManufacturerClientGameTest",
       "com.nullandkale.nullspace.ShipRecallClientGameTest",
+      "com.nullandkale.nullspace.GalaxySurfacesClientGameTest",
       "com.nullandkale.nullspace.ShipHardwareClientGameTest",
       "com.nullandkale.nullspace.StationClientGameTest",
       "com.nullandkale.nullspace.ResourceReloadClientGameTest",

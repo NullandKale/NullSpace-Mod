@@ -20,27 +20,43 @@ public final class SpacePopulationPlan {
     }
   }
 
+  /** The full set: a Waypoint, an Exchange and one to three salvage ships. */
   public static List<Site> sites(long worldSeed, LocalSpaces.Destination region) {
+    return sites(worldSeed, region, null);
+  }
+
+  /**
+   * The places a region starts with. {@code population} comes from the galaxy chart (P9); null
+   * means the full set. Site identities do not depend on which places are chosen.
+   */
+  public static List<Site> sites(
+      long worldSeed,
+      LocalSpaces.Destination region,
+      com.nullandkale.nullspace.navigation.GalaxyPlan.Population population) {
     var random =
         new Random(worldSeed ^ region.seed() ^ region.id().hashCode() * 0x9e3779b97f4a7c15L);
-    var sites =
-        new ArrayList<>(
-            List.of(
-                site(
-                    worldSeed,
-                    region,
-                    "waypoint",
-                    region.name() + " Waypoint Station",
-                    random.nextLong(),
-                    "nullspace:waypoint:" + region.id()),
-                site(
-                    worldSeed,
-                    region,
-                    "exchange",
-                    region.name() + " Manufacturer Exchange",
-                    random.nextLong(),
-                    "nullspace:manufacturer-showcase:v1:" + region.id())));
+    var sites = new ArrayList<Site>();
+    long waypointSeed = random.nextLong(), exchangeSeed = random.nextLong();
+    if (population == null || population.waypoint())
+      sites.add(
+          site(
+              worldSeed,
+              region,
+              "waypoint",
+              region.name() + " Waypoint Station",
+              waypointSeed,
+              "nullspace:waypoint:" + region.id()));
+    if (population == null || population.exchange())
+      sites.add(
+          site(
+              worldSeed,
+              region,
+              "exchange",
+              region.name() + " Manufacturer Exchange",
+              exchangeSeed,
+              "nullspace:manufacturer-showcase:v1:" + region.id()));
     int ships = 1 + random.nextInt(3);
+    if (population != null) ships = population.salvage();
     for (int i = 0; i < ships; i++) {
       long seed = random.nextLong();
       int kind = salvageKind(seed);

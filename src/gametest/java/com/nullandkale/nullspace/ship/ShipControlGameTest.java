@@ -99,14 +99,22 @@ public final class ShipControlGameTest {
           CourseService.scannerReason(player, own, "sol_luna").isEmpty(),
           "Local travel does not require a Scanner");
       ctx.assertTrue(
-          CourseService.scannerReason(player, own, "vega_pelagos").contains("Scanner"),
+          CourseService.scannerReason(
+                  player,
+                  own,
+                  com.nullandkale.nullspace.navigation.TestZones.otherSystem(level.getServer()))
+              .contains("Scanner"),
           "Interstellar travel requires a powered Scanner");
       for (var pos : ShipSystems.connected(level, own))
         if (level.getBlockState(pos).is(ShipBlocks.LOCAL_SCANNER))
           ShipSystems.setEnabled(level, own, pos, true);
       ShipSystems.tick(level, own);
       ctx.assertTrue(
-          CourseService.scannerReason(player, own, "vega_pelagos").isEmpty(),
+          CourseService.scannerReason(
+                  player,
+                  own,
+                  com.nullandkale.nullspace.navigation.TestZones.otherSystem(level.getServer()))
+              .isEmpty(),
           "A stock Scanner suffices without upgrade items");
       var local =
           catalog.stream()

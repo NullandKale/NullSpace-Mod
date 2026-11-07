@@ -1,20 +1,24 @@
 package com.nullandkale.nullspace.navigation;
 
+import com.nullandkale.nullspace.navigation.GalaxyPlan.*;
 import com.nullandkale.nullspace.scene.*;
 import com.nullandkale.nullspace.server.ServerContext;
-import com.nullandkale.nullspace.ship.ShipStore;
+import com.nullandkale.nullspace.ship.*;
+import com.nullandkale.nullspace.systems.FuelSystem;
 import java.util.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
-/** World-owned star chart. Menus read saved definitions, never reroll a system. */
+/**
+ * World-owned galaxy chart (P9). Generated once from the world seed and saved; menus, jumps and
+ * scenes read the saved chart and never reroll it. Every body and feature is a zone.
+ */
 public final class StarSystems {
   private record Catalog(
-      CompoundTag document,
-      List<StarSystemPlan.System> systems,
-      List<LocalSpaces.Destination> destinations) {}
+      CompoundTag document, Galaxy galaxy, List<LocalSpaces.Destination> destinations) {}
 
   private static final ServerContext.Key<Catalog> CACHE = new ServerContext.Key<>();
 
@@ -31,196 +35,407 @@ public final class StarSystems {
     return catalog(server).destinations();
   }
 
-  public static List<StarSystemPlan.System> systems(MinecraftServer server) {
-    return catalog(server).systems();
+  public static Galaxy galaxy(MinecraftServer server) {
+    return catalog(server).galaxy();
   }
 
   private static Catalog catalog(MinecraftServer server) {
     var store = ShipStore.get(server);
-    var document = store.section("starSystems");
+    var document = store.section("galaxy");
     if (document.isEmpty()) {
-      var systems = new ListTag();
-      for (var system : StarSystemPlan.generate(server.overworld().getSeed()))
-        systems.add(encode(system));
-      document.putInt("version", StarSystemPlan.VERSION);
-      document.putLong("worldSeed", server.overworld().getSeed());
-      document.put("systems", systems);
+      var galaxy = GalaxyPlan.generate(server.overworld().getSeed());
+      document.merge(encode(galaxy));
       store.save();
     }
     var context = ServerContext.get(server);
     var cached = context.existing(CACHE);
     if (cached != null && cached.document() == document) return cached;
-    if (document.getIntOr("version", 0) != StarSystemPlan.VERSION)
-      throw new IllegalStateException("Unsupported saved star chart version");
-    var systems = new ArrayList<StarSystemPlan.System>();
-    var destinations = new ArrayList<>(LocalSpaces.DESTINATIONS);
-    var ids = new HashSet<String>();
-    for (var d : destinations) ids.add(d.id());
-    for (var tag : document.getListOrEmpty("systems")) {
-      var system = decode((CompoundTag) tag);
-      for (var region : system.regions()) {
-        if (!ids.add(region.destination().id()))
-          throw new IllegalStateException("Duplicate saved region identity");
-        destinations.add(region.destination());
-      }
-      systems.add(system);
-    }
-    cached = new Catalog(document, List.copyOf(systems), List.copyOf(destinations));
+    if (document.getIntOr("version", 0) != GalaxyPlan.VERSION)
+      throw new IllegalStateException("Unsupported saved galaxy chart version");
+    var galaxy = decode(document);
+    cached = new Catalog(document, galaxy, destinations(galaxy));
     context.put(CACHE, cached);
     return cached;
   }
 
-  private static CompoundTag encode(StarSystemPlan.System system) {
-    var t = new CompoundTag();
-    t.putString("id", system.id());
-    t.putString("name", system.name());
-    t.putLong("seed", system.seed());
-    t.putString("spectralClass", system.spectralClass());
-    t.putInt("color", system.color());
-    t.putDouble("radius", system.radius());
-    var regions = new ListTag();
-    for (var region : system.regions()) {
-      var d = region.destination();
-      var r = new CompoundTag();
-      r.putString("id", d.id());
-      r.putString("name", d.name());
-      r.putLong("seed", d.seed());
-      r.putInt("color", d.color());
-      r.putBoolean("moon", d.moon());
-      r.putDouble("x", region.center().x);
-      r.putDouble("y", region.center().y);
-      r.putDouble("z", region.center().z);
-      r.putDouble("radius", region.radius());
-      r.putDouble("atmosphere", region.atmosphere());
-      regions.add(r);
-    }
-    t.put("regions", regions);
-    return t;
-  }
-
-  private static StarSystemPlan.System decode(CompoundTag t) {
-    var regions = new ArrayList<StarSystemPlan.Region>();
-    for (var tag : t.getListOrEmpty("regions")) {
-      var r = (CompoundTag) tag;
-      var d =
+  static List<LocalSpaces.Destination> destinations(Galaxy galaxy) {
+    var out = new ArrayList<LocalSpaces.Destination>();
+    for (var s : galaxy.systems())
+      for (var b : s.bodies())
+        out.add(
+            new LocalSpaces.Destination(
+                b.id(), s.id(), s.name(), b.name(), b.seed(), b.color(), b.moon()));
+    for (var f : galaxy.features())
+      out.add(
           new LocalSpaces.Destination(
-              r.getStringOr("id", ""),
-              t.getStringOr("id", ""),
-              t.getStringOr("name", ""),
-              r.getStringOr("name", ""),
-              r.getLongOr("seed", 0),
-              r.getIntOr("color", -1),
-              r.getBooleanOr("moon", false));
-      regions.add(
-          new StarSystemPlan.Region(
-              d,
-              new Vec3(r.getDoubleOr("x", 0), r.getDoubleOr("y", 0), r.getDoubleOr("z", 0)),
-              r.getDoubleOr("radius", 0),
-              r.getDoubleOr("atmosphere", 0)));
-    }
-    return new StarSystemPlan.System(
-        t.getStringOr("id", ""),
-        t.getStringOr("name", ""),
-        t.getLongOr("seed", 0),
-        t.getStringOr("spectralClass", "G"),
-        t.getIntOr("color", -1),
-        t.getDoubleOr("radius", 0),
-        regions);
+              f.id(), f.id(), f.name(), f.name(), f.seed(), f.type().color, false));
+    return List.copyOf(out);
   }
 
-  public static Optional<CompoundTag> scene(MinecraftServer server, String address) {
-    for (var system : systems(server))
-      for (var region : system.regions())
-        if (region.destination().id().equals(address)) return Optional.of(scene(system, region));
+  // ------------------------------------------------------------------ zone lookups
+
+  public static Optional<Body> body(MinecraftServer server, String zone) {
+    for (var s : galaxy(server).systems())
+      for (var b : s.bodies()) if (b.id().equals(zone)) return Optional.of(b);
     return Optional.empty();
   }
 
-  /** The same star/planet identities are translated into each region's local flight frame. */
-  public static CompoundTag scene(StarSystemPlan.System system, StarSystemPlan.Region region) {
-    var offset = new Vec3(0, -2200, 5200).subtract(region.center());
+  public static Optional<Feature> feature(MinecraftServer server, String zone) {
+    return galaxy(server).features().stream().filter(f -> f.id().equals(zone)).findFirst();
+  }
+
+  /** A short zone description for destination lists, e.g. "Ice world - land" or "Nebula". */
+  public static String describe(MinecraftServer server, String zone) {
+    var body = body(server, zone);
+    if (body.isPresent())
+      return (body.get().moon() ? "Moon: " : "")
+          + body.get().type().label
+          + (body.get().landable() ? " - land" : "");
+    return feature(server, zone).map(f -> f.type().label).orElse("Orbit");
+  }
+
+  /** The surface dimension of a zone, or null if you cannot land there. */
+  public static String surface(MinecraftServer server, String zone) {
+    return body(server, zone).map(Body::surface).orElse(null);
+  }
+
+  /** The zone whose surface is this dimension, or null. */
+  public static String zoneOfSurface(MinecraftServer server, String dimension) {
+    for (var s : galaxy(server).systems())
+      for (var b : s.bodies()) if (dimension.equals(b.surface())) return b.id();
+    return null;
+  }
+
+  /**
+   * The chart place of any zone. Journey corridors and encounter signals are not on the chart;
+   * their saved region records name the place they left from.
+   */
+  public static Place placeOf(MinecraftServer server, String zone) {
+    var galaxy = galaxy(server);
+    if (galaxy.zones().contains(zone)) return galaxy.placeOfZone(zone);
+    return galaxy.place(LocalSpaces.get(server, zone).system());
+  }
+
+  /** Chart distance between the places of two zones; 0 inside one system. */
+  public static double lightYears(MinecraftServer server, String from, String to) {
+    return GalaxyPlan.distance(placeOf(server, from), placeOf(server, to));
+  }
+
+  public static boolean sameSystem(MinecraftServer server, String from, String to) {
+    return placeOf(server, from) == placeOf(server, to);
+  }
+
+  /** Base fuel units for a jump between zones, before ship mass is applied. */
+  public static int jumpBase(MinecraftServer server, String from, String to) {
+    if (sameSystem(server, from, to)) return FuelSystem.LOCAL_JUMP;
+    return (int)
+        Math.round(GalaxyPlan.jumpFuel(lightYears(server, from, to)) * FuelSystem.UNITS_PER_FUEL);
+  }
+
+  /** The best active engine's upgrade tier. */
+  public static int engineTier(ServerLevel level, CompoundTag ship) {
+    return com.nullandkale.nullspace.systems.ShipSystems.connected(level, ship).stream()
+        .filter(
+            p ->
+                level.getBlockState(p).is(ShipBlocks.ENGINE)
+                    && com.nullandkale.nullspace.systems.ShipSystems.active(ship, p))
+        .mapToInt(p -> FuelSystem.tier(level, p))
+        .max()
+        .orElse(0);
+  }
+
+  public static double range(ServerLevel level, CompoundTag ship) {
+    return GalaxyPlan.RANGES[Math.clamp(engineTier(level, ship), 0, GalaxyPlan.RANGES.length - 1)];
+  }
+
+  /** Empty if the jump fits the ship's engine range, otherwise why not and where to hop first. */
+  public static String rangeReason(ServerLevel level, CompoundTag ship, String to) {
+    var server = level.getServer();
+    String from = LocalSpaces.address(ship);
+    if (sameSystem(server, from, to)) return "";
+    double ly = lightYears(server, from, to), range = range(level, ship);
+    if (ly <= range + 1e-9) return "";
+    var galaxy = galaxy(server);
+    var route =
+        GalaxyPlan.route(galaxy, placeOf(server, from).id(), placeOf(server, to).id(), range);
+    String hop = route.size() > 1 ? " Jump to " + route.get(1).name() + " first." : "";
+    return String.format(
+        Locale.ROOT,
+        "Out of range: %.1f ly, engine range %.0f ly. Upgrade engines or hop.%s",
+        ly,
+        range,
+        hop);
+  }
+
+  // ------------------------------------------------------------------ saving
+
+  static CompoundTag encode(Galaxy galaxy) {
+    var t = new CompoundTag();
+    t.putInt("version", GalaxyPlan.VERSION);
+    t.putLong("worldSeed", galaxy.seed());
+    var systems = new ListTag();
+    for (var s : galaxy.systems()) {
+      var st = new CompoundTag();
+      st.putString("id", s.id());
+      st.putString("name", s.name());
+      st.putDouble("x", s.x());
+      st.putDouble("y", s.y());
+      st.putString("spectralClass", s.spectralClass());
+      st.putInt("color", s.color());
+      st.putDouble("starRadius", s.starRadius());
+      st.putLong("seed", s.seed());
+      var bodies = new ListTag();
+      for (var b : s.bodies()) {
+        var bt = new CompoundTag();
+        bt.putString("id", b.id());
+        bt.putString("name", b.name());
+        bt.putString("type", b.type().name());
+        if (b.parent() != null) bt.putString("parent", b.parent());
+        bt.putDouble("orbit", b.orbitRadius());
+        bt.putDouble("angle", b.angle());
+        bt.putDouble("radius", b.radius());
+        bt.putInt("color", b.color());
+        bt.putLong("seed", b.seed());
+        if (b.surface() != null) bt.putString("surface", b.surface());
+        bodies.add(bt);
+      }
+      st.put("bodies", bodies);
+      systems.add(st);
+    }
+    t.put("systems", systems);
+    var features = new ListTag();
+    for (var f : galaxy.features()) {
+      var ft = new CompoundTag();
+      ft.putString("id", f.id());
+      ft.putString("name", f.name());
+      ft.putString("type", f.type().name());
+      ft.putDouble("x", f.x());
+      ft.putDouble("y", f.y());
+      ft.putBoolean("steppingStone", f.steppingStone());
+      ft.putLong("seed", f.seed());
+      features.add(ft);
+    }
+    t.put("features", features);
+    return t;
+  }
+
+  static Galaxy decode(CompoundTag t) {
+    var systems = new ArrayList<StarSystem>();
+    for (var tag : t.getListOrEmpty("systems")) {
+      var st = (CompoundTag) tag;
+      var bodies = new ArrayList<Body>();
+      for (var bTag : st.getListOrEmpty("bodies")) {
+        var bt = (CompoundTag) bTag;
+        bodies.add(
+            new Body(
+                bt.getStringOr("id", ""),
+                bt.getStringOr("name", ""),
+                BodyType.valueOf(bt.getStringOr("type", "BARREN")),
+                bt.getString("parent").orElse(null),
+                bt.getDoubleOr("orbit", 0),
+                bt.getDoubleOr("angle", 0),
+                bt.getDoubleOr("radius", 1000),
+                bt.getIntOr("color", -1),
+                bt.getLongOr("seed", 0),
+                bt.getString("surface").orElse(null)));
+      }
+      systems.add(
+          new StarSystem(
+              st.getStringOr("id", ""),
+              st.getStringOr("name", ""),
+              st.getDoubleOr("x", 0),
+              st.getDoubleOr("y", 0),
+              st.getStringOr("spectralClass", "G"),
+              st.getIntOr("color", -1),
+              st.getDoubleOr("starRadius", 1800),
+              st.getLongOr("seed", 0),
+              bodies));
+    }
+    var features = new ArrayList<Feature>();
+    for (var tag : t.getListOrEmpty("features")) {
+      var ft = (CompoundTag) tag;
+      features.add(
+          new Feature(
+              ft.getStringOr("id", ""),
+              ft.getStringOr("name", ""),
+              FeatureType.valueOf(ft.getStringOr("type", "NEBULA")),
+              ft.getDoubleOr("x", 0),
+              ft.getDoubleOr("y", 0),
+              ft.getBooleanOr("steppingStone", false),
+              ft.getLongOr("seed", 0)));
+    }
+    return new Galaxy(t.getLongOr("worldSeed", 0), systems, features);
+  }
+
+  // ------------------------------------------------------------------ orbit views
+
+  public static Optional<CompoundTag> scene(MinecraftServer server, String address) {
+    var galaxy = galaxy(server);
+    if (!galaxy.zones().contains(address)) return Optional.empty();
+    return Optional.of(scene(galaxy, address));
+  }
+
+  /** Where a body sits in its system's frame. */
+  static Vec3 position(StarSystem system, Body body) {
+    var orbit = orbit(body.angle(), body.orbitRadius());
+    if (!body.moon()) return orbit;
+    var parent =
+        system.bodies().stream().filter(b -> b.id().equals(body.parent())).findFirst().orElseThrow();
+    return position(system, parent).add(orbit);
+  }
+
+  private static Vec3 orbit(double angle, double radius) {
+    return new Vec3(
+        Math.cos(angle) * radius, Math.sin(angle * 2) * radius * .015, Math.sin(angle) * radius);
+  }
+
+  private static final Vec3 VIEW = new Vec3(0, -2200, 5200);
+
+  /** The orbit view of one zone: its system translated around the body, or the feature itself. */
+  public static CompoundTag scene(Galaxy galaxy, String zone) {
+    var place = galaxy.placeOfZone(zone);
     var bodies = new ArrayList<SpaceDefinition.Body>();
-    bodies.add(
-        new SpaceDefinition.Body(
-            "nullspace:" + system.id() + ":star",
-            0,
-            offset,
-            Vec3.ZERO,
-            system.radius(),
-            system.color(),
-            6,
-            0,
-            system.seed(),
-            0));
-    for (var body : system.regions()) {
-      var d = body.destination();
+    var volumes = new ArrayList<SpaceDefinition.Volume>();
+    var fields = new ArrayList<SpaceDefinition.Field>();
+    var names = new HashMap<String, String>();
+    long seed;
+    var rng = new Random(zone.hashCode() * 31L + galaxy.seed());
+    if (place instanceof StarSystem system) {
+      seed = system.seed();
+      var here =
+          system.bodies().stream().filter(b -> b.id().equals(zone)).findFirst().orElseThrow();
+      var offset = VIEW.subtract(position(system, here));
+      String starId = "nullspace:" + system.id() + ":star";
       bodies.add(
           new SpaceDefinition.Body(
-              "nullspace:" + d.id(),
-              d.moon() ? 2 : 1,
-              body.center().add(offset),
-              Vec3.ZERO,
-              body.radius(),
-              d.color(),
-              0,
-              0,
-              d.seed(),
-              body.atmosphere(),
-              new Vec3(0, 1, 0),
-              .0005));
+              starId, 0, offset, Vec3.ZERO, system.starRadius(), system.color(), 6, 0,
+              system.seed(), 0));
+      names.put(starId, system.name());
+      int atmospheres = 0;
+      for (var b : system.bodies()) {
+        boolean air =
+            atmospheres < 10
+                && (b.type() == BodyType.GAS_GIANT
+                    || b.landable() && b.type() == BodyType.OCEAN
+                    || b.landable() && b.type() == BodyType.JUNGLE);
+        if (air) atmospheres++;
+        String id = "nullspace:" + b.id();
+        bodies.add(
+            new SpaceDefinition.Body(
+                id,
+                b.moon() ? 2 : 1,
+                position(system, b).add(offset),
+                Vec3.ZERO,
+                b.radius(),
+                b.color(),
+                0,
+                0,
+                b.seed(),
+                air ? (b.type() == BodyType.GAS_GIANT ? .08 : .04) : 0,
+                new Vec3(0, 1, 0),
+                .0005));
+        names.put(id, b.name());
+      }
+      var asteroid = new Vec3(-300 - rng.nextInt(200), 80, 480 + rng.nextInt(200));
+      String rock = "nullspace:" + zone + ":rock";
+      bodies.add(
+          new SpaceDefinition.Body(
+              rock, 3, asteroid, Vec3.ZERO, 12, 0xff817267, 0, .15, rng.nextLong(), 0));
+      names.put(rock, "Asteroid");
+      fields.add(
+          new SpaceDefinition.Field(
+              "nullspace:" + zone + ":belt",
+              asteroid.add(-160, -40, 160),
+              new Vec3(120, 48, 120),
+              32,
+              .12,
+              1.5,
+              6,
+              rng.nextLong(),
+              0xff817267));
+    } else {
+      var feature = (Feature) place;
+      seed = feature.seed();
+      featureScene(feature, rng, bodies, volumes, fields, names);
     }
-    var rng = new Random(region.destination().seed());
-    var asteroid = new Vec3(-300 - rng.nextInt(200), 80, 480 + rng.nextInt(200));
-    bodies.add(
-        new SpaceDefinition.Body(
-            "nullspace:" + address(region) + ":rock",
-            3,
-            asteroid,
-            Vec3.ZERO,
-            12,
-            0xff817267,
-            0,
-            .15,
-            rng.nextLong(),
-            0));
-    var fields =
-        List.of(
-            new SpaceDefinition.Field(
-                "nullspace:" + address(region) + ":belt",
-                asteroid.add(-160, -40, 160),
-                new Vec3(120, 48, 120),
-                32,
-                .12,
-                1.5,
-                6,
-                rng.nextLong(),
-                0xff817267));
     var definition =
-        new SpaceDefinition(
-            "nullspace:" + address(region), 1, system.seed(), 1, 0, bodies, List.of(), fields);
+        new SpaceDefinition("nullspace:" + zone, 1, seed, 1, 0, bodies, volumes, fields);
     var scene = SpaceDefinitionCodec.encode(definition);
     scene.putInt("layoutVersion", 1);
-    scene.putInt("systemGenerator", StarSystemPlan.VERSION);
-    scene.putString("system", system.id());
-    scene.putString("systemName", system.name());
-    scene.putString("spectralClass", system.spectralClass());
+    scene.putInt("systemGenerator", GalaxyPlan.VERSION);
+    scene.putString("system", place.id());
+    scene.putString("systemName", place.name());
+    if (place instanceof StarSystem s) scene.putString("spectralClass", s.spectralClass());
     for (var tag : scene.getListOrEmpty("bodies")) {
       var body = (CompoundTag) tag;
-      String id = body.getStringOr("id", "");
-      body.putString(
-          "name",
-          id.endsWith(":star")
-              ? system.name()
-              : system.regions().stream()
-                  .filter(r -> id.equals("nullspace:" + address(r)))
-                  .map(r -> r.destination().name())
-                  .findFirst()
-                  .orElse("Asteroid"));
+      body.putString("name", names.getOrDefault(body.getStringOr("id", ""), "Asteroid"));
     }
     return scene;
   }
 
-  private static String address(StarSystemPlan.Region r) {
-    return r.destination().id();
+  private static void featureScene(
+      Feature f,
+      Random rng,
+      List<SpaceDefinition.Body> bodies,
+      List<SpaceDefinition.Volume> volumes,
+      List<SpaceDefinition.Field> fields,
+      Map<String, String> names) {
+    String id = "nullspace:" + f.id();
+    switch (f.type()) {
+      case NEBULA -> {
+        volumes.add(
+            new SpaceDefinition.Volume(
+                id + ":cloud", new Vec3(0, -600, 6000), new Vec3(5200, 2600, 5200), Vec3.ZERO,
+                f.type().color, .35, .02, .35, .1, f.seed(), 0));
+        volumes.add(
+            new SpaceDefinition.Volume(
+                id + ":wisp", new Vec3(-4200, 900, 2600), new Vec3(2600, 1400, 2400), Vec3.ZERO,
+                0xffd07a9a, .25, .02, .25, -.1, f.seed() + 1, 0));
+      }
+      case ASTEROID_FIELD -> {
+        fields.add(
+            new SpaceDefinition.Field(
+                id + ":field", new Vec3(0, 0, 900), new Vec3(700, 160, 700), 48, .2, 2, 14,
+                f.seed(), f.type().color));
+        fields.add(
+            new SpaceDefinition.Field(
+                id + ":near", new Vec3(-200, 20, 260), new Vec3(160, 40, 160), 24, .15, 1, 6,
+                f.seed() + 1, 0xff6f655c));
+      }
+      case ROGUE_PLANET -> {
+        bodies.add(
+            new SpaceDefinition.Body(
+                id, 1, VIEW, Vec3.ZERO, 1400, f.type().color, 0, 0, f.seed(), 0));
+        names.put(id, f.name());
+      }
+      case PULSAR -> {
+        bodies.add(
+            new SpaceDefinition.Body(
+                id, 0, new Vec3(0, -800, 9000), Vec3.ZERO, 140, f.type().color, 40, 0, f.seed(),
+                0));
+        names.put(id, f.name());
+        volumes.add(
+            new SpaceDefinition.Volume(
+                id + ":glow", new Vec3(0, -800, 9000), new Vec3(1400, 1400, 1400), Vec3.ZERO,
+                f.type().color, .2, .01, .6, .3, f.seed(), 0));
+      }
+      case BLACK_HOLE -> {
+        bodies.add(
+            new SpaceDefinition.Body(
+                id, 0, new Vec3(0, -600, 8000), Vec3.ZERO, 600, 0xff050308, 0, 0, f.seed(), 0));
+        names.put(id, f.name());
+        volumes.add(
+            new SpaceDefinition.Volume(
+                id + ":disk", new Vec3(0, -600, 8000), new Vec3(3200, 220, 3200), Vec3.ZERO,
+                0xffff9a4a, .45, .02, 1.2, .2, f.seed(), 0));
+      }
+    }
+    // Every feature has a little loose rock to fly around.
+    String rock = id + ":rock";
+    bodies.add(
+        new SpaceDefinition.Body(
+            rock, 3, new Vec3(-320, 60, 520), Vec3.ZERO, 10, 0xff817267, 0, .15, rng.nextLong(), 0));
+    names.put(rock, "Asteroid");
   }
 
   private StarSystems() {}

@@ -15,9 +15,9 @@ public final class SpacePopulationGameTest {
   public void addingShipTrafficKeepsOldStationRecordsAndRemovalTombstones(GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();
     var store = ShipStore.get(server);
-    String address = "sol_luna";
-    var plan =
-        SpacePopulationPlan.sites(server.overworld().getSeed(), LocalSpaces.get(server, address));
+    // P9: the home orbit has a Waypoint, an Exchange and a salvage ship.
+    String address = LocalSpaces.HOME;
+    var plan = SpacePopulation.plan(server, address);
     var old = new CompoundTag();
     old.putInt("version", 1);
     var sites = new net.minecraft.nbt.ListTag();
@@ -52,7 +52,12 @@ public final class SpacePopulationGameTest {
       GameTestHelper ctx) {
     var server = ctx.getLevel().getServer();
     var space = server.getLevel(TravelService.SPACE);
-    String address = "vega_cinder";
+    // P9: a zone the chart gives a station or derelict.
+    String address =
+        GalaxyPlan.population(StarSystems.galaxy(server)).keySet().stream()
+            .filter(z -> !z.equals(LocalSpaces.HOME))
+            .findFirst()
+            .orElseThrow();
     var source =
         com.nullandkale.nullspace.ship.StationGameTest.fixture(
             space, new BlockPos(1300000, 96, 1300000), true);
@@ -70,7 +75,7 @@ public final class SpacePopulationGameTest {
     player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
     var at = com.nullandkale.nullspace.ship.StationGameTest.boardingPoint(space, source);
     player.teleportTo(space, at.x, at.y, at.z, Set.of(), 0, 0, true);
-    var sites = SpacePopulationPlan.sites(server.overworld().getSeed(), LocalSpaces.get(address));
+    var sites = SpacePopulation.plan(server, address);
     Runnable[] poll = {null};
     poll[0] =
         () -> {
@@ -181,8 +186,8 @@ public final class SpacePopulationGameTest {
     var server = ctx.getLevel().getServer();
     var store = ShipStore.get(server);
     var space = server.getLevel(TravelService.SPACE);
-    String address = "sol_ares";
-    var sites = SpacePopulationPlan.sites(server.overworld().getSeed(), LocalSpaces.get(address));
+    String address = LocalSpaces.HOME;
+    var sites = SpacePopulation.plan(server, address);
     for (var site : sites) {
       var old = new CompoundTag();
       old.putString("id", site.legacyId());
@@ -195,8 +200,19 @@ public final class SpacePopulationGameTest {
       store.ships().add(old);
     }
     // Simulate a save from before orbital population: other tests in the same run may already
-    // have discovered this region, which would make discover() a no-op.
+    // have discovered (and built) this region, which would make discover() a no-op.
     store.section("spacePopulation").remove(address);
+    var replacements = new HashSet<String>();
+    for (var site : sites) replacements.add(site.id());
+    var removed = new ArrayList<net.minecraft.nbt.Tag>();
+    store
+        .ships()
+        .removeIf(
+            t -> {
+              boolean built = replacements.contains(((CompoundTag) t).getStringOr("id", ""));
+              if (built) removed.add(t);
+              return built;
+            });
     SpacePopulation.discover(server, address);
     var manifest =
         store.section("spacePopulation").getCompoundOrEmpty(address).getListOrEmpty("sites");
@@ -215,6 +231,7 @@ public final class SpacePopulationGameTest {
       store.ships().remove(old);
     }
     store.section("spacePopulation").remove(address);
+    store.ships().addAll(removed);
     store.save();
     ctx.succeed();
   }

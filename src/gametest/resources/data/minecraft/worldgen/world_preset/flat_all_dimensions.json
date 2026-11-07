@@ -76,439 +76,2208 @@
         }
       }
     },
-    "nullspace:sol_luna": {
-      "type": "minecraft:overworld",
-      "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
-            {
-              "height": 1,
-              "block": "minecraft:bedrock"
-            },
-            {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 4,
-              "block": "minecraft:gravel"
-            }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
-        }
-      }
-    },
     "nullspace:sol_ares": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_desert",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/desert_desert",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/desert_badlands",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:red_sandstone"
+              "biome": "nullspace:planet/desert_eroded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  0.75
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/desert_wooded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.75,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:vega_pelagos": {
+    "nullspace:sol_luna": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:plains",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 3,
-              "block": "minecraft:dirt"
-            },
-            {
-              "height": 1,
-              "block": "minecraft:grass_block"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:vega_cinder": {
+    "nullspace:surface_barren_a": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:basalt_deltas",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:basalt"
-            },
-            {
-              "height": 4,
-              "block": "minecraft:blackstone"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_a_inner": {
+    "nullspace:surface_barren_b": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 4,
-              "block": "minecraft:red_sandstone"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_a_outer": {
+    "nullspace:surface_barren_c": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:plains",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 3,
-              "block": "minecraft:dirt"
-            },
-            {
-              "height": 1,
-              "block": "minecraft:grass_block"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_a_moon": {
+    "nullspace:surface_barren_d": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 4,
-              "block": "minecraft:gravel"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_b_inner": {
+    "nullspace:surface_barren_e": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 4,
-              "block": "minecraft:red_sandstone"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_b_outer": {
+    "nullspace:surface_barren_f": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:plains",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_barren",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/barren_stony_peaks",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
-            },
-            {
-              "height": 3,
-              "block": "minecraft:dirt"
-            },
-            {
-              "height": 1,
-              "block": "minecraft:grass_block"
+              "biome": "nullspace:planet/barren_stony_shore",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_b_moon": {
+    "nullspace:surface_desert_a": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_desert",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/desert_desert",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/desert_badlands",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:gravel"
+              "biome": "nullspace:planet/desert_eroded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  0.75
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/desert_wooded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.75,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_c_inner": {
+    "nullspace:surface_desert_b": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_desert",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/desert_desert",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/desert_badlands",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:red_sandstone"
+              "biome": "nullspace:planet/desert_eroded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  0.75
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/desert_wooded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.75,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_c_outer": {
+    "nullspace:surface_desert_c": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:plains",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_desert",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/desert_desert",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/desert_badlands",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 3,
-              "block": "minecraft:dirt"
+              "biome": "nullspace:planet/desert_eroded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  0.75
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 1,
-              "block": "minecraft:grass_block"
+              "biome": "nullspace:planet/desert_wooded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.75,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_c_moon": {
+    "nullspace:surface_desert_d": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_desert",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/desert_desert",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/desert_badlands",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:gravel"
+              "biome": "nullspace:planet/desert_eroded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  0.75
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/desert_wooded_badlands",
+              "parameters": {
+                "temperature": [
+                  0.75,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_d_inner": {
+    "nullspace:surface_ice_a": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ice",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/ice_ice_spikes",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  -0.4286
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/ice_frozen_peaks",
+              "parameters": {
+                "temperature": [
+                  -0.4286,
+                  0.1429
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:red_sandstone"
+              "biome": "nullspace:planet/ice_snowy_slopes",
+              "parameters": {
+                "temperature": [
+                  0.1429,
+                  0.7143
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ice_frozen_ocean",
+              "parameters": {
+                "temperature": [
+                  0.7143,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_d_outer": {
+    "nullspace:surface_ice_b": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:plains",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ice",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/ice_ice_spikes",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  -0.4286
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/ice_frozen_peaks",
+              "parameters": {
+                "temperature": [
+                  -0.4286,
+                  0.1429
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 3,
-              "block": "minecraft:dirt"
+              "biome": "nullspace:planet/ice_snowy_slopes",
+              "parameters": {
+                "temperature": [
+                  0.1429,
+                  0.7143
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 1,
-              "block": "minecraft:grass_block"
+              "biome": "nullspace:planet/ice_frozen_ocean",
+              "parameters": {
+                "temperature": [
+                  0.7143,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
         }
       }
     },
-    "nullspace:frontier_d_moon": {
+    "nullspace:surface_ice_c": {
       "type": "minecraft:overworld",
       "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:desert",
-          "layers": [
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ice",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
             {
-              "height": 1,
-              "block": "minecraft:bedrock"
+              "biome": "nullspace:planet/ice_ice_spikes",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  -0.4286
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 124,
-              "block": "minecraft:stone"
+              "biome": "nullspace:planet/ice_frozen_peaks",
+              "parameters": {
+                "temperature": [
+                  -0.4286,
+                  0.1429
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             },
             {
-              "height": 4,
-              "block": "minecraft:gravel"
+              "biome": "nullspace:planet/ice_snowy_slopes",
+              "parameters": {
+                "temperature": [
+                  0.1429,
+                  0.7143
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ice_frozen_ocean",
+              "parameters": {
+                "temperature": [
+                  0.7143,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
             }
-          ],
-          "lakes": false,
-          "features": false,
-          "structure_overrides": []
+          ]
+        }
+      }
+    },
+    "nullspace:surface_ice_d": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ice",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/ice_ice_spikes",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  -0.4286
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ice_frozen_peaks",
+              "parameters": {
+                "temperature": [
+                  -0.4286,
+                  0.1429
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ice_snowy_slopes",
+              "parameters": {
+                "temperature": [
+                  0.1429,
+                  0.7143
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ice_frozen_ocean",
+              "parameters": {
+                "temperature": [
+                  0.7143,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_jungle_a": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_jungle",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/jungle_jungle",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/jungle_bamboo_jungle",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/jungle_swamp",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_jungle_b": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_jungle",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/jungle_jungle",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/jungle_bamboo_jungle",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  0.5
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/jungle_swamp",
+              "parameters": {
+                "temperature": [
+                  0.5,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_lava_a": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_lava",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/lava_basalt_deltas",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/lava_soul_sand_valley",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_lava_b": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_lava",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/lava_basalt_deltas",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/lava_soul_sand_valley",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_lava_c": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_lava",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/lava_basalt_deltas",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/lava_soul_sand_valley",
+              "parameters": {
+                "temperature": [
+                  0.0,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_ocean_a": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ocean",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/ocean_deep_ocean",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.1111
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_warm_ocean",
+              "parameters": {
+                "temperature": [
+                  0.1111,
+                  0.7778
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_mushroom_fields",
+              "parameters": {
+                "temperature": [
+                  0.7778,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_ocean_b": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ocean",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/ocean_deep_ocean",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.1111
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_warm_ocean",
+              "parameters": {
+                "temperature": [
+                  0.1111,
+                  0.7778
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_mushroom_fields",
+              "parameters": {
+                "temperature": [
+                  0.7778,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nullspace:surface_ocean_c": {
+      "type": "minecraft:overworld",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "nullspace:planet_ocean",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "nullspace:planet/ocean_deep_ocean",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  0.1111
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_warm_ocean",
+              "parameters": {
+                "temperature": [
+                  0.1111,
+                  0.7778
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "nullspace:planet/ocean_mushroom_fields",
+              "parameters": {
+                "temperature": [
+                  0.7778,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": 0.0,
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
         }
       }
     }

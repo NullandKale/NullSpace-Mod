@@ -18,7 +18,8 @@ public final class NavigationGameTest {
     own.putString("id", UUID.randomUUID().toString());
     own.putString("dimension", TravelService.SPACE.identifier().toString());
     own.putLong("base", new BlockPos(0, 96, 0).asLong());
-    own.putString("localSpace", "vega_cinder");
+    own.putString(
+        "localSpace", com.nullandkale.nullspace.navigation.TestZones.otherSystem(server));
     var first = NavigationService.arrivalOrigin(server, own);
     var neighbor = own.copy();
     neighbor.putString("id", UUID.randomUUID().toString());

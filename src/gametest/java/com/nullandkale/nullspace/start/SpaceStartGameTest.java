@@ -99,7 +99,7 @@ public final class SpaceStartGameTest {
     ctx.assertTrue(player.getInventory().hasAnyOf(Set.of(Items.BREAD)), "Player has food");
     var planet = LocalSpaces.get(server, LocalSpaces.address(ship));
     ctx.assertTrue(!planet.moon(), "Start orbits a landable planet rather than a moon");
-    var surface = com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(planet.id());
+    var surface = com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(server, planet.id());
     ctx.assertTrue(
         com.nullandkale.nullspace.ship.PadRegistry.read(server).stream()
             .anyMatch(

@@ -81,6 +81,9 @@ class GalaxyPlanTest {
         assertTrue(used <= GalaxyPlan.SURFACE_POOL.get(type), type + " pool exceeded");
       }
     }
+    for (long seed = 0; seed < SEEDS; seed++)
+      for (var s : GalaxyPlan.generate(seed).systems())
+        assertTrue(s.bodies().stream().anyMatch(Body::landable), "every system can be landed in");
     double share = landable / (double) bodies;
     assertTrue(share > .25 && share < .55, "about 40% of bodies are landable, was " + share);
   }
@@ -124,6 +127,39 @@ class GalaxyPlanTest {
     }
     assertTrue(shorter > 0, "upgraded engines skip hops somewhere");
     assertEquals(3.5, GalaxyPlan.jumpFuel(25), 1e-9);
+  }
+
+  @Test
+  void generatedPlacesAreSparse() {
+    for (long seed = 0; seed < 500; seed++) {
+      var galaxy = GalaxyPlan.generate(seed);
+      var population = GalaxyPlan.population(galaxy);
+      assertEquals(population, GalaxyPlan.population(galaxy), "stable");
+      var home = population.get(LocalSpaces.HOME);
+      assertTrue(home.waypoint() && home.exchange(), "Sol keeps its Waypoint and Exchange");
+      long stations =
+          population.entrySet().stream()
+              .filter(e -> !e.getKey().equals(LocalSpaces.HOME))
+              .filter(e -> e.getValue().waypoint() || e.getValue().exchange())
+              .count();
+      assertTrue(stations >= 2 && stations <= 3, "two or three stations away from Sol");
+      long derelicts =
+          galaxy.features().stream()
+              .filter(f -> population.getOrDefault(f.id(), GalaxyPlan.Population.NONE).salvage() > 0)
+              .count();
+      assertTrue(derelicts >= 1 && derelicts <= 2, "one or two derelicts at features");
+      assertTrue(population.size() <= 6, "most zones start empty");
+      for (var zone : population.keySet()) assertTrue(galaxy.zones().contains(zone), zone);
+      for (var s : galaxy.systems())
+        for (var b : s.bodies())
+          if (b.landable() && !s.id().equals(GalaxyPlan.HOME)) {
+            var p = population.get(b.id());
+            assertTrue(
+                p == null || !(p.waypoint() || p.exchange()) || s.bodies().stream()
+                    .noneMatch(o -> !o.landable() && !o.moon()),
+                "stations prefer zones you cannot land in");
+          }
+    }
   }
 
   @Test

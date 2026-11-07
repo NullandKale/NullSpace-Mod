@@ -27,7 +27,7 @@ public final class ShipControlTerminal implements TerminalDevice {
   private int selection, page, statusScroll;
   private String notice = "";
   private int tab; // 0 Trip, 1 Manual steps, 2 More
-  private String scopeSystem = "", scopeRegion = "";
+  private String scopeSystem = "", scopeRegion = "", chartSelected = "";
 
   public ShipControlTerminal(ShipControl.View view) {
     this.view = view;
@@ -242,6 +242,7 @@ public final class ShipControlTerminal implements TerminalDevice {
           if (!scopeRegion.isBlank()) scopeRegion = "";
           else scopeSystem = "";
           highlighted = "";
+          chartSelected = "";
           page = 0;
         },
         true,
@@ -251,6 +252,10 @@ public final class ShipControlTerminal implements TerminalDevice {
     if (!scopeRegion.isBlank()) return false;
     var bodies =
         view.entries().stream().filter(e -> e.kind() == ShipDestination.Kind.REGION).toList();
+    if (scopeSystem.isBlank() && !view.chart().isEmpty()) {
+      drawMap();
+      return true;
+    }
     if (scopeSystem.isBlank()) {
       var systems = bodies.stream().map(this::system).distinct().sorted().toList();
       page = Math.clamp(page, 0, Math.max(0, (systems.size() - 1) / 12));
@@ -291,7 +296,12 @@ public final class ShipControlTerminal implements TerminalDevice {
             2,
             7 + i,
             76,
-            body.name() + " | " + contacts + " stations / ships / landing sites >",
+            body.name()
+                + " | "
+                + state(body.state())
+                + " | "
+                + contacts
+                + " stations / ships / pads >",
             () -> {
               scopeRegion = body.region();
               page = 0;
@@ -306,7 +316,130 @@ public final class ShipControlTerminal implements TerminalDevice {
     return true;
   }
 
+  /** Map glyphs: the star map legend uses the same characters. */
+  private static char glyph(ShipControl.ChartPlace place) {
+    if (place.here()) return '@';
+    return switch (place.kind()) {
+      case "System" -> '*';
+      case "Nebula" -> '~';
+      case "Asteroid field" -> ':';
+      case "Rogue planet" -> 'o';
+      case "Pulsar" -> '+';
+      case "Black hole" -> '#';
+      default -> '?';
+    };
+  }
+
+  /**
+   * The galaxy chart (P9) on the 76x12 area under the filters: every system and feature at its
+   * 2D position, colored by whether the ship's engines reach it in one jump.
+   */
+  private void drawMap() {
+    text(
+        2,
+        6,
+        String.format(
+            Locale.ROOT,
+            "STAR MAP  engine range %.0f ly  green: one jump  grey: hop via others",
+            view.range()),
+        TerminalTheme.MUTED);
+    var selected = view.chart().stream().filter(p -> p.id().equals(chartSelected)).findFirst();
+    text(
+        2,
+        20,
+        selected.isPresent()
+            ? selected.get().summary()
+                + (selected.get().kind().equals("System") ? " | select again to open" : "")
+            : "@ you  * star  ~ nebula  : asteroids  o rogue planet  + pulsar  # black hole",
+        selected.isPresent() ? TerminalTheme.TEXT : TerminalTheme.MUTED);
+    boolean[][] used = new boolean[25][80];
+    var places = new ArrayList<>(view.chart());
+    // Draw the current place last so its glyph wins any collision.
+    places.sort(Comparator.comparing(ShipControl.ChartPlace::here));
+    for (var place : places) {
+      int col = 2 + Math.clamp(place.x() * 73 / 1000, 0, 73);
+      int row = 7 + Math.clamp(place.y() * 11 / 1000, 0, 11);
+      while (used[row][col] && col < 76) col++;
+      String label = glyph(place) + " " + place.name();
+      boolean room = col + label.length() <= 78;
+      for (int i = 0; room && i < label.length() + 1 && col + i < 80; i++)
+        if (used[row][col + i]) room = false;
+      String shown = room ? label : String.valueOf(glyph(place));
+      for (int i = 0; i < shown.length() + (room ? 1 : 0) && col + i < 80; i++)
+        used[row][col + i] = true;
+      int color =
+          place.id().equals(chartSelected)
+              ? TerminalTheme.AMBER
+              : place.here()
+                  ? TerminalTheme.BLUE
+                  : place.inRange() ? TerminalTheme.GREEN : TerminalTheme.MUTED;
+      hit(
+          col,
+          row,
+          shown.length(),
+          shown,
+          () -> {
+            if (chartSelected.equals(place.id()) && place.kind().equals("System")) {
+              scopeSystem = systemNameOf(place);
+              page = 0;
+              highlighted = "";
+              return;
+            }
+            chartSelected = place.id();
+            highlighted =
+                view.entries().stream()
+                    .filter(
+                        e ->
+                            e.kind() == ShipDestination.Kind.REGION
+                                && e.region().equals(place.zone()))
+                    .map(ShipControl.Entry::id)
+                    .findFirst()
+                    .orElse("");
+          },
+          true,
+          "",
+          true,
+          color);
+    }
+    view.chart().stream()
+        .filter(p -> p.id().equals(chartSelected))
+        .findFirst()
+        .ifPresent(
+            p ->
+                text(
+                    2,
+                    19,
+                    p.name()
+                        + (p.here()
+                            ? " | you are here"
+                            : p.inRange()
+                                ? String.format(
+                                    Locale.ROOT,
+                                    " | %.1f ly | jump %.2f fuel | in range",
+                                    p.lightYears(),
+                                    p.fuel())
+                                : String.format(
+                                    Locale.ROOT,
+                                    " | %.1f ly | %.2f fuel total | %s",
+                                    p.lightYears(),
+                                    p.fuel(),
+                                    p.route())),
+                    p.inRange() || p.here() ? TerminalTheme.TEXT : TerminalTheme.AMBER));
+  }
+
+  private String systemNameOf(ShipControl.ChartPlace place) {
+    return view.entries().stream()
+        .filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(place.zone()))
+        .map(e -> e.name().split(" / ")[0])
+        .findFirst()
+        .orElse(place.name());
+  }
+
   private int visibleCount() {
+    if (search.value().isBlank()
+        && scopeSystem.isBlank()
+        && !view.here().isBlank()
+        && !view.chart().isEmpty()) return 1; // The star map is one page.
     if (!search.value().isBlank() || view.here().isBlank() || !scopeRegion.isBlank())
       return filtered().size();
     return (int)
@@ -576,6 +709,11 @@ public final class ShipControlTerminal implements TerminalDevice {
       x += chosen.length() + 5;
     }
     var entries = filtered();
+    // The star map uses row 19 for the selected place's route; berths belong to a planet's list.
+    if (!(search.value().isBlank()
+        && scopeSystem.isBlank()
+        && !view.here().isBlank()
+        && !view.chart().isEmpty()))
     hit(
         57,
         19,
@@ -799,6 +937,12 @@ public final class ShipControlTerminal implements TerminalDevice {
   }
 
   private void clearHiddenSelection() {
+    // On the star map the selection is a chart place, not a row on a list page.
+    if (picker
+        && search.value().isBlank()
+        && scopeSystem.isBlank()
+        && !view.here().isBlank()
+        && !view.chart().isEmpty()) return;
     var entries = filtered();
     page = Math.clamp(page, 0, Math.max(0, (visibleCount() - 1) / 12));
     if (entries.stream().skip(page * 12L).limit(12).noneMatch(e -> e.id().equals(highlighted)))

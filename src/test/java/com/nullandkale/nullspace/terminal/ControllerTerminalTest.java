@@ -53,7 +53,7 @@ class ControllerTerminalTest {
     t.input(TerminalInput.Key.ENTER);
     assertEquals(new ControllerTerminal.Action("fast_travel", "sol_luna"), t.pollAction());
     t.update("Ready");
-    for (int i = 0; i < 4; i++) t.input(TerminalInput.Key.DOWN);
+    for (int i = 0; i < 2; i++) t.input(TerminalInput.Key.DOWN);
     t.input(TerminalInput.Key.ENTER);
     assertEquals(new ControllerTerminal.Action("helm", ""), t.pollAction());
   }

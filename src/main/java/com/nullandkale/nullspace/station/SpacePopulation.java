@@ -53,6 +53,15 @@ public final class SpacePopulation {
     }
   }
 
+  /** The places this region starts with, as the galaxy chart allocates them (P9). */
+  public static List<SpacePopulationPlan.Site> plan(MinecraftServer server, String address) {
+    var population =
+        GalaxyPlan.population(StarSystems.galaxy(server))
+            .getOrDefault(address, GalaxyPlan.Population.NONE);
+    return SpacePopulationPlan.sites(
+        server.overworld().getSeed(), LocalSpaces.get(server, address), population);
+  }
+
   /** Record the region before reserving storage, so reloads cannot reroll its inventory. */
   public static void discover(MinecraftServer server, String address) {
     if (JourneyService.special(server, address)) return;
@@ -70,7 +79,7 @@ public final class SpacePopulation {
             .collect(java.util.stream.Collectors.toSet());
     region.putInt("version", SpacePopulationPlan.VERSION);
     for (var site :
-        SpacePopulationPlan.sites(server.overworld().getSeed(), LocalSpaces.get(server, address))) {
+        plan(server, address)) {
       var saved = new CompoundTag();
       var legacy = store.repository().find(site.legacyId());
       if (ids.contains(site.id()) || ids.contains(site.legacyId())) continue;

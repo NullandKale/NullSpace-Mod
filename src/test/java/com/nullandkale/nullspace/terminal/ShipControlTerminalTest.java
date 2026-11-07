@@ -244,6 +244,64 @@ class ShipControlTerminalTest {
     assertTrue(panel.picker());
   }
 
+  @Test
+  void starMapPlotsEveryPlaceAndSelectingOneSetsItsZone() {
+    var original = state(true, "");
+    var entries =
+        List.of(
+            new ShipControl.Entry(
+                "terra", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"),
+            new ShipControl.Entry(
+                "corion", ShipDestination.Kind.REGION, "Corion / Corion I", "sys_d_1", "Orbit"),
+            new ShipControl.Entry(
+                "nebula",
+                ShipDestination.Kind.REGION,
+                "Kel Nebula / Kel Nebula",
+                "feature_a",
+                "Orbit"));
+    var chart =
+        List.of(
+            new ShipControl.ChartPlace(
+                "sol", "Sol", "System", 100, 100, "sol_terra", 0, 0, true, true, "G star", ""),
+            new ShipControl.ChartPlace(
+                "feature_a", "Kel Nebula", "Nebula", 300, 100, "feature_a", 18.2, 2.82, true,
+                false, "Nebula | stepping stone", ""),
+            new ShipControl.ChartPlace(
+                "sys_d", "Corion", "System", 800, 900, "sys_d_1", 61.0, 9.4, false, false,
+                "A star | 7 planets, 2 moons, 2 landable", "3 hops via Kel Nebula, Tal Drift"));
+    var panel =
+        new ShipControlTerminal(
+            new ShipControl.View(
+                original.session(), BlockPos.ZERO, true, true, "Ship", "Ready", "", "None", "",
+                "", entries, original.buttons(), 0, "Sol / Terra", "", "", chart, 25));
+    // Back out of the current planet to the top level: the star map.
+    panel.input(new TerminalInput.Pointer(3, 2));
+    panel.input(new TerminalInput.Pointer(3, 2));
+    var screen = new StringBuilder();
+    for (int y = 0; y < 25; y++) screen.append(panel.display().row(y)).append('\n');
+    assertTrue(screen.toString().contains("STAR MAP"), screen.toString());
+    assertTrue(screen.toString().contains("engine range 25 ly"));
+    assertTrue(panel.display().row(20).contains("# black hole"), "Legend fits on screen");
+    assertTrue(panel.display().row(8).contains("@ Sol"), "You are marked at Sol");
+    assertTrue(panel.display().row(8).contains("~ Kel Nebula"));
+    assertTrue(panel.display().row(16).contains("* Corion"));
+    int nebula = panel.display().row(8).indexOf("~ Kel Nebula");
+    panel.input(new TerminalInput.Pointer(nebula, 8));
+    assertTrue(panel.display().row(19).contains("18.2 ly | jump 2.82 fuel | in range"));
+    panel.input(new TerminalInput.Pointer(3, 22));
+    assertEquals(
+        new ShipControl.Input(SESSION, ShipControl.Action.SELECT, "nebula"), panel.pollAction());
+    panel.update(panel.state());
+    int corion = panel.display().row(16).indexOf("* Corion");
+    panel.input(new TerminalInput.Pointer(corion, 16));
+    assertTrue(
+        panel.display().row(19).contains("61.0 ly | 9.40 fuel total | 3 hops via Kel Nebula, Tal Drift"),
+        panel.display().row(19));
+    panel.input(new TerminalInput.Pointer(corion, 16));
+    assertTrue(
+        panel.display().row(7).contains("Corion I"), "Selecting a system again opens it");
+  }
+
   private static ShipControl.View state(boolean scanner, String selected) {
     var entries =
         List.of(

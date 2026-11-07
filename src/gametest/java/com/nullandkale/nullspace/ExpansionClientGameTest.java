@@ -148,7 +148,15 @@ public final class ExpansionClientGameTest implements FabricClientGameTest {
           .runOnServer(
               server -> {
                 PlanetSurfaces.ensureLanding(server, "sol_luna");
-                var level = server.getLevel(PlanetSurfaces.dimension("sol_luna"));
+                var level = server.getLevel(PlanetSurfaces.dimension(server, "sol_luna"));
+                // P9: Luna is real terrain now; level a flat test area at the old Y64 ground.
+                for (int x = -4; x <= 36; x++)
+                  for (int z = -8; z <= 42; z++) {
+                    level.setBlock(new BlockPos(x, 64, z), Blocks.STONE.defaultBlockState(), 18);
+                    for (int y = 65; y <= 100; y++)
+                      if (!level.getBlockState(new BlockPos(x, y, z)).isAir())
+                        level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 18);
+                  }
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(level, 16.5, 65, -2.5, Set.of(), 0, 0, true);
                 level.setBlock(
@@ -205,7 +213,7 @@ public final class ExpansionClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server -> {
-                var level = server.getLevel(PlanetSurfaces.dimension("sol_luna"));
+                var level = server.getLevel(PlanetSurfaces.dimension(server, "sol_luna"));
                 level.setBlock(new BlockPos(16, 67, 36), Blocks.AIR.defaultBlockState(), 18);
                 SceneService.open(world.getConnection().getServerPlayer(), new BlockPos(16, 67, 0));
               });

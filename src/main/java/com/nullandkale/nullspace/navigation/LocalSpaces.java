@@ -43,9 +43,11 @@ public final class LocalSpaces {
         .orElseThrow(() -> new IllegalArgumentException("Unknown local-space destination"));
   }
 
+  /** True if the id has the shape of a galaxy zone (P9): Sol's worlds, system bodies, features. */
   public static boolean known(String id) {
-    return com.nullandkale.nullspace.content.ContentCatalog.SURFACES.stream()
-        .anyMatch(d -> d.id().equals(id));
+    return id != null
+        && (DESTINATIONS.stream().anyMatch(d -> d.id().equals(id))
+            || id.matches("sol_[0-9]+(_[a-z])?|sys_[a-z]_[0-9]+(_[a-z])?|feature_[a-z]"));
   }
 
   public static String address(CompoundTag ship) {

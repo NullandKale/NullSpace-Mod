@@ -76,15 +76,16 @@ public final class JourneyService {
     var level = ShipStore.level(server, ship.getStringOr("dimension", ""));
     var from = LocalSpaces.get(server, LocalSpaces.address(ship));
     var to = LocalSpaces.get(server, destination);
-    int tier =
-        ShipSystems.connected(level, ship).stream()
-            .filter(
-                p -> level.getBlockState(p).is(ShipBlocks.ENGINE) && ShipSystems.active(ship, p))
-            .mapToInt(p -> FuelSystem.tier(level, p))
-            .max()
-            .orElse(0);
+    double lightYears =
+        StarSystems.sameSystem(server, from.id(), to.id())
+            ? 0
+            : StarSystems.lightYears(server, from.id(), to.id());
     return JourneyPlan.between(
-        server.overworld().getSeed(), from.id(), to.id(), !from.system().equals(to.system()), tier);
+        server.overworld().getSeed(),
+        from.id(),
+        to.id(),
+        lightYears,
+        StarSystems.engineTier(level, ship));
   }
 
   public static void register(MinecraftServer server, CompoundTag j) {

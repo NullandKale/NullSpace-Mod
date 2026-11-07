@@ -307,10 +307,10 @@ public final class TravelService {
                           : p.name().equalsIgnoreCase(destination.strip()))
               .findFirst()
               .orElseThrow(() -> new IllegalArgumentException("Unknown landing pad"));
-      var expected =
-          com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(
-              com.nullandkale.nullspace.navigation.LocalSpaces.address(inspection.vessel()));
-      if (!pad.dimension().equals(expected.identifier().toString()))
+      if (!com.nullandkale.nullspace.navigation.PlanetSurfaces.surfaceOf(
+          server,
+          com.nullandkale.nullspace.navigation.LocalSpaces.address(inspection.vessel()),
+          pad.dimension()))
         throw new IllegalArgumentException(
             "Jump to "
                 + (pad.dimension().equals("minecraft:overworld")
@@ -541,13 +541,10 @@ public final class TravelService {
       if (landing == null)
         return Result.rejected("Unknown landing pad; use destinations to list names");
       if (!recall
-          && !landing
-              .dimension()
-              .equals(
-                  com.nullandkale.nullspace.navigation.PlanetSurfaces.dimension(
-                          com.nullandkale.nullspace.navigation.LocalSpaces.address(vessel))
-                      .identifier()
-                      .toString()))
+          && !com.nullandkale.nullspace.navigation.PlanetSurfaces.surfaceOf(
+              server,
+              com.nullandkale.nullspace.navigation.LocalSpaces.address(vessel),
+              landing.dimension()))
         return Result.rejected("Jump to the destination planet before landing at this pad");
       target =
           server.getLevel(
