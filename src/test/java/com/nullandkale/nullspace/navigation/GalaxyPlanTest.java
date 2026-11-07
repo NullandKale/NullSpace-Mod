@@ -163,6 +163,34 @@ class GalaxyPlanTest {
   }
 
   @Test
+  void dangerGrowsWithDistanceAndPeaksAtBlackHolesAndPulsars() {
+    var levels = new int[4];
+    for (long seed = 0; seed < 500; seed++) {
+      var galaxy = GalaxyPlan.generate(seed);
+      for (var zone : galaxy.zones()) {
+        int danger = GalaxyPlan.danger(galaxy, zone);
+        assertTrue(danger >= 0 && danger <= 3);
+        levels[danger]++;
+        var place = galaxy.placeOfZone(zone);
+        if (place.id().equals(GalaxyPlan.HOME)) assertEquals(0, danger, "Sol is safe");
+        else assertTrue(danger >= 1, "Everywhere outside Sol has some danger");
+        if (place instanceof Feature f
+            && (f.type() == FeatureType.BLACK_HOLE || f.type() == FeatureType.PULSAR))
+          assertEquals(3, danger, "Black holes and pulsars are the most dangerous");
+      }
+      var sol = galaxy.place(GalaxyPlan.HOME);
+      for (var a : galaxy.systems())
+        for (var b : galaxy.systems())
+          if (GalaxyPlan.distance(sol, a) < GalaxyPlan.distance(sol, b))
+            assertTrue(
+                GalaxyPlan.danger(galaxy, a.bodies().getFirst().id())
+                    <= GalaxyPlan.danger(galaxy, b.bodies().getFirst().id()),
+                "Further systems are never safer");
+    }
+    for (int d = 0; d < 4; d++) assertTrue(levels[d] > 0, "Danger " + d + " occurs");
+  }
+
+  @Test
   void zonesMapBackToTheirChartPlace() {
     var galaxy = GalaxyPlan.generate(3);
     assertEquals(GalaxyPlan.HOME, galaxy.placeOfZone("sol_luna").id());

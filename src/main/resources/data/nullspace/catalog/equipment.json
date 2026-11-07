@@ -231,5 +231,21 @@
     "unlock": {
       "items": "nullspace:circuit_board"
     }
+  },
+  {
+    "id": "advanced_system_upgrade",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "minecraft:amethyst_shard"
+    }
+  },
+  {
+    "id": "exotic_system_upgrade",
+    "kind": "item",
+    "capabilities": [],
+    "unlock": {
+      "items": "nullspace:advanced_system_upgrade"
+    }
   }
 ]

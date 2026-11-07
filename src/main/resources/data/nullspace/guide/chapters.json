@@ -167,14 +167,6 @@
       ]
     },
     {
-      "id": "graphics",
-      "title": "Space graphics",
-      "pages": [
-        "Options > Video Settings > Space Graphics. Fast, Balanced and High presets trade quality for GPU cost. Settings save on this client.",
-        "Adjust surface/volume resolution, integration steps, antialiasing and temporal settings. Planet skies and air particles have switches. Check moving views as well as still shots."
-      ]
-    },
-    {
       "id": "trouble",
       "title": "Troubleshooting",
       "pages": [
@@ -188,8 +180,7 @@
       "id": "crafting",
       "title": "Crafting notes",
       "pages": [
-        "Recipes follow in this book. Each page shows real items in a 3 x 3 grid. Hover for names. Click a crafted part for its recipe. Horizontal mirroring works; rotation does not.",
-        "Circuit boards craft in batches of four. Plank and stone slots cycle through accepted items. Wooden doors accept any wood type. Vanilla piston and lever recipes still need cobblestone."
+        "Recipes follow in this book: real items in a 3 x 3 grid; hover for names, click a crafted part for its recipe. Mirroring works, rotation does not. Circuit boards craft in fours; wooden doors accept any wood."
       ]
     },
     {
@@ -205,8 +196,8 @@
       "id": "star_systems",
       "title": "Star systems",
       "pages": [
-        "The saved star chart adds four generated systems beside Sol and Vega. Open Destination > Regions, choose a planet or moon, then Jump. Each new system has its own star, two planets and a moon.",
-        "After jumping, choose that body's Landing pad and Land. Launch returns to its orbit. Regions populate stations automatically. Returning preserves your chart, surface builds and resources."
+        "Each world has its own galaxy: Sol and four random systems, plus nebulae, asteroid fields and stranger places. The Scanner's Stars page is the map: green is one jump away, grey needs hops.",
+        "Jumps cost 1.00 fuel plus 0.10 per light-year. Engine upgrades set range: 25, 40, 60 or 100 ly. Tier 2 needs an Advanced Upgrade (amethyst), tier 3 an Exotic one (netherite scrap or echo shards). Further out is more dangerous and richer."
       ]
     },
     {

@@ -75,7 +75,7 @@ public final class EncounterSites {
           case 1 -> Blocks.QUARTZ_BLOCK;
           default -> Blocks.POLISHED_DEEPSLATE;
         };
-    t.shell(footprint, 0, 7, hull, Blocks.IRON_BLOCK);
+    t.shell(footprint, 0, 7, hull, Blocks.POLISHED_ANDESITE);
     t.bulkhead(9, 3, 17, 0, 7, 10, hull);
     t.dock(new BlockPos(10, 1, 2), Direction.NORTH, hull);
     var core = new BlockPos(4, 1, 5);
@@ -109,7 +109,7 @@ public final class EncounterSites {
     t.finish(21, 8, 25).forEach((p, state) -> blocks.put(p.above(), state));
     for (int x = 2; x <= 18; x++)
       for (int z = 2; z <= 22; z++)
-        blocks.put(new BlockPos(x, 0, z), Blocks.IRON_BLOCK.defaultBlockState());
+        blocks.put(new BlockPos(x, 0, z), Blocks.POLISHED_ANDESITE.defaultBlockState());
     return new StationBlueprint.Plan(blocks, core.above(), docks(blocks));
   }
 
@@ -165,107 +165,61 @@ public final class EncounterSites {
     }
   }
 
-  /** Called only during inaccessible initial construction, before the ready marker is saved. */
+  /**
+   * Called only during inaccessible initial construction, before the ready marker is saved. Each
+   * supply container gets its room's loot table; one gets the site's treasure, which scales with
+   * the zone's danger. Loot rolls when a player first opens it.
+   */
   public static void stock(ServerLevel level, CompoundTag ship) {
     if (ship.getBooleanOr("encounterStocked", false)) return;
     int kind = ship.getIntOr("encounterKind", 0);
     var base = ShipStore.pos(ship, "base");
-    long seed = ship.getLongOr("encounterSeed", 1);
+    long seed = ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 0x9e3779b97f4a7c15L;
+    String treasure =
+        com.nullandkale.nullspace.generation.SiteLoot.treasure(
+            level.getServer(), com.nullandkale.nullspace.navigation.LocalSpaces.address(ship));
     if (kind == 0) {
-      fill(
+      com.nullandkale.nullspace.generation.SiteLoot.assign(
           level,
           base.offset(15, 2, 5),
-          "Growing station supplies",
-          new ItemStack(Items.BREAD, 12),
-          new ItemStack(Items.WHEAT_SEEDS, 16),
-          new ItemStack(Items.IRON_HOE),
-          new ItemStack(Items.COAL, 8));
+          treasure.equals("treasure_0") ? "garden" : treasure,
+          seed,
+          "Growing station supplies");
     } else {
-      String design = ship.getStringOr("encounterDesign", design(kind, seed));
-      var rooms = ShipRooms.rooms(design);
-      // A saved construction plan can predate the room layout. Keep its original reward rather
-      // than dropping items into coordinates where that older hull has no container.
-      if (rooms.stream()
-          .filter(r -> r.supplies() != null)
-          .anyMatch(r -> !(level.getBlockEntity(base.offset(r.supplies())) instanceof Container))) {
-        stockOlderPlan(level, ship, kind);
-        return;
-      }
-      boolean workshop =
-          rooms.stream()
-              .anyMatch(r -> r.use() == ShipRooms.Use.WORKSHOP || r.use() == ShipRooms.Use.LAB);
-      var random = new Random(seed ^ 0x726f6f6dL);
-      for (var room : rooms) {
-        if (room.supplies() == null) continue;
-        var items = new ArrayList<ItemStack>();
-        switch (room.use()) {
-          case ENGINEERING -> items.add(new ItemStack(Items.COAL, kind == 1 ? 32 : 8));
-          case GALLEY -> {
-            items.add(new ItemStack(Items.BREAD, kind == 1 ? 6 : 3));
-            items.add(new ItemStack(Items.CARROT, 2 + random.nextInt(4)));
-          }
-          case CARGO -> {
-            items.add(new ItemStack(Items.COPPER_INGOT, 8 + random.nextInt(9)));
-            items.add(new ItemStack(Items.GLASS, 4 + random.nextInt(5)));
-            if (!workshop) repairSupplies(items, kind);
-          }
-          case WORKSHOP, LAB -> repairSupplies(items, kind);
-          case CREW -> {
-            items.add(new ItemStack(Items.PAPER, 4 + random.nextInt(5)));
-            items.add(new ItemStack(Blocks.WOOL.white(), 3));
-          }
-          default -> {}
-        }
-        fill(
-            level,
-            base.offset(room.supplies()),
-            room.name() + " supplies",
-            items.toArray(ItemStack[]::new));
+      var rooms =
+          ShipRooms.rooms(ship.getStringOr("encounterDesign", design(kind, seed)));
+      var supplied = rooms.stream().filter(r -> r.supplies() != null).toList();
+      var hoard =
+          supplied.stream()
+              .filter(r -> r.use() == ShipRooms.Use.CARGO)
+              .findFirst()
+              .or(
+                  () ->
+                      supplied.stream()
+                          .filter(
+                              r -> r.use() == ShipRooms.Use.WORKSHOP || r.use() == ShipRooms.Use.LAB)
+                          .findFirst())
+              .or(() -> supplied.stream().findFirst())
+              .orElse(null);
+      int index = 0;
+      for (var room : supplied) {
+        String table =
+            room == hoard
+                ? treasure
+                : switch (room.use()) {
+                  case ENGINEERING -> "engineering";
+                  case GALLEY -> "galley";
+                  case CARGO -> "cargo";
+                  case WORKSHOP, LAB -> "workshop";
+                  default -> "crew";
+                };
+        com.nullandkale.nullspace.generation.SiteLoot.assign(
+            level, base.offset(room.supplies()), table, seed + index++, room.name() + " supplies");
       }
     }
     ship.putBoolean("encounterStocked", true);
   }
 
-  private static void repairSupplies(List<ItemStack> items, int kind) {
-    items.add(new ItemStack(Items.IRON_INGOT, kind == 1 ? 12 : 16));
-    if (kind == 1) items.add(new ItemStack(Items.IRON_PICKAXE));
-    else {
-      items.add(new ItemStack(ShipBlocks.SYSTEM_UPGRADE, 2));
-      items.add(new ItemStack(Items.REDSTONE, 12));
-    }
-  }
-
-  private static void stockOlderPlan(ServerLevel level, CompoundTag ship, int kind) {
-    for (var at :
-        BlockPos.betweenClosed(ShipStore.bounds(ship).min(), ShipStore.bounds(ship).max())) {
-      if (!(level.getBlockState(at).is(Blocks.BARREL) || level.getBlockState(at).is(Blocks.CHEST)))
-        continue;
-      if (!(level.getBlockEntity(at) instanceof Container)) continue;
-      var items = new ArrayList<ItemStack>();
-      items.add(new ItemStack(Items.COAL, kind == 1 ? 32 : 8));
-      repairSupplies(items, kind);
-      if (kind == 1) items.add(new ItemStack(Items.BREAD, 6));
-      fill(level, at, "Salvage supplies", items.toArray(ItemStack[]::new));
-      ship.putBoolean("encounterStocked", true);
-      return;
-    }
-  }
-
-  private static void fill(ServerLevel level, BlockPos at, String name, ItemStack... items) {
-    if (!(level.getBlockEntity(at) instanceof Container container)) return;
-    container.clearContent();
-    for (int i = 0; i < items.length; i++) container.setItem(i, items[i]);
-    if (level.getBlockEntity(at)
-        instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity block)
-      block.applyComponents(
-          block.collectComponents(),
-          net.minecraft.core.component.DataComponentPatch.builder()
-              .set(
-                  net.minecraft.core.component.DataComponents.CUSTOM_NAME,
-                  net.minecraft.network.chat.Component.literal(name))
-              .build());
-    container.setChanged();
-  }
 
   private EncounterSites() {}
 }

@@ -52,7 +52,7 @@ public final class ManufacturerRoleShips {
         halcyon = id.startsWith("halcyon_");
     Block hull =
         rivet ? Blocks.STONE_BRICKS : halcyon ? Blocks.QUARTZ_BLOCK : Blocks.POLISHED_DEEPSLATE;
-    Block deck = rivet ? Blocks.IRON_BLOCK : Blocks.SMOOTH_STONE;
+    Block deck = rivet ? Blocks.POLISHED_ANDESITE : Blocks.SMOOTH_STONE;
     var t = new VesselTemplate();
     var footprint = new LinkedHashSet<BlockPos>();
     for (int z = 2; z <= 28; z++) {

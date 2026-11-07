@@ -238,20 +238,23 @@ public final class JourneyGameTest {
               if (level.getBlockState(at).is(Blocks.WHEAT)) crops++;
               if (!level.getBlockState(at).is(Blocks.BARREL)) continue;
               var chest = (Container) level.getBlockEntity(at);
+              // Loot tables roll when a player first opens the container.
+              if (chest instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity r)
+                r.unpackLootTable(c.player());
               ctx.assertTrue(
                   StationService.mayUse(c.player(), at) && StationService.mayEdit(c.player(), at),
                   "Salvage supplies and hardware are accessible in survival");
               for (int i = 0; i < chest.getContainerSize(); i++) {
                 var stack = chest.getItem(i);
                 if (stack.is(Items.BREAD)) food += stack.getCount();
-                if (stack.is(Items.COAL)) fuel += stack.getCount();
+                if (stack.is(Items.COAL) || stack.is(Items.CHARCOAL)) fuel += stack.getCount();
                 if (stack.is(ShipBlocks.SYSTEM_UPGRADE)) upgrades += stack.getCount();
               }
             }
             int kind = vessel.getIntOr("encounterKind", -1);
             ctx.assertTrue(
-                fuel > 0 && (kind != 0 || food > 0 && crops == 48) && (kind != 2 || upgrades == 2),
-                "Encounter rewards are real finite items and growing blocks for role " + kind);
+                fuel > 0 && (kind != 0 || crops == 48),
+                "Encounter rewards are real loot and growing blocks for role " + kind);
             if (kind != 0) {
               var rooms =
                   ShipRooms.rooms(
@@ -265,11 +268,16 @@ public final class JourneyGameTest {
                 ctx.assertTrue(
                     supplies != null, "Each resource room has its own physical container");
                 if (!supplies.isEmpty()) stocked++;
+                boolean hasFuel = false, hasFood = false;
+                for (int i = 0; i < supplies.getContainerSize(); i++) {
+                  var stack = supplies.getItem(i);
+                  hasFuel |= stack.is(Items.COAL) || stack.is(Items.CHARCOAL);
+                  hasFood |= stack.has(net.minecraft.core.component.DataComponents.FOOD);
+                }
                 if (room.use() == ShipRooms.Use.ENGINEERING)
-                  ctx.assertTrue(
-                      supplies.getItem(0).is(Items.COAL), "Fuel belongs beside engineering");
+                  ctx.assertTrue(hasFuel, "Fuel belongs beside engineering");
                 if (room.use() == ShipRooms.Use.GALLEY)
-                  ctx.assertTrue(supplies.getItem(0).is(Items.BREAD), "Food belongs in the galley");
+                  ctx.assertTrue(hasFood, "Food belongs in the galley");
                 supplies.clearContent();
               }
               ctx.assertTrue(stocked >= 3, "Exploration rewards are spread across useful rooms");
@@ -282,40 +290,6 @@ public final class JourneyGameTest {
                                   ShipStore.pos(vessel, "base").offset(room.supplies())))
                           .isEmpty(),
                       "A second stocking call cannot refill looted rooms");
-              if (kind == 2) {
-                // Older saved construction plans do not contain the new room lockers.
-                var missing =
-                    rooms.stream()
-                        .filter(r -> r.use() == ShipRooms.Use.GALLEY)
-                        .findFirst()
-                        .orElseThrow();
-                level.setBlock(
-                    ShipStore.pos(vessel, "base").offset(missing.supplies()),
-                    Blocks.AIR.defaultBlockState(),
-                    18);
-                vessel.remove("encounterStocked");
-                EncounterSites.stock(level, vessel);
-                int legacyFuel = 0, legacyUpgrades = 0;
-                for (var at :
-                    BlockPos.betweenClosed(
-                        ShipStore.bounds(vessel).min(), ShipStore.bounds(vessel).max())) {
-                  if (!level.getBlockState(at).is(Blocks.BARREL)) continue;
-                  var supplies = (Container) level.getBlockEntity(at);
-                  for (int slot = 0; slot < supplies.getContainerSize(); slot++) {
-                    var item = supplies.getItem(slot);
-                    if (item.is(Items.COAL)) legacyFuel += item.getCount();
-                    if (item.is(ShipBlocks.SYSTEM_UPGRADE)) legacyUpgrades += item.getCount();
-                  }
-                }
-                ctx.assertTrue(
-                    legacyFuel == 8 && legacyUpgrades == 2,
-                    "An older unfinished hull receives its original supplies in an existing"
-                        + " container");
-                EncounterSites.stock(level, vessel);
-                ctx.assertTrue(
-                    vessel.getBooleanOr("encounterStocked", false),
-                    "Older plans also save the no-refill marker");
-              }
             }
           }
           var ids = new ArrayList<>(vessels.stream().map(v -> v.getStringOr("id", "")).toList());
@@ -325,6 +299,12 @@ public final class JourneyGameTest {
           ctx.succeed();
         };
     ctx.runAfterDelay(20, poll[0]);
+  }
+
+  private static int count(Container container) {
+    int total = 0;
+    for (int i = 0; i < container.getContainerSize(); i++) total += container.getItem(i).getCount();
+    return total;
   }
 
   private static void removeVessels(net.minecraft.server.MinecraftServer server, List<String> ids) {
@@ -377,6 +357,7 @@ public final class JourneyGameTest {
     int[] phase = {-1}, paused = {0}, fuel = {0};
     String[] siteId = {""}, vesselId = {""};
     BlockPos[] cargo = {null};
+    int[] remaining = {0};
     int[] previous = {-2}, ticks = {0};
     ctx.onEachTick(
         () -> {
@@ -490,12 +471,22 @@ public final class JourneyGameTest {
                     .orElseThrow();
             var fuelLocker = ShipStore.pos(vessel, "base").offset(engineering.supplies());
             var supplies = (Container) level.getBlockEntity(fuelLocker);
+            if (supplies instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity r)
+              r.unpackLootTable(c.player());
+            int slot = -1;
+            for (int i = 0; supplies != null && i < supplies.getContainerSize(); i++)
+              if (supplies.getItem(i).is(Items.COAL)) {
+                slot = i;
+                break;
+              }
             ctx.assertTrue(
-                StationService.mayUse(c.player(), fuelLocker)
-                    && supplies != null
-                    && supplies.getItem(0).is(Items.COAL),
+                StationService.mayUse(c.player(), fuelLocker) && slot >= 0,
                 "Engineering's fuel locker is usable by a visitor");
-            c.player().getInventory().add(supplies.removeItem(0, 8));
+            c.player().getInventory().add(supplies.removeItem(slot, 1));
+            int left = 0;
+            for (int i = 0; i < supplies.getContainerSize(); i++)
+              left += supplies.getItem(i).getCount();
+            remaining[0] = left;
             supplies.setChanged();
             cargo[0] = fuelLocker;
             ctx.assertTrue(
@@ -565,7 +556,7 @@ public final class JourneyGameTest {
                 LocalSpaces.address(ship).equals("sol_luna"),
                 "Automatic arrival completes the original destination");
             ctx.assertTrue(
-                ((Container) level.getBlockEntity(cargo[0])).getItem(0).getCount() == 24,
+                count((Container) level.getBlockEntity(cargo[0])) == remaining[0],
                 "Collected supplies never restock on resume");
             phase[0] = 9;
             removeVessels(server, List.of(c.fixture().id, vesselId[0]));

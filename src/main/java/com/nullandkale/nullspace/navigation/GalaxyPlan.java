@@ -218,6 +218,24 @@ public final class GalaxyPlan {
     return Collections.unmodifiableMap(out);
   }
 
+  /**
+   * How dangerous a zone is, 0-3 (procedural generation design): Sol is safe; elsewhere danger
+   * grows with chart distance from Sol; nebulae are at least 2; black holes and pulsars are 3.
+   */
+  public static int danger(Galaxy galaxy, String zone) {
+    var place = galaxy.placeOfZone(zone);
+    if (place.id().equals(HOME)) return 0;
+    double ly = distance(galaxy.place(HOME), place);
+    int base = ly <= 35 ? 1 : ly <= 65 ? 2 : 3;
+    if (place instanceof Feature f)
+      return switch (f.type()) {
+        case BLACK_HOLE, PULSAR -> 3;
+        case NEBULA -> Math.max(2, base);
+        default -> base;
+      };
+    return base;
+  }
+
   public static double distance(Place a, Place b) {
     return Math.hypot(a.x() - b.x(), a.y() - b.y());
   }

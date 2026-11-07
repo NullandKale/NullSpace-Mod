@@ -38,7 +38,7 @@ public final class ManufacturerStation {
       if (e.getValue().is(Blocks.GLASS) && (at.getX() <= 10 || at.getZ() >= 21) && at.getY() != 4)
         t.state(at, material.defaultBlockState());
       if (at.getY() == 2)
-        t.state(at, (at.getX() <= 10 ? Blocks.IRON_BLOCK : material).defaultBlockState());
+        t.state(at, (at.getX() <= 10 ? Blocks.POLISHED_ANDESITE : material).defaultBlockState());
     }
     for (int z = 11; z <= 20; z++)
       for (int y = 3; y <= 7; y++) {

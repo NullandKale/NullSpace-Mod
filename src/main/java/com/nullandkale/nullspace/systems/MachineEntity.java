@@ -40,7 +40,15 @@ public final class MachineEntity extends BaseContainerBlockEntity implements Wor
 
   public int tier() {
     int tier = 0;
-    for (int i = 0; i < 3; i++) if (items.get(i).is(ShipBlocks.SYSTEM_UPGRADE)) tier++;
+    // The number of upgrades installed, capped by the best one: tier 2 needs an advanced
+    // upgrade (amethyst), tier 3 an exotic one (netherite scrap or an echo shard).
+    int best = 0;
+    for (int i = 0; i < 3; i++) {
+      int rank = ShipBlocks.upgradeRank(items.get(i));
+      if (rank > 0) tier++;
+      best = Math.max(best, rank);
+    }
+    tier = Math.min(tier, best);
     return tier;
   }
 
@@ -166,7 +174,7 @@ public final class MachineEntity extends BaseContainerBlockEntity implements Wor
   @Override
   public boolean canPlaceItem(int slot, ItemStack stack) {
     return slot < 3
-        ? upgrades() && stack.is(ShipBlocks.SYSTEM_UPGRADE)
+        ? upgrades() && ShipBlocks.upgradeRank(stack) > 0
         : generator() && slot < RETURN && duration(stack) > 0;
   }
 

@@ -87,7 +87,7 @@ public final class VesselTemplate {
       var backing = at.relative(facing.getOpposite());
       var behind = blocks.get(backing);
       if (behind == null || behind.isAir())
-        blocks.put(backing, Blocks.IRON_BLOCK.defaultBlockState());
+        blocks.put(backing, Blocks.SMOOTH_STONE.defaultBlockState());
     }
     blocks.put(at, state);
   }

@@ -173,7 +173,7 @@ public final class StationBlueprint {
     var out = new LinkedHashMap<BlockPos, BlockState>();
     for (int x = 4; x <= 11; x++)
       for (int z = 4; z <= 11; z++)
-        out.put(new BlockPos(x, 2, z), Blocks.IRON_BLOCK.defaultBlockState());
+        out.put(new BlockPos(x, 2, z), Blocks.POLISHED_ANDESITE.defaultBlockState());
     var core = new BlockPos(5, 3, 5);
     machine(out, core, ShipBlocks.STATION_CORE, Direction.SOUTH);
     return new Plan(out, core, List.of());

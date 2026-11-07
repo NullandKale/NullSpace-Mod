@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " A ",
+    "AUA",
+    " A "
+  ],
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "U": "nullspace:system_upgrade"
+  },
+  "result": {
+    "id": "nullspace:advanced_system_upgrade",
+    "count": 1
+  }
+}

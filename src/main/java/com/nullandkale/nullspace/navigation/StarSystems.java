@@ -116,6 +116,15 @@ public final class StarSystems {
     return galaxy.place(LocalSpaces.get(server, zone).system());
   }
 
+  /** How dangerous a zone is, 0-3; journey zones take the danger of the place they left from. */
+  public static int danger(MinecraftServer server, String zone) {
+    var galaxy = galaxy(server);
+    var place = placeOf(server, zone);
+    String chartZone =
+        place instanceof StarSystem s ? s.bodies().getFirst().id() : place.id();
+    return GalaxyPlan.danger(galaxy, galaxy.zones().contains(zone) ? zone : chartZone);
+  }
+
   /** Chart distance between the places of two zones; 0 inside one system. */
   public static double lightYears(MinecraftServer server, String from, String to) {
     return GalaxyPlan.distance(placeOf(server, from), placeOf(server, to));

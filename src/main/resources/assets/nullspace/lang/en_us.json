@@ -24,6 +24,8 @@
   "item.nullspace.station_module": "Station Module Kit",
   "block.nullspace.docking_base": "Docking Base",
   "item.nullspace.system_upgrade": "System Upgrade",
+  "item.nullspace.advanced_system_upgrade": "Advanced System Upgrade",
+  "item.nullspace.exotic_system_upgrade": "Exotic System Upgrade",
   "item.nullspace.ship_title": "Ship Title",
   "item.nullspace.air_canister": "Air Canister",
   "item.nullspace.armored_space_helmet": "Armored Space Helmet",

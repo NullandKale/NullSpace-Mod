@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "E",
+    "U",
+    "E"
+  ],
+  "key": {
+    "E": "minecraft:echo_shard",
+    "U": "nullspace:advanced_system_upgrade"
+  },
+  "result": {
+    "id": "nullspace:exotic_system_upgrade",
+    "count": 1
+  }
+}

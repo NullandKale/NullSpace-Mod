@@ -32,8 +32,12 @@ public final class PlanetSurfaces {
         : ResourceKey.create(Registries.DIMENSION, Identifier.parse(surface));
   }
 
-  /** True if pads in this dimension belong to the zone. */
+  /**
+   * True if pads in this dimension belong to the zone. End pads belong to Terra's orbit: ships
+   * reach the End only from Sol / Terra, and only once someone has registered a pad there.
+   */
   public static boolean surfaceOf(MinecraftServer server, String address, String dimension) {
+    if (dimension.equals(Level.END.identifier().toString())) return address.equals(LocalSpaces.HOME);
     var key = dimension(server, address);
     return key != null && key.identifier().toString().equals(dimension);
   }

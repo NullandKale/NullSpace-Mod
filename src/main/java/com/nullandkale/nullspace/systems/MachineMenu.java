@@ -67,7 +67,7 @@ public final class MachineMenu extends AbstractContainerMenu {
               if (machine instanceof MachineEntity) return machine.canPlaceItem(slot, stack);
               return isActive()
                   && (slot < 3
-                      ? stack.is(ShipBlocks.SYSTEM_UPGRADE)
+                      ? ShipBlocks.upgradeRank(stack) > 0
                       : slot < 9
                           && stack.has(net.minecraft.core.component.DataComponents.COOKING_FUEL));
             }

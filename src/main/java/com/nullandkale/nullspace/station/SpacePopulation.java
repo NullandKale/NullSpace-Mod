@@ -37,6 +37,7 @@ public final class SpacePopulation {
         retry.put(address, server.getTickCount() + 1200);
       }
     }
+    resetAbandoned(server, regions);
     if (StationService.building(server)) return;
     var ledger = ShipStore.get(server).section("spacePopulation");
     // Finish saved regions after their explorer leaves, but queue at most one place at a time.
@@ -51,6 +52,69 @@ public final class SpacePopulation {
         retry.put(address, server.getTickCount() + 1200);
       }
     }
+  }
+
+  /** 2.5 in-game days: a derelict resets this long after the last player left its zone. */
+  public static final long RESET_TICKS = 24000L * 5 / 2;
+
+  /**
+   * Fixed loot sites (derelicts) reset once nobody has been in their zone for {@link
+   * #RESET_TICKS}: everything in the site's bounds is disposed of and the site is planned again
+   * with a new seed, so population rebuilds a fresh variation. Claimed derelicts are players'
+   * ships and never reset. Service stations (Waypoint, Exchange) do not reset.
+   */
+  static void resetAbandoned(MinecraftServer server, Set<String> occupied) {
+    var store = ShipStore.get(server);
+    var ledger = store.section("spacePopulation");
+    long now = server.overworld().getGameTime();
+    for (var address : ledger.keySet()) {
+      for (var tag : ledger.getCompoundOrEmpty(address).getListOrEmpty("sites")) {
+        var site = (CompoundTag) tag;
+        if (!site.getStringOr("role", "").startsWith("salvage-")
+            || site.getStringOr("state", "").equals("claimed")) continue;
+        var ship = store.repository().find(site.getStringOr("id", ""));
+        if (ship != null && !ship.getStringOr("owner", "").isEmpty()) {
+          site.putString("state", "claimed");
+          store.requestSave();
+          continue;
+        }
+        if (occupied.contains(address)) {
+          site.putLong("seen", now);
+          continue;
+        }
+        // Never visited sites wait; a site resets only after someone was there and left.
+        if (!site.contains("seen") || now - site.getLongOr("seen", now) < RESET_TICKS) continue;
+        reset(server, site, ship);
+      }
+    }
+  }
+
+  /** Disposes of a site's contents and plans it again with a new variation. */
+  static void reset(MinecraftServer server, CompoundTag site, CompoundTag ship) {
+    var store = ShipStore.get(server);
+    if (ship != null) {
+      var level = server.getLevel(TravelService.SPACE);
+      var bounds = ShipStore.bounds(ship);
+      for (var entity :
+          level.getEntities(
+              (net.minecraft.world.entity.Entity) null,
+              bounds.box(),
+              e -> !(e instanceof net.minecraft.world.entity.player.Player)))
+        entity.discard();
+      for (var at : net.minecraft.core.BlockPos.betweenClosed(bounds.min(), bounds.max()))
+        if (!level.getBlockState(at).isAir()) {
+          level.removeBlockEntity(at);
+          level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+        }
+      store.ships().remove(ship);
+    }
+    long resets = site.getLongOr("resets", 0) + 1;
+    site.putLong("resets", resets);
+    site.putLong("seed", site.getLongOr("seed", 0) ^ resets * 0x9e3779b97f4a7c15L);
+    site.putString("state", "planned");
+    site.remove("seen");
+    store.requestSave();
+    NullSpace.LOGGER.info("Reset derelict site {} ({})", site.getStringOr("id", ""), resets);
   }
 
   /** The places this region starts with, as the galaxy chart allocates them (P9). */

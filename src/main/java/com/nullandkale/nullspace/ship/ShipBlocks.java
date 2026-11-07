@@ -22,6 +22,17 @@ public final class ShipBlocks {
   public static final Block STATION_CORE = machine("station_core");
   public static final Block DOCKING_BASE = machine("docking_base");
   public static final Item SYSTEM_UPGRADE = component("system_upgrade");
+  /** Needs amethyst: lets a machine reach upgrade tier 2. */
+  public static final Item ADVANCED_UPGRADE = component("advanced_system_upgrade");
+  /** Needs netherite scrap or an echo shard: lets a machine reach upgrade tier 3. */
+  public static final Item EXOTIC_UPGRADE = component("exotic_system_upgrade");
+
+  /** 0 for anything that is not an upgrade; 1 plain, 2 advanced, 3 exotic. */
+  public static int upgradeRank(net.minecraft.world.item.ItemStack stack) {
+    return stack.is(EXOTIC_UPGRADE)
+        ? 3
+        : stack.is(ADVANCED_UPGRADE) ? 2 : stack.is(SYSTEM_UPGRADE) ? 1 : 0;
+  }
   public static final Item STATION_MODULE = component("station_module");
   public static final Block TERMINAL = machine("computer_terminal");
   public static final Block LOCAL_SCANNER = machine("local_scanner");

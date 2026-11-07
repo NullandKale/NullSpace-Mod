@@ -52,7 +52,7 @@ public final class ManufacturerShips {
       right = 11;
       engineZ = 20;
       hull = Blocks.STONE_BRICKS;
-      deck = Blocks.IRON_BLOCK;
+      deck = Blocks.POLISHED_ANDESITE;
     } else if (id.equals("halcyon_swift")) {
       for (int z = 2; z <= 24; z++) {
         int half =

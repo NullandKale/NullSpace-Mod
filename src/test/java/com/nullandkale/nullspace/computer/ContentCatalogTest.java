@@ -23,7 +23,7 @@ class ContentCatalogTest {
             getClass().getResource("/data/nullspace/loot_table/blocks/" + d.id() + ".json"));
       }
     }
-    assertEquals(24, ContentCatalog.EQUIPMENT.size());
+    assertEquals(26, ContentCatalog.EQUIPMENT.size());
   }
 
   @Test
