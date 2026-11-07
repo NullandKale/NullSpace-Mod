@@ -18,8 +18,8 @@ Add as little to Minecraft as possible. Reuse vanilla systems wherever they fit:
 | Authoring | Built in-game with the shipyard and pad tools. |
 | Hull plating, scrap | No. Generated builds use cheap vanilla blocks. Demolishing a wreck is allowed; it just must not pay out valuable blocks. |
 | New ores | None for now. Vanilla resources placed by planet type and rare vanilla loot do the job (below). |
-| Nether | Inaccessible: portals do not work. Its materials come from planets instead. |
-| The End | Reachable the vanilla way. Ships can fly there once someone has built and registered a pad in the End, and only from Sol / Terra. |
+| Nether and End | Both stay reachable by portal, as in vanilla: we add to Minecraft, never take away. |
+| End by ship | Ships can also fly to the End once someone has built and registered a pad there, and only from Sol / Terra. |
 | Materials | Generated builds must not be a source of valuable blocks. Iron blocks and similar are out. |
 | Danger | Grows with distance from Sol on the galaxy chart. |
 | Planet content | All kinds of surface sites; planets need much more content. |
@@ -92,7 +92,7 @@ Fuel is the main reward everywhere. Everything else is vanilla, made rare by whe
 | Desert | Archaeology: suspicious sand with pottery sherds, sniffer eggs, trim templates |
 | Jungle | Cocoa, bamboo, melons; a breathable garden world |
 
-With the Nether closed, lava worlds are the only source of netherite, quartz and other Nether materials.
+Lava worlds are a second source of netherite, quartz and other Nether materials, alongside the Nether itself.
 
 **Site loot** (vanilla loot tables per archetype and danger):
 
@@ -106,8 +106,8 @@ With the Nether closed, lava worlds are the only source of netherite, quartz and
 
 ## The Nether and the End
 
-- **Nether:** portals do nothing (they do not light, and existing ones do not teleport). The Nether dimension stays in the save but is unreachable.
-- **End:** reachable the vanilla way through a stronghold portal. Once someone builds and registers a pad in the End, the End appears as a landing destination for ships in Sol / Terra orbit, and only there. Ships launched from an End pad return to Terra orbit. Until a pad exists, there is no ship route to the End.
+- Both stay reachable by portal exactly as in vanilla.
+- **End by ship:** once someone builds and registers a pad in the End, the End appears as a landing destination for ships in Sol / Terra orbit, and only there. Ships launched from an End pad return to Terra orbit. Until a pad exists, there is no ship route to the End.
 
 ## Site catalog
 
@@ -131,7 +131,7 @@ With the Nether closed, lava worlds are the only source of netherite, quartz and
 | Step | What | Who | Playable result |
 | --- | --- | --- | --- |
 | 1 | **Authoring tools**: save, load, preview and gallery commands; marker blocks; palette test | Claude builds | Pieces can be built and saved in-game |
-| 2 | **Foundations**: cheap-palette rule, danger level from the chart, loot tables per archetype and danger, the reset system for fixed sites, Nether closed, End pads reachable from Terra, upgrade tiers needing amethyst and netherite or echo shards | Claude builds | Loot and danger scale with distance; fixed sites reset; the End is a ship destination |
+| 2 | **Foundations**: cheap-palette rule, danger level from the chart, loot tables per archetype and danger, the reset system for fixed sites, End pads reachable from Terra, upgrade tiers needing amethyst and netherite or echo shards | Claude builds | Loot and danger scale with distance; fixed sites reset; the End is a ship destination |
 | 3 | **Shipyard exteriors**: move the hand-built ships to templates, then improve their exteriors | Claude converts and drafts; player reviews and edits in-game | Shipyard ships look like spaceships from outside |
 | 4 | **Orbit sites**: manufacturer kits (nose, hull segments, engines, wings, rooms); derelicts and stations assembled from them with condition; lost crew and the repair bot | Claude drafts kits and code; player reviews | Derelicts vary, look good and fight back |
 | 5 | **Planet sites**: piece sets per planet type; one site near each landing pad plus a sparse grid; vanilla resources per planet type | Claude drafts; player reviews | Every landing has something to explore and something to mine |
