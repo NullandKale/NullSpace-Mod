@@ -45,7 +45,10 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest {
                     0,
                     0,
                     true);
-                p.getInventory().add(new ItemStack(ShipBlocks.SYSTEM_UPGRADE, 3));
+                // Tier III needs three modules including an exotic one.
+                p.getInventory().add(new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
+                p.getInventory().add(new ItemStack(ShipBlocks.ADVANCED_UPGRADE));
+                p.getInventory().add(new ItemStack(ShipBlocks.EXOTIC_UPGRADE));
                 MachineMenus.open(p, positions[0]);
               });
       world.getConnection().waitForChunksRender();
@@ -55,6 +58,8 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest {
                   && m.getMenu().reading.getStringOr("mode", "").equals("engine"),
           200);
       MachineTestUi.shiftItem(c, ShipBlocks.SYSTEM_UPGRADE);
+      MachineTestUi.shiftItem(c, ShipBlocks.ADVANCED_UPGRADE);
+      MachineTestUi.shiftItem(c, ShipBlocks.EXOTIC_UPGRADE);
       c.waitFor(
           mc ->
               mc.gui.screen() instanceof MachineScreen m
@@ -67,7 +72,9 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest {
                 var p = world.getConnection().getServerPlayer();
                 var machine = (MachineEntity) p.level().getBlockEntity(positions[0]);
                 if (machine.tier() != 3
-                    || p.getInventory().countItem(ShipBlocks.SYSTEM_UPGRADE) != 0)
+                    || p.getInventory().countItem(ShipBlocks.SYSTEM_UPGRADE) != 0
+                    || p.getInventory().countItem(ShipBlocks.ADVANCED_UPGRADE) != 0
+                    || p.getInventory().countItem(ShipBlocks.EXOTIC_UPGRADE) != 0)
                   throw new AssertionError(
                       "Native shift-click must install exactly three real modules");
               });

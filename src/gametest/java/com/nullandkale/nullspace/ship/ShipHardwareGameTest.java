@@ -115,8 +115,12 @@ public final class ShipHardwareGameTest {
         com.nullandkale.nullspace.navigation.NavigationService.propulsion(level, ship);
     int charge = ShipSystems.deviceEnergy(ship, battery);
     for (var at : ShipSystems.connected(level, ship))
-      if (level.getBlockEntity(at) instanceof MachineEntity machine && machine.upgrades())
-        for (int i = 0; i < 3; i++) machine.setItem(i, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
+      if (level.getBlockEntity(at) instanceof MachineEntity machine && machine.upgrades()) {
+        // Tier III needs three modules including an exotic one.
+        machine.setItem(0, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
+        machine.setItem(1, new ItemStack(ShipBlocks.ADVANCED_UPGRADE));
+        machine.setItem(2, new ItemStack(ShipBlocks.EXOTIC_UPGRADE));
+      }
     ctx.assertTrue(
         ShipSystems.deviceEnergy(ship, battery) == charge,
         "Installing capacity never creates charge");
@@ -163,7 +167,7 @@ public final class ShipHardwareGameTest {
     level.setBlock(at, ShipBlocks.BATTERY.defaultBlockState(), 18);
     var battery = (MachineEntity) level.getBlockEntity(at);
     battery.setItem(0, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
-    battery.setItem(1, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
+    battery.setItem(1, new ItemStack(ShipBlocks.ADVANCED_UPGRADE));
     var ship = ShipTopology.resolve(level, helm);
     ShipSystems.upgrade(level, ship);
     var saved =
@@ -184,10 +188,10 @@ public final class ShipHardwareGameTest {
         FuelSystem.capacity(level, at) == 2400 && ShipSystems.deviceEnergy(ship, at) == 2399,
         "Removing a module preserves actual charge");
     battery.setItem(0, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
-    battery.setItem(2, new ItemStack(ShipBlocks.SYSTEM_UPGRADE));
+    battery.setItem(2, new ItemStack(ShipBlocks.EXOTIC_UPGRADE));
     ctx.assertTrue(
         FuelSystem.capacity(level, at) == 4800 && ShipSystems.deviceEnergy(ship, at) == 2399,
-        "Three identical items reach Tier III without refilling the battery");
+        "Three modules with an exotic one reach Tier III without refilling the battery");
     ShipStore.get(level.getServer()).ships().remove(ship);
     ctx.succeed();
   }

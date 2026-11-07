@@ -33,6 +33,7 @@ public final class NullSpace implements ModInitializer {
     com.nullandkale.nullspace.scene.ShipCombat.initialize();
     com.nullandkale.nullspace.navigation.NavigationService.initialize();
     com.nullandkale.nullspace.navigation.StarSystems.initialize();
+    com.nullandkale.nullspace.generation.Authoring.initialize();
     com.nullandkale.nullspace.station.StationService.initialize();
     com.nullandkale.nullspace.station.DockingService.initialize();
     com.nullandkale.nullspace.navigation.CourseService.initialize();

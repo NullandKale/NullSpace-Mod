@@ -21,6 +21,8 @@ loom {
             // Keep offline UUIDs stable across restarts. This identity owns the recovered World 5
             // survival inventory; use -PdevUsername=AnotherName for an independent character.
             programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
+            // Pieces saved with /nullspace author save also land in the mod's resources.
+            vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
             if (providers.gradleProperty('devWorld').isPresent()) {
                 programArgs '--quickPlaySingleplayer', providers.gradleProperty('devWorld').get()
             }
@@ -34,6 +36,7 @@ loom {
             programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
             name 'NullSpace prepared test world'
             vmArg '-Dnullspace.playtest=true'
+            vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
             runDir 'run'
         }
         shipLab {
@@ -42,6 +45,7 @@ loom {
             name 'NullSpace walking ship test gallery'
             vmArg '-Dnullspace.playtest=true'
             vmArg '-Dnullspace.lab=true'
+            vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
             runDir 'run-lab'
         }
     }

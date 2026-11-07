@@ -196,8 +196,8 @@
       "id": "star_systems",
       "title": "Star systems",
       "pages": [
-        "Each world has its own galaxy: Sol and four random systems, plus nebulae, asteroid fields and stranger places. The Scanner's Stars page is the map: green is one jump away, grey needs hops.",
-        "Jumps cost 1.00 fuel plus 0.10 per light-year. Engine upgrades set range: 25, 40, 60 or 100 ly. Tier 2 needs an Advanced Upgrade (amethyst), tier 3 an Exotic one (netherite scrap or echo shards). Further out is more dangerous and richer."
+        "Each world has its own galaxy: Sol, four random systems and features such as nebulae. The Scanner's Stars page is the map; green is one jump away.",
+        "Jumps cost 1.00 fuel plus 0.10 per light-year. Engine tier sets range: 25, 40, 60, 100 ly. Tier 2 needs an Advanced Upgrade, tier 3 an Exotic one."
       ]
     },
     {

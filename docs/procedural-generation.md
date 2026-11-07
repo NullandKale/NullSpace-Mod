@@ -1,6 +1,6 @@
 # Procedural generation: planets, ships and stations
 
-Status: design, third pass (November 6). Nothing here is implemented yet. Items marked **proposal** still need the player's decision.
+Status: design agreed (November 6). Steps 1 and 2 are implemented (not released); see [authoring](authoring.md) for the tools. Items marked **proposal** still need the player's decision.
 
 ## Goal and limits
 
@@ -144,8 +144,8 @@ A crafted item for reaching new ground on a planet without walking there.
 
 | Step | What | Who | Playable result |
 | --- | --- | --- | --- |
-| 1 | **Authoring tools**: save, load, preview and gallery commands; marker blocks; palette test | Claude builds | Pieces can be built and saved in-game |
-| 2 | **Foundations**: cheap-palette rule, danger level from the chart, loot tables per archetype and danger, the reset system for fixed sites, End pads reachable from Terra, upgrade tiers needing amethyst and netherite or echo shards | Claude builds | Loot and danger scale with distance; fixed sites reset; the End is a ship destination |
+| 1 | **Authoring tools** (done): save, load, preview and gallery commands; marker blocks; palette test | Claude builds | Pieces can be built and saved in-game |
+| 2 | **Foundations** (done): cheap-palette rule, danger level from the chart, loot tables per archetype and danger, the reset system for fixed sites, End pads reachable from Terra, upgrade tiers needing amethyst and netherite or echo shards | Claude builds | Loot and danger scale with distance; fixed sites reset; the End is a ship destination |
 | 3 | **Shipyard exteriors**: move the hand-built ships to templates, then improve their exteriors | Claude converts and drafts; player reviews and edits in-game | Shipyard ships look like spaceships from outside |
 | 4 | **Orbit sites**: manufacturer kits (nose, hull segments, engines, wings, rooms); derelicts and stations assembled from them with condition; lost crew and the repair bot | Claude drafts kits and code; player reviews | Derelicts vary, look good and fight back |
 | 5 | **Planet sites**: piece sets per planet type; one site near each landing pad plus a sparse grid; vanilla resources per planet type; the Pad Package | Claude drafts; player reviews | Every landing has something to explore and something to mine |
