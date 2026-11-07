@@ -186,7 +186,11 @@ public final class SpacePopulationGameTest {
     var server = ctx.getLevel().getServer();
     var store = ShipStore.get(server);
     var space = server.getLevel(TravelService.SPACE);
-    String address = LocalSpaces.HOME;
+    // An orbit no other test uses: the last one the chart populates (the build test uses the
+    // first, and Sol's home orbit is populated at startup).
+    var populated =
+        new ArrayList<>(GalaxyPlan.population(StarSystems.galaxy(server)).keySet());
+    String address = populated.getLast();
     var sites = SpacePopulation.plan(server, address);
     for (var site : sites) {
       var old = new CompoundTag();

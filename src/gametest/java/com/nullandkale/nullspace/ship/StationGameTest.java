@@ -43,13 +43,22 @@ public final class StationGameTest {
           "Interactive controllers are excluded");
       var callback = net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker();
       callback.interact(player, level, net.minecraft.world.InteractionHand.OFF_HAND, hit);
-      ctx.assertTrue(
-          ShipStore.get(server).ships().size() == existing.size(),
-          "Ordinary right click does not start a station");
+      // Count only this player's stations: other tests add ships to the shared store meanwhile.
+      String owner = player.getUUID().toString();
+      java.util.function.LongSupplier started =
+          () ->
+              ShipStore.get(server).ships().stream()
+                  .map(t -> (CompoundTag) t)
+                  .filter(
+                      t ->
+                          !existing.contains(t.getStringOr("id", ""))
+                              && t.getStringOr("owner", "").equals(owner))
+                  .count();
+      ctx.assertTrue(started.getAsLong() == 0, "Ordinary right click does not start a station");
       player.setShiftKeyDown(true);
       callback.interact(player, level, net.minecraft.world.InteractionHand.OFF_HAND, hit);
       ctx.assertTrue(
-          ShipStore.get(server).ships().size() == existing.size() + 1,
+          started.getAsLong() == 1,
           "Shift-right-click on a non-interactive block starts construction");
       ctx.assertTrue(
           player.getOffhandItem().isEmpty() && player.getMainHandItem().getCount() == 2,
@@ -66,7 +75,7 @@ public final class StationGameTest {
           .invoker()
           .interact(player, level, net.minecraft.world.InteractionHand.MAIN_HAND);
       ctx.assertTrue(
-          ShipStore.get(server).ships().size() == existing.size() + 2
+          started.getAsLong() == 2
               && player.getMainHandItem().getCount() == 1,
           "Shift-right-click in empty space starts construction and consumes one core");
       ctx.succeed();
@@ -74,7 +83,13 @@ public final class StationGameTest {
       server.getPlayerList().remove(player);
       ShipStore.get(server)
           .ships()
-          .removeIf(t -> !existing.contains(((CompoundTag) t).getStringOr("id", "")) || t == ship);
+          .removeIf(
+              t ->
+                  !existing.contains(((CompoundTag) t).getStringOr("id", ""))
+                          && ((CompoundTag) t)
+                              .getStringOr("owner", "")
+                              .equals(player.getUUID().toString())
+                      || t == ship);
     }
   }
 

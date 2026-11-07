@@ -309,11 +309,31 @@ public final class ShipDetachmentGameTest {
                           view.session(), ShipControl.Action.CONFIRM_LEAVE_BLOCKS, ""))
                   .contains("Review"),
               "A forged confirmation packet has no reviewed set and cannot launch");
-          var shell =
-              ShipService.inspect(f.space, controller, true).scan().blocks().stream()
-                  .filter(p -> f.space.getBlockState(p).is(Blocks.GLASS))
-                  .findFirst()
-                  .orElseThrow();
+          // A glass block that borders the cabin air in front of the controller. (Taking any glass
+          // block from the unordered scan could pick a window that does not open the cabin.)
+          var blocks = ShipService.inspect(f.space, controller, true).scan().blocks();
+          var facing =
+              f.space
+                  .getBlockState(controller)
+                  .getValue(
+                      net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+          var cabin = new java.util.HashSet<BlockPos>();
+          var queue = new java.util.ArrayDeque<BlockPos>(List.of(controller.relative(facing)));
+          BlockPos shell = null;
+          while (!queue.isEmpty() && shell == null && cabin.size() < 4000) {
+            var at = queue.poll();
+            if (!cabin.add(at)) continue;
+            for (var d : net.minecraft.core.Direction.values()) {
+              var next = at.relative(d);
+              if (blocks.contains(next) && f.space.getBlockState(next).is(Blocks.GLASS)) {
+                shell = next;
+                break;
+              }
+              if (!ShipScan.seals(f.space, next) && blocks.stream().anyMatch(b -> b.distManhattan(next) <= 2))
+                queue.add(next);
+            }
+          }
+          if (shell == null) throw new AssertionError("The fixture cabin has a glass wall");
           f.space.setBlock(shell, Blocks.AIR.defaultBlockState(), 18);
           boolean refused = false;
           try {
