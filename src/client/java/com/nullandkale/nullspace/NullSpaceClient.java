@@ -28,266 +28,222 @@ import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
 import com.nullandkale.nullspace.ui.screen.ViewportScreen;
 import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
+
 import net.fabricmc.api.ClientModInitializer;
 
-public final class NullSpaceClient implements ClientModInitializer {
-  private static final SceneVolumes.Cache SCENE_VOLUMES = new SceneVolumes.Cache();
+public final class NullSpaceClient implements ClientModInitializer
+{
+    private static final SceneVolumes.Cache SCENE_VOLUMES = new SceneVolumes.Cache();
 
-  public static SceneVolumes.Cache sceneVolumes() {
-    return SCENE_VOLUMES;
-  }
+    public static SceneVolumes.Cache sceneVolumes()
+    {
+        return SCENE_VOLUMES;
+    }
 
-  private static final SpaceDefinitionCodec.Cache DEFINITIONS = new SpaceDefinitionCodec.Cache();
+    private static final SpaceDefinitionCodec.Cache DEFINITIONS = new SpaceDefinitionCodec.Cache();
 
-  public static SpaceDefinitionCodec.Cache definitions() {
-    return DEFINITIONS;
-  }
+    public static SpaceDefinitionCodec.Cache definitions()
+    {
+        return DEFINITIONS;
+    }
 
-  // Netty disconnect may precede Minecraft.disconnect(), which drops queued tasks.
-  // Keep the token outside that queue and consume it on the render-thread tick.
-  private static volatile net.minecraft.client.multiplayer.ClientPacketListener activeConnection;
-  private static final java.util.concurrent.atomic.AtomicReference<
-          net.minecraft.client.multiplayer.ClientPacketListener>
-      DISCONNECTED = new java.util.concurrent.atomic.AtomicReference<>();
+    // Netty disconnect may precede Minecraft.disconnect(), which drops queued tasks.
+    // Keep the token outside that queue and consume it on the render-thread tick.
+    private static volatile net.minecraft.client.multiplayer.ClientPacketListener activeConnection;
+    private static final java.util.concurrent.atomic.AtomicReference<net.minecraft.client.multiplayer.ClientPacketListener> DISCONNECTED = new java.util.concurrent.atomic.AtomicReference<>();
 
-  private static void clearScenes() {
-    com.mojang.blaze3d.systems.RenderSystem.assertOnRenderThread();
-    SpaceSceneRenderer.close();
-    SCENE_VOLUMES.clear();
-    TerrainClient.clear();
-    DEFINITIONS.clear();
-    SceneMotion.clear();
-    PreviewRenderer.clear();
-    ComputerClient.clear();
-    MachineScreen.clearReturn();
-    TerminalScreen.clearReturn();
-    AirFlowParticles.clear();
-  }
+    private static void clearScenes()
+    {
+        com.mojang.blaze3d.systems.RenderSystem.assertOnRenderThread();
+        SpaceSceneRenderer.close();
+        SCENE_VOLUMES.clear();
+        TerrainClient.clear();
+        DEFINITIONS.clear();
+        SceneMotion.clear();
+        PreviewRenderer.clear();
+        ComputerClient.clear();
+        MachineScreen.clearReturn();
+        TerminalScreen.clearReturn();
+        AirFlowParticles.clear();
+    }
 
-  @Override
-  public void onInitializeClient() {
-    DevWorldCreation.initialize();
-    RepairBotRenderer.register();
-    net.minecraft.client.gui.screens.MenuScreens.register(MachineMenus.MENU, MachineScreen::new);
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        MachineMenus.View.TYPE,
-        (packet, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().player != null
-                          && context.client().player.containerMenu instanceof MachineMenu menu
-                          && menu.containerId == packet.container()) {
-                        menu.reading = packet.data();
-                        menu.at = net.minecraft.core.BlockPos.of(packet.data().getLongOr("at", 0));
-                        if (context.client().gui.screen() instanceof MachineScreen machine
-                            && machine.getMenu() == menu) machine.readingChanged();
-                      }
-                    }));
-    net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(
-        client -> {
-          if (ComputeProgram.enabled()) {
-            ComputeProgram.require();
-            NullSpace.LOGGER.info(
-                "Space compute enabled: {}",
-                com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo());
-          }
+    @Override
+    public void onInitializeClient()
+    {
+        DevWorldCreation.initialize();
+        RepairBotRenderer.register();
+        net.minecraft.client.gui.screens.MenuScreens.register(MachineMenus.MENU, MachineScreen::new);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(MachineMenus.View.TYPE, (packet, context) -> context.client().execute(() ->
+        {
+            if (context.client().player != null && context.client().player.containerMenu instanceof MachineMenu menu && menu.containerId == packet.container())
+            {
+                menu.reading = packet.data();
+                menu.at = net.minecraft.core.BlockPos.of(packet.data().getLongOr("at", 0));
+                if (context.client().gui.screen() instanceof MachineScreen machine && machine.getMenu() == menu)
+                    machine.readingChanged();
+            }
+        }));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(client ->
+        {
+            if (ComputeProgram.enabled())
+            {
+                ComputeProgram.require();
+                NullSpace.LOGGER.info("Space compute enabled: {}", com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo());
+            }
         });
-    SceneViewport.initialize();
-    SpaceSceneRenderer.initialize();
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ScenePackets.Definition.TYPE,
-        (payload, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      try {
-                        DEFINITIONS.accept(payload.data());
-                      } catch (IllegalArgumentException invalid) {
-                        NullSpace.LOGGER.warn(
-                            "Rejected space definition: {}", invalid.getMessage());
-                      }
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ControllerPackets.View.TYPE,
-        (payload, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().gui.screen() instanceof TerminalScreen terminal
-                          && terminal.shipControl(payload)) return;
-                      if (payload.opening())
-                        context.client().gui.setScreen(TerminalScreen.restore(payload));
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerminalPackets.Open.TYPE,
-        (payload, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (payload.mode().equals("shipyard")) {
-                        if (context.client().gui.screen() instanceof ShipyardScreen yard)
-                          yard.update(payload);
-                        else context.client().gui.setScreen(new ShipyardScreen(payload));
-                        return;
-                      }
-                      if (context.client().gui.screen() instanceof TerminalScreen terminal)
-                        terminal.update(payload);
-                      else context.client().gui.setScreen(TerminalScreen.restore(payload));
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerminalPackets.Refresh.TYPE,
-        (packet, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().gui.screen() instanceof TerminalScreen t)
-                        t.refresh(packet.view());
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerminalPackets.Ack.TYPE,
-        (packet, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().gui.screen() instanceof TerminalScreen t)
-                        t.acknowledged(packet.session());
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerminalPackets.Rejected.TYPE,
-        (payload, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().gui.screen() instanceof TerminalScreen terminal)
-                        terminal.rejected(payload);
-                      else if (context.client().gui.screen() instanceof ShipyardScreen yard)
-                        yard.rejected(payload);
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        AirEffects.FlowPacket.TYPE,
-        (packet, context) -> context.client().execute(() -> AirFlowParticles.accept(packet)));
-    AirFlowParticles.initialize();
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerrainService.Section.TYPE,
-        (p, c) ->
-            c.client()
-                .execute(
-                    () -> {
-                      try {
-                        TerrainClient.accept(p.data());
-                      } catch (IllegalArgumentException invalid) {
-                        NullSpace.LOGGER.warn("Rejected invalid terrain snapshot", invalid);
-                      }
-                    }));
-    ComputerClient.initialize();
-    TravelScreen.initialize();
-    PreviewRenderer.initialize();
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        TerminalPackets.Update.TYPE,
-        (payload, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      if (context.client().gui.screen() instanceof TerminalScreen terminal)
-                        terminal.reading(payload);
-                      else if (context.client().gui.screen() instanceof ShipyardScreen yard)
-                        yard.update(payload);
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ScenePackets.Frame.TYPE,
-        (received, context) ->
-            context
-                .client()
-                .execute(
-                    () -> {
-                      final ScenePackets.Frame payload;
-                      try {
-                        payload =
-                            new ScenePackets.Frame(
-                                received.lease(),
-                                received.revision(),
-                                SCENE_VOLUMES.expand(received.scene()));
-                      } catch (IllegalArgumentException invalid) {
-                        NullSpace.LOGGER.warn(
-                            "Rejected invalid scene volume: {}", invalid.getMessage());
-                        return;
-                      }
-                      if (payload.scene().getBooleanOr("universe", false)) {
-                        var definition = DEFINITIONS.scene();
-                        if (definition == null
-                            || !definition.id().equals(payload.scene().getStringOr("sceneId", ""))
-                            || definition.revision()
-                                != payload.scene().getLongOr("sceneRevision", -1)) return;
-                        payload
-                            .scene()
-                            .put(
-                                "catalog",
-                                payload.scene().getBooleanOr("planetSky", false)
-                                    ? PlanetSky.skyCatalog(
-                                        DEFINITIONS.encoded(),
-                                        payload.scene().getStringOr("surfaceBody", ""))
-                                    : DEFINITIONS.encoded());
-                        payload.scene().putLong("receivedNanos", System.nanoTime());
-                      }
-                      SceneMotion.track(payload.scene());
-                      if (payload.scene().getBooleanOr("machinePreview", false)) {
-                        if (context.client().gui.screen() instanceof MachineScreen machine)
-                          machine.preview(payload);
-                        return;
-                      }
-                      if (payload.scene().getBooleanOr("pilotView", false)) {
-                        if (context.client().gui.screen() instanceof ShipPilotScreen pilot
-                            && pilot.owns(payload.lease())) pilot.update(payload);
-                        else if (payload.revision() == 1 && context.client().level != null)
-                          context.client().gui.setScreen(new ShipPilotScreen(payload));
-                        return;
-                      }
-                      if (payload.scene().getBooleanOr("panels", false)) {
-                        MonitorRenderer.update(payload);
-                        return;
-                      }
-                      if (payload.scene().getBooleanOr("background", false)) {
-                        SpaceSceneRenderer.update(payload);
-                        return;
-                      }
-                      if (context.client().gui.screen() instanceof ViewportScreen view) {
-                        if (view.owns(payload.lease())) view.update(payload);
-                        else if (payload.revision() == 1)
-                          context.client().gui.setScreen(new ViewportScreen(payload));
-                      } else if (payload.revision() == 1 && context.client().level != null)
-                        context.client().gui.setScreen(new ViewportScreen(payload));
-                    }));
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register(
-        (handler, sender, client) -> {
-          if (activeConnection == null
-              || activeConnection.getConnection() != handler.getConnection()) clearScenes();
-          activeConnection = handler;
-          DISCONNECTED.set(null);
+        SceneViewport.initialize();
+        SpaceSceneRenderer.initialize();
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(ScenePackets.Definition.TYPE, (payload, context) -> context.client().execute(() ->
+        {
+            try
+            {
+                DEFINITIONS.accept(payload.data());
+            }
+            catch (IllegalArgumentException invalid)
+            {
+                NullSpace.LOGGER.warn("Rejected space definition: {}", invalid.getMessage());
+            }
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(ControllerPackets.View.TYPE, (payload, context) -> context.client().execute(() ->
+        {
+            if (context.client().gui.screen() instanceof TerminalScreen terminal && terminal.shipControl(payload))
+                return;
+            if (payload.opening())
+                context.client().gui.setScreen(TerminalScreen.restore(payload));
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Open.TYPE, (payload, context) -> context.client().execute(() ->
+        {
+            if (payload.mode().equals("shipyard"))
+            {
+                if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                    yard.update(payload);
+                else
+                    context.client().gui.setScreen(new ShipyardScreen(payload));
+                return;
+            }
+            if (context.client().gui.screen() instanceof TerminalScreen terminal)
+                terminal.update(payload);
+            else
+                context.client().gui.setScreen(TerminalScreen.restore(payload));
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Refresh.TYPE, (packet, context) -> context.client().execute(() ->
+        {
+            if (context.client().gui.screen() instanceof TerminalScreen t)
+                t.refresh(packet.view());
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Ack.TYPE, (packet, context) -> context.client().execute(() ->
+        {
+            if (context.client().gui.screen() instanceof TerminalScreen t)
+                t.acknowledged(packet.session());
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Rejected.TYPE, (payload, context) -> context.client().execute(() ->
+        {
+            if (context.client().gui.screen() instanceof TerminalScreen terminal)
+                terminal.rejected(payload);
+            else if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                yard.rejected(payload);
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(AirEffects.FlowPacket.TYPE, (packet, context) -> context.client().execute(() -> AirFlowParticles.accept(packet)));
+        AirFlowParticles.initialize();
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerrainService.Section.TYPE, (p, c) -> c.client().execute(() ->
+        {
+            try
+            {
+                TerrainClient.accept(p.data());
+            }
+            catch (IllegalArgumentException invalid)
+            {
+                NullSpace.LOGGER.warn("Rejected invalid terrain snapshot", invalid);
+            }
+        }));
+        ComputerClient.initialize();
+        TravelScreen.initialize();
+        PreviewRenderer.initialize();
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Update.TYPE, (payload, context) -> context.client().execute(() ->
+        {
+            if (context.client().gui.screen() instanceof TerminalScreen terminal)
+                terminal.reading(payload);
+            else if (context.client().gui.screen() instanceof ShipyardScreen yard)
+                yard.update(payload);
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(ScenePackets.Frame.TYPE, (received, context) -> context.client().execute(() ->
+        {
+            final ScenePackets.Frame payload;
+            try
+            {
+                payload = new ScenePackets.Frame(received.lease(), received.revision(), SCENE_VOLUMES.expand(received.scene()));
+            }
+            catch (IllegalArgumentException invalid)
+            {
+                NullSpace.LOGGER.warn("Rejected invalid scene volume: {}", invalid.getMessage());
+                return;
+            }
+            if (payload.scene().getBooleanOr("universe", false))
+            {
+                var definition = DEFINITIONS.scene();
+                if (definition == null || !definition.id().equals(payload.scene().getStringOr("sceneId", "")) || definition.revision() != payload.scene().getLongOr("sceneRevision", -1))
+                    return;
+                payload.scene().put("catalog", payload.scene().getBooleanOr("planetSky", false) ? PlanetSky.skyCatalog(DEFINITIONS.encoded(), payload.scene().getStringOr("surfaceBody", "")) : DEFINITIONS.encoded());
+                payload.scene().putLong("receivedNanos", System.nanoTime());
+            }
+            SceneMotion.track(payload.scene());
+            if (payload.scene().getBooleanOr("machinePreview", false))
+            {
+                if (context.client().gui.screen() instanceof MachineScreen machine)
+                    machine.preview(payload);
+                return;
+            }
+            if (payload.scene().getBooleanOr("pilotView", false))
+            {
+                if (context.client().gui.screen() instanceof ShipPilotScreen pilot && pilot.owns(payload.lease()))
+                    pilot.update(payload);
+                else if (payload.revision() == 1 && context.client().level != null)
+                    context.client().gui.setScreen(new ShipPilotScreen(payload));
+                return;
+            }
+            if (payload.scene().getBooleanOr("panels", false))
+            {
+                MonitorRenderer.update(payload);
+                return;
+            }
+            if (payload.scene().getBooleanOr("background", false))
+            {
+                SpaceSceneRenderer.update(payload);
+                return;
+            }
+            if (context.client().gui.screen() instanceof ViewportScreen view)
+            {
+                if (view.owns(payload.lease()))
+                    view.update(payload);
+                else if (payload.revision() == 1)
+                    context.client().gui.setScreen(new ViewportScreen(payload));
+            }
+            else if (payload.revision() == 1 && context.client().level != null)
+                context.client().gui.setScreen(new ViewportScreen(payload));
+        }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+        {
+            if (activeConnection == null || activeConnection.getConnection() != handler.getConnection())
+                clearScenes();
+            activeConnection = handler;
+            DISCONNECTED.set(null);
         });
-    net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-        (handler, client) -> {
-          if (handler == activeConnection) DISCONNECTED.set(handler);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+        {
+            if (handler == activeConnection)
+                DISCONNECTED.set(handler);
         });
-    net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(
-        client -> {
-          var closed = DISCONNECTED.getAndSet(null);
-          if (closed != null && closed == activeConnection) {
-            clearScenes();
-            activeConnection = null;
-          }
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(client ->
+        {
+            var closed = DISCONNECTED.getAndSet(null);
+            if (closed != null && closed == activeConnection)
+            {
+                clearScenes();
+                activeConnection = null;
+            }
         });
-    net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
-        .register(client -> clearScenes());
-    PlaytestLauncher.initialize();
-    NullSpace.LOGGER.info("NullSpace client initialized");
-  }
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> clearScenes());
+        PlaytestLauncher.initialize();
+        NullSpace.LOGGER.info("NullSpace client initialized");
+    }
 }

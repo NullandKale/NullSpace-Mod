@@ -1,6 +1,7 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'jacoco'
+    id 'com.diffplug.spotless' version '8.0.0'
 }
 
 version = project.mod_version
@@ -233,3 +234,14 @@ tasks.named('runGameTest', JavaExec).configure {
 }
 
 apply from: 'gradle/content-assets.gradle'
+
+// Java formatting (Visual Studio C# style; see gradle/java-format.xml). Run scripts/build/format.ps1 -Write.
+spotless {
+    java {
+        target 'src/**/*.java'
+        eclipse().configFile('gradle/java-format.xml')
+        importOrder('com.nullandkale', 'java|javax', 'net', '', '\\#')
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}

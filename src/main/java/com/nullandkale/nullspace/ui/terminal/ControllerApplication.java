@@ -1,25 +1,32 @@
 package com.nullandkale.nullspace.ui.terminal;
 
-public interface ControllerApplication extends TerminalDevice {
-  ControllerTerminal.Action pollAction();
+public interface ControllerApplication extends TerminalDevice
+{
+    ControllerTerminal.Action pollAction();
 
-  void update(String status);
+    void update(String status);
 
-  default void rejected(String reason) {
-    update(reason);
-  }
+    default void rejected(String reason)
+    {
+        update(reason);
+    }
 
-  default void refresh(String status) {
-    update(status);
-  }
+    default void refresh(String status)
+    {
+        update(status);
+    }
 
-  default void tick() {}
+    default void tick()
+    {
+    }
 
-  default void acknowledged() {}
+    default void acknowledged()
+    {
+    }
 
-  int selection();
+    int selection();
 
-  String status();
+    String status();
 
-  String fieldValue();
+    String fieldValue();
 }

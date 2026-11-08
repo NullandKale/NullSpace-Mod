@@ -51,13 +51,13 @@ The server sends block states, light and bounded visual update tags. It does not
 ```powershell
 .\scripts\build\Invoke-Gradle.ps1 generateContentAssets
 .\scripts\build\Invoke-Gradle.ps1 verifyContentAssets
-.\scripts\build\format.ps1 -Write     # pinned google-java-format 1.35.0
+.\scripts\build\format.ps1 -Write     # Spotless + Eclipse formatter, gradle/java-format.xml
 .\scripts\build\format.ps1            # Java formatting check
 .\scripts\test\verify.ps1            # unit, native server, assets, JAR
 .\scripts\test\verify.ps1 -Graphics -Multiplayer -Crash
 ```
 
-Java formatting uses the checksum-pinned upstream formatter. GLSL uses `.clang-format`; this pass used clang-format 16.0.5, with `--assume-filename=shader.cpp`, on `.comp`, `.glsl`, `.vsh` and `.fsh` files. Explicit JOML imports prevent the formatter's `java.lang.Math` shortening from introducing an ambiguous import.
+Java is formatted in the Visual Studio C# style: Allman braces, four-space indents, one blank line between members, and no line-length limit. Spotless applies `gradle/java-format.xml` with the Eclipse formatter, so the same profile can be imported into Eclipse or VS Code's Java extension. GLSL uses `.clang-format`; this pass used clang-format 16.0.5, with `--assume-filename=shader.cpp`, on `.comp`, `.glsl`, `.vsh` and `.fsh` files.
 
 The verification runner creates `build/verification/<run>/manifest.json` before starting work. Each suite has selected/status/exit evidence; unselected suites are marked not-selected. Reports and client artifacts are copied before another Gradle configuration can recreate their source directory. Graphical entrypoints emit test-only completion receipts. Multiplayer requires both real client exit codes and its completed scenario marker. Crash stages require exit 86 during prepare, exit zero during verify, and a fresh completion marker. Interrupted runs keep logs and an incomplete/failed manifest. Root harnesses share Java argument-file handling through `scripts/lib/LocalVerification.psm1`.
 

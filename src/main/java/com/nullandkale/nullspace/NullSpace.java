@@ -39,55 +39,59 @@ import com.nullandkale.nullspace.worldgen.encounters.SiteThreats;
 import com.nullandkale.nullspace.worldgen.encounters.SpacePopulation;
 import com.nullandkale.nullspace.worldgen.sites.TerraHarbor;
 import com.nullandkale.nullspace.worldgen.sites.VillagePorts;
+
 import net.fabricmc.api.ModInitializer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class NullSpace implements ModInitializer {
-  public static final String MOD_ID = "nullspace";
-  public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+public final class NullSpace implements ModInitializer
+{
+    public static final String MOD_ID = "nullspace";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-  @Override
-  public void onInitialize() {
-    ComputerTerminal.initialize();
-    ShipControl.initialize();
-    PadComputers.initialize();
-    BuildPreviews.initialize();
-    ModBlocks.initialize();
-    SiteThreats.initialize();
-    VillagePorts.initialize();
-    MachineMenus.initialize();
-    FieldGuide.initialize();
-    ComputerService.initialize();
-    ShipService.initialize();
-    ShipDiagnostics.initialize();
-    TravelService.initialize();
-    ShipStorage.initialize();
-    PlayerRescue.initialize();
-    ShipRespawns.initialize();
-    ShipTitles.initialize();
-    TerraHarbor.initialize();
-    AirEffects.initialize();
-    ShipSystems.initialize();
-    SceneService.initialize();
-    TerrainService.initialize();
-    ShipCombat.initialize();
-    NavigationService.initialize();
-    StarSystems.initialize();
-    Authoring.initialize();
-    StationService.initialize();
-    DockingService.initialize();
-    CourseService.initialize();
-    SpacePopulation.initialize();
-    PlanetSurfaces.initialize();
-    LifeSupport.initialize();
-    PlaytestWorld.initialize();
-    ShipLab.initialize();
-    WorldStore.initialize();
-    ShipYardService.initialize();
-    ShipYard.initialize();
-    SpaceStart.initialize();
-    ServerContext.initialize();
-    LOGGER.info("NullSpace initialized");
-  }
+    @Override
+    public void onInitialize()
+    {
+        ComputerTerminal.initialize();
+        ShipControl.initialize();
+        PadComputers.initialize();
+        BuildPreviews.initialize();
+        ModBlocks.initialize();
+        SiteThreats.initialize();
+        VillagePorts.initialize();
+        MachineMenus.initialize();
+        FieldGuide.initialize();
+        ComputerService.initialize();
+        ShipService.initialize();
+        ShipDiagnostics.initialize();
+        TravelService.initialize();
+        ShipStorage.initialize();
+        PlayerRescue.initialize();
+        ShipRespawns.initialize();
+        ShipTitles.initialize();
+        TerraHarbor.initialize();
+        AirEffects.initialize();
+        ShipSystems.initialize();
+        SceneService.initialize();
+        TerrainService.initialize();
+        ShipCombat.initialize();
+        NavigationService.initialize();
+        StarSystems.initialize();
+        Authoring.initialize();
+        StationService.initialize();
+        DockingService.initialize();
+        CourseService.initialize();
+        SpacePopulation.initialize();
+        PlanetSurfaces.initialize();
+        LifeSupport.initialize();
+        PlaytestWorld.initialize();
+        ShipLab.initialize();
+        WorldStore.initialize();
+        ShipYardService.initialize();
+        ShipYard.initialize();
+        SpaceStart.initialize();
+        ServerContext.initialize();
+        LOGGER.info("NullSpace initialized");
+    }
 }
