@@ -175,7 +175,7 @@ Freighter captures: [Rivet Hauler](../images/rivet-hauler.png), [Halcyon Courier
 
 Explorer captures: [Rivet Ranger](../images/rivet-ranger.png), [Halcyon Horizon](../images/halcyon-horizon.png), [Bastion Pioneer](../images/bastion-pioneer.png). The Pioneer stairwell was walked up and down in survival mode: [upper crew deck](../images/explorer-crew-deck.png), [lower workshop deck](../images/explorer-engineering-deck.png).
 
-The [three-page catalog](../images/manufacturer-beacon-catalog.png), [expanded showroom](../images/shipyard-manufacturer-fleet.png) and [delivered explorer in space](../images/manufacturer-explorer-in-space.png) were captured in the graphical test run. The [role fleet verification UNLINK  records 477 passing unit tests, 12 existing skips, 148 passing server tests and all 21 graphical entrypoints.
+The [three-page catalog](../images/manufacturer-beacon-catalog.png), [expanded showroom](../images/shipyard-manufacturer-fleet.png) and [delivered explorer in space](../images/manufacturer-explorer-in-space.png) were captured in the graphical test run. The role fleet verification records 477 passing unit tests, 12 existing skips, 148 passing server tests and all 21 graphical entrypoints.
 
 **Notes:**
 

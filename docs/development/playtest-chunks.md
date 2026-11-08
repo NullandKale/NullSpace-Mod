@@ -100,7 +100,7 @@ Separately, a cull of old-world compatibility code is pending now that P9 starts
 
 ## UI refinement added after the navigation playtest
 
-Camera/flight checkpoint: Camera and Monitor now center the video; Monitor has Previous camera and Next camera directly below it. Fullscreen fills the display at its actual aspect ratio, with keyboard aiming, wheel zoom and compact overlays. Space Graphics exposes Camera resolution independently of sky resolution. Flight controls use small H/R/F buttons with tooltips. [Focused verification and screenshot paths UNLINK  cover real camera changes, drafts surviving fullscreen return, player/entity rendering and manual flight. This candidate is separate from the deployed navigation/recovery/title baseline.
+Camera/flight checkpoint: Camera and Monitor now center the video; Monitor has Previous camera and Next camera directly below it. Fullscreen fills the display at its actual aspect ratio, with keyboard aiming, wheel zoom and compact overlays. Space Graphics exposes Camera resolution independently of sky resolution. Flight controls use small H/R/F buttons with tooltips. Focused verification and screenshot paths cover real camera changes, drafts surviving fullscreen return, player/entity rendering and manual flight. This candidate is separate from the deployed navigation/recovery/title baseline.
 
 The [interactive UI audit](../design/ui-audit-notes.md) is part of this batch. The navigation mechanics have focused verification; their presentation is not considered finished or approved. Start with 1a, then hand back each small UI group for playtesting. Rescue, respawn, titles and station work remain in the plan.
 
@@ -178,13 +178,13 @@ Proposed wording awaiting approval: respawn fallback reasons ("Your ship is in s
 
 ## Chunk 1: navigation
 
-Ready for playtesting. [Focused verification UNLINK  records the build and walkthroughs. Restart with ordinary `scripts/run/dev.ps1` to keep the current world; `--restart` is the explicit world-reset path.
+Ready for playtesting. Focused verification records the build and walkthroughs. Restart with ordinary `scripts/run/dev.ps1` to keep the current world; `--restart` is the explicit world-reset path.
 
-Latest build: [Controller pass 1 verification UNLINK  records automatic encounter docking, the approved Controller labels/layout pass and the Station Core gesture. This is a small UI checkpoint; the remaining audit changes are still planned.
+Latest build: Controller pass 1 verification records automatic encounter docking, the approved Controller labels/layout pass and the Station Core gesture. This is a small UI checkpoint; the remaining audit changes are still planned.
 
-Departure follow-up: [Docked Engage verification UNLINK  records the newer build that undocks and resumes the original paid journey with one Engage click after an encounter visit.
+Departure follow-up: Docked Engage verification records the newer build that undocks and resumes the original paid journey with one Engage click after an encounter visit.
 
-Navigation/equipment UI follow-up: Scanner categories separate Stations from Ships, navigation rows align names and availability, and breadcrumbs avoid repeating the star-system name. Generator gauges distinguish actual generation, ship demand (including unmet demand) and battery charging. Equipment has direct power controls without Advanced; Engine and Battery use the approved wording. Air Supply now shows room-average air with a breathing threshold instead of the pressure at one cell. See [UI batch verification UNLINK  for the focused results and screenshots. Camera/fullscreen work, fuller air/leak feedback and the remaining audit are still pending.
+Navigation/equipment UI follow-up: Scanner categories separate Stations from Ships, navigation rows align names and availability, and breadcrumbs avoid repeating the star-system name. Generator gauges distinguish actual generation, ship demand (including unmet demand) and battery charging. Equipment has direct power controls without Advanced; Engine and Battery use the approved wording. Air Supply now shows room-average air with a breathing threshold instead of the pressure at one cell. See UI batch verification for the focused results and screenshots. Camera/fullscreen work, fuller air/leak feedback and the remaining audit are still pending.
 
 To review this batch, browse both Stations and Ships in the Scanner, set a destination, then check it in the Controller. Open Generator, Engine, Battery and Air Supply: check the gauges, fuel/upgrade slots and power buttons. Turning generators off should leave ship demand visible. These are playtest checkpoints, not final design approval.
 

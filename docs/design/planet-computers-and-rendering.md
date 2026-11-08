@@ -73,7 +73,7 @@ Upgraded ships now exchange gas across neighboring grid-cell faces. Pumps add ga
 
 Particles derive from the solver's actual flow records. Filling, internal equalization and decompression remain visible while flow is significant; effects stop at equilibrium or exhaustion. Small internal flows caused by crew breathing stay invisible even in underfilled rooms, so clouds do not follow players. Exterior leaks retain a lower visual threshold. Flow samples and particles are capped. A pump supplying an open breach can produce a continuing stream. The client air-particle preference affects visuals only.
 
-The [visual-fix pass UNLINK  suppresses routine maintenance haze in full sealed rooms and actively clears owned particles when flow ends. A continuing vacuum leak remains visible. The same pass corrects default companion spacing and removes the pilot view's large letterbox.
+The visual-fix pass suppresses routine maintenance haze in full sealed rooms and actively clears owned particles when flow ends. A continuing vacuum leak remains visible. The same pass corrects default companion spacing and removes the pilot view's large letterbox.
 
 This is a finite-volume pressure/density diffusion model over air cells, with exterior reservoirs at openings. It does not solve momentum, turbulence, temperature, or variable gas mixtures. The pressure and oxygen ledgers are currently one breathable-gas quantity. Legacy ships retain their existing opt-in upgrade behavior; upgrade at the engineering access to enable finite air, powered equipment and these flow effects.
 

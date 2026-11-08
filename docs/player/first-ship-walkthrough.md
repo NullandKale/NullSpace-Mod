@@ -171,4 +171,4 @@ The controller and generator face north into the standing column. The Air Supply
 
 During the walkthrough, record the first place the player hesitates or needs an explanation. Refine that moment before adding another system.
 
-[Verification record UNLINK : both exact layouts passed the focused native launch-and-return checks. Material totals were expanded from the current recipes, including vanilla subrecipes and batch leftovers.
+Verification record: both exact layouts passed the focused native launch-and-return checks. Material totals were expanded from the current recipes, including vanilla subrecipes and batch leftovers.
