@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.dev.RecipeLab;
 import com.nullandkale.nullspace.model.optics.NativeVolumeShader;
 import com.nullandkale.nullspace.model.space.SpaceDefinition;
 import com.nullandkale.nullspace.model.space.SpaceDefinitionCodec;
+import com.nullandkale.nullspace.render.compute.ComputeImages;
 import com.nullandkale.nullspace.render.compute.ComputeProgram;
 import com.nullandkale.nullspace.render.compute.ComputeStateScope;
 import com.nullandkale.nullspace.render.compute.SpaceComputeRenderer;
@@ -72,8 +73,7 @@ public final class ResourceReloadClientGameTest implements FabricClientGameTest 
       glPixelStorei(GL_PACK_ROW_LENGTH, 137);
       glPixelStorei(GL_PACK_SKIP_ROWS, 3);
       result =
-          SpaceComputeRenderer.inspectTexture(
-              ((GlTexture) view.target.getColorTexture()).glId(), 33, 25);
+          ComputeImages.inspectTexture(((GlTexture) view.target.getColorTexture()).glId(), 33, 25);
       check(
           glGetInteger(GL_PACK_ROW_LENGTH) == 137 && glGetInteger(GL_PACK_SKIP_ROWS) == 3,
           "Diagnostic readback restores inherited pixel-pack state");

@@ -12,18 +12,18 @@ final class AtmosphereLuts implements AutoCloseable {
   static final int TRANS_WIDTH = 256, TRANS_HEIGHT = 64, MULTIPLE_SIZE = 32;
   private static final LinkedHashMap<AtmosphereProfile, AtmosphereLuts> CACHE =
       new LinkedHashMap<>(8, .75f, true);
-  final SpaceComputeRenderer.Image transmittance, multiple;
+  final ComputeImages.Image transmittance, multiple;
   private final ResourceGroup resources = new ResourceGroup();
 
   private AtmosphereLuts(AtmosphereProfile profile, ComputeProgram trans, ComputeProgram multi) {
     try {
       transmittance =
           resources.own(
-              SpaceComputeRenderer.Image.make(
+              ComputeImages.Image.make(
                   "Atmosphere transmittance", TRANS_WIDTH, TRANS_HEIGHT, GpuFormat.RGBA16_FLOAT));
       multiple =
           resources.own(
-              SpaceComputeRenderer.Image.make(
+              ComputeImages.Image.make(
                   "Atmosphere multiple scattering",
                   MULTIPLE_SIZE,
                   MULTIPLE_SIZE,

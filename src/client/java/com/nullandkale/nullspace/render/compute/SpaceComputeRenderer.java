@@ -12,17 +12,12 @@ import com.mojang.renderpearl.api.textures.*;
 import com.mojang.renderpearl.backend.opengl.GlTexture;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.ResourceGroup;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
-import com.nullandkale.nullspace.model.flight.FlightDynamics;
-import com.nullandkale.nullspace.model.flight.TravelVisuals;
 import com.nullandkale.nullspace.model.optics.AtmosphereProfile;
 import com.nullandkale.nullspace.model.optics.NativeVolumeShader;
-import com.nullandkale.nullspace.model.optics.SpaceRenderMath;
-import com.nullandkale.nullspace.model.space.PlanetSky;
-import com.nullandkale.nullspace.model.space.SpaceBvh;
 import com.nullandkale.nullspace.model.space.SpaceDefinition;
-import com.nullandkale.nullspace.model.space.SpaceDefinitionCodec;
 import com.nullandkale.nullspace.render.SpaceSettings;
+import com.nullandkale.nullspace.render.compute.ComputeImages.Image;
+import com.nullandkale.nullspace.render.compute.PreparedScenes.Prepared;
 import java.nio.ByteBuffer;
 import java.util.*;
 import net.minecraft.client.Minecraft;
@@ -31,9 +26,7 @@ import net.minecraft.nbt.*;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 /**
@@ -66,74 +59,14 @@ public final class SpaceComputeRenderer implements AutoCloseable {
   private static final RenderPipeline
       SURFACE = pipeline("compute_surface", "compute_surface", true),
       VOLUME = pipeline("compute_volume", "compute_volume", false);
-  private static ComputeProgram surfaceProgram, volumeProgram, resolveProgram, volumeResolveProgram;
-  private static ComputeProgram transmittanceProgram, multipleProgram, skyProgram;
-  private static int generation;
+  static ComputeProgram surfaceProgram, volumeProgram, resolveProgram, volumeResolveProgram;
+  static ComputeProgram transmittanceProgram, multipleProgram, skyProgram;
+  static int generation;
   private static final Set<SpaceComputeRenderer> LIVE =
       Collections.newSetFromMap(new IdentityHashMap<>());
 
-  private static final class Prepared {
-    final CompoundTag source;
-    final SpaceDefinition definition;
-    final List<SpaceDefinition.Body> bodies;
-    double tick = Double.NaN;
-    SpaceBvh hierarchy;
-
-    Prepared(CompoundTag source, SpaceDefinition definition, List<SpaceDefinition.Body> bodies) {
-      this.source = source;
-      this.definition = definition;
-      this.bodies = bodies;
-    }
-
-    SpaceBvh bvh(double time) {
-      double next = Math.floor(time * 20) / 20;
-      if (next != tick) {
-        tick = next;
-        hierarchy = new SpaceBvh(bodies, next, .05);
-      }
-      return hierarchy;
-    }
-  }
-
-  private static final LinkedHashMap<String, Prepared> DEFINITIONS =
-      new LinkedHashMap<>(8, .75f, true);
-
-  record Image(GpuTexture texture, GpuTextureView view) implements AutoCloseable {
-    static Image make(String name, int w, int h, GpuFormat format) {
-      var device = RenderSystem.getDevice();
-      var texture =
-          device.createTexture(
-              name,
-              GpuTexture.USAGE_TEXTURE_BINDING
-                  | GpuTexture.USAGE_COPY_SRC
-                  | GpuTexture.USAGE_COPY_DST
-                  | GpuTexture.USAGE_RENDER_ATTACHMENT,
-              format,
-              w,
-              h,
-              1,
-              1);
-      try {
-        return new Image(texture, device.createTextureView(texture));
-      } catch (RuntimeException | Error failure) {
-        texture.close();
-        throw failure;
-      }
-    }
-
-    int id() {
-      return ((GlTexture) texture).glId();
-    }
-
-    @Override
-    public void close() {
-      view.close();
-      texture.close();
-    }
-  }
-
-  private final int width, height, volumeWidth, volumeHeight;
-  private final Image radiance,
+  final int width, height, volumeWidth, volumeHeight;
+  final Image radiance,
       geometry,
       resolved,
       oldRadiance,
@@ -143,20 +76,20 @@ public final class SpaceComputeRenderer implements AutoCloseable {
       oldPrefix,
       stopImage,
       oldStop;
-  private final Image skyRadiance, skyTransmission;
-  private static final int SKY_WIDTH = 256, SKY_HEIGHT = 128;
-  private AtmosphereProfile atmosphere;
-  private Vec3 atmosphereCenter = Vec3.ZERO;
-  private Vec3 celestialEye = Vec3.ZERO, cloudOffset = Vec3.ZERO;
-  private Matrix4f cloudRotation = new Matrix4f();
-  private float atmosphereDistanceScale = 1;
-  private String atmosphereBody = "", skyKey = "";
-  private long atmosphereUpdates;
-  private AtmosphereLuts atmosphereTables;
-  private Image depthCopy;
+  final Image skyRadiance, skyTransmission;
+  static final int SKY_WIDTH = 256, SKY_HEIGHT = 128;
+  AtmosphereProfile atmosphere;
+  Vec3 atmosphereCenter = Vec3.ZERO;
+  Vec3 celestialEye = Vec3.ZERO, cloudOffset = Vec3.ZERO;
+  Matrix4f cloudRotation = new Matrix4f();
+  float atmosphereDistanceScale = 1;
+  String atmosphereBody = "", skyKey = "";
+  long atmosphereUpdates;
+  AtmosphereLuts atmosphereTables;
+  Image depthCopy;
   private final TextureTarget composed;
-  private final GpuBuffer viewBuffer;
-  private final int bodyBuffer, nodeBuffer, sceneBuffer, computeSampler;
+  final GpuBuffer viewBuffer;
+  final int bodyBuffer, nodeBuffer, sceneBuffer, computeSampler;
 
   /** Allocation-stage fault seam used only by the graphical constructor regression. */
   public static java.util.function.IntConsumer allocationProbe = stage -> {};
@@ -173,7 +106,7 @@ public final class SpaceComputeRenderer implements AutoCloseable {
   }
 
   private final ResourceGroup resources = new ResourceGroup();
-  private final ByteBuffer bodyBytes, nodeBytes, sceneBytes;
+  final ByteBuffer bodyBytes, nodeBytes, sceneBytes;
 
   private ByteBuffer bytes(int size) {
     var b = MemoryUtil.memAlloc(size);
@@ -187,42 +120,42 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     return id;
   }
 
-  private final Matrix4f previousProjection = new Matrix4f();
-  private Vec3 previousEye = Vec3.ZERO;
-  private String previousScene = "";
-  private double previousTime;
-  private boolean history;
-  private boolean surfaceAtmosphere;
-  private float surfaceRain, surfaceThunder;
-  private Vector3f surfaceUp = new Vector3f(0, 1, 0);
-  private Matrix4f currentProjection = new Matrix4f();
-  private Vec3 currentEye = Vec3.ZERO;
-  private double currentTime;
-  private Vec3 starForward = new Vec3(0, 0, -1);
-  private float starFtl, starParallax;
-  private String currentKey = "";
-  private Prepared current;
-  private int currentGeneration,
+  final Matrix4f previousProjection = new Matrix4f();
+  Vec3 previousEye = Vec3.ZERO;
+  String previousScene = "";
+  double previousTime;
+  boolean history;
+  boolean surfaceAtmosphere;
+  float surfaceRain, surfaceThunder;
+  Vector3f surfaceUp = new Vector3f(0, 1, 0);
+  Matrix4f currentProjection = new Matrix4f();
+  Vec3 currentEye = Vec3.ZERO;
+  double currentTime;
+  Vec3 starForward = new Vec3(0, 0, -1);
+  float starFtl, starParallax;
+  String currentKey = "";
+  Prepared current;
+  int currentGeneration,
       bodyCount,
       nodeCount,
       volumeCount,
       cabinCount,
       geometryHash,
       previousGeometryHash;
-  private Tag lastSubjects;
-  private int subjectsHash;
-  private boolean volumeHistory;
-  private final Matrix4f previousVolumeProjection = new Matrix4f();
-  private Vec3 previousVolumeEye = Vec3.ZERO;
-  private String previousVolumeKey = "";
-  private double previousVolumeTime;
-  private float jitterX, jitterY, previousJitterX, previousJitterY;
-  private final int[][] queries = new int[4][10];
-  private int querySlot;
-  private boolean measurementStarted;
-  private final boolean[] pending = new boolean[4];
-  private long frames, uploadedBytes, historyReuses, historyResets;
-  private double surfaceMs, volumeMs, resolveMs, cpuMs, volumeIntegrationMs, volumeReconstructionMs;
+  Tag lastSubjects;
+  int subjectsHash;
+  boolean volumeHistory;
+  final Matrix4f previousVolumeProjection = new Matrix4f();
+  Vec3 previousVolumeEye = Vec3.ZERO;
+  String previousVolumeKey = "";
+  double previousVolumeTime;
+  float jitterX, jitterY, previousJitterX, previousJitterY;
+  final int[][] queries = new int[4][10];
+  int querySlot;
+  boolean measurementStarted;
+  final boolean[] pending = new boolean[4];
+  long frames, uploadedBytes, historyReuses, historyResets;
+  double surfaceMs, volumeMs, resolveMs, cpuMs, volumeIntegrationMs, volumeReconstructionMs;
   private double atmosphereMs;
   private boolean closed;
 
@@ -254,9 +187,9 @@ public final class SpaceComputeRenderer implements AutoCloseable {
             + volumeWidth * (long) volumeHeight * (SLICES * 24 + 32)
             + (depthCopy == null
                 ? 0
-                : depthCopy.texture.getWidth(0)
-                    * (long) depthCopy.texture.getHeight(0)
-                    * depthCopy.texture.getFormat().blockSize())
+                : depthCopy.texture().getWidth(0)
+                    * (long) depthCopy.texture().getHeight(0)
+                    * depthCopy.texture().getFormat().blockSize())
             + 2L * (bodyBytes.capacity() + nodeBytes.capacity() + sceneBytes.capacity())
             + 224,
         bodyCount,
@@ -268,11 +201,11 @@ public final class SpaceComputeRenderer implements AutoCloseable {
   }
 
   public GpuTextureView prefix() {
-    return prefix.view;
+    return prefix.view();
   }
 
   public GpuTextureView depth() {
-    return depthCopy == null ? geometry.view : depthCopy.view;
+    return depthCopy == null ? geometry.view() : depthCopy.view();
   }
 
   public int volumeWidth() {
@@ -409,7 +342,7 @@ public final class SpaceComputeRenderer implements AutoCloseable {
 
   public static void clear() {
     for (var view : List.copyOf(LIVE)) view.close();
-    DEFINITIONS.clear();
+    PreparedScenes.DEFINITIONS.clear();
     VisualCabins.clear();
     AtmosphereLuts.clear();
     if (surfaceProgram != null) {
@@ -514,269 +447,6 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     LIVE.add(this);
   }
 
-  private static Prepared prepared(CompoundTag catalog) {
-    String key = catalog.getStringOr("id", "") + ":" + catalog.getLongOr("revision", 0);
-    var old = DEFINITIONS.get(key);
-    if (old != null && old.source.equals(catalog)) return old;
-    var definition = SpaceDefinitionCodec.decode(catalog);
-    var next = new Prepared(catalog.copy(), definition, definition.instances());
-    DEFINITIONS.put(key, next);
-    while (DEFINITIONS.size() > 4) DEFINITIONS.remove(DEFINITIONS.keySet().iterator().next());
-    return next;
-  }
-
-  private static void vec(ByteBuffer bytes, double x, double y, double z, double w) {
-    bytes.putFloat((float) x).putFloat((float) y).putFloat((float) z).putFloat((float) w);
-  }
-
-  private static void rgb(ByteBuffer b, int color, double w) {
-    vec(b, (color >> 16 & 255) / 255., (color >> 8 & 255) / 255., (color & 255) / 255., w);
-  }
-
-  private void upload(int buffer, ByteBuffer bytes, int binding) {
-    bytes.flip();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bytes, GL_STREAM_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, buffer);
-    uploadedBytes += bytes.remaining();
-  }
-
-  private void prepareData(CompoundTag scene, Vec3 eye, double time) {
-    surfaceAtmosphere = scene.getBooleanOr("surfaceAtmosphere", false);
-    surfaceRain = (float) scene.getDoubleOr("surfaceRain", 0);
-    surfaceThunder = (float) scene.getDoubleOr("surfaceThunder", 0);
-    var level = Minecraft.getInstance().level;
-    // Weather belongs to the viewed surface, never to an unrelated world or an airless moon.
-    if (surfaceAtmosphere
-        && scene.getBooleanOr("planetSky", false)
-        && level != null
-        && level.dimension().identifier().toString().equals(scene.getStringOr("dimension", ""))) {
-      surfaceRain = level.getRainLevel(1);
-      surfaceThunder = level.getThunderLevel(1);
-    }
-    surfaceRain =
-        surfaceAtmosphere ? Math.clamp(Float.isFinite(surfaceRain) ? surfaceRain : 0, 0, 1) : 0;
-    surfaceThunder =
-        surfaceAtmosphere
-            ? Math.clamp(Float.isFinite(surfaceThunder) ? surfaceThunder : 0, 0, surfaceRain)
-            : 0;
-    var observer =
-        scene.getListOrEmpty("subjects").stream()
-            .map(t -> (CompoundTag) t)
-            .filter(t -> t.getStringOr("id", "").equals(scene.getStringOr("observer", "")))
-            .findFirst()
-            .orElse(new CompoundTag());
-    surfaceUp
-        .set(0, 1, 0)
-        .rotate(
-            new Quaternionf()
-                .rotationYXZ(
-                    (float) Math.toRadians(observer.getDoubleOr("yaw", 0)),
-                    (float) Math.toRadians(observer.getDoubleOr("pitch", 0)),
-                    (float) Math.toRadians(observer.getDoubleOr("roll", 0))));
-    current = prepared(scene.getCompoundOrEmpty("catalog"));
-    bodyBytes.clear();
-    sceneBytes.clear();
-    bodyCount = current.bodies.size();
-    double elapsed = time - current.definition.epoch();
-    selectAtmosphere(scene, eye, elapsed);
-    for (var b : current.bodies) {
-      var p = b.at(elapsed).subtract(celestialEye);
-      vec(bodyBytes, p.x, p.y, p.z, b.radius());
-      rgb(bodyBytes, b.color(), b.emission());
-      vec(bodyBytes, b.velocity().x, b.velocity().y, b.velocity().z, b.kind());
-      vec(bodyBytes, b.roughness(), Math.floorMod(b.seed(), 10000), b.atmosphere(), b.spin());
-      vec(
-          bodyBytes,
-          b.rotationAxis().x,
-          b.rotationAxis().y,
-          b.rotationAxis().z,
-          elapsed * b.spin());
-    }
-    var bvh = current.bvh(elapsed);
-    nodeCount = bvh.nodes().size();
-    nodeBytes.clear();
-    bvh.write(nodeBytes, celestialEye);
-    var volumes = new ArrayList<>(current.definition.volumes());
-    for (var b : current.definition.bodies())
-      if (b.atmosphere() > 0 && !b.id().equals(atmosphereBody)) {
-        double outer = b.radius() * (1 + b.atmosphere());
-        volumes.add(
-            new SpaceDefinition.Volume(
-                b.id() + ":air",
-                b.center(),
-                new Vec3(outer, outer, outer),
-                b.velocity(),
-                0xff75b8ff,
-                .14,
-                .008,
-                0,
-                .1,
-                b.seed(),
-                1));
-      }
-    for (var b : current.definition.bodies())
-      if (b.kind() == 4) {
-        var axis = b.velocity().lengthSqr() > 0 ? b.velocity().normalize() : new Vec3(0, 0, 1);
-        volumes.add(
-            new SpaceDefinition.Volume(
-                b.id() + ":tail",
-                b.center().subtract(axis.scale(b.radius() * 8)),
-                new Vec3(b.radius() * 2, b.radius() * 2, b.radius() * 12),
-                b.velocity(),
-                0xff87bfd9,
-                .22,
-                .012,
-                .2,
-                .4,
-                b.seed(),
-                2));
-      }
-    if (volumes.size() > 16)
-      throw new IllegalArgumentException("Atmospheres/tails exceed volume budget");
-    volumeCount = volumes.size();
-    for (var v : volumes) {
-      var p = v.center().add(v.velocity().scale(elapsed)).subtract(celestialEye);
-      vec(sceneBytes, p.x, p.y, p.z, v.kind());
-      vec(sceneBytes, v.extent().x, v.extent().y, v.extent().z, v.density());
-      rgb(sceneBytes, v.color(), v.extinction());
-      vec(
-          sceneBytes,
-          (v.color() >> 16 & 255) / 255. * v.emission(),
-          (v.color() >> 8 & 255) / 255. * v.emission(),
-          (v.color() & 255) / 255. * v.emission(),
-          v.phase());
-      double inner =
-          v.kind() == 1
-              ? current.definition.bodies().stream()
-                  .filter(b -> (b.id() + ":air").equals(v.id()))
-                  .mapToDouble(SpaceDefinition.Body::radius)
-                  .findFirst()
-                  .orElse(0)
-              : 0;
-      var axis = v.velocity().lengthSqr() > 0 ? v.velocity().normalize() : new Vec3(0, 0, 1);
-      vec(
-          sceneBytes,
-          v.kind() == 2 ? axis.x : inner,
-          v.kind() == 2 ? axis.y : 0,
-          v.kind() == 2 ? axis.z : 0,
-          Math.floorMod(v.seed(), 10000));
-    }
-    while (sceneBytes.position() < 80 * 16) sceneBytes.putLong(0);
-    cabinCount = 0;
-    for (Tag tag : scene.getListOrEmpty("subjects")) {
-      if (cabinCount == 64) break;
-      var subject = (CompoundTag) tag;
-      var mask = VisualCabins.mask(subject);
-      boolean interior = false;
-      for (int bits : mask)
-        if (bits != 0) {
-          interior = true;
-          break;
-        }
-      if (!interior) continue;
-      var position =
-          new Vec3(
-              subject.getDoubleOr("x", 0),
-              subject.getDoubleOr("y", 0),
-              subject.getDoubleOr("z", 0));
-      var orientation =
-          new Quaternionf()
-              .rotationYXZ(
-                  (float) Math.toRadians(subject.getDoubleOr("yaw", 0)),
-                  (float) Math.toRadians(subject.getDoubleOr("pitch", 0)),
-                  (float) Math.toRadians(subject.getDoubleOr("roll", 0)))
-              .conjugate();
-      var delta = eye.subtract(position);
-      var inverse =
-          new Matrix4f()
-              .rotation(orientation)
-              .translate((float) delta.x, (float) delta.y, (float) delta.z);
-      inverse.get(sceneBytes.position(), sceneBytes);
-      sceneBytes.position(sceneBytes.position() + 64);
-      vec(sceneBytes, 0, 0, 0, 0);
-      for (int bits : mask) sceneBytes.putInt(bits);
-      cabinCount++;
-    }
-    if (bodyBytes.position() == 0) vec(bodyBytes, 0, 0, 0, 0);
-    if (nodeBytes.position() == 0) vec(nodeBytes, 0, 0, 0, 0);
-    upload(bodyBuffer, bodyBytes, 0);
-    upload(nodeBuffer, nodeBytes, 1);
-    upload(sceneBuffer, sceneBytes, 2);
-  }
-
-  private void selectAtmosphere(CompoundTag scene, Vec3 eye, double elapsed) {
-    atmosphere = null;
-    atmosphereBody = "";
-    celestialEye = eye;
-    cloudOffset = Vec3.ZERO;
-    cloudRotation.identity();
-    atmosphereDistanceScale = 1;
-    if (surfaceAtmosphere) {
-      var profile = scene.getCompoundOrEmpty("atmosphereProfile");
-      atmosphere =
-          profile.isEmpty()
-              ? AtmosphereProfile.temperate(2200, .04)
-              : AtmosphereProfile.decode(profile);
-      if (!profile.isEmpty()) {
-        atmosphereCenter =
-            new Vec3(
-                    scene.getDoubleOr("atmosphereX", 0),
-                    scene.getDoubleOr("atmosphereY", 0),
-                    scene.getDoubleOr("atmosphereZ", 0))
-                .subtract(eye);
-      } else {
-        // Compatibility with old frame fixtures/saves which predate an explicit planet profile.
-        var observer =
-            scene.getListOrEmpty("subjects").stream()
-                .map(t -> (CompoundTag) t)
-                .filter(t -> t.getStringOr("id", "").equals(scene.getStringOr("observer", "")))
-                .findFirst()
-                .orElse(new CompoundTag());
-        atmosphereCenter =
-            new Vec3(
-                    observer.getDoubleOr("x", 0),
-                    observer.getDoubleOr("y", 0),
-                    observer.getDoubleOr("z", 0))
-                .subtract(eye)
-                .subtract(
-                    new Vec3(surfaceUp.x, surfaceUp.y, surfaceUp.z)
-                        .scale(atmosphere.radius() + .05));
-      }
-      atmosphereBody = scene.getStringOr("surfaceBody", "");
-    }
-    if (scene.getBooleanOr("planetSky", false) && scene.contains("surfaceRadius")) {
-      var observer =
-          scene.getListOrEmpty("subjects").stream()
-              .map(t -> (CompoundTag) t)
-              .filter(t -> t.getStringOr("id", "").equals(scene.getStringOr("observer", "")))
-              .findFirst()
-              .orElse(new CompoundTag());
-      var view = PlanetSky.surfaceView(scene, observer, eye, surfaceAtmosphere ? atmosphere : null);
-      celestialEye = view.celestialEye();
-      if (surfaceAtmosphere) {
-        atmosphereCenter = view.center();
-        cloudOffset = view.cloudOffset();
-        cloudRotation.rotation(new Quaternionf(view.cloudRotation()));
-        atmosphereDistanceScale = (float) view.distanceScale();
-      }
-    }
-    if (!surfaceAtmosphere) {
-      double largest = .002;
-      for (var b : current.definition.bodies()) {
-        if (b.atmosphere() <= 0 || b.radius() < 1) continue;
-        var position = b.at(elapsed).subtract(celestialEye);
-        double apparent = b.radius() / Math.max(1, position.length());
-        if (apparent > largest) {
-          atmosphere = b.atmosphereProfile();
-          atmosphereCenter = position;
-          atmosphereBody = b.id();
-          largest = apparent;
-        }
-      }
-    }
-  }
-
   public boolean atmosphereReady() {
     return atmosphere != null && !skyKey.isEmpty();
   }
@@ -806,310 +476,14 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     return inspect(skyRadiance, SKY_WIDTH, SKY_HEIGHT);
   }
 
-  private void uniforms(ComputeProgram p, Matrix4f projection, int w, int h) {
-    // A cache miss dispatches other programs. Resolve it before binding this pass's program.
-    if (atmosphere != null)
-      atmosphereTables = AtmosphereLuts.get(atmosphere, transmittanceProgram, multipleProgram);
-    p.use();
-    p.matrix("InvView", new Matrix4f(projection).invert());
-    p.matrix("ViewProjection", projection);
-    glUniform3f(
-        p.uniform("StarEye"), (float) currentEye.x, (float) currentEye.y, (float) currentEye.z);
-    glUniform3f(
-        p.uniform("StarForward"),
-        (float) starForward.x,
-        (float) starForward.y,
-        (float) starForward.z);
-    p.scalar("StarFtl", starFtl);
-    p.scalar("StarParallax", starParallax);
-    p.scalar("StarTime", (float) (currentTime % 4096));
-    p.integer("BodyCount", bodyCount);
-    int[] lights =
-        java.util.stream.IntStream.range(0, current.bodies.size())
-            .filter(i -> current.bodies.get(i).emission() > 0)
-            .limit(8)
-            .toArray();
-    p.integer("LightCount", lights.length);
-    if (lights.length > 0) glUniform1iv(p.uniform("Lights"), lights);
-    p.integer("NodeCount", nodeCount);
-    p.integer("VolumeCount", volumeCount);
-    p.integer("CabinCount", cabinCount);
-    p.integer("HasSurfaceAtmosphere", surfaceAtmosphere ? 1 : 0);
-    p.scalar("SurfaceRain", surfaceRain);
-    p.scalar("SurfaceThunder", surfaceThunder);
-    p.integer("HasAtmosphere", atmosphere == null ? 0 : 1);
-    if (atmosphere != null) {
-      AtmosphereLuts.uniforms(p, atmosphere);
-      glUniform3f(
-          p.uniform("AtmoCenter"),
-          (float) atmosphereCenter.x,
-          (float) atmosphereCenter.y,
-          (float) atmosphereCenter.z);
-      p.integer("TransmittanceLut", 4);
-      p.integer("MultipleScatteringLut", 5);
-      p.integer("SkyRadianceLut", 6);
-      p.integer("SkyTransmissionLut", 7);
-      p.integer("CloudsEnabled", SpaceSettings.get().clouds || surfaceRain > 0 ? 1 : 0);
-      p.scalar("AtmoDistanceScale", atmosphereDistanceScale);
-      p.matrix("CloudRotation", cloudRotation);
-      glUniform3f(
-          p.uniform("CloudOffset"),
-          (float) cloudOffset.x,
-          (float) cloudOffset.y,
-          (float) cloudOffset.z);
-      p.integer("CloudSteps", SpaceSettings.get().cloudSteps);
-      p.scalar("CloudTime", (float) (Math.floor(currentTime * 10) / 10));
-      texture(4, atmosphereTables.transmittance.texture());
-      texture(5, atmosphereTables.multiple.texture());
-      texture(6, skyRadiance.texture);
-      texture(7, skyTransmission.texture);
-    }
-    glUniform3f(p.uniform("SurfaceUp"), surfaceUp.x, surfaceUp.y, surfaceUp.z);
-    p.integer("SurfaceSamples", SpaceSettings.get().surfaceSamples);
-    p.integer("VolumeSteps", SpaceSettings.get().volumeSteps);
-    p.integer("BruteForce", Boolean.getBoolean("nullspace.compute.bruteForce") ? 1 : 0);
-    p.scalar("Time", (float) (currentTime % 100000));
-    glUniform2i(p.uniform("ViewSize"), w, h);
-    glUniform2f(p.uniform("Jitter"), 0, 0);
-  }
-
-  private static void image(int binding, Image image, int access, int format) {
-    glBindImageTexture(binding, image.id(), 0, false, 0, access, format);
-  }
-
-  private void texture(int unit, GpuTexture texture) {
+  void texture(int unit, GpuTexture texture) {
     glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D, ((GlTexture) texture).glId());
     glBindSampler(unit, computeSampler);
   }
 
-  private void metadata(Matrix4f projection) {
-    try (var stack = MemoryStack.stackPush()) {
-      var b = stack.malloc(160);
-      new Matrix4f(projection).invert().get(0, b);
-      projection.get(64, b);
-      b.putFloat(128, width)
-          .putFloat(132, height)
-          .putFloat(136, RenderSystem.getDevice().getDeviceInfo().isZZeroToOne() ? 1 : 0)
-          .putFloat(140, jitterX);
-      b.putFloat(144, .05f).putFloat(148, 1e6f).putFloat(152, SLICES).putFloat(156, jitterY);
-      RenderSystem.getDevice().createCommandEncoder().writeToBuffer(viewBuffer.slice(), b);
-    }
-  }
-
-  public void surfaces(CompoundTag scene, Vec3 eye, Matrix4f projection) {
-    long start = System.nanoTime();
-    boolean jitter =
-        false; // Spatial AA replaces unstable per-frame surface jitter, including stars.
-    jitterX = jitter ? (float) (halton(frames, 2) - .5) : 0;
-    jitterY = jitter ? (float) (halton(frames, 3) - .5) : 0;
-    var subjects = scene.get("subjects");
-    if (lastSubjects != subjects) {
-      lastSubjects = subjects;
-      subjectsHash = Objects.hashCode(subjects);
-    }
-    geometryHash = subjectsHash;
-    currentKey =
-        scene.getCompoundOrEmpty("catalog").getStringOr("id", "")
-            + ":"
-            + scene.getCompoundOrEmpty("catalog").getLongOr("revision", 0)
-            + ":"
-            + scene.getStringOr("observer", "")
-            + ":"
-            + scene.getLongOr("source", 0)
-            + ":"
-            + scene.getIntOr("selection", 0);
-    currentEye = eye;
-    currentProjection.set(projection);
-    currentTime =
-        scene.getDoubleOr("simulationTime", 0)
-            + Math.min(
-                2,
-                Math.max(
-                    0,
-                    (System.nanoTime() - scene.getLongOr("receivedNanos", System.nanoTime()))
-                        / 1e9));
-    starParallax =
-        !scene.getBooleanOr("planetSky", false)
-                && scene
-                    .getStringOr("dimension", "")
-                    .equals(TravelService.SPACE.identifier().toString())
-            ? 1
-            : 0;
-    starFtl = 0;
-    for (var tag : scene.getListOrEmpty("subjects")) {
-      var subject = (CompoundTag) tag;
-      if (!subject.getStringOr("id", "").equals(scene.getStringOr("observer", ""))) continue;
-      var bow = net.minecraft.core.Direction.byName(subject.getStringOr("bow", "north"));
-      if (bow == null) bow = net.minecraft.core.Direction.NORTH;
-      starForward =
-          FlightDynamics.rotate(
-              FlightDynamics.orientation(
-                  subject.getDoubleOr("yaw", 0),
-                  subject.getDoubleOr("pitch", 0),
-                  subject.getDoubleOr("roll", 0)),
-              new Vec3(bow.getStepX(), bow.getStepY(), bow.getStepZ()));
-      if (subject.getBooleanOr("ftl", false)) {
-        double extra =
-            Math.clamp(currentTime - scene.getDoubleOr("simulationTime", currentTime), 0, 2);
-        starFtl =
-            (float)
-                TravelVisuals.streaks(
-                    subject.getDoubleOr("ftlElapsed", 0) + extra,
-                    subject.getDoubleOr("ftlDuration", 0));
-      }
-      break;
-    }
-    metadata(projection);
-    try (var state = new ComputeStateScope()) {
-      poll();
-      measurementStarted = !pending[querySlot];
-      prepareData(scene, eye, currentTime);
-      if (measurementStarted) glQueryCounter(queries[querySlot][8], GL_TIMESTAMP);
-      currentKey += ":weather:" + surfaceAtmosphere + ":" + surfaceRain + ":" + surfaceThunder;
-      var renderSettings = SpaceSettings.get();
-      currentKey +=
-          ":atmosphere:"
-              + atmosphere
-              + ":"
-              + renderSettings.clouds
-              + ":"
-              + renderSettings.cloudSteps;
-      if (atmosphere != null) {
-        atmosphereTables = AtmosphereLuts.get(atmosphere, transmittanceProgram, multipleProgram);
-        var settings = SpaceSettings.get();
-        String nextSkyKey =
-            currentKey
-                + ":"
-                + atmosphere
-                + ":"
-                + atmosphereCenter
-                + ":"
-                + eye
-                + ":"
-                + Math.floor(currentTime * 10)
-                + ":"
-                + settings.clouds
-                + ":"
-                + settings.cloudSteps;
-        if (!nextSkyKey.equals(skyKey)
-            && atmosphereCenter.length() <= atmosphere.radius() + atmosphere.height()) {
-          uniforms(skyProgram, projection, SKY_WIDTH, SKY_HEIGHT);
-          // Do not bind an image for sampling while writing it, even when that sampler is inactive.
-          glActiveTexture(GL_TEXTURE6);
-          glBindTexture(GL_TEXTURE_2D, 0);
-          glActiveTexture(GL_TEXTURE7);
-          glBindTexture(GL_TEXTURE_2D, 0);
-          image(0, skyRadiance, GL_WRITE_ONLY, GL_RGBA16F);
-          image(1, skyTransmission, GL_WRITE_ONLY, GL_RGBA16F);
-          skyProgram.dispatch(SKY_WIDTH, SKY_HEIGHT);
-          glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-          skyKey = nextSkyKey;
-          atmosphereUpdates++;
-        }
-        // Exterior rays integrate their small bounded shell directly in the surface pass.
-        // They do not need a camera sky lookup covering mostly empty space.
-        if (atmosphereCenter.length() > atmosphere.radius() + atmosphere.height())
-          skyKey = nextSkyKey;
-      }
-      if (measurementStarted) glQueryCounter(queries[querySlot][9], GL_TIMESTAMP);
-      if (measurementStarted) glQueryCounter(queries[querySlot][0], GL_TIMESTAMP);
-      uniforms(surfaceProgram, projection, width, height);
-      glUniform2f(surfaceProgram.uniform("Jitter"), jitterX, jitterY);
-      image(0, radiance, GL_WRITE_ONLY, GL_RGBA16F);
-      image(1, geometry, GL_WRITE_ONLY, GL_RGBA32F);
-      surfaceProgram.dispatch(width, height);
-      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-      if (measurementStarted) {
-        glQueryCounter(queries[querySlot][1], GL_TIMESTAMP);
-        glQueryCounter(queries[querySlot][2], GL_TIMESTAMP);
-      }
-      resolveProgram.use();
-      resolveProgram.integer("Current", 0);
-      resolveProgram.integer("Geometry", 1);
-      resolveProgram.integer("History", 2);
-      resolveProgram.integer("HistoryGeometry", 3);
-      texture(0, radiance.texture);
-      texture(1, geometry.texture);
-      texture(2, oldRadiance.texture);
-      texture(3, oldGeometry.texture);
-      resolveProgram.matrix("InvView", new Matrix4f(projection).invert());
-      resolveProgram.matrix("PreviousProjection", previousProjection);
-      var delta = eye.subtract(previousEye);
-      glUniform3f(
-          resolveProgram.uniform("EyeDelta"), (float) delta.x, (float) delta.y, (float) delta.z);
-      glUniform2i(resolveProgram.uniform("ViewSize"), width, height);
-      String key = currentKey;
-      boolean reuse =
-          history
-              && currentGeneration == generation
-              && SpaceRenderMath.history(
-                  delta.length(),
-                  directionDot(projection, previousProjection),
-                  previousScene.equals(key),
-                  sameProjection(projection, previousProjection),
-                  Math.abs(currentTime - previousTime) < .25);
-      if (reuse) historyReuses++;
-      else historyResets++;
-      resolveProgram.integer(
-          "HistoryValid",
-          reuse
-                  && SpaceSettings.get().temporal
-                  && !Boolean.getBoolean("nullspace.compute.noHistory")
-              ? 1
-              : 0);
-      resolveProgram.scalar("DeltaTime", (float) (currentTime - previousTime));
-      glUniform2f(resolveProgram.uniform("CurrentJitter"), jitterX, jitterY);
-      glUniform2f(resolveProgram.uniform("PreviousJitter"), previousJitterX, previousJitterY);
-      image(0, resolved, GL_WRITE_ONLY, GL_RGBA16F);
-      resolveProgram.dispatch(width, height);
-      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-      if (measurementStarted) glQueryCounter(queries[querySlot][3], GL_TIMESTAMP);
-      glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-      previousJitterX = jitterX;
-      previousJitterY = jitterY;
-      previousProjection.set(projection);
-      previousEye = eye;
-      previousScene = key;
-      previousTime = currentTime;
-      history = true;
-      currentGeneration = generation;
-    }
-    var encoder = RenderSystem.getDevice().createCommandEncoder();
-    encoder.copyTextureToTexture(
-        resolved.texture, oldRadiance.texture, 0, 0, 0, 0, 0, width, height);
-    encoder.copyTextureToTexture(
-        geometry.texture, oldGeometry.texture, 0, 0, 0, 0, 0, width, height);
-    cpuMs = (System.nanoTime() - start) / 1e6;
-    frames++;
-  }
-
-  private static double halton(long n, int base) {
-    double f = 1, r = 0;
-    while (n > 0) {
-      f /= base;
-      r += f * (n % base);
-      n /= base;
-    }
-    return r;
-  }
-
-  private static double directionDot(Matrix4f a, Matrix4f b) {
-    var x = new Matrix4f(a).invert().transformProject(new Vector3f(0, 0, 1)).normalize();
-    var y = new Matrix4f(b).invert().transformProject(new Vector3f(0, 0, 1)).normalize();
-    return x.dot(y);
-  }
-
-  private static boolean sameProjection(Matrix4f a, Matrix4f b) {
-    double ax = Math.sqrt(a.m00() * a.m00() + a.m10() * a.m10() + a.m20() * a.m20()),
-        bx = Math.sqrt(b.m00() * b.m00() + b.m10() * b.m10() + b.m20() * b.m20()),
-        ay = Math.sqrt(a.m01() * a.m01() + a.m11() * a.m11() + a.m21() * a.m21()),
-        by = Math.sqrt(b.m01() * b.m01() + b.m11() * b.m11() + b.m21() * b.m21());
-    return Math.abs(ax - bx) < .0001 && Math.abs(ay - by) < .0001;
-  }
-
   public void drawSurfaces(RenderPass pass) {
-    bind(pass, SURFACE, resolved.view, geometry.view);
+    bind(pass, SURFACE, resolved.view(), geometry.view());
     pass.draw(3, 1, 0, 0);
   }
 
@@ -1120,128 +494,7 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
     pass.setUniform("Sampler0", color, sampler);
     pass.setUniform("Sampler1", extra, sampler);
-    pass.setUniform("Sampler2", pipeline == VOLUME ? depth() : geometry.view, sampler);
-  }
-
-  public void volumes(GpuTexture opaqueDepth) {
-    volumes(opaqueDepth, currentProjection);
-  }
-
-  public void volumes(GpuTexture opaqueDepth, Matrix4f depthProjection) {
-    if (opaqueDepth != null) {
-      if (depthCopy == null
-          || depthCopy.texture.getWidth(0) != opaqueDepth.getWidth(0)
-          || depthCopy.texture.getHeight(0) != opaqueDepth.getHeight(0)) {
-        if (depthCopy != null) depthCopy.close();
-        depthCopy =
-            Image.make(
-                "Opaque depth sample",
-                opaqueDepth.getWidth(0),
-                opaqueDepth.getHeight(0),
-                opaqueDepth.getFormat());
-      }
-      RenderSystem.getDevice()
-          .createCommandEncoder()
-          .copyTextureToTexture(
-              opaqueDepth,
-              depthCopy.texture,
-              0,
-              0,
-              0,
-              0,
-              0,
-              opaqueDepth.getWidth(0),
-              opaqueDepth.getHeight(0));
-    }
-    try (var stack = MemoryStack.stackPush()) {
-      var b = stack.malloc(64);
-      new Matrix4f(depthProjection).invert().get(0, b);
-      RenderSystem.getDevice().createCommandEncoder().writeToBuffer(viewBuffer.slice(160, 64), b);
-    }
-    try (var state = new ComputeStateScope()) {
-      if (measurementStarted) glQueryCounter(queries[querySlot][4], GL_TIMESTAMP);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bodyBuffer);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, nodeBuffer);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sceneBuffer);
-      uniforms(volumeProgram, currentProjection, volumeWidth, volumeHeight);
-      volumeProgram.matrix("InvDepth", new Matrix4f(depthProjection).invert());
-      volumeProgram.integer("OpaqueDepth", 0);
-      volumeProgram.integer("HasDepth", opaqueDepth != null ? 1 : 0);
-      volumeProgram.integer(
-          "ZeroToOne", RenderSystem.getDevice().getDeviceInfo().isZZeroToOne() ? 1 : 0);
-      if (opaqueDepth != null) texture(0, depthCopy.texture);
-      image(0, rawPrefix, GL_WRITE_ONLY, GL_RGBA16F);
-      image(1, stopImage, GL_WRITE_ONLY, GL_RGBA32F);
-      volumeProgram.scalar(
-          "SamplePhase",
-          Boolean.getBoolean("nullspace.compute.noJitter") || !SpaceSettings.get().stochastic
-              ? .5f
-              : (float) halton(frames + 1, 5));
-      volumeProgram.dispatch(volumeWidth, volumeHeight, 8, 4);
-      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-      if (measurementStarted) {
-        glQueryCounter(queries[querySlot][5], GL_TIMESTAMP);
-        glQueryCounter(queries[querySlot][6], GL_TIMESTAMP);
-      }
-      volumeResolveProgram.use();
-      volumeResolveProgram.integer("Current", 0);
-      volumeResolveProgram.integer("History", 1);
-      volumeResolveProgram.integer("CurrentStop", 2);
-      volumeResolveProgram.integer("HistoryStop", 3);
-      texture(0, rawPrefix.texture);
-      texture(1, oldPrefix.texture);
-      texture(2, stopImage.texture);
-      texture(3, oldStop.texture);
-      volumeResolveProgram.matrix("InvView", new Matrix4f(currentProjection).invert());
-      volumeResolveProgram.matrix("PreviousProjection", previousVolumeProjection);
-      var delta = currentEye.subtract(previousVolumeEye);
-      glUniform3f(
-          volumeResolveProgram.uniform("EyeDelta"),
-          (float) delta.x,
-          (float) delta.y,
-          (float) delta.z);
-      glUniform2i(volumeResolveProgram.uniform("ViewSize"), volumeWidth, volumeHeight);
-      String key = currentKey;
-      boolean reuse =
-          volumeHistory
-              && previousGeometryHash == geometryHash
-              && SpaceRenderMath.history(
-                  delta.length(),
-                  directionDot(currentProjection, previousVolumeProjection),
-                  key.equals(previousVolumeKey),
-                  sameProjection(currentProjection, previousVolumeProjection),
-                  Math.abs(currentTime - previousVolumeTime) < .25);
-      volumeResolveProgram.integer(
-          "HistoryValid",
-          reuse
-                  && SpaceSettings.get().temporal
-                  && !Boolean.getBoolean("nullspace.compute.noHistory")
-              ? 1
-              : 0);
-      image(0, prefix, GL_WRITE_ONLY, GL_RGBA16F);
-      volumeResolveProgram.dispatch(volumeWidth, volumeHeight);
-      glMemoryBarrier(
-          GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-              | GL_TEXTURE_FETCH_BARRIER_BIT
-              | GL_TEXTURE_UPDATE_BARRIER_BIT);
-      if (measurementStarted) {
-        glQueryCounter(queries[querySlot][7], GL_TIMESTAMP);
-        pending[querySlot] = true;
-        querySlot = (querySlot + 1) % queries.length;
-        measurementStarted = false;
-      }
-    }
-    var encoder = RenderSystem.getDevice().createCommandEncoder();
-    encoder.copyTextureToTexture(
-        prefix.texture, oldPrefix.texture, 0, 0, 0, 0, 0, volumeWidth, volumeHeight * SLICES);
-    encoder.copyTextureToTexture(
-        stopImage.texture, oldStop.texture, 0, 0, 0, 0, 0, volumeWidth, volumeHeight);
-    previousVolumeProjection.set(currentProjection);
-    previousVolumeEye = currentEye;
-    previousVolumeTime = currentTime;
-    previousGeometryHash = geometryHash;
-    previousVolumeKey = currentKey;
-    volumeHistory = true;
+    pass.setUniform("Sampler2", pipeline == VOLUME ? depth() : geometry.view(), sampler);
   }
 
   public void composite(GpuTextureView opaqueColor) {
@@ -1250,13 +503,13 @@ public final class SpaceComputeRenderer implements AutoCloseable {
             .createCommandEncoder()
             .createRenderPass(
                 () -> "Space volume resolve", composed.getColorTextureView(), Optional.empty())) {
-      bind(pass, VOLUME, opaqueColor, prefix.view);
+      bind(pass, VOLUME, opaqueColor, prefix.view());
       pass.draw(3, 1, 0, 0);
     }
   }
 
   public void drawVolume(RenderPass pass, GpuTextureView sourceColor) {
-    bind(pass, VOLUME, sourceColor, prefix.view);
+    bind(pass, VOLUME, sourceColor, prefix.view());
     pass.draw(3, 1, 0, 0);
   }
 
@@ -1274,44 +527,10 @@ public final class SpaceComputeRenderer implements AutoCloseable {
   }
 
   private float[] inspect(Image image, int w, int h) {
-    return inspectTexture(image.id(), w, h);
+    return ComputeImages.inspectTexture(image.id(), w, h);
   }
 
-  /** Diagnostic readback with isolated pixel-pack state and checked destination capacity. */
-  public static float[] inspectTexture(int texture, int w, int h) {
-    if (w < 1 || h < 1) throw new IllegalArgumentException("Invalid readback dimensions");
-    float[] result = new float[w * h * 4];
-    int pbo = glGetInteger(GL_PIXEL_PACK_BUFFER_BINDING);
-    int[] keys = {
-      GL_PACK_ALIGNMENT,
-      GL_PACK_ROW_LENGTH,
-      GL_PACK_SKIP_PIXELS,
-      GL_PACK_SKIP_ROWS,
-      GL_PACK_IMAGE_HEIGHT,
-      GL_PACK_SKIP_IMAGES,
-      GL_PACK_SWAP_BYTES,
-      GL_PACK_LSB_FIRST
-    };
-    int[] old = new int[keys.length];
-    for (int i = 0; i < keys.length; i++) old[i] = glGetInteger(keys[i]);
-    try (var state = new ComputeStateScope()) {
-      glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-      for (int key : keys) glPixelStorei(key, key == GL_PACK_ALIGNMENT ? 1 : 0);
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, texture);
-      if (glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH) != w
-          || glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT) != h)
-        throw new IllegalArgumentException("Readback dimensions do not match the texture");
-      glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-      glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, result);
-    } finally {
-      for (int i = 0; i < keys.length; i++) glPixelStorei(keys[i], old[i]);
-      glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
-    }
-    return result;
-  }
-
-  private void poll() {
+  void poll() {
     for (int i = 0; i < queries.length; i++)
       if (pending[i] && glGetQueryObjecti(queries[i][7], GL_QUERY_RESULT_AVAILABLE) != 0) {
         long[] t = new long[10];
@@ -1336,5 +555,19 @@ public final class SpaceComputeRenderer implements AutoCloseable {
     } finally {
       resources.close();
     }
+  }
+
+  /** Ray-traces bodies and sky for this frame (SurfacePass). */
+  public void surfaces(CompoundTag scene, Vec3 eye, Matrix4f projection) {
+    SurfacePass.surfaces(this, scene, eye, projection);
+  }
+
+  /** Accumulates volumes against the opaque depth (VolumePass). */
+  public void volumes(GpuTexture opaqueDepth) {
+    VolumePass.volumes(this, opaqueDepth);
+  }
+
+  public void volumes(GpuTexture opaqueDepth, Matrix4f depthProjection) {
+    VolumePass.volumes(this, opaqueDepth, depthProjection);
   }
 }
