@@ -5,7 +5,7 @@ import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
@@ -54,8 +54,7 @@ public final class StationRegeneration {
             .map(t -> (CompoundTag) t)
             .filter(s -> ids.contains(s.getStringOr("id", "")))
             .toList();
-    if (stations.size() != ids.size()
-        || stations.stream().anyMatch(s -> !StationService.station(s)))
+    if (stations.size() != ids.size() || stations.stream().anyMatch(s -> !StationAccess.station(s)))
       throw new IllegalArgumentException("A requested station is missing or is a ship");
     var archive = file.resolveSibling("station-regeneration-queued-" + job + ".json");
     if (stations.stream()
@@ -72,10 +71,10 @@ public final class StationRegeneration {
         || !sha(backup).equals(expected))
       throw new IllegalArgumentException(
           "World or backup changed since regeneration was requested; no rebuild was queued");
-    if (TravelService.active(server) || NavigationService.pending(server))
+    if (TransferLocks.active(server) || NavigationService.pending(server))
       throw new IllegalArgumentException("Finish travel before station regeneration");
     for (var s : stations) {
-      if (!StationService.ready(s)
+      if (!StationAccess.ready(s)
           || !s.getListOrEmpty("crew").isEmpty()
           || !s.getCompoundOrEmpty("dockLinks").isEmpty()
           || s.contains("dock"))
@@ -116,8 +115,8 @@ public final class StationRegeneration {
       for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
         if (!level.getBlockState(at).isAir())
           clear.put(at.subtract(base), Blocks.AIR.defaultBlockState());
-      var blocks = StationService.encode(new StationBlueprint.Plan(clear, plan.core(), List.of()));
-      blocks.addAll(StationService.encode(plan));
+      var blocks = StationBuilds.encode(new StationBlueprint.Plan(clear, plan.core(), List.of()));
+      blocks.addAll(StationBuilds.encode(plan));
       for (String key :
           List.of(
               "systems",

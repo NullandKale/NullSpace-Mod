@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.PadAllocation;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import java.nio.file.*;
 import java.util.*;
@@ -76,7 +77,7 @@ public final class PadRegistry {
       var ship = (net.minecraft.nbt.CompoundTag) tag;
       if (!ship.getStringOr("dimension", "").equals(level.dimension().identifier().toString())
           || level.dimension().equals(TravelService.SPACE)) continue;
-      if (TravelService.locked(level, WorldStore.pos(ship, "controller"))) continue;
+      if (TransferLocks.locked(level, WorldStore.pos(ship, "controller"))) continue;
       var pad =
           pads.stream().filter(p -> p.id().equals(ship.getStringOr("homeId", ""))).findFirst();
       if (pad.isEmpty()) continue;

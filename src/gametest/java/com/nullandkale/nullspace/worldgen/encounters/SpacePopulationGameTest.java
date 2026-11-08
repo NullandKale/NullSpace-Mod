@@ -2,12 +2,14 @@ package com.nullandkale.nullspace.worldgen.encounters;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
+import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.station.StationGraph;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -51,11 +53,11 @@ public final class SpacePopulationGameTest {
         () -> {
           var store = WorldStore.get(server);
           var stations = sites.stream().map(s -> store.repository().find(s.id())).toList();
-          if (stations.stream().anyMatch(s -> s != null && !StationService.ready(s)))
+          if (stations.stream().anyMatch(s -> s != null && !StationAccess.ready(s)))
             ctx.assertTrue(
-                !TravelService.active(server),
+                !TransferLocks.active(server),
                 "Background population never installs a global travel/boarding barrier");
-          if (stations.stream().anyMatch(s -> s == null || !StationService.ready(s))) {
+          if (stations.stream().anyMatch(s -> s == null || !StationAccess.ready(s))) {
             ctx.runAfterDelay(5, () -> poll[0].run());
             return;
           }
@@ -64,7 +66,7 @@ public final class SpacePopulationGameTest {
                 station.getBooleanOr("worldGenerated", false),
                 "Entry, not a controller action, created each place");
             ctx.assertTrue(
-                !DockingService.ports(space, station).isEmpty(),
+                !DockingPorts.ports(space, station).isEmpty(),
                 "Every automatically built station or salvage ship has a usable berth");
             ctx.assertTrue(
                 !StationGraph.inspect(space, station).nodes().isEmpty(), "Doors form a room graph");
@@ -73,13 +75,13 @@ public final class SpacePopulationGameTest {
                 "Ambient storage does not consume the next player launch slot");
           }
           ctx.assertTrue(
-              DockingService.destinations(player, source, false).stream()
+              DockingTargets.destinations(player, source, false).stream()
                       .filter(
                           d ->
                               stations.stream()
                                   .anyMatch(s -> s.getStringOr("id", "").equals(d.vessel())))
                       .count()
-                  == stations.stream().mapToInt(s -> DockingService.ports(space, s).size()).sum(),
+                  == stations.stream().mapToInt(s -> DockingPorts.ports(space, s).size()).sum(),
               "Navigation discovers all local berths without generating content");
           var station = stations.getFirst();
           var core = WorldStore.pos(station, "controller");

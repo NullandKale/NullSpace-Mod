@@ -1,10 +1,10 @@
 package com.nullandkale.nullspace.ui.apps;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerApplication;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 import java.util.*;
 
@@ -12,18 +12,18 @@ import java.util.*;
 public final class MyShipsTerminal implements ControllerApplication {
   private final TerminalBuffer buffer = new TerminalBuffer();
   private final ArrayDeque<ControllerTerminal.Action> actions = new ArrayDeque<>();
-  private List<ComputerTerminal.Destination> ships;
+  private List<TerminalPackets.Destination> ships;
   private String status, selected = "";
   private int page, selection, scroll;
   private boolean active, waiting, close;
   private String padName = "this pad";
 
-  public MyShipsTerminal(String status, List<ComputerTerminal.Destination> ships) {
+  public MyShipsTerminal(String status, List<TerminalPackets.Destination> ships) {
     this.status = status;
     catalog(ships);
   }
 
-  public void catalog(List<ComputerTerminal.Destination> next) {
+  public void catalog(List<TerminalPackets.Destination> next) {
     ships = next.stream().filter(d -> !d.id().equals("recall_pad")).toList();
     next.stream()
         .filter(d -> d.id().equals("recall_pad"))
@@ -81,7 +81,7 @@ public final class MyShipsTerminal implements ControllerApplication {
     actions.add(new ControllerTerminal.Action(verb, arg));
   }
 
-  private Optional<ComputerTerminal.Destination> chosen() {
+  private Optional<TerminalPackets.Destination> chosen() {
     return ships.stream().filter(s -> s.id().equals(selected)).findFirst();
   }
 

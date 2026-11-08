@@ -7,7 +7,8 @@ import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
 import com.nullandkale.nullspace.gameplay.scene.SceneCatalog;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.station.StationBuilds;
 import com.nullandkale.nullspace.gameplay.station.StationSpace;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.docking.DockingMotion;
@@ -50,7 +51,7 @@ public final class SpacePopulation {
       }
     }
     resetAbandoned(server, regions);
-    if (StationService.building(server)) return;
+    if (StationAccess.building(server)) return;
     var ledger = WorldStore.get(server).section("spacePopulation");
     // Finish saved regions after their explorer leaves, but queue at most one place at a time.
     for (var address : new TreeSet<>(ledger.keySet())) {
@@ -249,7 +250,7 @@ public final class SpacePopulation {
         metadata.put("roomPieces", pieces);
       }
       var station =
-          StationService.queueAmbient(
+          StationBuilds.queueAmbient(
               server, plan.id(), plan.name(), address, position, blocks, metadata);
       if (station == null) return false; // No clear storage section yet; never throw for this.
       site.putString("state", "placed");

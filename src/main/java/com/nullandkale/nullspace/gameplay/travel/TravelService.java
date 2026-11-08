@@ -7,10 +7,13 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
 import com.nullandkale.nullspace.gameplay.crew.ShipRespawns;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerChecks;
 import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
-import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
+import com.nullandkale.nullspace.gameplay.ownership.CrewRelease;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.scene.SceneCatalog;
@@ -22,7 +25,6 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.LooseBlocks;
 import com.nullandkale.nullspace.gameplay.ship.structure.Occupants;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -50,32 +52,11 @@ public final class TravelService {
   public static final int SPACE_SPACING = 4096;
   private static final String DETACH = "@leave-loose-blocks";
 
-  public static boolean spaceSlotFree(MinecraftServer server, int slot) {
-    if (slot < 0 || slot > 7000) return false;
-    var base = new BlockPos(slot * SPACE_SPACING, 96, 0);
-    var area =
-        new net.minecraft.world.phys.AABB(
-            base.getX() - 128, -32, -128, base.getX() + 160, 256, 160);
-    return pending(server).values().stream()
-            .noneMatch(
-                p ->
-                    p.sourceDimension.equals(SPACE.identifier().toString())
-                            && area.intersects(p.sourceBounds.box().inflate(128))
-                        || p.targetDimension.equals(SPACE.identifier().toString())
-                            && area.intersects(p.targetBounds.box().inflate(128)))
-        && WorldStore.get(server).ships().stream()
-            .map(t -> (CompoundTag) t)
-            .noneMatch(
-                ship ->
-                    ship.getStringOr("dimension", "").equals(SPACE.identifier().toString())
-                        && area.intersects(WorldStore.bounds(ship).box().inflate(128)));
-  }
-
   public static final ResourceKey<Level> SPACE =
       ResourceKey.create(Registries.DIMENSION, Identifier.parse("nullspace:space"));
-  private static final ServerContext.Key<Map<UUID, Pending>> PENDING = new ServerContext.Key<>();
+  static final ServerContext.Key<Map<UUID, Pending>> PENDING = new ServerContext.Key<>();
 
-  private static Map<UUID, Pending> pending(MinecraftServer server) {
+  static Map<UUID, Pending> pending(MinecraftServer server) {
     return ServerContext.get(server).service(PENDING, LinkedHashMap::new);
   }
 
@@ -111,7 +92,7 @@ public final class TravelService {
         advice + "\nBlock: " + ShipMessages.block(level, at) + "\nLocation: " + at.toShortString());
   }
 
-  private static final class Pending {
+  static final class Pending {
     final UUID id = UUID.randomUUID();
     final UUID actor;
     final BlockPos computer;
@@ -153,7 +134,7 @@ public final class TravelService {
     ServerLifecycleEvents.SERVER_STARTED.register(
         server -> {
           WorldStore.get(server);
-          recover(server);
+          TransferRecovery.recover(server);
         });
     ServerLifecycleEvents.SERVER_STOPPED.register(
         server -> {
@@ -169,89 +150,6 @@ public final class TravelService {
             ServerContext.get(server)
                 .service(ARRIVALS, HashSet::new)
                 .add(handler.player.getUUID()));
-  }
-
-  public static boolean locked(ServerLevel level, BlockPos pos) {
-    if (worldMutation()) return false;
-    // Terra Harbor is not a transit area: its shell has its own player protection.
-    return ShipStorage.locked(level, pos)
-        || StationService.buildingAt(level, pos)
-        || NavigationService.locked(level, pos)
-        || physicalAreaBusy(level, new HullScan.Bounds(pos, pos), null);
-  }
-
-  private static boolean physicalAreaBusy(
-      ServerLevel level, HullScan.Bounds bounds, Pending ignored) {
-    String dimension = level.dimension().identifier().toString();
-    return pending(level.getServer()).values().stream()
-        .anyMatch(
-            p ->
-                p != ignored
-                    && (p.sourceDimension.equals(dimension)
-                            && p.sourceBounds.box().intersects(bounds.box())
-                        || p.targetDimension.equals(dimension)
-                            && p.targetBounds.box().intersects(bounds.box())));
-  }
-
-  public static boolean areaBusy(ServerLevel level, HullScan.Bounds bounds) {
-    return areaBusy(level, bounds, null, null);
-  }
-
-  public static boolean areaBusy(ServerLevel level, HullScan.Bounds bounds, UUID recallOwner) {
-    return areaBusy(level, bounds, null, recallOwner);
-  }
-
-  private static boolean areaBusy(
-      ServerLevel level, HullScan.Bounds bounds, Pending ignored, UUID recallOwner) {
-    return physicalAreaBusy(level, bounds, ignored)
-        || ShipStorage.areaBusy(level, bounds, recallOwner)
-        || NavigationService.areaBusy(level, bounds);
-  }
-
-  public static boolean inTransit(MinecraftServer server, CompoundTag ship) {
-    if (ship == null) return false;
-    String id = ship.getStringOr("id", "");
-    return physicalBusy(server, ship)
-        || ShipStorage.active(server, id)
-        || NavigationService.pending(server, id);
-  }
-
-  public static boolean physicalBusy(MinecraftServer server, CompoundTag ship) {
-    if (ship == null) return false;
-    String id = ship.getStringOr("id", ""), dimension = ship.getStringOr("dimension", "");
-    var bounds = WorldStore.bounds(ship);
-    return pending(server).values().stream()
-        .anyMatch(
-            p ->
-                !id.isEmpty() && p.ship.equals(id)
-                    || p.sourceDimension.equals(dimension)
-                        && p.sourceBounds.box().intersects(bounds.box())
-                    || p.targetDimension.equals(dimension)
-                        && p.targetBounds.box().intersects(bounds.box()));
-  }
-
-  public static boolean busy(MinecraftServer server, CompoundTag ship) {
-    return inTransit(server, ship)
-        || ship != null && DockingService.boarding(server, ship.getStringOr("id", ""));
-  }
-
-  public static boolean active(MinecraftServer server) {
-    return ShipStorage.active(server) || physicalTransferActive(server);
-  }
-
-  static boolean physicalTransferActive(MinecraftServer server) {
-    return StationService.exclusiveConstruction(server)
-        || !WorldStore.get(server).list("stationBoarding").isEmpty()
-        || !pending(server).isEmpty();
-  }
-
-  public static boolean physicalBusy(ServerPlayer player) {
-    return pending(player.level().getServer()).values().stream()
-        .anyMatch(p -> p.crew.containsKey(player.getUUID()));
-  }
-
-  public static boolean busy(ServerPlayer player) {
-    return DockingService.busy(player) || NavigationService.busy(player) || physicalBusy(player);
   }
 
   public static void ready(ServerPlayer player, TravelPackets.Ready packet) {
@@ -295,21 +193,21 @@ public final class TravelService {
     if (JourneyService.cruising(inspection.vessel()))
       throw new IllegalArgumentException("Finish the FTL journey before landing");
     if (!player.level().dimension().equals(SPACE) && !ShipSystems.enabled(inspection.vessel()))
-      throw new IllegalArgumentException(ShipControl.NO_SYSTEMS);
+      throw new IllegalArgumentException(ControllerChecks.NO_SYSTEMS);
     if (ShipStorage.active(player))
       throw new IllegalArgumentException("Finish or cancel your recall before travelling");
     if (DockingService.motionLocked(inspection.vessel()))
       throw new IllegalArgumentException(
           "Undock and finish station construction before travel; stations cannot launch or land");
-    if (busy(player) || busy(server, inspection.vessel()))
+    if (TransferLocks.busy(player) || TransferLocks.busy(server, inspection.vessel()))
       throw new IllegalArgumentException("This ship or its crew is already travelling or boarding");
 
     Pending pending = new Pending(player, controller, destination, inspection);
-    if (areaBusy(player.level(), pending.sourceBounds))
+    if (TransferLocks.areaBusy(player.level(), pending.sourceBounds))
       throw new IllegalArgumentException("This ship's area is already reserved for travel");
     if (destination.isBlank() || detaching) {
       int slot = 0;
-      while (slot <= 7000 && !spaceSlotFree(server, slot)) slot++;
+      while (slot <= 7000 && !TransferLocks.spaceSlotFree(server, slot)) slot++;
       if (slot > 7000) throw new IllegalArgumentException("No free physical ship regions remain");
       pending.targetBase = new BlockPos(slot * SPACE_SPACING, 96, 0);
       pending.targetDimension = SPACE.identifier().toString();
@@ -343,7 +241,7 @@ public final class TravelService {
               pending.targetBase,
               pending.targetBase.offset(pad.bounds().width() - 1, 31, pad.bounds().depth() - 1));
       var target = WorldStore.level(server, pad.dimension());
-      if (areaBusy(target, pending.targetBounds))
+      if (TransferLocks.areaBusy(target, pending.targetBounds))
         throw new IllegalArgumentException("This landing pad is already reserved by another ship");
     }
     if (inspection.vessel() != null)
@@ -394,7 +292,7 @@ public final class TravelService {
     if (arrivals != null)
       for (var id : arrivals) {
         var player = server.getPlayerList().getPlayer(id);
-        if (player != null) resolveArrival(player);
+        if (player != null) TransferRecovery.resolveArrival(player);
       }
     for (var job : List.copyOf(pending(server).values())) tick(server, job);
   }
@@ -447,7 +345,7 @@ public final class TravelService {
       } catch (Exception error) {
         NullSpace.LOGGER.error("Ship transfer failed", error);
         try {
-          recover(server);
+          TransferRecovery.recover(server);
         } catch (Exception recovery) {
           throw new IllegalStateException(
               "Transfer recovery failed; server must stop before further world interactions",
@@ -462,7 +360,7 @@ public final class TravelService {
           player.connection.disconnect(
               net.minecraft.network.chat.Component.literal(
                   "Arrival timed out. Reconnect to finish boarding safely."));
-        else if (player != null) clearTarget(player);
+        else if (player != null) TransferRecovery.clearTarget(player);
       }
       finish(server, pending, "Arrived");
     }
@@ -520,7 +418,8 @@ public final class TravelService {
     boolean detaching = current != null && current.destination.equals(DETACH);
     if (detaching && LooseBlocks.approved(source, controller).isEmpty())
       return Result.rejected("Loose blocks changed; review and confirm them again");
-    if (areaBusy(source, inspected.scan().bounds(), current, recall ? actor.getUUID() : null))
+    if (TransferLocks.areaBusy(
+        source, inspected.scan().bounds(), current, recall ? actor.getUUID() : null))
       return Result.rejected("This ship's area is reserved by another travel or recall");
     ComputerService.flush(source.getServer());
     if (inspected.vessel() != null) {
@@ -584,7 +483,7 @@ public final class TravelService {
       if (current != null) targetBase = current.targetBase;
       else {
         int slot = 0;
-        while (slot <= 7000 && !spaceSlotFree(server, slot)) slot++;
+        while (slot <= 7000 && !TransferLocks.spaceSlotFree(server, slot)) slot++;
         if (slot > 7000) return Result.rejected("No free physical ship regions remain");
         targetBase = new BlockPos(slot * SPACE_SPACING, 96, 0);
       }
@@ -592,7 +491,7 @@ public final class TravelService {
     BlockPos delta = targetBase.subtract(sourceBase),
         targetMin = scan.bounds().min().offset(delta),
         targetMax = scan.bounds().max().offset(delta);
-    if (areaBusy(
+    if (TransferLocks.areaBusy(
         target,
         new HullScan.Bounds(targetMin, targetMax),
         current,
@@ -762,8 +661,8 @@ public final class TravelService {
       if (address != null) next.putString("localSpace", address);
     }
     if (target.dimension().equals(SPACE) && !next.contains("simX")) {
-      NavigationService.randomizeArrival(server, next);
-      var arrival = NavigationService.arrivalOrigin(server, next);
+      Jumps.randomizeArrival(server, next);
+      var arrival = Jumps.arrivalOrigin(server, next);
       next.putDouble("simX", arrival.x);
       next.putDouble("simY", arrival.y);
       next.putDouble("simZ", arrival.z);
@@ -774,12 +673,12 @@ public final class TravelService {
       next.putString("home", home.name());
       next.putString("homeId", home.id());
     }
-    ShipStorage.authorize(next, actor);
+    CrewRelease.authorize(next, actor);
     // Recall lands an empty ship on a planet pad; storing moves one into space instead.
     if (recall && !target.dimension().equals(SPACE)) {
       String region = PlanetSurfaces.address(target);
       if (region != null) next.putString("localSpace", region);
-      NavigationService.stop(next);
+      Piloting.stop(next);
       for (String field : List.of("simX", "simY", "simZ")) next.remove(field);
     }
     ListTag members = new ListTag();
@@ -788,7 +687,7 @@ public final class TravelService {
         var member = ((CompoundTag) t).copy();
         UUID uuid = UUID.fromString(member.getStringOr("id", ""));
         if (server.getPlayerList().getPlayer(uuid) == null) {
-          if (leavingPieces) safeOfflineArrival(source, scan, sourceBase, member);
+          if (leavingPieces) TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
           members.add(member);
           WorldStore.target(
               after,
@@ -844,7 +743,7 @@ public final class TravelService {
         member.putDouble("x", position.x - sourceBase.getX());
         member.putDouble("y", position.y - sourceBase.getY());
         member.putDouble("z", position.z - sourceBase.getZ());
-        if (leavingPieces) safeOfflineArrival(source, scan, sourceBase, member);
+        if (leavingPieces) TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
         members.add(member);
         WorldStore.target(
             after,
@@ -876,7 +775,7 @@ public final class TravelService {
     ships.add(next);
     journal.put("players", passengers);
     for (Entity entity : cargo)
-      authority(
+      TransferRecovery.authority(
           after,
           entity.getUUID(),
           target.dimension().identifier().toString(),
@@ -886,7 +785,7 @@ public final class TravelService {
     journal.put("after", after);
     Path file =
         store.directory.resolve("transfers").resolve(journal.getStringOr("id", "") + ".nbt");
-    checkpoint(file, journal, "PREPARED");
+    TransferRecovery.checkpoint(file, journal, "PREPARED");
     // Force close any menus retaining references to source containers. Only real container
     // menus need closing: a terminal screen (for example My ships beside the pad) holds no
     // ship container, and closing it mid-session left players stuck (playtest 2).
@@ -906,14 +805,14 @@ public final class TravelService {
     for (var at : BlockPos.betweenClosed(targetMin, targetMax))
       if (HullScan.cover(target.getBlockState(at)))
         target.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
-    place(target, destinationTemplate, targetMin);
+    TransferRecovery.place(target, destinationTemplate, targetMin);
     var area = net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(min, max);
     target.getBlockTicks().copyAreaFrom(source.getBlockTicks(), area, delta);
     target.getFluidTicks().copyAreaFrom(source.getFluidTicks(), area, delta);
-    checkpoint(file, journal, "DESTINATION_STAGED");
+    TransferRecovery.checkpoint(file, journal, "DESTINATION_STAGED");
     HullScan.clearCover(source, scan.blocks());
     TransferReplay.clear(source, scan.blocks());
-    checkpoint(file, journal, "SOURCE_CLEARED");
+    TransferRecovery.checkpoint(file, journal, "SOURCE_CLEARED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);
     // Leashes held by something that travels too are detached quietly and reattached after.
     var leashes = new LinkedHashMap<UUID, UUID>();
@@ -962,206 +861,12 @@ public final class TravelService {
       if (target.getEntity(leash.getKey()) instanceof Leashable leashed && holder != null)
         leashed.setLeashedTo(holder, true);
     }
-    checkpoint(file, journal, "PASSENGERS_MOVED");
+    TransferRecovery.checkpoint(file, journal, "PASSENGERS_MOVED");
     store.replace(after, ShipRepository.Mutation.TRANSFER);
     store.save();
     server.saveEverything(true, true, true);
-    checkpoint(file, journal, "COMMITTED");
+    TransferRecovery.checkpoint(file, journal, "COMMITTED");
     return new Result(Outcome.COMPLETED, "Arrived");
-  }
-
-  /** A journaled entity and every rider saved inside it. */
-  private static Set<UUID> journaled(CompoundTag entry) {
-    var ids = new HashSet<UUID>();
-    ids.add(UUID.fromString(entry.getStringOr("id", "")));
-    for (Tag rider : entry.getListOrEmpty("riders"))
-      ids.add(UUID.fromString(rider.asString().orElse("")));
-    return ids;
-  }
-
-  private static void checkpoint(Path file, CompoundTag journal, String stage) {
-    journal.putString("stage", stage);
-    WorldStore.write(file, journal);
-    failureInjector.accept(stage);
-  }
-
-  private static void safeOfflineArrival(
-      ServerLevel source, HullScan.Result scan, BlockPos base, CompoundTag member) {
-    var feet =
-        BlockPos.containing(
-            base.getX() + member.getDoubleOr("x", 0),
-            base.getY() + member.getDoubleOr("y", 0),
-            base.getZ() + member.getDoubleOr("z", 0));
-    if (scan.pressure().breathable(feet)
-        && scan.pressure().breathable(feet.above())
-        && scan.blocks().contains(feet.below())
-        && source.getBlockState(feet.below()).isCollisionShapeFullBlock(source, feet.below()))
-      return;
-    // An offline passenger's old room may be in the abandoned component. Reconnect in the
-    // validated cabin, never at an offset that has become empty space in the departing ship.
-    var safe = scan.boarding().subtract(base);
-    member.putDouble("x", safe.getX() + .5);
-    member.putDouble("y", safe.getY());
-    member.putDouble("z", safe.getZ() + .5);
-  }
-
-  public static void place(ServerLevel level, StructureTemplate template, BlockPos min) {
-    TransferReplay.place(level, template, min);
-  }
-
-  public static void clear(ServerLevel level, BlockPos min, BlockPos max) {
-    TransferReplay.clear(level, min, max);
-  }
-
-  public static void recover(MinecraftServer server) {
-    var store = WorldStore.get(server);
-    try (var files = Files.list(store.directory.resolve("transfers"))) {
-      for (Path file : files.filter(p -> p.toString().endsWith(".nbt")).sorted().toList()) {
-        var journal = WorldStore.read(file);
-        if (journal.getIntOr("version", 0) != 1)
-          throw new IllegalStateException("Unsupported transfer journal");
-        if (journal.getStringOr("stage", "").equals("COMMITTED")
-            || journal.getStringOr("stage", "").equals("ROLLED_BACK")) continue;
-        var source = WorldStore.level(server, journal.getStringOr("source", ""));
-        var target = WorldStore.level(server, journal.getStringOr("target", ""));
-        BlockPos min = WorldStore.pos(journal, "min"),
-            max = WorldStore.pos(journal, "max"),
-            delta = WorldStore.pos(journal, "delta");
-        store.replace(
-            journal.getCompoundOrEmpty("before").copy(), ShipRepository.Mutation.RECOVERY);
-        for (Tag tag : journal.getListOrEmpty("entities"))
-          for (UUID moved : journaled((CompoundTag) tag))
-            authorityStore(
-                store,
-                moved,
-                source.dimension().identifier().toString(),
-                target.dimension().identifier().toString(),
-                min.offset(delta),
-                max.offset(delta));
-        clear(target, min.offset(delta), max.offset(delta));
-        var template = new StructureTemplate();
-        template.load(
-            source.registryAccess().lookupOrThrow(Registries.BLOCK),
-            journal.getCompoundOrEmpty("template"));
-        place(source, template, min);
-        for (Tag tag : journal.getListOrEmpty("entities")) {
-          var entry = (CompoundTag) tag;
-          UUID id = UUID.fromString(entry.getStringOr("id", ""));
-          var ids = journaled(entry);
-          for (var old : HullEntities.inBounds(source, new HullScan.Bounds(min, max)))
-            if (ids.contains(old.getUUID())) old.discard();
-          for (var old :
-              HullEntities.inBounds(
-                  target, new HullScan.Bounds(min.offset(delta), max.offset(delta))))
-            if (ids.contains(old.getUUID())) old.discard();
-          var entity =
-              EntityType.loadEntityRecursive(
-                  TagValueInput.create(
-                      ProblemReporter.DISCARDING,
-                      source.registryAccess(),
-                      entry.getCompoundOrEmpty("data")),
-                  source,
-                  EntitySpawnReason.LOAD,
-                  e -> e);
-          if (entity == null) throw new IllegalStateException("Could not restore passenger " + id);
-          source.addFreshEntityWithPassengers(entity);
-          if (entity.isRemoved() || source.getEntity(entity.getUUID()) != entity)
-            throw new IllegalStateException("Could not establish authoritative passenger " + id);
-        }
-        for (Tag tag : journal.getListOrEmpty("players")) {
-          var p = (CompoundTag) tag;
-          targetStore(
-              store,
-              UUID.fromString(p.getStringOr("id", "")),
-              source.dimension().identifier().toString(),
-              p.getDoubleOr("x", 0),
-              p.getDoubleOr("y", 0),
-              p.getDoubleOr("z", 0),
-              p.getFloatOr("yaw", 0),
-              p.getFloatOr("pitch", 0));
-        }
-        store.save();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) resolveArrival(player);
-        server.saveEverything(true, true, true);
-        journal.putString("stage", "ROLLED_BACK");
-        WorldStore.write(file, journal);
-      }
-    } catch (java.io.IOException error) {
-      throw new IllegalStateException("Cannot recover transfer journal", error);
-    }
-  }
-
-  public static void resolveArrival(ServerPlayer player) {
-    var store = WorldStore.get(player.level().getServer());
-    for (Tag item : store.list("targets")) {
-      var target = (CompoundTag) item;
-      if (!target.getStringOr("id", "").equals(player.getUUID().toString())) continue;
-      var level = WorldStore.level(player.level().getServer(), target.getStringOr("dimension", ""));
-      player.teleport(
-          new TeleportTransition(
-              level,
-              new Vec3(
-                  target.getDoubleOr("x", 0),
-                  target.getDoubleOr("y", 0),
-                  target.getDoubleOr("z", 0)),
-              Vec3.ZERO,
-              target.getFloatOr("yaw", 0),
-              target.getFloatOr("pitch", 0),
-              TeleportTransition.PLACE_PORTAL_TICKET));
-      clearTarget(player);
-      break;
-    }
-  }
-
-  private static void clearTarget(ServerPlayer player) {
-    var store = WorldStore.get(player.level().getServer());
-    store
-        .list("targets")
-        .removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
-    store.save();
-  }
-
-  private static void targetStore(
-      WorldStore store,
-      UUID id,
-      String dimension,
-      double x,
-      double y,
-      double z,
-      float yaw,
-      float pitch) {
-    var targets = store.list("targets");
-    targets.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(id.toString()));
-    var target = new CompoundTag();
-    target.putString("id", id.toString());
-    target.putString("dimension", dimension);
-    target.putDouble("x", x);
-    target.putDouble("y", y);
-    target.putDouble("z", z);
-    target.putFloat("yaw", yaw);
-    target.putFloat("pitch", pitch);
-    targets.add(target);
-  }
-
-  private static void authorityStore(
-      WorldStore store, UUID id, String dimension, String obsolete, BlockPos min, BlockPos max) {
-    var root = new CompoundTag();
-    root.put("entityAuthority", store.list("entityAuthority"));
-    authority(root, id, dimension, obsolete, min, max);
-  }
-
-  private static void authority(
-      CompoundTag root, UUID id, String dimension, String obsolete, BlockPos min, BlockPos max) {
-    if (!root.contains("entityAuthority")) root.put("entityAuthority", new ListTag());
-    var list = root.getListOrEmpty("entityAuthority");
-    list.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(id.toString()));
-    var tag = new CompoundTag();
-    tag.putString("id", id.toString());
-    tag.putString("dimension", dimension);
-    tag.putString("obsoleteDimension", obsolete);
-    tag.putLong("min", min.asLong());
-    tag.putLong("max", max.asLong());
-    list.add(tag);
   }
 
   private TravelService() {}

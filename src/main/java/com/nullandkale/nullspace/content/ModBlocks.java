@@ -7,7 +7,7 @@ import com.nullandkale.nullspace.gameplay.crew.LifeSupport;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
 import com.nullandkale.nullspace.gameplay.station.StationService;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.EquipmentPanel;
 import com.nullandkale.nullspace.ui.menu.EquipmentMenus;
 import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
@@ -246,7 +246,7 @@ public final class ModBlocks {
       if (state.is(LOCAL_SCANNER)) {
         if (player instanceof ServerPlayer sp) {
           try {
-            ShipSystems.use(sp, pos);
+            EquipmentPanel.use(sp, pos);
           } catch (IllegalArgumentException blocked) {
             sp.sendSystemMessage(Component.literal(blocked.getMessage()));
           }
@@ -274,7 +274,7 @@ public final class ModBlocks {
         ShipService.open(serverPlayer, pos, "Ready for inspection");
       else if (player instanceof ServerPlayer serverPlayer) {
         try {
-          ShipSystems.use(serverPlayer, pos);
+          EquipmentPanel.use(serverPlayer, pos);
         } catch (IllegalArgumentException error) {
           serverPlayer.sendSystemMessage(
               net.minecraft.network.chat.Component.literal(error.getMessage()));

@@ -1,6 +1,8 @@
 package com.nullandkale.nullspace.gameplay.systems;
 
+import static com.nullandkale.nullspace.gameplay.systems.ShipAir.*;
 import static com.nullandkale.nullspace.gameplay.systems.ShipSystems.*;
+import static com.nullandkale.nullspace.gameplay.systems.SystemsConsole.*;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.model.engineering.EngineeringCommands;

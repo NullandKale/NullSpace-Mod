@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.dev.SphereLab;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.model.space.PlanetSky;
@@ -223,8 +224,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
             .runOnServer(
                 server -> {
                   var p = world.getConnection().getServerPlayer();
-                  NavigationService.navigation(
-                      p, WorldStore.pos(SceneService.observer(p), "controller"));
+                  Piloting.navigation(p, WorldStore.pos(SceneService.observer(p), "controller"));
                 });
         c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
         c.waitTicks(12);
@@ -316,7 +316,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                 server -> {
                   var ship = SceneService.observer(world.getConnection().getServerPlayer());
                   if (!JourneyService.cruising(ship)
-                      || TravelService.busy(world.getConnection().getServerPlayer()))
+                      || TransferLocks.busy(world.getConnection().getServerPlayer()))
                     throw new AssertionError(
                         "FTL cruise must release the loading screen and block interaction lock");
                   // Shorten only this fixture; production journeys retain their saved duration.
@@ -341,7 +341,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest {
                 server -> {
                   var p = world.getConnection().getServerPlayer();
                   if (!destination.equals(LocalSpaces.address(SceneService.observer(p)))
-                      || TravelService.busy(p))
+                      || TransferLocks.busy(p))
                     throw new AssertionError(
                         "Destination metadata and readiness must commit together");
                   if (!ShipDestination.selected(SceneService.observer(p))

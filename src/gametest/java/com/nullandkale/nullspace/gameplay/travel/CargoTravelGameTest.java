@@ -94,7 +94,7 @@ public final class CargoTravelGameTest {
     level.scheduleTick(repeater, Blocks.REPEATER, 400);
 
     int slot = 0;
-    while (!TravelService.spaceSlotFree(server, slot)) slot++;
+    while (!TransferLocks.spaceSlotFree(server, slot)) slot++;
     server
         .getLevel(TravelService.SPACE)
         .setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);

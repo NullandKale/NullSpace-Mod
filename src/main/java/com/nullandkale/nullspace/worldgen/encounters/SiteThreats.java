@@ -6,7 +6,7 @@ import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import java.util.*;
@@ -77,7 +77,7 @@ public final class SiteThreats {
       if (!ship.getBooleanOr("salvage", false)
           || ship.getBooleanOr("threatsPlaced", false)
           || !ship.getStringOr("owner", "").isEmpty()
-          || !StationService.ready(ship)
+          || !StationAccess.ready(ship)
           || !occupied.contains(LocalSpaces.address(ship))) continue;
       populate(level, ship);
     }

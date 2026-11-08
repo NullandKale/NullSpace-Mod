@@ -1,6 +1,6 @@
 package com.nullandkale.nullspace.gameplay.ship.structure;
 
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import net.minecraft.core.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -44,7 +44,7 @@ public final class ShipDoors {
   }
 
   public static boolean sealed(ServerLevel level, BlockPos at) {
-    if (DockingService.sealedMate(level, at)) return true;
+    if (DockingPorts.sealedMate(level, at)) return true;
     var s = level.getBlockState(at);
     return s.getBlock() instanceof TrapDoorBlock
         ? framedHatch(level, at) && !open(s) && s.getFluidState().isEmpty()

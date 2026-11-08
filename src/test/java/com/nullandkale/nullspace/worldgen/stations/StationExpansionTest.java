@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.nullandkale.nullspace.gameplay.crew.LifeSupport;
 import com.nullandkale.nullspace.ui.apps.StationCoreTerminal;
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.*;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ class StationExpansionTest {
     var terminal =
         new StationCoreTerminal(
             "Station",
-            List.of(new ComputerTerminal.Destination("station_area", "4", "STATION_AREA")));
+            List.of(new TerminalPackets.Destination("station_area", "4", "STATION_AREA")));
     terminal.input(new TerminalInput.Pointer(25, 4));
     terminal.input(new TerminalInput.Pointer(4, 12));
     assertEquals(

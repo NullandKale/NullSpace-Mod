@@ -3,16 +3,21 @@ package com.nullandkale.nullspace.gameplay.navigation;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.docking.DockingManeuver;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationSpace;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSensors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import java.util.*;
@@ -43,7 +48,7 @@ public final class CourseService {
         && ship.getCompoundOrEmpty("dock").getStringOr("target", "").equals(target.reference())) {
       var partner =
           WorldStore.get(player.level().getServer()).repository().find(target.reference());
-      if (partner != null && StationService.allowed(player, partner))
+      if (partner != null && StationAccess.allowed(player, partner))
         return new ShipDestination(
             target.kind(),
             target.reference(),
@@ -65,8 +70,8 @@ public final class CourseService {
       return resolve(player, ship, saved);
     var vessel = WorldStore.get(player.level().getServer()).repository().find(saved.reference());
     if (vessel == null
-        || !StationService.allowed(player, vessel)
-        || !StationService.ready(vessel)
+        || !StationAccess.allowed(player, vessel)
+        || !StationAccess.ready(vessel)
         || !vessel.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString()))
       return null;
     return new ShipDestination(
@@ -166,10 +171,10 @@ public final class CourseService {
             && previousTarget != null
             && atDock(ship, previousTarget);
     if (active(ship) && !completedDock) return "Course already engaged";
-    if (StationService.station(ship)) return "Stations are anchored";
+    if (StationAccess.station(ship)) return "Stations are anchored";
     if (target == null) return "Choose a destination";
     if (ShipStorage.active(player)
-        || TravelService.busy(player.level().getServer(), ship)
+        || TransferLocks.busy(player.level().getServer(), ship)
         || NavigationService.pending(player.level().getServer(), ship.getStringOr("id", "")))
       return "Finish the current transfer first";
     if (atPad(ship, target) || atDock(ship, target)) return "Already at this destination";
@@ -213,7 +218,7 @@ public final class CourseService {
     target = resolve(player, ship, target);
     String blocked = reason(player, ship, target);
     if (!blocked.isEmpty()) return blocked;
-    var stuck = ShipSystems.closeDoorsNow(player.level(), ship);
+    var stuck = SystemsConsole.closeDoorsNow(player.level(), ship);
     if (!stuck.isEmpty())
       return "Engage stopped: the door at "
           + stuck.getFirst().toShortString()
@@ -292,7 +297,7 @@ public final class CourseService {
 
   private static void step(MinecraftServer server, CompoundTag ship) {
     var course = ship.getCompoundOrEmpty(KEY);
-    if (TravelService.busy(server, ship)
+    if (TransferLocks.busy(server, ship)
         || NavigationService.pending(server, ship.getStringOr("id", ""))) return;
     var player = server.getPlayerList().getPlayer(UUID.fromString(course.getStringOr("actor", "")));
     if (player == null || !SceneObserver.aboard(player, ship)) {
@@ -380,8 +385,8 @@ public final class CourseService {
               WorldStore.pos(ship, "controller"),
               action.equals("LAUNCH") ? "" : "id:" + target.reference(),
               ShipService.preflight(player.level(), WorldStore.pos(ship, "controller")));
-      case "JUMP" -> NavigationService.courseJump(player, ship, target.region());
-      case "RESUME" -> NavigationService.courseResume(player, ship);
+      case "JUMP" -> Jumps.courseJump(player, ship, target.region());
+      case "RESUME" -> Jumps.courseResume(player, ship);
       case "DOCK" -> {
         // Discovery deliberately avoids loading remote terrain. At the chosen destination we must
         // load its real ports before allocating a berth, just as request() does for an exact port.
@@ -391,7 +396,7 @@ public final class CourseService {
           ShipSystems.loaded(player.level(), vessel);
         }
         var berth =
-            DockingService.destinations(player, ship, true).stream()
+            DockingTargets.destinations(player, ship, true).stream()
                 .filter(
                     p ->
                         p.vessel().equals(target.reference())
@@ -400,8 +405,8 @@ public final class CourseService {
                             && !p.state().equalsIgnoreCase("Occupied"))
                 .findFirst();
         if (berth.isEmpty()) {
-          if (vessel != null && DockingService.ports(player.level(), vessel).isEmpty())
-            DockingService.firstPort(player.level(), vessel); // Report the actual damaged doorway.
+          if (vessel != null && DockingPorts.ports(player.level(), vessel).isEmpty())
+            DockingPorts.firstPort(player.level(), vessel); // Report the actual damaged doorway.
           NullSpace.LOGGER.info(
               "Course berth unavailable: target={} region={} phase={} ports={} registered={}",
               target.reference(),
@@ -409,7 +414,7 @@ public final class CourseService {
               vessel == null
                   ? "missing"
                   : vessel.getCompoundOrEmpty("dock").getStringOr("state", ""),
-              vessel == null ? 0 : DockingService.ports(player.level(), vessel).size(),
+              vessel == null ? 0 : DockingPorts.ports(player.level(), vessel).size(),
               vessel == null
                   ? 0
                   : vessel.getCompoundOrEmpty("systems").getListOrEmpty("devices").size());
@@ -422,7 +427,7 @@ public final class CourseService {
                   + ". Holding safely; Engage when a berth is available.");
           return;
         }
-        var result = DockingService.request(player, ship, target.reference(), berth.get().port());
+        var result = DockingManeuver.request(player, ship, target.reference(), berth.get().port());
         if (!result.ready()) finish(server, ship, "PAUSED", result.message());
       }
     }

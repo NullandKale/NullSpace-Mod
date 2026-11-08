@@ -3,7 +3,10 @@ package com.nullandkale.nullspace.gameplay.computer;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.ScriptLanguage;
@@ -179,7 +182,7 @@ public final class ComputerIntegrationGameTest {
     ship.putInt("depth", 8);
     var store = WorldStore.get(server);
     store.ships().add(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     var player = ctx.makeMockServerPlayerInLevel();
     try {
       player.teleportTo(terminal.getX() + .5, terminal.getY(), terminal.getZ() + .5);
@@ -201,7 +204,7 @@ public final class ComputerIntegrationGameTest {
       ComputerService.input(
           player, new ComputerService.Input(oldSession, "echo after > log\r", false));
       ComputerService.flush(server);
-      ShipSystems.automation(level, ship, terminal, "doors all open");
+      SystemsConsole.automation(level, ship, terminal, "doors all open");
       battery.putInt("energy", 1);
       store.replace(checkpoint, ShipRepository.Mutation.RECOVERY);
       var recovered = store.repository().find(id);
@@ -209,7 +212,7 @@ public final class ComputerIntegrationGameTest {
           recovered != ship && ComputerService.session(player).equals(new UUID(0, 0)),
           "Actual root recovery revokes old computer sessions");
       ShipSystems.connected(level, recovered);
-      ShipSystems.pressure(level, recovered, 4, 2, 3);
+      ShipAir.pressure(level, recovered, 4, 2, 3);
       ShipSystems.power(level, recovered, PowerBus.System.CONTROLS);
       ctx.assertTrue(
           expected.equals(recovered.getCompoundOrEmpty("systems")),
@@ -275,7 +278,7 @@ public final class ComputerIntegrationGameTest {
         level.setChunkForced(x, z, true);
     ship.put("computers", map);
     WorldStore.get(server).ships().add(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ComputerService.replaced(server, ShipRepository.Mutation.RECOVERY);
     int[] maxima = new int[2];
     ctx.onEachTick(
@@ -363,7 +366,7 @@ public final class ComputerIntegrationGameTest {
               level.getChunk(x, z);
               level.setChunkForced(x, z, true);
             }
-          ShipSystems.upgrade(level, live);
+          SystemsUpgrade.upgrade(level, live);
           ctx.runAfterDelay(
               36,
               () -> {

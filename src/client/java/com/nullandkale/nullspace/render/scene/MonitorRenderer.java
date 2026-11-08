@@ -8,7 +8,7 @@ import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.renderpearl.api.pipeline.*;
 import com.mojang.renderpearl.api.textures.*;
 import com.nullandkale.nullspace.content.ModBlocks;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import java.util.*;
 import net.minecraft.client.Minecraft;
@@ -42,7 +42,7 @@ public final class MonitorRenderer {
       SceneViewport viewport, StagedVertexBuffer vertices, StagedVertexBuffer.Draw draw) {}
 
   private static int captureCursor, lastCaptures;
-  private static SceneService.Frame frame;
+  private static ScenePackets.Frame frame;
   private static long received;
   private static int lastCount;
   private static GpuBuffer matrix;
@@ -50,11 +50,11 @@ public final class MonitorRenderer {
   private static final List<StagedVertexBuffer> MESHES = new ArrayList<>();
   private static final List<Display> PREPARED = new ArrayList<>();
   private static final List<CompoundTag> SCENES = new ArrayList<>();
-  private static SceneService.Frame sceneFrame;
+  private static ScenePackets.Frame sceneFrame;
 
   public static void initialize() {}
 
-  public static void update(SceneService.Frame next) {
+  public static void update(ScenePackets.Frame next) {
     if (frame == null
         || !frame.lease().equals(next.lease())
         || next.revision() >= frame.revision()) {

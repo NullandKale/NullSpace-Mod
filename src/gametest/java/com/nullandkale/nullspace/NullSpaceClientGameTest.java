@@ -7,13 +7,14 @@ import com.nullandkale.nullspace.dev.ShipLab;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.StreamTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -74,7 +75,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
           client -> {
             var terminal =
                 new TerminalScreen(
-                    new ComputerTerminal.Open(new net.minecraft.core.BlockPos(0, 0, 0), ""));
+                    new TerminalPackets.Open(new net.minecraft.core.BlockPos(0, 0, 0), ""));
             client.gui.setScreen(terminal);
 
             var bytes = new java.util.ArrayList<String>();
@@ -100,7 +101,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
             client.gui.setScreen(terminal);
             var emptyShip =
                 new TerminalScreen(
-                    new ComputerTerminal.Open(
+                    new TerminalPackets.Open(
                         new net.minecraft.core.BlockPos(0, 0, 0), "", "ship", ""));
             client.gui.setScreen(emptyShip);
             click(emptyShip, 10, 15);
@@ -252,7 +253,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest {
                 var player = singleplayer.getConnection().getServerPlayer();
                 var vessel = WorldStore.get(server).at(player.level(), player.blockPosition());
                 var computer = WorldStore.pos(vessel, "controller");
-                if (!TravelService.busy(player))
+                if (!TransferLocks.busy(player))
                   throw new AssertionError("Client must still be loading for quarantine check");
                 if (player
                     .level()

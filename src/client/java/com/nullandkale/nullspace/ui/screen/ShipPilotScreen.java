@@ -3,8 +3,8 @@ package com.nullandkale.nullspace.ui.screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.textures.*;
-import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.model.flight.FlightDynamics;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
@@ -18,13 +18,13 @@ import net.minecraft.network.chat.Component;
 /** Third-person render of the real ship snapshot; all movement remains server authoritative. */
 public final class ShipPilotScreen extends Screen implements SceneScreen {
   private final TerminalScreen parent;
-  private SceneService.Frame frame;
+  private ScenePackets.Frame frame;
   private SceneViewport viewport;
   private int pulse, buttons, sequence, ticks, lastUpdate;
   private double orbit, elevation = 18, distance = 70;
   private boolean focused, help;
 
-  public ShipPilotScreen(SceneService.Frame frame) {
+  public ShipPilotScreen(ScenePackets.Frame frame) {
     super(Component.literal("Ship controls"));
     parent =
         net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof TerminalScreen t
@@ -39,7 +39,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
     return frame.lease().equals(id);
   }
 
-  public void update(SceneService.Frame next) {
+  public void update(ScenePackets.Frame next) {
     if (owns(next.lease()) && next.revision() > frame.revision()) {
       frame = next;
       lastUpdate = ticks;
@@ -120,8 +120,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
     }
     focused = active;
     ClientPlayNetworking.send(
-        new NavigationService.Input(
-            frame.lease(), sequence++, canPilot() ? buttons | pulse : 0, false));
+        new Piloting.Input(frame.lease(), sequence++, canPilot() ? buttons | pulse : 0, false));
     buttons &= ~FlightDynamics.FIRE;
     pulse = 0;
   }
@@ -135,7 +134,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen {
   @Override
   public void removed() {
     if (minecraft.getConnection() != null)
-      ClientPlayNetworking.send(new NavigationService.Input(frame.lease(), sequence++, 0, true));
+      ClientPlayNetworking.send(new Piloting.Input(frame.lease(), sequence++, 0, true));
     if (viewport != null) {
       viewport.close();
       viewport = null;

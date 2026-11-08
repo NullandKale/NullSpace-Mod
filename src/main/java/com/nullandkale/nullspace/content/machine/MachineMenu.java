@@ -4,18 +4,24 @@ import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.navigation.CourseService;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
+import com.nullandkale.nullspace.gameplay.scene.ScenePanels;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipDiagnostics;
 import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.systems.EquipmentPanel;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.MonitorWall;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSensors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -132,9 +138,9 @@ public final class MachineMenu extends AbstractContainerMenu {
         && p.level().getBlockEntity(at) == machine
         && (!(p instanceof ServerPlayer sp)
             || sp.mayInteract(sp.level(), at)
-                && StationService.mayUse(sp, at)
-                && !TravelService.busy(sp)
-                && !TravelService.locked(sp.level(), at));
+                && StationAccess.mayUse(sp, at)
+                && !TransferLocks.busy(sp)
+                && !TransferLocks.locked(sp.level(), at));
   }
 
   @Override
@@ -194,13 +200,13 @@ public final class MachineMenu extends AbstractContainerMenu {
     data.putInt("rate", 4 * (1 + entity.tier()));
     data.putInt("burn", entity.burn());
     data.putBoolean("enabled", ship == null || ShipSystems.active(ship, at));
-    data.putBoolean("canConfigure", ship == null || StationService.builder(p, ship));
-    data.putInt("allocation", ShipSystems.requestedAllocation(p.level(), at));
+    data.putBoolean("canConfigure", ship == null || StationAccess.builder(p, ship));
+    data.putInt("allocation", EquipmentPanel.requestedAllocation(p.level(), at));
     data.putString(
         "status",
         ship == null
             ? "Connect this block to a ship controller on a registered pad"
-            : ShipSystems.equipmentStatus(p.level(), at));
+            : EquipmentPanel.equipmentStatus(p.level(), at));
     if (ship != null) {
       data.putInt("fuel", FuelSystem.available(p.level(), ship));
       data.putString(
@@ -262,15 +268,14 @@ public final class MachineMenu extends AbstractContainerMenu {
       }
       if (block.is(ModBlocks.AIR_SUPPLY)) {
         var outlet = at.relative(block.getValue(HorizontalDirectionalBlock.FACING));
-        var room = ShipSystems.roomAt(p.level(), ship, outlet);
+        var room = ShipAir.roomAt(p.level(), ship, outlet);
         int oxygen = room == null ? 0 : Math.clamp(room.oxygenPercent(), 0, 100);
         data.putInt("oxygen", oxygen);
         data.putInt("roomCells", room == null ? 0 : room.volume());
         data.putInt(
-            "roomFloors",
-            room == null ? 0 : ShipSystems.roomFloors(p.level(), ship, room.number()));
+            "roomFloors", room == null ? 0 : ShipAir.roomFloors(p.level(), ship, room.number()));
         data.putInt("leaks", room == null ? 0 : room.leaks());
-        var supply = ShipSystems.airSupplyReading(p.level(), ship, at);
+        var supply = ShipAir.airSupplyReading(p.level(), ship, at);
         data.putInt("supplyOutput", supply[0]);
         data.putInt("leakCovered", supply[1]);
         data.putBoolean("breathable", oxygen >= Atmosphere.BREATHABLE * 100 / Atmosphere.FULL);
@@ -362,10 +367,10 @@ public final class MachineMenu extends AbstractContainerMenu {
           data.putString("status", "No camera power: load generator or allocate power at a camera");
       }
       if (entity.getBlockState().is(ModBlocks.DOCKING_BASE)) {
-        var panel = DockingService.panel(p.level().getServer(), ship, at);
+        var panel = DockingTargets.panel(p.level().getServer(), ship, at);
         for (var key : panel.keySet()) data.put(key, panel.get(key));
         try {
-          data.putString("status", DockingService.status(p, ship, at));
+          data.putString("status", DockingTargets.status(p, ship, at));
         } catch (IllegalArgumentException problem) {
           data.putString("status", problem.getMessage());
         }
@@ -416,7 +421,7 @@ public final class MachineMenu extends AbstractContainerMenu {
           case 8 -> block.is(ModBlocks.LOCAL_SCANNER);
           case 10, 11, 12, 13 -> block.is(ModBlocks.DOCKING_BASE);
           case 14 -> block.is(ModBlocks.GENERATOR) || block.is(ModBlocks.BATTERY);
-          case 15 -> ShipSystems.requestedAllocation(p.level(), at) >= 0;
+          case 15 -> EquipmentPanel.requestedAllocation(p.level(), at) >= 0;
           default -> false;
         };
     if (!allowed) {
@@ -427,7 +432,7 @@ public final class MachineMenu extends AbstractContainerMenu {
     notice = "";
     var ship = WorldStore.get(p.level().getServer()).at(p.level(), at);
     if (ship != null
-        && !StationService.builder(p, ship)
+        && !StationAccess.builder(p, ship)
         && (action == 0 || action == 2 || action == 14 || action == 15)) {
       notice = "Only a station builder can change this device";
       reply(p);
@@ -447,17 +452,17 @@ public final class MachineMenu extends AbstractContainerMenu {
         case 15 -> {
           if (!value.equals("-1") && !value.equals("1")) notice = "Choose power from 0 to 8";
           else
-            ShipSystems.allocatePower(
+            EquipmentPanel.allocatePower(
                 p,
                 at,
                 Math.clamp(
-                    ShipSystems.requestedAllocation(p.level(), at) + Integer.parseInt(value),
+                    EquipmentPanel.requestedAllocation(p.level(), at) + Integer.parseInt(value),
                     0,
                     8));
         }
         case 1 -> {
           if (entity.getBlockState().is(ModBlocks.DOCKING_BASE)) StationService.open(p, at, "");
-          else ShipSystems.openEquipment(p, at);
+          else EquipmentPanel.openEquipment(p, at);
           return;
         }
         case 2 -> {
@@ -508,7 +513,7 @@ public final class MachineMenu extends AbstractContainerMenu {
         }
         case 6 -> {
           p.closeContainer();
-          SceneService.machineView(p, at);
+          ScenePanels.machineView(p, at);
           return;
         }
         case 7 -> {
@@ -543,7 +548,7 @@ public final class MachineMenu extends AbstractContainerMenu {
         case 14 -> {
           if (ship == null) notice = "Connect this generator or battery to the ship first";
           else {
-            ShipSystems.restartSupply(p, at);
+            EquipmentPanel.restartSupply(p, at);
             notice = "Ship supply and controls restarted; fuel and charge preserved";
           }
         }

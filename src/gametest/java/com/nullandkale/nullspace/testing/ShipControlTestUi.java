@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
@@ -308,7 +309,7 @@ public final class ShipControlTestUi {
                                     && level.getBlockState(at.south()).isAir()
                                     && level.getBlockState(at.south().above()).isAir()
                                     && level.getBlockState(at.south().below()).isSolidRender()
-                                    && ShipSystems.breathable(level, ship, at.south().above()))
+                                    && ShipAir.breathable(level, ship, at.south().above()))
                         .sorted(
                             java.util.Comparator.comparingLong(net.minecraft.core.BlockPos::asLong))
                         .findFirst()

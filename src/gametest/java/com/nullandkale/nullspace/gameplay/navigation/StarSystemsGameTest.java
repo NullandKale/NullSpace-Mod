@@ -44,7 +44,7 @@ public final class StarSystemsGameTest {
       ctx.assertTrue(
           LocalSpaces.label(server, own).contains(place.name()), "Labels use this world's chart");
       ctx.assertTrue(LocalSpaces.known(zone), "Saved selections accept the zone id: " + zone);
-      var arrival = NavigationService.arrivalOrigin(server, own);
+      var arrival = Jumps.arrivalOrigin(server, own);
       var definition = SpaceDefinitionCodec.decode(scene);
       for (var body : definition.bodies())
         ctx.assertTrue(

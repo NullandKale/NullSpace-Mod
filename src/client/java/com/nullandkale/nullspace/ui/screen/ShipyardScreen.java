@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.ui.screen;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -11,7 +12,7 @@ import net.minecraft.network.chat.Component;
 
 /** Select a design, inspect its specification/footprint and deliver it on the same screen. */
 public final class ShipyardScreen extends Screen {
-  private ComputerTerminal.Open state;
+  private TerminalPackets.Open state;
   private String selected;
   private String notice = "";
   private int readiness;
@@ -23,7 +24,7 @@ public final class ShipyardScreen extends Screen {
           net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>
       plan = java.util.Map.of();
 
-  public ShipyardScreen(ComputerTerminal.Open state) {
+  public ShipyardScreen(TerminalPackets.Open state) {
     super(Component.literal("Ship Beacon"));
     this.state = state;
     selected = state.value();
@@ -32,7 +33,7 @@ public final class ShipyardScreen extends Screen {
     update(state);
   }
 
-  public void update(ComputerTerminal.Open state) {
+  public void update(TerminalPackets.Open state) {
     this.state = state;
     pending = false;
     notice =
@@ -56,10 +57,10 @@ public final class ShipyardScreen extends Screen {
     }
   }
 
-  public void update(ComputerTerminal.Update next) {
+  public void update(TerminalPackets.Update next) {
     if (!state.session().equals(next.session())) return;
     state =
-        new ComputerTerminal.Open(
+        new TerminalPackets.Open(
             state.position(),
             (notice.isEmpty() ? "" : notice + "\n") + next.message(),
             state.mode(),
@@ -70,12 +71,12 @@ public final class ShipyardScreen extends Screen {
     updateButton();
   }
 
-  public void rejected(ComputerTerminal.Rejected next) {
+  public void rejected(TerminalPackets.Rejected next) {
     if (!state.session().equals(next.session())) return;
     pending = false;
     notice = next.reason();
     state =
-        new ComputerTerminal.Open(
+        new TerminalPackets.Open(
             state.position(),
             next.reason(),
             state.mode(),
@@ -104,7 +105,7 @@ public final class ShipyardScreen extends Screen {
     if (pending) return;
     pending = true;
     updateButton();
-    ClientPlayNetworking.send(new ComputerTerminal.Request(state.session(), action, selected, ""));
+    ClientPlayNetworking.send(new TerminalPackets.Request(state.session(), action, selected, ""));
   }
 
   @Override
@@ -162,7 +163,7 @@ public final class ShipyardScreen extends Screen {
   @Override
   public void removed() {
     if (minecraft.getConnection() != null)
-      ClientPlayNetworking.send(new ComputerTerminal.Close(state.session()));
+      ClientPlayNetworking.send(new TerminalPackets.Close(state.session()));
   }
 
   @Override

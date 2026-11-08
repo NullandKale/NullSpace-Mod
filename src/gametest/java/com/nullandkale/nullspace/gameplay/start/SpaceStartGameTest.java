@@ -2,10 +2,11 @@ package com.nullandkale.nullspace.gameplay.start;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.crew.LifeSupport;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -92,13 +93,12 @@ public final class SpaceStartGameTest {
     ctx.assertTrue(ship.getStringOr("blueprint", "").equals("sparrow"), "Selected ship was built");
     ctx.assertTrue(
         ShipSystems.enabled(ship)
-            && ShipSystems.breathable(player.level(), ship, player.blockPosition().above()),
+            && ShipAir.breathable(player.level(), ship, player.blockPosition().above()),
         "New cabin has functioning finite air");
     ctx.assertTrue(
         FuelSystem.available(player.level(), ship) > 0, "Generator contains real burnable fuel");
     ctx.assertTrue(
-        !DockingService.ports(player.level(), ship).isEmpty(),
-        "Ship has a usable normal-door dock");
+        !DockingPorts.ports(player.level(), ship).isEmpty(), "Ship has a usable normal-door dock");
     ctx.assertTrue(LifeSupport.suited(player), "Player has a complete suit");
     ctx.assertTrue(player.getInventory().hasAnyOf(Set.of(Items.BREAD)), "Player has food");
     var planet = LocalSpaces.get(server, LocalSpaces.address(ship));
@@ -152,8 +152,8 @@ public final class SpaceStartGameTest {
             && b.getStringOr("blueprint", "").equals("halcyon_swift"),
         "Multi-deck and manufacturer ship choices work");
     ctx.assertTrue(
-        ShipSystems.breathable(first.level(), a, first.blockPosition().above())
-            && ShipSystems.breathable(second.level(), b, second.blockPosition().above()),
+        ShipAir.breathable(first.level(), a, first.blockPosition().above())
+            && ShipAir.breathable(second.level(), b, second.blockPosition().above()),
         "Both starting cabins are breathable");
     var planets = new HashSet<String>();
     for (int i = 0; i < 64; i++)

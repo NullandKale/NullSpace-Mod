@@ -27,7 +27,7 @@ public final class DockingTunnel {
     };
   }
 
-  private static CompoundTag plan(ServerLevel level, DockingService.Port port, int length) {
+  private static CompoundTag plan(ServerLevel level, DockingPorts.Port port, int length) {
     var result = new CompoundTag();
     result.putString("id", UUID.randomUUID().toString());
     var blocks = new ListTag();
@@ -52,8 +52,8 @@ public final class DockingTunnel {
   public static void ensure(
       MinecraftServer server,
       CompoundTag dock,
-      DockingService.Port source,
-      DockingService.Port target) {
+      DockingPorts.Port source,
+      DockingPorts.Port target) {
     if (dock.getBooleanOr("construction", false)
         || target == null
         || !source.inner().equals(source.outer())
@@ -100,7 +100,7 @@ public final class DockingTunnel {
   }
 
   /** Include the protected walking space up to the saved collar's end stop. */
-  static double boardingReach(CompoundTag dock, String vessel, DockingService.Port port) {
+  static double boardingReach(CompoundTag dock, String vessel, DockingPorts.Port port) {
     if (dock == null || !dock.getStringOr("state", "").equals("CLAMPED")) return 1;
     String side =
         dock.getStringOr("source", "").equals(vessel)

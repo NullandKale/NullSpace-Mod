@@ -7,6 +7,8 @@ import com.nullandkale.nullspace.gameplay.pads.BuildPreviews;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import java.util.*;
@@ -109,7 +111,7 @@ public final class BlockSupportGameTest {
       var expectedState = level.getBlockState(source);
       var template = new StructureTemplate();
       template.fillFromWorld(level, source, new Vec3i(1, 1, 1), false, List.of());
-      TravelService.place(level, template, target);
+      TransferRecovery.place(level, template, target);
       ctx.assertTrue(
           level.getBlockState(target).equals(expectedState),
           "Block state changed: " + BuiltInRegistries.BLOCK.getKey(block));
@@ -121,12 +123,12 @@ public final class BlockSupportGameTest {
               + expected
               + " actual="
               + data(level, target));
-      TravelService.clear(level, source, source);
+      TransferRecovery.clear(level, source, source);
       ctx.assertTrue(level.getBlockState(source).isAir(), "Source machine must be removed");
       ctx.assertTrue(
           expected.equals(data(level, target)),
           "Clearing source cannot mutate destination inventory");
-      TravelService.clear(level, target, target);
+      TransferRecovery.clear(level, target, target);
       types.add(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()).getPath());
       variants++;
     }
@@ -177,12 +179,12 @@ public final class BlockSupportGameTest {
     var expected = data(level, from);
     var template = new StructureTemplate();
     template.fillFromWorld(level, from, new Vec3i(1, 1, 1), false, List.of());
-    TravelService.place(level, template, to);
+    TransferRecovery.place(level, template, to);
     ctx.assertTrue(
         expected.equals(data(level, to)),
         "Vanilla template placement must not randomize an unopened ship container's loot seed");
-    TravelService.clear(level, from, from);
-    TravelService.clear(level, to, to);
+    TransferRecovery.clear(level, from, from);
+    TransferRecovery.clear(level, to, to);
     ctx.succeed();
   }
 
@@ -199,7 +201,7 @@ public final class BlockSupportGameTest {
     for (int i = 0; i < states.size(); i++) level.setBlock(from.east(i), states.get(i), FLAGS);
     var template = new StructureTemplate();
     template.fillFromWorld(level, from, new Vec3i(3, 1, 1), false, List.of());
-    TravelService.place(level, template, to);
+    TransferRecovery.place(level, template, to);
     for (int i = 0; i < states.size(); i++)
       ctx.assertTrue(
           level.getBlockState(to.east(i)).equals(states.get(i)),
@@ -397,7 +399,7 @@ public final class BlockSupportGameTest {
       for (int z = base.getZ() >> 4; z <= (base.getZ() + 7) >> 4; z++)
         level.setChunkForced(x, z, true);
     int slot = 0;
-    while (!TravelService.spaceSlotFree(server, slot)) slot++;
+    while (!TransferLocks.spaceSlotFree(server, slot)) slot++;
     server
         .getLevel(TravelService.SPACE)
         .setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);
@@ -424,8 +426,8 @@ public final class BlockSupportGameTest {
                 TravelService.failureInjector = previous;
               }
               ctx.assertTrue(stopped, "Workshop must reach injection stage " + stage);
-              TravelService.recover(server);
-              TravelService.recover(server);
+              TransferRecovery.recover(server);
+              TransferRecovery.recover(server);
               for (int i = 0; i < positions.size(); i++)
                 ctx.assertTrue(
                     expected.get(i).equals(data(level, positions.get(i))),

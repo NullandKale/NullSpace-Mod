@@ -6,7 +6,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import java.nio.file.*;
 import net.minecraft.core.*;
 import net.minecraft.nbt.*;
@@ -145,7 +145,7 @@ public final class SystemsLab {
                   HorizontalDirectionalBlock.FACING, plot == 23 ? Direction.EAST : Direction.WEST),
           18);
       var ship = ShipTopology.resolve(level, SphereLab.controller(base));
-      ShipSystems.upgrade(level, ship);
+      SystemsUpgrade.upgrade(level, ship);
       ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 3, 2, 0});
       ship.putDouble("simX", plot == 23 ? 0 : 180);
       ship.putDouble("simY", 0);

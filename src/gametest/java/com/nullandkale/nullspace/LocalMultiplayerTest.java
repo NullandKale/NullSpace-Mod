@@ -10,7 +10,9 @@ import com.nullandkale.nullspace.dev.ShipGallery;
 import com.nullandkale.nullspace.dev.ShipLab;
 import com.nullandkale.nullspace.dev.SphereLab;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.scene.SceneCatalog;
@@ -23,6 +25,8 @@ import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.VirtualComputer;
@@ -37,6 +41,7 @@ import com.nullandkale.nullspace.ui.screen.ShipyardScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.ViewportScreen;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.nio.file.*;
 import java.util.*;
@@ -247,7 +252,7 @@ public final class LocalMultiplayerTest {
                     .id();
           }
           ClientPlayNetworking.send(
-              new ComputerTerminal.Request(terminal.sessionId(), action, argument, id));
+              new TerminalPackets.Request(terminal.sessionId(), action, argument, id));
         });
   }
 
@@ -673,8 +678,7 @@ public final class LocalMultiplayerTest {
                         .filter(player -> player.getGameProfile().name().equals("NullSpace_pilot"))
                         .findFirst()
                         .orElseThrow();
-                NavigationService.navigation(
-                    p, WorldStore.pos(SceneService.observer(p), "controller"));
+                Piloting.navigation(p, WorldStore.pos(SceneService.observer(p), "controller"));
               });
           ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
           ctx.waitTicks(15);
@@ -810,7 +814,7 @@ public final class LocalMultiplayerTest {
                         .setBlock(
                             origin.offset(16, 7, 21), ModBlocks.CAMERA.defaultBlockState(), 18);
                     var vessel = ShipTopology.resolve(s.overworld(), SphereLab.controller(origin));
-                    ShipSystems.upgrade(s.overworld(), vessel);
+                    SystemsUpgrade.upgrade(s.overworld(), vessel);
                     for (var p : s.getPlayerList().getPlayers()) {
                       p.teleportTo(
                           s.overworld(),
@@ -832,7 +836,7 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               for (var p : s.getPlayerList().getPlayers())
-                ShipSystems.action(p, engineering, ComputerTerminal.Action.SYSTEMS);
+                SystemsConsole.action(p, engineering, ComputerTerminal.Action.SYSTEMS);
             });
         ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
         signal("systems-ready");
@@ -841,7 +845,7 @@ public final class LocalMultiplayerTest {
             c -> {
               var terminal = (TerminalScreen) c.gui.screen();
               ClientPlayNetworking.send(
-                  new ComputerTerminal.Request(
+                  new TerminalPackets.Request(
                       terminal.sessionId(),
                       ComputerTerminal.Action.CONFIGURE,
                       "power cameras 2",
@@ -858,7 +862,7 @@ public final class LocalMultiplayerTest {
         dedicated.runOnServer(
             s -> {
               for (var p : s.getPlayerList().getPlayers())
-                ShipSystems.action(
+                SystemsConsole.action(
                     p,
                     engineering,
                     ComputerTerminal.Action.CONFIGURE,
@@ -893,7 +897,7 @@ public final class LocalMultiplayerTest {
                 SceneService.open(p, engineering.east());
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
                     p,
-                    new ComputerTerminal.Update(
+                    new TerminalPackets.Update(
                         oldSession.session(),
                         "Delayed reading from the closed engineering screen",
                         9999));
@@ -1114,7 +1118,7 @@ public final class LocalMultiplayerTest {
     ctx.runOnClient(
         c ->
             ClientPlayNetworking.send(
-                new ShipControl.Input(UUID.randomUUID(), ShipControl.Action.INSPECT, "")));
+                new ControllerPackets.Input(UUID.randomUUID(), ShipControl.Action.INSPECT, "")));
     ctx.waitTicks(30);
     ctx.runOnClient(
         c ->
@@ -1209,12 +1213,12 @@ public final class LocalMultiplayerTest {
     signal("crew-returned");
     await(ctx, "systems-ready");
     ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
-    var stale = new ComputerTerminal.Request[1];
+    var stale = new TerminalPackets.Request[1];
     ctx.runOnClient(
         c -> {
           var terminal = (TerminalScreen) c.gui.screen();
           stale[0] =
-              new ComputerTerminal.Request(
+              new TerminalPackets.Request(
                   terminal.sessionId(),
                   ComputerTerminal.Action.CONFIGURE,
                   "power air 0",

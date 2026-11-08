@@ -2,10 +2,10 @@ package com.nullandkale.nullspace.gameplay.station;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
@@ -37,7 +37,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 var p = world.getConnection().getServerPlayer();
                 p.setGameMode(GameType.CREATIVE);
                 station[0] =
-                    StationService.queue(
+                    StationBuilds.queue(
                         server,
                         UUID.randomUUID().toString(),
                         "Full-size Harbor",
@@ -49,7 +49,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 station[0].putBoolean("buildPaid", true);
                 p.getInventory().add(new ItemStack(ModBlocks.STATION_MODULE, 28));
               });
-      world.getServer().waitFor(server -> StationService.ready(station[0]), 600);
+      world.getServer().waitFor(server -> StationAccess.ready(station[0]), 600);
       world
           .getServer()
           .runOnServer(
@@ -77,7 +77,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
       c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 43, 12));
       world.getServer().waitFor(server -> station[0].contains("stationBuild"), 200);
       c.runOnClient(mc -> mc.gui.screen().onClose());
-      world.getServer().waitFor(server -> StationService.ready(station[0]), 1600);
+      world.getServer().waitFor(server -> StationAccess.ready(station[0]), 1600);
       world
           .getServer()
           .runOnServer(
@@ -137,7 +137,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
           .getServer()
           .waitFor(
               server ->
-                  ShipSystems.breathable(
+                  ShipAir.breathable(
                       server.getLevel(TravelService.SPACE), station[0], base.offset(126, 4, 104)),
               2400);
 
@@ -160,9 +160,9 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 member.putString("id", p.getUUID().toString());
                 ship[0].getListOrEmpty("crew").add(member);
                 p.teleportTo(level, 4130, 112, 16, Set.of(), 90, 0, true);
-                doors[0] = DockingService.firstPort(level, ship[0]).controller();
+                doors[0] = DockingPorts.firstPort(level, ship[0]).controller();
                 doors[1] =
-                    DockingService.ports(level, station[0]).stream()
+                    DockingPorts.ports(level, station[0]).stream()
                         .filter(
                             port ->
                                 port.controller().getX() == base.getX() + 127
@@ -184,7 +184,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
           .getServer()
           .waitFor(
               server ->
-                  ShipSystems.breathable(
+                  ShipAir.breathable(
                       server.getLevel(TravelService.SPACE),
                       station[0],
                       doors[1].above().west().above()),

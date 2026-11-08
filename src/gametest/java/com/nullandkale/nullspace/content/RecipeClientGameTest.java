@@ -9,7 +9,7 @@ import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.MachineTestUi;
@@ -190,7 +190,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest {
                         90,
                         0,
                         true);
-                    ShipSystems.action(p, home.offset(6, 3, 3), ComputerTerminal.Action.UPGRADE);
+                    SystemsConsole.action(p, home.offset(6, 3, 3), ComputerTerminal.Action.UPGRADE);
                     p.getInventory().add(new ItemStack(Items.COAL, 8));
                     MachineMenus.open(p, home.offset(1, 3, 6));
                     return home;

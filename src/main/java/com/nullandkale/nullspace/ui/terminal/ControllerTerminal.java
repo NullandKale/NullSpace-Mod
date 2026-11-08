@@ -20,11 +20,11 @@ public final class ControllerTerminal implements ControllerApplication {
   private final List<EquipmentMenus.Entry> equipment;
   private final TerminalBuffer display = new TerminalBuffer();
   private final ArrayDeque<Action> actions = new ArrayDeque<>();
-  private List<ComputerTerminal.Destination> routes =
+  private List<TerminalPackets.Destination> routes =
       LocalSpaces.DESTINATIONS.stream()
           .map(
               d ->
-                  new ComputerTerminal.Destination(
+                  new TerminalPackets.Destination(
                       d.id(), d.systemName() + " / " + d.name(), "READY"))
           .toList();
   private String status, name;
@@ -58,7 +58,7 @@ public final class ControllerTerminal implements ControllerApplication {
     return selected;
   }
 
-  public void catalog(List<ComputerTerminal.Destination> destinations) {
+  public void catalog(List<TerminalPackets.Destination> destinations) {
     for (var d : destinations)
       if (d.state().equals("ALLOCATION")) {
         allocations.put(d.id(), Integer.parseInt(d.name()));

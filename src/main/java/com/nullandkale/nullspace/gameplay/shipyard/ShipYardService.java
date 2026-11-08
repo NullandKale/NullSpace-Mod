@@ -5,7 +5,7 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.PadRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
+import com.nullandkale.nullspace.gameplay.ownership.CrewRelease;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRefresh;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
@@ -15,8 +15,11 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.util.*;
 import java.util.function.Consumer;
@@ -80,7 +83,7 @@ public final class ShipYardService {
     if (!level.hasChunkAt(beacon) || !level.getBlockState(beacon).is(ModBlocks.SHIP_BEACON))
       throw new IllegalArgumentException(
           "The ship beacon is missing. Place it on the pad's cobblestone ring.");
-    if (TravelService.locked(level, beacon))
+    if (TransferLocks.locked(level, beacon))
       throw new IllegalArgumentException(
           "Wait for the ship already using this pad to finish travelling.");
     PadRefresh.near(level, beacon);
@@ -99,7 +102,7 @@ public final class ShipYardService {
                             + " part of the ring."));
     PadRegistry.validate(level, result);
     var b = result.bounds();
-    if (TravelService.areaBusy(
+    if (TransferLocks.areaBusy(
         level,
         new HullScan.Bounds(
             new BlockPos(b.minX(), b.y() + 1, b.minZ()),
@@ -155,7 +158,7 @@ public final class ShipYardService {
         issued.destinations().stream()
             .map(
                 d ->
-                    new ComputerTerminal.Destination(
+                    new TerminalPackets.Destination(
                         d.id(),
                         d.name(),
                         d.id().equals(preset.id())
@@ -165,7 +168,7 @@ public final class ShipYardService {
     if (player.containerMenu != player.inventoryMenu) player.closeContainer();
     net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
         player,
-        new ComputerTerminal.Open(
+        new TerminalPackets.Open(
             issued.position(),
             issued.message(),
             issued.mode(),
@@ -178,7 +181,7 @@ public final class ShipYardService {
     String notice = "";
     if (purchase) {
       var delivered = deliver(player, beacon, preset);
-      ShipStorage.authorize(delivered, player);
+      CrewRelease.authorize(delivered, player);
       WorldStore.get(player.level().getServer()).save();
       notice =
           "DELIVERED: "
@@ -192,7 +195,7 @@ public final class ShipYardService {
     if (!player.isAlive()
         || player.distanceToSqr(beacon.getX() + .5, beacon.getY() + .5, beacon.getZ() + .5) > 64
         || !player.mayInteract(player.level(), beacon)
-        || TravelService.busy(player))
+        || TransferLocks.busy(player))
       throw new IllegalArgumentException(
           "Move within 8 blocks of the beacon and wait for travel to finish.");
     var level = player.level();
@@ -287,7 +290,7 @@ public final class ShipYardService {
           return "Part of the pad is still loading. Move closer and try again.";
         for (int y = b.y() + 1; y <= level.getMaxY(); y++) {
           var at = new BlockPos(x, y, z);
-          if (y <= b.y() + 32 && TravelService.locked(level, at))
+          if (y <= b.y() + 32 && TransferLocks.locked(level, at))
             return "A ship is travelling through this pad. Wait for it to finish.";
           var current = level.getBlockState(at);
           if (!current.isAir() && (!resume || !current.equals(plan.get(at.subtract(origin)))))
@@ -457,7 +460,7 @@ public final class ShipYardService {
     ship.putString("blueprint", preset.id());
     ship.putString("name", preset.name());
     boolean initializeSystems = !ShipSystems.enabled(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     if (initializeSystems)
       ship.getCompoundOrEmpty("systems")
           .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});

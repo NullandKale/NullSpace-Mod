@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.dev.ReferenceShip;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.render.effects.PreviewRenderer;
@@ -367,7 +368,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest {
             .runOnServer(
                 server -> {
                   var p = world.getConnection().getServerPlayer();
-                  if (!TravelService.busy(p))
+                  if (!TransferLocks.busy(p))
                     throw new AssertionError("Guard must keep arrival quarantined");
                   for (int i = 0; i < 3; i++)
                     if (!snapshots[i].equals(furnace(p.level(), target[i])))

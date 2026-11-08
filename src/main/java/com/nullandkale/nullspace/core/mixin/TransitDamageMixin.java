@@ -1,6 +1,6 @@
 package com.nullandkale.nullspace.core.mixin;
 
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -14,6 +14,6 @@ public abstract class TransitDamageMixin {
   private void nullspace$protectCargo(DamageSource source, CallbackInfoReturnable<Boolean> ci) {
     var entity = (Entity) (Object) this;
     if (entity.level() instanceof ServerLevel level
-        && TravelService.locked(level, entity.blockPosition())) ci.setReturnValue(true);
+        && TransferLocks.locked(level, entity.blockPosition())) ci.setReturnValue(true);
   }
 }

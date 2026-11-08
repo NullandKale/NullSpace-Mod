@@ -6,7 +6,7 @@ import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.renderpearl.api.pipeline.*;
 import com.mojang.renderpearl.api.textures.*;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.optics.SceneCamera;
 import com.nullandkale.nullspace.model.space.ScenePose;
@@ -44,14 +44,14 @@ public final class SpaceSceneRenderer {
               .withColorTargetState(
                   new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15))
               .build());
-  private static SceneService.Frame frame;
+  private static ScenePackets.Frame frame;
   private static CompoundTag cameraScene;
   private static SceneViewport viewport;
   private static GpuBuffer depth;
   private static boolean prepared;
   private static final Matrix4f nativeViewProjection = new Matrix4f();
 
-  public static void update(SceneService.Frame next) {
+  public static void update(ScenePackets.Frame next) {
     if (frame == null
         || !frame.lease().equals(next.lease())
         || next.revision() > frame.revision()) {

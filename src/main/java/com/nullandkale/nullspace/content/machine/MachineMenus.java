@@ -1,8 +1,8 @@
 package com.nullandkale.nullspace.content.machine;
 
 import com.nullandkale.nullspace.content.ModBlocks;
-import com.nullandkale.nullspace.gameplay.station.StationService;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import java.util.*;
 import net.fabricmc.fabric.api.networking.v1.*;
 import net.minecraft.core.*;
@@ -75,9 +75,9 @@ public final class MachineMenus {
   public static boolean open(ServerPlayer p, BlockPos at) {
     if (p.level().getBlockEntity(at) instanceof MachineBlockEntity machine
         && machine.stillValid(p)
-        && StationService.mayUse(p, at)
-        && !TravelService.busy(p)
-        && !TravelService.locked(p.level(), at)) {
+        && StationAccess.mayUse(p, at)
+        && !TransferLocks.busy(p)
+        && !TransferLocks.locked(p.level(), at)) {
       p.openMenu(machine);
       return true;
     }

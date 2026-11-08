@@ -2,9 +2,9 @@ package com.nullandkale.nullspace.ui.apps;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -18,8 +18,8 @@ class MyShipsTerminalTest {
         new MyShipsTerminal(
             "Ready",
             List.of(
-                new ComputerTerminal.Destination(a, "Home ship", "AVAILABLE"),
-                new ComputerTerminal.Destination(
+                new TerminalPackets.Destination(a, "Home ship", "AVAILABLE"),
+                new TerminalPackets.Destination(
                     b, "Docked ship", "DOCKED", "Release docking before recall")));
     t.input(new TerminalInput.Pointer(4, 7));
     assertNull(t.pollAction());
@@ -38,10 +38,10 @@ class MyShipsTerminalTest {
         new MyShipsTerminal(
             "Ready",
             List.of(
-                new ComputerTerminal.Destination(a, "Home ship", "AVAILABLE"),
-                new ComputerTerminal.Destination(b, "Other ship", "AVAILABLE")));
+                new TerminalPackets.Destination(a, "Home ship", "AVAILABLE"),
+                new TerminalPackets.Destination(b, "Other ship", "AVAILABLE")));
     t.input(new TerminalInput.Pointer(4, 7));
-    t.catalog(List.of(new ComputerTerminal.Destination(a, "Home ship", "AVAILABLE")));
+    t.catalog(List.of(new TerminalPackets.Destination(a, "Home ship", "AVAILABLE")));
     assertNull(t.pollAction());
     t.input(new TerminalInput.Pointer(4, 18));
     assertNull(t.pollAction(), "Removal must not select a different ship automatically");

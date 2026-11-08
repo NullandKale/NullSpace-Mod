@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.gameplay.shipyard;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.PadRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
@@ -13,7 +13,9 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -197,12 +199,12 @@ public final class ShipYardGameTest {
       var ship = ShipTopology.resolve(level, at.offset(p.helm()));
       try {
         for (var position : scan.blocks()) FuelSystem.provision(level, position, 64);
-        ShipSystems.upgrade(level, ship);
+        SystemsUpgrade.upgrade(level, ship);
         ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 3, 2, 0});
         ShipSystems.tick(level, ship);
-        var ports = DockingService.ports(level, ship);
+        var ports = DockingPorts.ports(level, ship);
         ctx.assertTrue(ports.size() == 1, p.name() + " includes one valid docking airlock");
-        var port = DockingService.firstPort(level, ship);
+        var port = DockingPorts.firstPort(level, ship);
         ctx.assertTrue(
             port.facing() == Direction.NORTH
                 && port.anchors().size() >= 2
@@ -313,7 +315,7 @@ public final class ShipYardGameTest {
               "No money, experience or materials are consumed");
           ctx.assertTrue(ShipSystems.enabled(ship), "Delivered ships have finite systems enabled");
           ctx.assertTrue(
-              DockingService.firstPort(p.level(), ship).anchors().size() >= 2,
+              DockingPorts.firstPort(p.level(), ship).anchors().size() >= 2,
               "The actual delivered ship has an operational powered docking airlock");
           ctx.assertTrue(
               ship.getStringOr("blueprint", "").equals("mule"), "Selected design is persisted");
@@ -424,7 +426,7 @@ public final class ShipYardGameTest {
         () ->
             ComputerTerminal.authorize(
                 f.player(),
-                new ComputerTerminal.Request(
+                new TerminalPackets.Request(
                     opened.session(), ComputerTerminal.Action.LAUNCH, "", "", -1)),
         "controller");
     rejects(
@@ -432,7 +434,7 @@ public final class ShipYardGameTest {
         () ->
             ComputerTerminal.authorize(
                 f.player(),
-                new ComputerTerminal.Request(
+                new TerminalPackets.Request(
                     opened.session(), ComputerTerminal.Action.SHIP_BUY, "forged", "", -1)),
         "catalog");
     var other = ctx.makeMockServerPlayerInLevel();
@@ -441,13 +443,13 @@ public final class ShipYardGameTest {
         () ->
             ComputerTerminal.authorize(
                 other,
-                new ComputerTerminal.Request(
+                new TerminalPackets.Request(
                     opened.session(), ComputerTerminal.Action.SHIP_BUY, "sparrow", "", -1)),
         "session");
     var accepted =
         ComputerTerminal.authorize(
             f.player(),
-            new ComputerTerminal.Request(
+            new TerminalPackets.Request(
                 opened.session(), ComputerTerminal.Action.SHIP_QUOTE, "mule", "", -1));
     ctx.assertTrue(
         accepted.argument().equals("mule"),
@@ -458,7 +460,7 @@ public final class ShipYardGameTest {
         () ->
             ComputerTerminal.authorize(
                 f.player(),
-                new ComputerTerminal.Request(
+                new TerminalPackets.Request(
                     opened.session(), ComputerTerminal.Action.SHIP_BUY, "sparrow", "", -1)),
         "changed");
     ctx.succeed();

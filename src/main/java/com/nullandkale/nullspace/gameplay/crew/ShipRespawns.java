@@ -2,8 +2,10 @@ package com.nullandkale.nullspace.gameplay.crew;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.worldgen.sites.TerraHarbor;
 import java.util.*;
@@ -31,12 +33,12 @@ public final class ShipRespawns {
     var ship = store.at(level, at);
     var state = level.getBlockState(at);
     if (ship == null || !(state.getBlock() instanceof AbstractBedBlock)) return false;
-    if (!StationService.allowed(player, ship)) {
+    if (!StationAccess.allowed(player, ship)) {
       player.sendSystemMessage(
           Component.literal("This station does not allow you to set a bed here"));
       return true;
     }
-    if (TravelService.busy(player)) return true;
+    if (TransferLocks.busy(player)) return true;
     var head =
         state.getValue(AbstractBedBlock.PART) == BedPart.HEAD
             ? at
@@ -113,13 +115,13 @@ public final class ShipRespawns {
     String reason = "Your ship bed is missing or unsafe";
     if (ship == null) reason = "Your ship is no longer available";
     else if (ship.getBooleanOr("stored", false)) reason = "Your ship is in storage";
-    else if (TravelService.inTransit(server, ship)) reason = "Your ship is between locations";
-    else if (!StationService.allowed(player, ship))
+    else if (TransferLocks.inTransit(server, ship)) reason = "Your ship is between locations";
+    else if (!StationAccess.allowed(player, ship))
       reason = "You no longer have access to your ship";
     if (ship != null
         && !ship.getBooleanOr("stored", false)
-        && !TravelService.inTransit(server, ship)
-        && StationService.allowed(player, ship)) {
+        && !TransferLocks.inTransit(server, ship)
+        && StationAccess.allowed(player, ship)) {
       var level = WorldStore.level(server, ship.getStringOr("dimension", ""));
       var local = WorldStore.pos(binding, "bed");
       var at = WorldStore.pos(ship, "base").offset(local);
@@ -143,7 +145,7 @@ public final class ShipRespawns {
                 binding.getFloatOr("yaw", 0));
         if (spot.isPresent()
             && (PlanetSurfaces.breathable(level)
-                || ShipSystems.breathable(
+                || ShipAir.breathable(
                     level, ship, BlockPos.containing(spot.get().add(0, 1.6, 0))))) {
           var member = new CompoundTag();
           member.putString("id", player.getUUID().toString());

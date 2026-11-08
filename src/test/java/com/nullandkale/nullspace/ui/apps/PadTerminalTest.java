@@ -2,9 +2,9 @@ package com.nullandkale.nullspace.ui.apps;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +15,7 @@ class PadTerminalTest {
         new PadTerminal(
             "Valid pad",
             "Home",
-            List.of(new ComputerTerminal.Destination("pad_status", "5 x 5", "VALID")));
+            List.of(new TerminalPackets.Destination("pad_status", "5 x 5", "VALID")));
     panel.input(new TerminalInput.Pointer(4, 7));
     assertEquals(new ControllerTerminal.Action("register", "Home"), panel.pollAction());
     panel.input(new TerminalInput.Pointer(4, 7));
@@ -29,7 +29,7 @@ class PadTerminalTest {
         new PadTerminal(
             "Ring has a gap",
             "Home",
-            List.of(new ComputerTerminal.Destination("pad_status", "Needs repair", "INVALID")));
+            List.of(new TerminalPackets.Destination("pad_status", "Needs repair", "INVALID")));
     panel.input(new TerminalInput.Pointer(4, 7));
     assertNull(panel.pollAction());
     panel.input(new TerminalInput.Pointer(4, 13));
@@ -44,7 +44,7 @@ class PadTerminalTest {
         new PadTerminal(
             "Registered Home",
             "Home",
-            List.of(new ComputerTerminal.Destination("pad_status", "5 x 5", "REGISTERED")));
+            List.of(new TerminalPackets.Destination("pad_status", "5 x 5", "REGISTERED")));
     panel.input(new TerminalInput.Pointer(8, 5));
     panel.input(TerminalInput.Key.SELECT_ALL);
     panel.input(TerminalInput.Key.BACKSPACE);
@@ -61,7 +61,7 @@ class PadTerminalTest {
         new PadTerminal(
             "Name used",
             "Home",
-            List.of(new ComputerTerminal.Destination("pad_status", "5 x 5", "VALID")));
+            List.of(new TerminalPackets.Destination("pad_status", "5 x 5", "VALID")));
     panel.savedName("Landing pad 2");
     assertEquals("Landing pad 2", panel.fieldValue());
     panel.input(new TerminalInput.Pointer(8, 5));

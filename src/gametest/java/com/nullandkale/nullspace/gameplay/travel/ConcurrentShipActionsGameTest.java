@@ -3,18 +3,20 @@ package com.nullandkale.nullspace.gameplay.travel;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.PadRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingManeuver;
 import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorageGameTest;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
+import com.nullandkale.nullspace.gameplay.station.StationBuilds;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
@@ -121,7 +123,7 @@ public final class ConcurrentShipActionsGameTest {
     }
     var controller = origin.offset(preset.helm());
     var ship = ShipTopology.resolve(f.surface, controller);
-    ShipSystems.upgrade(f.surface, ship);
+    SystemsUpgrade.upgrade(f.surface, ship);
     ShipSystems.tick(f.surface, ship);
     var at = StationGameTest.boardingPoint(f.surface, ship);
     client.player().teleportTo(f.surface, at.x, at.y, at.z, Set.of(), 0, 0, true);
@@ -143,13 +145,13 @@ public final class ConcurrentShipActionsGameTest {
         () -> {
           var free = new ArrayList<Integer>();
           for (int slot = 0; slot <= 7000 && free.size() < 2; slot++)
-            if (TravelService.spaceSlotFree(server, slot)) free.add(slot);
+            if (TransferLocks.spaceSlotFree(server, slot)) free.add(slot);
           ctx.assertTrue(free.size() == 2, "Two physical regions are available");
           var tokenA = a.request(controllerA, "");
           var tokenB = b.request(controllerB, "");
           ctx.assertTrue(
-              !TravelService.spaceSlotFree(server, free.get(0))
-                  && !TravelService.spaceSlotFree(server, free.get(1)),
+              !TransferLocks.spaceSlotFree(server, free.get(0))
+                  && !TransferLocks.spaceSlotFree(server, free.get(1)),
               "Queued launches reserve separate destinations before either client acknowledges");
           boolean refused = false;
           try {
@@ -216,7 +218,7 @@ public final class ConcurrentShipActionsGameTest {
             TravelService.failureInjector = stage -> {};
           }
           ctx.assertTrue(crashed, "The second transfer reaches its physical mutation checkpoint");
-          TravelService.recover(ctx.getLevel().getServer());
+          TransferRecovery.recover(ctx.getLevel().getServer());
           ctx.assertTrue(
               a.fixture.ship().getStringOr("dimension", "").equals("minecraft:overworld")
                   && WorldStore.pos(a.fixture.ship(), "base").equals(firstBase),
@@ -258,10 +260,10 @@ public final class ConcurrentShipActionsGameTest {
             denied = conflict.getMessage().contains("pad");
           }
           ctx.assertTrue(
-              denied && !TravelService.physicalBusy(b.player()),
+              denied && !TransferLocks.physicalBusy(b.player()),
               "Only the shared destination pad is rejected; no second request is left behind");
           var station =
-              StationService.queue(
+              StationBuilds.queue(
                   server,
                   UUID.randomUUID().toString(),
                   "Independent construction",
@@ -279,7 +281,7 @@ public final class ConcurrentShipActionsGameTest {
           c.fixture.ship().putDouble("simX", -2800);
           c.fixture.ship().putDouble("simZ", -2800);
           ctx.assertTrue(
-              DockingService.readiness(c.player(), c.fixture.ship()).ready(),
+              DockingManeuver.readiness(c.player(), c.fixture.ship()).ready(),
               "A third ship's docking controls remain available during two landings and station"
                   + " construction");
           // This is only a local-flight readiness probe. Keep later tests' docking area clear,
@@ -291,12 +293,12 @@ public final class ConcurrentShipActionsGameTest {
               .remove(station); // Cancel the unpaid test plan before any blocks are built.
           ctx.assertTrue(
               !tokenA.equals(tokenB)
-                  && TravelService.physicalBusy(a.player())
-                  && TravelService.physicalBusy(b.player()),
+                  && TransferLocks.physicalBusy(a.player())
+                  && TransferLocks.physicalBusy(b.player()),
               "Both ships hold independent preparation jobs");
           ctx.assertTrue(
-              TravelService.locked(a.fixture.space, WorldStore.pos(a.fixture.ship(), "controller"))
-                  && TravelService.locked(b.fixture.surface, b.fixture.padBase.above()),
+              TransferLocks.locked(a.fixture.space, WorldStore.pos(a.fixture.ship(), "controller"))
+                  && TransferLocks.locked(b.fixture.surface, b.fixture.padBase.above()),
               "Source hull and destination pad are reserved throughout preparation");
           a.ready(tokenA, false);
           b.ready(tokenA, false); // Another ship's token cannot acknowledge B.
@@ -313,8 +315,8 @@ public final class ConcurrentShipActionsGameTest {
                     5,
                     () -> {
                       ctx.assertTrue(
-                          !TravelService.physicalBusy(a.player())
-                              && TravelService.physicalBusy(b.player()),
+                          !TransferLocks.physicalBusy(a.player())
+                              && TransferLocks.physicalBusy(b.player()),
                           "Finishing A never clears B's job");
                       b.ready(tokenB, false);
                       ctx.runAfterDelay(
@@ -332,7 +334,7 @@ public final class ConcurrentShipActionsGameTest {
                                 5,
                                 () -> {
                                   ctx.assertTrue(
-                                      !TravelService.physicalBusy(b.player()),
+                                      !TransferLocks.physicalBusy(b.player()),
                                       "B releases its own arrival reservation");
                                   a.close();
                                   b.close();
@@ -359,11 +361,9 @@ public final class ConcurrentShipActionsGameTest {
         20,
         () -> {
           var jumpA =
-              NavigationService.jump(
-                  a.player(), WorldStore.pos(a.fixture.ship(), "controller"), "sol_luna");
+              Jumps.jump(a.player(), WorldStore.pos(a.fixture.ship(), "controller"), "sol_luna");
           var jumpB =
-              NavigationService.jump(
-                  b.player(), WorldStore.pos(b.fixture.ship(), "controller"), "sol_ares");
+              Jumps.jump(b.player(), WorldStore.pos(b.fixture.ship(), "controller"), "sol_ares");
           var land = c.land(c.pad());
           ctx.assertTrue(
               ShipDestination.selected(a.fixture.ship()).region().equals("sol_luna")
@@ -454,14 +454,14 @@ public final class ConcurrentShipActionsGameTest {
                     && b.fixture.ship().getStringOr("dimension", "").equals("minecraft:overworld"),
                 "Both recalls commit without overwriting each other's metadata");
             ctx.assertTrue(
-                TravelService.physicalBusy(c.player()),
+                TransferLocks.physicalBusy(c.player()),
                 "Unrelated recall completion never clears the third ship's travel job");
             c.ready(token[0], false);
             phase[0] = 1;
           } else if (phase[0] == 1 && c.player().level() == c.fixture.surface) {
             c.ready(token[0], true);
             phase[0] = 2;
-          } else if (phase[0] == 2 && !TravelService.physicalBusy(c.player())) {
+          } else if (phase[0] == 2 && !TransferLocks.physicalBusy(c.player())) {
             phase[0] = 3;
             a.close();
             b.close();

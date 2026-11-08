@@ -1,5 +1,6 @@
 package com.nullandkale.nullspace.ui.apps;
 
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
@@ -20,9 +21,9 @@ public final class ShipControlTerminal implements TerminalDevice {
       int x, int y, int width, String text, Runnable run, boolean enabled, String reason) {}
 
   private final TerminalBuffer display = new TerminalBuffer();
-  private final ArrayDeque<ShipControl.Input> actions = new ArrayDeque<>();
+  private final ArrayDeque<ControllerPackets.Input> actions = new ArrayDeque<>();
   private final List<Hit> hits = new ArrayList<>();
-  private ShipControl.View view;
+  private ControllerPackets.View view;
   private boolean picker;
   private final TerminalField search = new TerminalField("", 64);
   private String highlighted = "", filter = "All";
@@ -35,7 +36,7 @@ public final class ShipControlTerminal implements TerminalDevice {
   private int tab; // 0 Trip, 1 Manual steps, 2 More
   private String scopeSystem = "", scopeRegion = "", chartSelected = "";
 
-  public ShipControlTerminal(ShipControl.View view) {
+  public ShipControlTerminal(ControllerPackets.View view) {
     this.view = view;
     picker = view.scanner();
     highlighted = view.selected();
@@ -48,13 +49,13 @@ public final class ShipControlTerminal implements TerminalDevice {
                   e ->
                       e.kind() == ShipDestination.Kind.REGION
                           && e.name().equals(scopeSystem + " / " + body))
-              .map(ShipControl.Entry::region)
+              .map(ControllerPackets.Entry::region)
               .findFirst()
               .orElse("");
     }
   }
 
-  public void update(ShipControl.View next) {
+  public void update(ControllerPackets.View next) {
     boolean wasBrowser = browser();
     if (!view.message().equals(next.message()) || !view.buttons().equals(next.buttons())) {
       statusScroll = 0;
@@ -76,7 +77,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     clearHiddenSelection();
   }
 
-  public ShipControl.View state() {
+  public ControllerPackets.View state() {
     return view;
   }
 
@@ -96,7 +97,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     return view.scanner();
   }
 
-  public ShipControl.Input pollAction() {
+  public ControllerPackets.Input pollAction() {
     return actions.pollFirst();
   }
 
@@ -106,7 +107,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     pending = true;
     pendingTicks = 0;
     pendingResponse = view.response();
-    actions.add(new ShipControl.Input(view.session(), action, target));
+    actions.add(new ControllerPackets.Input(view.session(), action, target));
   }
 
   private void command(ShipControl.Action action) {
@@ -122,7 +123,7 @@ public final class ShipControlTerminal implements TerminalDevice {
       notice =
           label(action)
               + " blocked: "
-              + button.map(ShipControl.Button::reason).orElse("Unavailable");
+              + button.map(ControllerPackets.Button::reason).orElse("Unavailable");
       statusScroll = 0;
     }
   }
@@ -175,13 +176,13 @@ public final class ShipControlTerminal implements TerminalDevice {
     String reason =
         view.buttons().stream()
             .filter(b -> b.action() == action)
-            .map(ShipControl.Button::reason)
+            .map(ControllerPackets.Button::reason)
             .findFirst()
             .orElse("Unavailable");
     hit(x, y, width, "[ " + text + " ]", () -> command(action), reason.isEmpty(), reason);
   }
 
-  private List<ShipControl.Entry> filtered() {
+  private List<ControllerPackets.Entry> filtered() {
     String query = search.value().toLowerCase(Locale.ROOT);
     boolean grouped =
         view.entries().stream().anyMatch(e -> e.kind() == ShipDestination.Kind.VESSEL);
@@ -225,7 +226,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     send(ShipControl.Action.SELECT, highlighted);
   }
 
-  private String system(ShipControl.Entry entry) {
+  private String system(ControllerPackets.Entry entry) {
     return view.entries().stream()
         .filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(entry.region()))
         .map(e -> e.name().split(" / ")[0])
@@ -323,7 +324,7 @@ public final class ShipControlTerminal implements TerminalDevice {
   }
 
   /** Map glyphs: the star map legend uses the same characters. */
-  private static char glyph(ShipControl.ChartPlace place) {
+  private static char glyph(ControllerPackets.ChartPlace place) {
     if (place.here()) return '@';
     return switch (place.kind()) {
       case "System" -> '*';
@@ -361,7 +362,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     boolean[][] used = new boolean[25][80];
     var places = new ArrayList<>(view.chart());
     // Draw the current place last so its glyph wins any collision.
-    places.sort(Comparator.comparing(ShipControl.ChartPlace::here));
+    places.sort(Comparator.comparing(ControllerPackets.ChartPlace::here));
     for (var place : places) {
       int col = 2 + Math.clamp(place.x() * 73 / 1000, 0, 73);
       int row = 7 + Math.clamp(place.y() * 11 / 1000, 0, 11);
@@ -398,7 +399,7 @@ public final class ShipControlTerminal implements TerminalDevice {
                         e ->
                             e.kind() == ShipDestination.Kind.REGION
                                 && e.region().equals(place.zone()))
-                    .map(ShipControl.Entry::id)
+                    .map(ControllerPackets.Entry::id)
                     .findFirst()
                     .orElse("");
           },
@@ -433,7 +434,7 @@ public final class ShipControlTerminal implements TerminalDevice {
                     p.inRange() || p.here() ? TerminalTheme.TEXT : TerminalTheme.AMBER));
   }
 
-  private String systemNameOf(ShipControl.ChartPlace place) {
+  private String systemNameOf(ControllerPackets.ChartPlace place) {
     return view.entries().stream()
         .filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(place.zone()))
         .map(e -> e.name().split(" / ")[0])
@@ -586,7 +587,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     String blocker =
         view.buttons().stream()
             .filter(b -> b.action() == ShipControl.Action.ENGAGE)
-            .map(ShipControl.Button::reason)
+            .map(ControllerPackets.Button::reason)
             .findFirst()
             .orElse("Choose a destination");
     if (!blocker.isEmpty()) text(24, 10, blocker, TerminalTheme.AMBER);
@@ -615,7 +616,7 @@ public final class ShipControlTerminal implements TerminalDevice {
       String reason =
           view.buttons().stream()
               .filter(b -> b.action() == action)
-              .map(ShipControl.Button::reason)
+              .map(ControllerPackets.Button::reason)
               .findFirst()
               .orElse("Unavailable");
       text(
@@ -922,7 +923,7 @@ public final class ShipControlTerminal implements TerminalDevice {
     }
   }
 
-  public void reopened(ShipControl.View next) {
+  public void reopened(ControllerPackets.View next) {
     pending = false;
     pendingTarget = "";
     close = false;
@@ -965,7 +966,7 @@ public final class ShipControlTerminal implements TerminalDevice {
   private String region(String id) {
     return view.entries().stream()
         .filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(id))
-        .map(ShipControl.Entry::name)
+        .map(ControllerPackets.Entry::name)
         .findFirst()
         .orElse(id.replace('_', ' '));
   }

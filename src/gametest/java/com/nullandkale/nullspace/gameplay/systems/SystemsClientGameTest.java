@@ -122,7 +122,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
                     18);
                 FuelSystem.provision(level, base.offset(14, 6, 21), 64);
                 var ship = ShipTopology.resolve(level, SphereLab.controller(base));
-                ShipSystems.upgrade(level, ship);
+                SystemsUpgrade.upgrade(level, ship);
                 ship.getCompoundOrEmpty("systems")
                     .putIntArray("requests", new int[] {1, 2, 1, 1, 2, 0});
                 var p = world.getConnection().getServerPlayer();
@@ -142,7 +142,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  ShipSystems.action(
+                  SystemsConsole.action(
                       world.getConnection().getServerPlayer(),
                       SphereLab.controller(base),
                       ComputerTerminal.Action.SYSTEMS));
@@ -153,7 +153,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  ShipSystems.action(
+                  SystemsConsole.action(
                       world.getConnection().getServerPlayer(),
                       SphereLab.controller(base),
                       ComputerTerminal.Action.CONFIGURE,
@@ -171,7 +171,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server ->
-                  ShipSystems.action(
+                  SystemsConsole.action(
                       world.getConnection().getServerPlayer(),
                       SphereLab.controller(base),
                       ComputerTerminal.Action.SYSTEMS));

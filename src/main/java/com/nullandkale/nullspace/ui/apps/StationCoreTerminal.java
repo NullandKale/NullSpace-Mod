@@ -1,11 +1,11 @@
 package com.nullandkale.nullspace.ui.apps;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerApplication;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
 import com.nullandkale.nullspace.ui.terminal.TerminalField;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 import java.util.*;
@@ -17,7 +17,7 @@ public final class StationCoreTerminal implements ControllerApplication {
   private final TerminalBuffer buffer = new TerminalBuffer();
   private final ArrayDeque<ControllerTerminal.Action> actions = new ArrayDeque<>();
   private final List<Hit> hits = new ArrayList<>();
-  private List<ComputerTerminal.Destination> catalog;
+  private List<TerminalPackets.Destination> catalog;
   private final TerminalField name,
       player = new TerminalField("", 32),
       query = new TerminalField("", 32);
@@ -25,28 +25,28 @@ public final class StationCoreTerminal implements ControllerApplication {
   private int selection, tile, role, section, scroll, pickerPage;
   private boolean waiting;
 
-  public StationCoreTerminal(String status, List<ComputerTerminal.Destination> catalog) {
+  public StationCoreTerminal(String status, List<TerminalPackets.Destination> catalog) {
     this.status = status;
     this.catalog = List.copyOf(catalog);
     String initial =
         catalog.stream()
             .filter(d -> d.id().equals("station_name"))
-            .map(ComputerTerminal.Destination::name)
+            .map(TerminalPackets.Destination::name)
             .findFirst()
             .orElse(status.lines().findFirst().orElse("Station"));
     name = new TerminalField(initial.substring(0, Math.min(32, initial.length())), 32);
   }
 
-  public void catalog(List<ComputerTerminal.Destination> next) {
+  public void catalog(List<TerminalPackets.Destination> next) {
     if (!picker.isEmpty()
         && !catalog.stream()
             .filter(d -> d.state().equals(picker))
-            .map(ComputerTerminal.Destination::id)
+            .map(TerminalPackets.Destination::id)
             .toList()
             .equals(
                 next.stream()
                     .filter(d -> d.state().equals(picker))
-                    .map(ComputerTerminal.Destination::id)
+                    .map(TerminalPackets.Destination::id)
                     .toList())) selection = 0;
     catalog = List.copyOf(next);
     if (catalog.stream().noneMatch(d -> d.state().equals("BUILDER") && d.id().equals(builderId)))
@@ -99,7 +99,7 @@ public final class StationCoreTerminal implements ControllerApplication {
   private String setting(String id, String fallback) {
     return catalog.stream()
         .filter(d -> d.id().equals(id))
-        .map(ComputerTerminal.Destination::name)
+        .map(TerminalPackets.Destination::name)
         .findFirst()
         .orElse(fallback);
   }
@@ -226,7 +226,7 @@ public final class StationCoreTerminal implements ControllerApplication {
         Integer.parseInt(
             catalog.stream()
                 .filter(d -> d.state().equals("STATION_AREA"))
-                .map(ComputerTerminal.Destination::name)
+                .map(TerminalPackets.Destination::name)
                 .findFirst()
                 .orElse("1"));
     section = Math.clamp(section, 0, side * side - 1);
@@ -335,7 +335,7 @@ public final class StationCoreTerminal implements ControllerApplication {
         18,
         47,
         "[ Builders: "
-            + selected.map(ComputerTerminal.Destination::name).orElse("Choose player")
+            + selected.map(TerminalPackets.Destination::name).orElse("Choose player")
             + " ]",
         () -> choose("BUILDER"));
     control(

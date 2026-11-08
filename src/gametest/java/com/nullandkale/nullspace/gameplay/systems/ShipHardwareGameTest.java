@@ -4,7 +4,7 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
@@ -12,6 +12,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
@@ -57,7 +58,7 @@ public final class ShipHardwareGameTest {
       airMenu.broadcastChanges();
       ctx.assertTrue(
           airMenu.reading.getIntOr("oxygen", 0)
-                  == ShipSystems.roomAt(level, ship, outlet).oxygenPercent()
+                  == ShipAir.roomAt(level, ship, outlet).oxygenPercent()
               && airMenu.reading.getIntOr("oxygen", 0) < 100,
           "Room air shows the whole room, not the overfilled vent cell");
       ctx.assertTrue(
@@ -77,20 +78,20 @@ public final class ShipHardwareGameTest {
               .findFirst()
               .orElseThrow();
       player.teleportTo(engine.getX() + .5, engine.getY(), engine.getZ() + 1.5);
-      int before = ShipSystems.requestedAllocation(level, engine);
+      int before = EquipmentPanel.requestedAllocation(level, engine);
       var menu =
           new MachineMenu(
               2, player.getInventory(), (MachineBlockEntity) level.getBlockEntity(engine));
       menu.edit(player, 15, "-1");
       ctx.assertTrue(
-          ShipSystems.requestedAllocation(level, engine) == before - 1,
+          EquipmentPanel.requestedAllocation(level, engine) == before - 1,
           "Ordinary power buttons update the real allocation");
       var forged =
           new MachineMenu(
               3, player.getInventory(), (MachineBlockEntity) level.getBlockEntity(engine));
       forged.edit(player, 15, "999");
       ctx.assertTrue(
-          ShipSystems.requestedAllocation(level, engine) == before - 1,
+          EquipmentPanel.requestedAllocation(level, engine) == before - 1,
           "Forged power changes cannot exceed the allowed step");
       ship.putString("kind", "station");
       ship.putString("owner", UUID.randomUUID().toString());
@@ -99,7 +100,7 @@ public final class ShipHardwareGameTest {
               4, player.getInventory(), (MachineBlockEntity) level.getBlockEntity(engine));
       visitor.edit(player, 15, "1");
       ctx.assertTrue(
-          ShipSystems.requestedAllocation(level, engine) == before - 1,
+          EquipmentPanel.requestedAllocation(level, engine) == before - 1,
           "Visitors cannot change station power allocations");
       ctx.succeed();
     } finally {
@@ -124,7 +125,7 @@ public final class ShipHardwareGameTest {
     level.setBlock(scanner, ModBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
     level.setBlock(battery, ModBlocks.BATTERY.defaultBlockState(), 18);
     var ship = ShipTopology.resolve(level, helm);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ShipSystems.tick(level, ship);
     int initialOutput = ShipSystems.powerStats(level, ship)[0];
     int initialThrust = NavigationService.propulsion(level, ship);
@@ -182,7 +183,7 @@ public final class ShipHardwareGameTest {
     battery.setItem(0, new ItemStack(ModBlocks.SYSTEM_UPGRADE));
     battery.setItem(1, new ItemStack(ModBlocks.ADVANCED_UPGRADE));
     var ship = ShipTopology.resolve(level, helm);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     var saved =
         ship.getCompoundOrEmpty("systems").getListOrEmpty("devices").stream()
             .map(t -> (CompoundTag) t)
@@ -229,7 +230,7 @@ public final class ShipHardwareGameTest {
     for (int x = 2; x <= 4; x++)
       for (int y = 3; y <= 4; y++) level.setBlock(base.offset(x, y, 5), mounted, 18);
     var ship = ShipTopology.resolve(level, helm);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     var first = base.offset(2, 3, 5);
     var tiles = MonitorWall.tiles(level, first);
     ctx.assertTrue(tiles.size() == 6, "Six adjacent tiles form a 3 x 2 rectangle");
@@ -340,7 +341,7 @@ public final class ShipHardwareGameTest {
         new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
     template.fillFromWorld(level, at, new Vec3i(1, 1, 1), false, List.of());
     var target = at.offset(4, 0, 0);
-    TravelService.place(level, template, target);
+    TransferRecovery.place(level, template, target);
     var copy = (MachineBlockEntity) level.getBlockEntity(target);
     ctx.assertTrue(
         copy.burn() == original.burn()
@@ -361,7 +362,7 @@ public final class ShipHardwareGameTest {
         new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
     PadComputers.register(level, base.offset(-1, 1, 3), bounds, "Compact hardware");
     var ship = ShipTopology.resolve(level, helm);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     var door = base.offset(3, 3, 0);
     var port = door.below();
     level.setBlock(port, ModBlocks.DOCKING_BASE.defaultBlockState(), 18);
@@ -377,7 +378,7 @@ public final class ShipHardwareGameTest {
                   DoorBlock.HALF,
                   net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER),
           18);
-      var found = DockingService.readPort(level, ship, port, true);
+      var found = DockingPorts.readPort(level, ship, port, true);
       ctx.assertTrue(
           found.outer().equals(found.inner()) && !found.anchors().isEmpty(),
           "A standard door and one base need no separate chamber hardware");
@@ -387,7 +388,7 @@ public final class ShipHardwareGameTest {
       ship.put("dock", d);
       ShipDoors.setOpen(level, door, true);
       ctx.assertTrue(
-          DockingService.sealedMate(level, door) && HullScan.seals(level, door),
+          DockingPorts.sealedMate(level, door) && HullScan.seals(level, door),
           "Captured open doorway remains a pressure seal");
       ship.remove("dock");
       ctx.assertTrue(!HullScan.seals(level, door), "An open undocked doorway exposes real vacuum");

@@ -4,8 +4,8 @@ import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.dev.DevWorldCreation;
 import com.nullandkale.nullspace.dev.PlaytestLauncher;
-import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.gameplay.scene.SceneVolumes;
 import com.nullandkale.nullspace.gameplay.scene.TerrainService;
 import com.nullandkale.nullspace.gameplay.systems.AirEffects;
@@ -27,7 +27,7 @@ import com.nullandkale.nullspace.ui.screen.ShipyardScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
 import com.nullandkale.nullspace.ui.screen.ViewportScreen;
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import net.fabricmc.api.ClientModInitializer;
 
 public final class NullSpaceClient implements ClientModInitializer {
@@ -97,7 +97,7 @@ public final class NullSpaceClient implements ClientModInitializer {
     SceneViewport.initialize();
     SpaceSceneRenderer.initialize();
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        SceneService.Definition.TYPE,
+        ScenePackets.Definition.TYPE,
         (payload, context) ->
             context
                 .client()
@@ -111,7 +111,7 @@ public final class NullSpaceClient implements ClientModInitializer {
                       }
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ShipControl.View.TYPE,
+        ControllerPackets.View.TYPE,
         (payload, context) ->
             context
                 .client()
@@ -123,7 +123,7 @@ public final class NullSpaceClient implements ClientModInitializer {
                         context.client().gui.setScreen(TerminalScreen.restore(payload));
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ComputerTerminal.Open.TYPE,
+        TerminalPackets.Open.TYPE,
         (payload, context) ->
             context
                 .client()
@@ -140,7 +140,7 @@ public final class NullSpaceClient implements ClientModInitializer {
                       else context.client().gui.setScreen(TerminalScreen.restore(payload));
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ComputerTerminal.Refresh.TYPE,
+        TerminalPackets.Refresh.TYPE,
         (packet, context) ->
             context
                 .client()
@@ -150,7 +150,7 @@ public final class NullSpaceClient implements ClientModInitializer {
                         t.refresh(packet.view());
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ComputerTerminal.Ack.TYPE,
+        TerminalPackets.Ack.TYPE,
         (packet, context) ->
             context
                 .client()
@@ -160,7 +160,7 @@ public final class NullSpaceClient implements ClientModInitializer {
                         t.acknowledged(packet.session());
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ComputerTerminal.Rejected.TYPE,
+        TerminalPackets.Rejected.TYPE,
         (payload, context) ->
             context
                 .client()
@@ -191,7 +191,7 @@ public final class NullSpaceClient implements ClientModInitializer {
     TravelScreen.initialize();
     PreviewRenderer.initialize();
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        ComputerTerminal.Update.TYPE,
+        TerminalPackets.Update.TYPE,
         (payload, context) ->
             context
                 .client()
@@ -203,16 +203,16 @@ public final class NullSpaceClient implements ClientModInitializer {
                         yard.update(payload);
                     }));
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-        SceneService.Frame.TYPE,
+        ScenePackets.Frame.TYPE,
         (received, context) ->
             context
                 .client()
                 .execute(
                     () -> {
-                      final SceneService.Frame payload;
+                      final ScenePackets.Frame payload;
                       try {
                         payload =
-                            new SceneService.Frame(
+                            new ScenePackets.Frame(
                                 received.lease(),
                                 received.revision(),
                                 SCENE_VOLUMES.expand(received.scene()));

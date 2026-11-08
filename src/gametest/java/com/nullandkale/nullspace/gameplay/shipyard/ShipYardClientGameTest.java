@@ -6,8 +6,8 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationClientGameTest;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
@@ -211,7 +211,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest {
                           s ->
                               s.getBooleanOr("worldGenerated", false)
                                   && s.getStringOr("populationRole", "").equals("waypoint")
-                                  && StationService.ready(s)),
+                                  && StationAccess.ready(s)),
               1000);
       // No generator call or Find button: entering the region creates its persistent places.
       // Stations are chosen at the ship's Scanner block; the controller then shows the course.

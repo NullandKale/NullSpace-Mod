@@ -4,7 +4,7 @@ import com.llamalad7.mixinextras.sugar.Share;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import com.nullandkale.nullspace.gameplay.crew.ShipRespawns;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEdits;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -31,7 +31,7 @@ public abstract class TransitBlocksMixin {
       int limit,
       CallbackInfoReturnable<Boolean> ci,
       @Share("nullspace$before") LocalRef<BlockState> before) {
-    if ((Object) this instanceof ServerLevel level && TravelService.locked(level, pos))
+    if ((Object) this instanceof ServerLevel level && TransferLocks.locked(level, pos))
       ci.setReturnValue(false);
     else if ((Object) this instanceof ServerLevel level) before.set(level.getBlockState(pos));
   }

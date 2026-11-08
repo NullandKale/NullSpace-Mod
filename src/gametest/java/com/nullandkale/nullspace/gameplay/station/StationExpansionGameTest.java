@@ -2,11 +2,13 @@ package com.nullandkale.nullspace.gameplay.station;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.combat.ShipCombat;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.scene.SceneVolumes;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.model.docking.DockingMotion;
 import com.nullandkale.nullspace.model.power.PowerBus;
@@ -45,14 +47,14 @@ public final class StationExpansionGameTest {
     for (var e : plan.blocks().entrySet())
       level.setBlock(base.offset(e.getKey()), e.getValue(), 18);
     for (var at : plan.blocks().keySet()) FuelSystem.provision(level, base.offset(at), 64);
-    ShipSystems.upgrade(level, s);
+    SystemsUpgrade.upgrade(level, s);
     s.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 0, 2, 0});
     ShipSystems.tick(level, s);
     return s;
   }
 
   private static net.minecraft.world.phys.AABB berthEnvelope(
-      DockingService.Port port, BlockPos base, int sourceX) {
+      DockingPorts.Port port, BlockPos base, int sourceX) {
     var destination =
         Vec3.atCenterOf(port.controller().subtract(base))
             .add(0, 1, 0)
@@ -91,16 +93,16 @@ public final class StationExpansionGameTest {
     var base = new BlockPos(1700000, 80, 1700000);
     var station = harbor(level, base);
     ctx.assertTrue(
-        DockingService.ports(level, station).size() == 8, "Eight usable outward-facing berths");
+        DockingPorts.ports(level, station).size() == 8, "Eight usable outward-facing berths");
     ctx.assertTrue(
         ShipSystems.power(level, station, PowerBus.System.AIR) == 28 * SpatialAir.SUPPLY_POWER,
         "All 28 pumps receive normal power: "
             + ShipSystems.power(level, station, PowerBus.System.AIR));
     for (var room : StationLayout.harbor().rooms())
       ctx.assertTrue(
-          ShipSystems.breathable(level, station, base.offset(room.origin()).offset(8, 4, 8)),
+          ShipAir.breathable(level, station, base.offset(room.origin()).offset(8, 4, 8)),
           "Every room has finite breathable air");
-    var ports = DockingService.ports(level, station);
+    var ports = DockingPorts.ports(level, station);
     for (var a : ports)
       for (var b : ports)
         if (a != b)
@@ -159,15 +161,13 @@ public final class StationExpansionGameTest {
     player.teleportTo(base.getX() + 8.5, base.getY() + 3, base.getZ() + 8.5);
     var id = station.getStringOr("id", "");
     long quantity =
-        ShipSystems.rooms(level, station).stream()
-            .mapToLong(ShipSystems.RoomReading::quantity)
-            .sum();
+        ShipAir.rooms(level, station).stream().mapToLong(ShipAir.RoomReading::quantity).sum();
     int fuel = FuelSystem.available(level, station);
     var marker = base.offset(40, 3, 40);
     level.setBlock(marker, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
     boolean rejected = false;
     try {
-      StationService.expand(player, station);
+      StationBuilds.expand(player, station);
     } catch (IllegalArgumentException e) {
       rejected = e.getMessage().contains("obstructed");
     }
@@ -177,15 +177,15 @@ public final class StationExpansionGameTest {
             && level.getBlockState(marker).is(Blocks.DIAMOND_BLOCK),
         "Expansion refuses occupied space without changing it");
     level.setBlock(marker, Blocks.AIR.defaultBlockState(), 18);
-    StationService.expand(player, station);
+    StationBuilds.expand(player, station);
     ctx.assertTrue(
         station.getStringOr("id", "").equals(id)
             && WorldStore.bounds(station).contains(base.offset(127, 31, 127)),
         "One stable identity owns the expanded area");
     ctx.assertTrue(
         quantity
-            == ShipSystems.rooms(level, station).stream()
-                .mapToLong(ShipSystems.RoomReading::quantity)
+            == ShipAir.rooms(level, station).stream()
+                .mapToLong(ShipAir.RoomReading::quantity)
                 .sum(),
         "Expansion conserves stored air");
     ctx.assertTrue(
@@ -196,7 +196,7 @@ public final class StationExpansionGameTest {
             == 128 * 32 * 128,
         "Saved air covers the full station");
     ctx.assertTrue(
-        StationService.mayEdit(player, base.offset(120, 3, 120)),
+        StationAccess.mayEdit(player, base.offset(120, 3, 120)),
         "Owner can build beyond the old boundary");
     WorldStore.get(level.getServer()).ships().remove(station);
     ctx.succeed();

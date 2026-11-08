@@ -3,15 +3,18 @@ package com.nullandkale.nullspace.gameplay.navigation;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.docking.Boarding;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.station.StationBuilds;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
@@ -95,7 +98,7 @@ public final class JourneyGameTest {
             }
           }
         });
-    NavigationService.investigate(c.player(), WorldStore.pos(own, "controller"));
+    Jumps.investigate(c.player(), WorldStore.pos(own, "controller"));
   }
 
   @GameTest(environment = "nullspace:encounter_retry", maxTicks = 300)
@@ -111,7 +114,7 @@ public final class JourneyGameTest {
     boolean[] done = {false};
     ctx.onEachTick(
         () -> {
-          if (done[0] || server.getTickCount() % 20 != 0 || StationService.building(server)) return;
+          if (done[0] || server.getTickCount() % 20 != 0 || StationAccess.building(server)) return;
           done[0] = true;
           int[] calls = {0};
           var previous = WorldStore.writeObserver;
@@ -199,10 +202,8 @@ public final class JourneyGameTest {
     ctx.runAfterDelay(
         20,
         () -> {
-          NavigationService.jump(
-              a.player(), WorldStore.pos(a.fixture().ship(), "controller"), "sol_luna");
-          NavigationService.jump(
-              b.player(), WorldStore.pos(b.fixture().ship(), "controller"), "sol_luna");
+          Jumps.jump(a.player(), WorldStore.pos(a.fixture().ship(), "controller"), "sol_luna");
+          Jumps.jump(b.player(), WorldStore.pos(b.fixture().ship(), "controller"), "sol_luna");
         });
   }
 
@@ -215,7 +216,7 @@ public final class JourneyGameTest {
     var vessels = new ArrayList<CompoundTag>();
     for (int kind = 0; kind < JourneyPlan.KINDS; kind++) {
       var vessel =
-          StationService.queue(
+          StationBuilds.queue(
               server,
               UUID.randomUUID().toString(),
               "Encounter fixture " + kind,
@@ -232,12 +233,12 @@ public final class JourneyGameTest {
     Runnable[] poll = {null};
     poll[0] =
         () -> {
-          if (vessels.stream().anyMatch(s -> !StationService.ready(s))) {
+          if (vessels.stream().anyMatch(s -> !StationAccess.ready(s))) {
             ctx.runAfterDelay(5, poll[0]);
             return;
           }
           for (var vessel : vessels) {
-            var port = DockingService.ports(level, vessel).getFirst();
+            var port = DockingPorts.ports(level, vessel).getFirst();
             var pressure = new HullScan.LivePressure(level, WorldStore.bounds(vessel));
             ctx.assertTrue(
                 port.anchors().stream().anyMatch(p -> pressure.breathable(p.above())),
@@ -255,7 +256,7 @@ public final class JourneyGameTest {
                   net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity r)
                 r.unpackLootTable(c.player());
               ctx.assertTrue(
-                  StationService.mayUse(c.player(), at) && StationService.mayEdit(c.player(), at),
+                  StationAccess.mayUse(c.player(), at) && StationAccess.mayEdit(c.player(), at),
                   "Salvage supplies and hardware are accessible in survival");
               for (int i = 0; i < chest.getContainerSize(); i++) {
                 var stack = chest.getItem(i);
@@ -353,7 +354,7 @@ public final class JourneyGameTest {
     for (var tag : WorldStore.get(c.player().level().getServer()).list("stationBoarding")) {
       var board = (CompoundTag) tag;
       if (board.getStringOr("player", "").equals(c.player().getUUID().toString()))
-        DockingService.ready(
+        Boarding.ready(
             c.player(),
             new TravelPackets.Ready(
                 UUID.fromString(board.getStringOr("token", "")),
@@ -394,7 +395,7 @@ public final class JourneyGameTest {
               && JourneyService.cruising(ship)
               && !NavigationService.pending(server, c.fixture().id)) {
             ctx.assertTrue(
-                !TravelService.locked(level, WorldStore.pos(ship, "controller")),
+                !TransferLocks.locked(level, WorldStore.pos(ship, "controller")),
                 "Cruise releases physical block interaction locks");
             ctx.assertTrue(
                 Math.abs(ship.getDoubleOr("simYaw", 0) - 37) < 1e-8,
@@ -416,12 +417,12 @@ public final class JourneyGameTest {
           } else if (phase[0] == 1) {
             var site = WorldStore.get(server).section("encounters").getCompoundOrEmpty(siteId[0]);
             var vessel = WorldStore.get(server).repository().find(site.getStringOr("vessel", ""));
-            if (vessel == null || !StationService.ready(vessel)) return;
+            if (vessel == null || !StationAccess.ready(vessel)) return;
             vesselId[0] = vessel.getStringOr("id", "");
             ctx.assertTrue(
                 JourneyService.stopReason(server, ship).isEmpty(),
                 "Built signal is available to investigate");
-            NavigationService.investigate(c.player(), WorldStore.pos(ship, "controller"));
+            Jumps.investigate(c.player(), WorldStore.pos(ship, "controller"));
             phase[0] = 2;
           } else if (phase[0] == 2 && !NavigationService.pending(server, c.fixture().id)) {
             // Keep this departure/loot regression on its original clear approach fixture rather
@@ -459,18 +460,18 @@ public final class JourneyGameTest {
             phase[0] = 3;
           } else if (phase[0] == 3
               && ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED")) {
-            var port = DockingService.firstPort(level, ship);
+            var port = DockingPorts.firstPort(level, ship);
             var at = port.anchors().getFirst();
             c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
             DockingService.perform(c.player(), ship, port.controller(), "DOCK_BOARD");
             phase[0] = 4;
           } else if (phase[0] == 4
-              && !DockingService.busy(c.player())
+              && !Boarding.busy(c.player())
               && SceneService.observer(c.player()).getStringOr("id", "").equals(vesselId[0])) {
             var vessel = WorldStore.get(server).repository().find(vesselId[0]);
             var rubble = WorldStore.pos(vessel, "base").offset(12, 1, 10);
             ctx.assertTrue(
-                StationService.mayEdit(c.player(), rubble),
+                StationAccess.mayEdit(c.player(), rubble),
                 "Unclaimed freighter permits cargo access repairs");
             level.setBlock(rubble, Blocks.AIR.defaultBlockState(), 18);
             level.setBlock(rubble.above(), Blocks.AIR.defaultBlockState(), 18);
@@ -496,7 +497,7 @@ public final class JourneyGameTest {
                 break;
               }
             ctx.assertTrue(
-                StationService.mayUse(c.player(), fuelLocker) && slot >= 0,
+                StationAccess.mayUse(c.player(), fuelLocker) && slot >= 0,
                 "Engineering's fuel locker is usable by a visitor");
             var fuelItem = supplies.getItem(slot).getItem();
             c.player().getInventory().add(supplies.removeItem(slot, 1));
@@ -516,13 +517,13 @@ public final class JourneyGameTest {
             ctx.assertTrue(
                 ship.getCompoundOrEmpty("journey").getIntOr("elapsed", -2) == paused[0],
                 "Docking and looting do not consume journey progress");
-            var port = DockingService.ports(level, vessel).getFirst();
+            var port = DockingPorts.ports(level, vessel).getFirst();
             var at = port.anchors().getFirst();
             c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
             DockingService.perform(c.player(), vessel, port.controller(), "DOCK_BOARD");
             phase[0] = 5;
           } else if (phase[0] == 5
-              && !DockingService.busy(c.player())
+              && !Boarding.busy(c.player())
               && SceneService.observer(c.player()) == ship) {
             c.board();
             var view = ShipControl.open(c.player(), WorldStore.pos(ship, "controller"), "Ready");
@@ -541,7 +542,7 @@ public final class JourneyGameTest {
             var result =
                 ShipControl.input(
                     c.player(),
-                    new ShipControl.Input(view.session(), ShipControl.Action.ENGAGE, ""));
+                    new ControllerPackets.Input(view.session(), ShipControl.Action.ENGAGE, ""));
             ctx.assertTrue(
                 result.startsWith("Course engaged"),
                 "One Engage accepts the complete departure: " + result);
@@ -591,8 +592,7 @@ public final class JourneyGameTest {
         20,
         () -> {
           c.fixture().ship().putDouble("simYaw", 37);
-          NavigationService.jump(
-              c.player(), WorldStore.pos(c.fixture().ship(), "controller"), "sol_luna");
+          Jumps.jump(c.player(), WorldStore.pos(c.fixture().ship(), "controller"), "sol_luna");
           phase[0] = 0;
         });
   }

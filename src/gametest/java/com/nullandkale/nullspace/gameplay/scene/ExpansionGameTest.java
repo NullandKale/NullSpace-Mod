@@ -4,12 +4,14 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
-import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.ShipSensors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.ScriptLanguage;
@@ -20,7 +22,7 @@ import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.model.space.PlanetSky;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import com.nullandkale.nullspace.testing.TestZones;
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -53,9 +55,9 @@ public final class ExpansionGameTest {
     ship.putInt("depth", 8);
     ship.put("crew", new ListTag());
     WorldStore.get(level.getServer()).ships().add(ship);
-    ShipSystems.upgrade(level, ship);
-    ShipSystems.automation(level, ship, terminal, "power engines 0");
-    ShipSystems.automation(level, ship, terminal, "power cameras 2");
+    SystemsUpgrade.upgrade(level, ship);
+    SystemsConsole.automation(level, ship, terminal, "power engines 0");
+    SystemsConsole.automation(level, ship, terminal, "power cameras 2");
     return new Fixture(base, helm, terminal, ship);
   }
 
@@ -105,7 +107,7 @@ public final class ExpansionGameTest {
             && ShipSensors.scan(level, f.ship, true)
                 .contains(TestZones.otherSystem(level.getServer())),
         "Local and long-range scanners expose their own domains");
-    ShipSystems.automation(level, f.ship, f.terminal, "power cameras 0");
+    SystemsConsole.automation(level, f.ship, f.terminal, "power cameras 0");
     boolean rejected = false;
     try {
       ShipSensors.scan(level, f.ship, true);
@@ -260,7 +262,7 @@ public final class ExpansionGameTest {
         5,
         () -> {
           int started = level.getServer().getTickCount();
-          NavigationService.automate(
+          Piloting.automate(
               level, current.get(), terminal, "native-script-test", FlightDynamics.FORWARD, 4);
           ctx.runAfterDelay(
               2,
@@ -278,7 +280,7 @@ public final class ExpansionGameTest {
                         + ", velocity="
                         + current.get().getDoubleOr("simVX", 1)
                         + ")");
-                NavigationService.automate(
+                Piloting.automate(
                     level,
                     current.get(),
                     terminal,
@@ -308,9 +310,9 @@ public final class ExpansionGameTest {
             io.netty.buffer.Unpooled.buffer(), ctx.getLevel().registryAccess());
     try {
       var packet =
-          new ComputerTerminal.Open(BlockPos.ZERO, "sensor status", "long_range_scanner", "0");
-      ComputerTerminal.Open.CODEC.encode(buffer, packet);
-      var result = ComputerTerminal.Open.CODEC.decode(buffer);
+          new TerminalPackets.Open(BlockPos.ZERO, "sensor status", "long_range_scanner", "0");
+      TerminalPackets.Open.CODEC.encode(buffer, packet);
+      var result = TerminalPackets.Open.CODEC.decode(buffer);
       ctx.assertTrue(
           result.mode().equals("long_range_scanner"),
           "Every registered equipment mode must survive the actual terminal codec");
@@ -341,8 +343,7 @@ public final class ExpansionGameTest {
         "A loaded terminal alone is insufficient for world actions");
     boolean waiting = false;
     try {
-      NavigationService.automate(
-          level, ship, terminal, "cold-computer", FlightDynamics.FORWARD, 10);
+      Piloting.automate(level, ship, terminal, "cold-computer", FlightDynamics.FORWARD, 10);
     } catch (ScriptLanguage.Unavailable expected) {
       waiting = true;
     }
@@ -366,14 +367,14 @@ public final class ExpansionGameTest {
   public void automationCannotOperateAcrossDisconnectedHardware(GameTestHelper ctx) {
     var f = fixture(ctx, 50000);
     var level = ctx.getLevel();
-    ShipSystems.automation(level, f.ship, f.terminal, "power air 0");
+    SystemsConsole.automation(level, f.ship, f.terminal, "power air 0");
     ctx.assertTrue(
         ShipSystems.power(level, f.ship, PowerBus.System.AIR) == 0,
         "Native commands update actual grants");
     level.setBlock(f.terminal, Blocks.AIR.defaultBlockState(), 18);
     boolean rejected = false;
     try {
-      ShipSystems.automation(level, f.ship, f.terminal, "power air 2");
+      SystemsConsole.automation(level, f.ship, f.terminal, "power air 2");
     } catch (IllegalArgumentException expected) {
       rejected = true;
     }

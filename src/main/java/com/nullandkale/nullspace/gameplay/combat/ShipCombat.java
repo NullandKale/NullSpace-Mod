@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.gameplay.scene.SceneCatalog;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.model.power.PowerBus;
@@ -99,8 +100,8 @@ public final class ShipCombat {
 
   public static String fire(ServerPlayer player, BlockPos controller) {
     var level = player.level();
-    if (TravelService.busy(player)
-        || TravelService.locked(level, controller)
+    if (TransferLocks.busy(player)
+        || TransferLocks.locked(level, controller)
         || player.distanceToSqr(Vec3.atCenterOf(controller)) > 64
         || !player.mayInteract(level, controller))
       throw new IllegalArgumentException("Cannot fire from this controller");
@@ -111,7 +112,7 @@ public final class ShipCombat {
       ServerLevel level, CompoundTag owner, BlockPos controller, Entity source) {
     if (!level.dimension().equals(TravelService.SPACE))
       throw new IllegalArgumentException("Ship weapons operate in space");
-    if (TravelService.locked(level, controller)
+    if (TransferLocks.locked(level, controller)
         || !ShipSystems.connected(level, owner).contains(controller))
       throw new IllegalArgumentException("Weapon controller is unavailable");
     if (WorldStore.get(level.getServer()).list("pendingImpacts").size() >= 128)
@@ -214,7 +215,7 @@ public final class ShipCombat {
               .toUniverse(center.subtract(Vec3.atLowerCornerOf(WorldStore.pos(owner, "base")))),
           power,
           source,
-          TravelService.locked(level, WorldStore.pos(owner, "base"))
+          TransferLocks.locked(level, WorldStore.pos(owner, "base"))
               ? null
               : owner.getStringOr("id", ""),
           LocalSpaces.address(owner));
@@ -246,7 +247,7 @@ public final class ShipCombat {
           dy = Math.max(Math.max(box.minY - physical.y, 0), physical.y - box.maxY),
           dz = Math.max(Math.max(box.minZ - physical.z, 0), physical.z - box.maxZ);
       if (dx * dx + dy * dy + dz * dz > power * power * 4) continue;
-      if (TravelService.locked(space, base)) {
+      if (TransferLocks.locked(space, base)) {
         var store = WorldStore.get(space.getServer());
         var pending = store.list("pendingImpacts");
         if (pending.size() >= 128) {
@@ -347,7 +348,7 @@ public final class ShipCombat {
             if (ship == null) continue;
             var level = WorldStore.level(server, ship.getStringOr("dimension", ""));
             var base = WorldStore.pos(ship, "base");
-            if (TravelService.locked(level, base) || !level.hasChunkAt(base)) continue;
+            if (TransferLocks.locked(level, base) || !level.hasChunkAt(base)) continue;
             Entity actor = null;
             if (event.contains("attacker")) {
               var uuid = UUID.fromString(event.getStringOr("attacker", ""));

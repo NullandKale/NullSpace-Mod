@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.ship.structure;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.mixin.ShipBlockEventsAccessor;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingTunnel;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
@@ -272,7 +272,7 @@ public final class HullScan {
   }
 
   public static boolean seals(ServerLevel level, BlockPos pos) {
-    if (DockingService.sealedMate(level, pos)) return true;
+    if (DockingPorts.sealedMate(level, pos)) return true;
     var state = level.getBlockState(pos);
     if (ShipDoors.isDoor(state)) return ShipDoors.sealed(level, pos);
     return !state.isAir()

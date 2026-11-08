@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.station;
 
 import com.google.gson.*;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import java.nio.file.*;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -22,10 +22,10 @@ public final class StationRegenerationGameTest {
     var base = new BlockPos(1830000, 80, 1830000);
     var old = StationGameTest.fixture(level, base, false);
     var id = old.getStringOr("id", "");
-    for (var port : DockingService.ports(level, old))
+    for (var port : DockingPorts.ports(level, old))
       level.setBlock(port.controller(), Blocks.QUARTZ_BLOCK.defaultBlockState(), 18);
     ctx.assertTrue(
-        DockingService.ports(level, old).isEmpty(),
+        DockingPorts.ports(level, old).isEmpty(),
         "Reproduce the saved world's missing docking bases");
     var other = new CompoundTag();
     other.putString("id", UUID.randomUUID().toString());
@@ -73,11 +73,11 @@ public final class StationRegenerationGameTest {
         StationRegeneration.applyPending(server) == 1,
         "Explicit request queues the current template");
     var station = store.repository().find(id);
-    ctx.assertTrue(!StationService.ready(station), "Regeneration is a persisted construction job");
+    ctx.assertTrue(!StationAccess.ready(station), "Regeneration is a persisted construction job");
     ctx.assertTrue(
         store.repository().find(other.getStringOr("id", "")).equals(other),
         "Other ship records are untouched");
-    StationService.tickBuilds(server);
+    StationBuilds.tickBuilds(server);
     long blocksBefore =
         java.util.stream.StreamSupport.stream(
                 BlockPos.betweenClosed(base, base.offset(31, 31, 31)).spliterator(), false)
@@ -85,7 +85,7 @@ public final class StationRegenerationGameTest {
             .count();
     var visitor = ctx.makeMockServerPlayerInLevel();
     visitor.teleportTo(base.getX() + 8.5, base.getY() + 3, base.getZ() + 8.5);
-    for (int pause = 0; pause < 3; pause++) StationService.tickBuilds(server);
+    for (int pause = 0; pause < 3; pause++) StationBuilds.tickBuilds(server);
     long blocksAfter =
         java.util.stream.StreamSupport.stream(
                 BlockPos.betweenClosed(base, base.offset(31, 31, 31)).spliterator(), false)
@@ -96,10 +96,9 @@ public final class StationRegenerationGameTest {
         "An unexpected visitor pauses regeneration instead of being cleared with the station");
     visitor.teleportTo(base.getX() + 50, base.getY() + 3, base.getZ() + 8);
     server.getPlayerList().remove(visitor);
-    for (int i = 0; i < 100 && !StationService.ready(station); i++)
-      StationService.tickBuilds(server);
+    for (int i = 0; i < 100 && !StationAccess.ready(station); i++) StationBuilds.tickBuilds(server);
     ctx.assertTrue(
-        StationService.ready(station) && DockingService.ports(level, station).size() == 2,
+        StationAccess.ready(station) && DockingPorts.ports(level, station).size() == 2,
         "Both current compact ports exist after replay");
     ctx.assertTrue(
         WorldStore.pos(station, "base").equals(base),
@@ -119,7 +118,7 @@ public final class StationRegenerationGameTest {
             "station-regeneration-queued-" + request.get("id").getAsString() + ".json");
     Files.copy(archive, file, StandardCopyOption.REPLACE_EXISTING);
     ctx.assertTrue(
-        StationRegeneration.applyPending(server) == 0 && StationService.ready(station),
+        StationRegeneration.applyPending(server) == 0 && StationAccess.ready(station),
         "A completed request never rebuilds on revisit");
     ctx.assertTrue(
         inventory.getItem(0).is(Items.DIAMOND) && inventory.getItem(0).getCount() == 7,

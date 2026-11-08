@@ -6,7 +6,7 @@ import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
@@ -37,7 +37,7 @@ public final class StationClientGameTest implements FabricClientGameTest {
             server -> {
               var p = world.getConnection().getServerPlayer();
               p.closeContainer();
-              var port = DockingService.readPort(p.level(), vessel, base, false);
+              var port = DockingPorts.readPort(p.level(), vessel, base, false);
               var at = port.anchors().getFirst();
               p.teleportTo(
                   p.level(),
@@ -79,7 +79,7 @@ public final class StationClientGameTest implements FabricClientGameTest {
             .getServer()
             .computeOnServer(
                 server ->
-                    DockingService.readPort(
+                    DockingPorts.readPort(
                             world.getConnection().getServerPlayer().level(), vessel, base, false)
                         .facing()
                         .toYRot());
@@ -117,7 +117,7 @@ public final class StationClientGameTest implements FabricClientGameTest {
                 vessels[0] = StationGameTest.fixture(level, a, true);
                 vessels[0].putString("home", "Halcyon Courier - abandoned freighter");
                 vessels[1] = StationGameTest.fixture(level, b, false);
-                var sourcePort = DockingService.firstPort(level, vessels[0]);
+                var sourcePort = DockingPorts.firstPort(level, vessels[0]);
                 for (var door : List.of(sourcePort.outer(), sourcePort.outer().above()))
                   level.setBlock(
                       door,
@@ -132,8 +132,8 @@ public final class StationClientGameTest implements FabricClientGameTest {
                 var start = StationGameTest.boardingPoint(level, vessels[0]);
                 p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
                 p.getInventory().add(new ItemStack(Items.DIAMOND, 7));
-                doors[0] = DockingService.firstPort(level, vessels[0]).controller();
-                doors[1] = DockingService.ports(level, vessels[1]).getFirst().controller();
+                doors[0] = DockingPorts.firstPort(level, vessels[0]).controller();
+                doors[1] = DockingPorts.ports(level, vessels[1]).getFirst().controller();
                 ShipService.open(
                     p, WorldStore.pos(vessels[0], "controller"), "Station docking test");
               });
@@ -277,7 +277,7 @@ public final class StationClientGameTest implements FabricClientGameTest {
                         .offset(
                             WorldStore.pos(vessels[0].getCompoundOrEmpty("dock"), "targetPort"));
                 var at =
-                    DockingService.readPort(p.level(), vessels[0], doors[0], true)
+                    DockingPorts.readPort(p.level(), vessels[0], doors[0], true)
                         .anchors()
                         .getFirst();
                 p.teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);

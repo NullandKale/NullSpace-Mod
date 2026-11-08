@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.ui.screen;
 
 import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
@@ -62,7 +62,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
   }
 
   private int ticks;
-  private SceneService.Frame frame;
+  private ScenePackets.Frame frame;
   private SceneViewport viewport;
 
   public long previewFrames() {
@@ -75,7 +75,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
         : frame.scene().getStringOr("status", "");
   }
 
-  public void preview(SceneService.Frame next) {
+  public void preview(ScenePackets.Frame next) {
     if (next.scene().getLongOr("console", 0) == menu.at.asLong()) frame = next;
   }
 
@@ -95,7 +95,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
   public void removed() {
     if (frame != null && minecraft.getConnection() != null)
       ClientPlayNetworking.send(
-          new SceneService.KeepAlive(frame.lease(), true, frame.scene().getIntOr("selection", 0)));
+          new ScenePackets.KeepAlive(frame.lease(), true, frame.scene().getIntOr("selection", 0)));
     if (viewport != null) viewport.close();
     super.removed();
   }
@@ -332,7 +332,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu>
         refreshPreview = false;
       } else
         ClientPlayNetworking.send(
-            new SceneService.KeepAlive(
+            new ScenePackets.KeepAlive(
                 frame.lease(), false, frame.scene().getIntOr("selection", 0)));
     }
     if (!mode.equals(menu.reading.getStringOr("mode", ""))) rebuildWidgets();

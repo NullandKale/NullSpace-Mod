@@ -8,7 +8,10 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -52,7 +55,7 @@ public final class PlaytestThreeGameTest {
     FuelSystem.provision(level, first, 48);
     FuelSystem.provision(level, second, 16);
     var ship = ShipTopology.resolve(level, base.offset(18, 6, 21));
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     for (int i = 0; i < 20; i++) ShipSystems.tick(level, ship);
 
     // Fuel: a draw comes out of every generator in proportion to what each holds.
@@ -90,26 +93,24 @@ public final class PlaytestThreeGameTest {
     for (var door : doors) {
       // An interior door: aired rooms on both sides, so opening it vents nothing.
       var facing = level.getBlockState(door).getValue(DoorBlock.FACING);
-      if (ShipSystems.oxygen(level, ship, door.relative(facing)) == 0
-          || ShipSystems.oxygen(level, ship, door.relative(facing.getOpposite())) == 0) continue;
+      if (ShipAir.oxygen(level, ship, door.relative(facing)) == 0
+          || ShipAir.oxygen(level, ship, door.relative(facing.getOpposite())) == 0) continue;
       // A closed door is a thin panel: you can stand in its block, which belongs to no room.
       ShipDoors.setOpen(level, door, false);
       ShipSystems.tick(level, ship);
+      ctx.assertTrue(ShipAir.roomAt(level, ship, door) == null, "A closed door cell is in no room");
       ctx.assertTrue(
-          ShipSystems.roomAt(level, ship, door) == null, "A closed door cell is in no room");
-      ctx.assertTrue(
-          ShipSystems.oxygen(level, ship, door) > 0
-              && ShipSystems.oxygen(level, ship, door.above()) > 0,
+          ShipAir.oxygen(level, ship, door) > 0 && ShipAir.oxygen(level, ship, door.above()) > 0,
           "Standing in a closed doorway breathes the room beside it: door "
-              + ShipSystems.oxygen(level, ship, door)
+              + ShipAir.oxygen(level, ship, door)
               + "/"
-              + ShipSystems.oxygen(level, ship, door.above())
+              + ShipAir.oxygen(level, ship, door.above())
               + " sides "
-              + ShipSystems.oxygen(level, ship, door.relative(facing))
+              + ShipAir.oxygen(level, ship, door.relative(facing))
               + "/"
-              + ShipSystems.oxygen(level, ship, door.relative(facing.getOpposite()))
+              + ShipAir.oxygen(level, ship, door.relative(facing.getOpposite()))
               + " room "
-              + ShipSystems.roomAt(level, ship, door)
+              + ShipAir.roomAt(level, ship, door)
               + " open "
               + level.getBlockState(door).getValue(DoorBlock.OPEN));
       tested = door;
@@ -120,7 +121,7 @@ public final class PlaytestThreeGameTest {
     // Engage closes every door; a door held open by redstone is reported, not ignored.
     for (var door : doors) ShipDoors.setOpen(level, door, true);
     ctx.assertTrue(
-        ShipSystems.closeDoorsNow(level, ship).isEmpty()
+        SystemsConsole.closeDoorsNow(level, ship).isEmpty()
             && doors.stream().noneMatch(p -> level.getBlockState(p).getValue(DoorBlock.OPEN)),
         "Every door closes");
     var held = doors.getFirst();
@@ -135,7 +136,7 @@ public final class PlaytestThreeGameTest {
     ctx.assertTrue(power != null, "Room beside the door for a redstone block");
     level.setBlock(power, Blocks.REDSTONE_BLOCK.defaultBlockState(), 3);
     ShipDoors.setOpen(level, held, true);
-    var stuck = ShipSystems.closeDoorsNow(level, ship);
+    var stuck = SystemsConsole.closeDoorsNow(level, ship);
     ctx.assertTrue(
         stuck.size() == 1 && stuck.getFirst().equals(held),
         "A door held open by redstone is reported: " + stuck);

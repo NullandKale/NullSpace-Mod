@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.gameplay.scene;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
@@ -200,7 +201,7 @@ public final class SceneCacheGameTest {
     ship.putInt("width", 8);
     ship.putInt("depth", 8);
     WorldStore.get(level.getServer()).ships().add(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     int revision = ShipSystems.revision(level, ship);
     var wall = base.offset(0, 4, 4);
     level.setBlock(wall, level.getBlockState(wall), 18);

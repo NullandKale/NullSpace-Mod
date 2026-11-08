@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.TestZones;
 import java.util.*;
@@ -52,7 +53,7 @@ public final class ShipStorageGameTest {
     crew.add(visitor);
     visited.put("crew", crew);
     WorldStore.get(f.surface.getServer()).ships().add(visited);
-    ShipStorage.rememberDeath(f.player);
+    CrewRelease.rememberDeath(f.player);
     ctx.assertTrue(
         f.ship()
             .getCompoundOrEmpty("recallUsers")
@@ -89,7 +90,7 @@ public final class ShipStorageGameTest {
             TravelService.failureInjector = stage -> {};
           }
           ctx.assertTrue(interrupted, "The real recall journal reaches destination staging");
-          TravelService.recover(f.surface.getServer());
+          TransferRecovery.recover(f.surface.getServer());
           ctx.assertTrue(
               f.ship()
                       .getStringOr("dimension", "")
@@ -161,7 +162,7 @@ public final class ShipStorageGameTest {
       ship.putDouble("simZ", 10000000);
       id = ship.getStringOr("id", "");
       player = player(ctx, index);
-      ShipStorage.authorize(ship, player);
+      CrewRelease.authorize(ship, player);
       home();
       for (var level : List.of(surface, space)) {
         var at = level == surface ? padBase : base;
@@ -306,7 +307,7 @@ public final class ShipStorageGameTest {
     member.putString("id", visitor.getUUID().toString());
     f.ship().getListOrEmpty("crew").add(member);
     // Offline passengers no longer block: they are taken off and log in at Terra Harbor.
-    ShipStorage.releaseOfflineCrew(f.surface.getServer(), f.ship(), f.player.getUUID());
+    CrewRelease.releaseOfflineCrew(f.surface.getServer(), f.ship(), f.player.getUUID());
     ctx.assertTrue(
         f.ship().getListOrEmpty("crew").isEmpty()
             && WorldStore.get(f.surface.getServer()).list("targets").stream()

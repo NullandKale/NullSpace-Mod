@@ -2,11 +2,13 @@ package com.nullandkale.nullspace.gameplay.docking;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.docking.DockingMotion;
 import com.nullandkale.nullspace.model.flight.FlightDynamics;
@@ -42,7 +44,7 @@ public final class DockingRecoveryGameTest {
       if (e.getValue().is(ModBlocks.GENERATOR))
         FuelSystem.provision(level, base.offset(e.getKey()), 64);
     }
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ship.getCompoundOrEmpty("systems")
         .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
     ShipSystems.tick(level, ship);
@@ -85,37 +87,37 @@ public final class DockingRecoveryGameTest {
       CompoundTag ship,
       CompoundTag station,
       ServerPlayer player,
-      DockingService.Port target) {
+      DockingPorts.Port target) {
     var ready =
-        DockingService.request(
+        DockingManeuver.request(
             player,
             ship,
             station.getStringOr("id", ""),
             target.controller().subtract(WorldStore.pos(station, "base")));
     ctx.assertTrue(ready.ready(), ready.message());
     var dock = ship.getCompoundOrEmpty("dock");
-    var source = DockingService.firstPort(level, ship);
+    var source = DockingPorts.firstPort(level, ship);
     var goal =
-        DockingService.matingPose(ship, source, station, target, dock.getDoubleOr("gap", .05));
+        DockingManeuver.matingPose(ship, source, station, target, dock.getDoubleOr("gap", .05));
     var normal =
         FlightDynamics.rotate(
             SceneService.pose(station).orientation(), DockingMotion.normal(target.facing()));
     pose(ship, new ScenePose(goal.position().add(normal.scale(1)), goal.orientation()));
     dock.putString("state", "CONNECTING");
     for (int i = 0; i < 6 && !dock.getStringOr("state", "").equals("CLAMPED"); i++)
-      DockingService.tickMotion(level.getServer(), ship);
+      DockingManeuver.tickMotion(level.getServer(), ship);
     ctx.assertTrue(
         dock.getStringOr("state", "").equals("CLAMPED"),
         "The real final approach clamps before the regression: "
             + ship.getStringOr("flightStatus", ""));
-    DockingService.tickMotion(level.getServer(), ship);
+    DockingManeuver.tickMotion(level.getServer(), ship);
     return dock;
   }
 
   private static void finishDeparture(
       GameTestHelper ctx, ServerLevel level, CompoundTag ship, CompoundTag station) {
     for (int i = 0; i < 340 && ship.contains("dock"); i++)
-      DockingService.tickMotion(level.getServer(), ship);
+      DockingManeuver.tickMotion(level.getServer(), ship);
     ctx.assertTrue(
         !ship.contains("dock") && station.getCompoundOrEmpty("dockLinks").isEmpty(),
         "Departure completes and releases the station reservation: "
@@ -132,8 +134,8 @@ public final class DockingRecoveryGameTest {
           StationGameTest.fixture(level, new BlockPos(2301024 + damage * 4096, 96, 2300000), false);
       var player = board(ctx, level, ship);
       try {
-        var source = DockingService.firstPort(level, ship);
-        var target = DockingService.ports(level, station).getFirst();
+        var source = DockingPorts.firstPort(level, ship);
+        var target = DockingPorts.ports(level, station).getFirst();
         var dock = capture(ctx, level, ship, station, player, target);
         ctx.assertTrue(dock.contains("tunnel"), "A real boarding collar was generated");
         ctx.assertTrue(
@@ -155,11 +157,12 @@ public final class DockingRecoveryGameTest {
           dock.remove("escapeY");
           dock.remove("escapeZ");
         }
-        DockingService.tickMotion(server, ship);
+        DockingManeuver.tickMotion(server, ship);
         var controller = ShipControl.open(player, WorldStore.pos(ship, "controller"), "Ready");
         var result =
             ShipControl.input(
-                player, new ShipControl.Input(controller.session(), ShipControl.Action.UNDOCK, ""));
+                player,
+                new ControllerPackets.Input(controller.session(), ShipControl.Action.UNDOCK, ""));
         ctx.assertTrue(
             dock.getStringOr("state", "").equals("UNDOCKING"),
             "The ordinary controller can undock with either or both damaged ports: " + result);
@@ -185,21 +188,21 @@ public final class DockingRecoveryGameTest {
     var player = board(ctx, level, ship);
     try {
       station.putString("constructionShip", ship.getStringOr("id", ""));
-      var target = DockingService.ports(level, station).getFirst();
-      var source = DockingService.firstPort(level, ship);
+      var target = DockingPorts.ports(level, station).getFirst();
+      var source = DockingPorts.firstPort(level, ship);
       station.putLong(
           "constructionSourcePort",
           source.controller().subtract(WorldStore.pos(ship, "base")).asLong());
-      DockingService.connectConstruction(server, station);
+      StationConstruction.connectConstruction(server, station);
       var dock = ship.getCompoundOrEmpty("dock");
       // Old platform connections used .05 even for a ship whose nose extends past its door.
-      pose(ship, DockingService.matingPose(ship, source, station, target, .05));
+      pose(ship, DockingManeuver.matingPose(ship, source, station, target, .05));
       dock.putString("state", "CLAMPED");
-      DockingService.commissionConstruction(server, station);
+      StationConstruction.commissionConstruction(server, station);
       ctx.assertTrue(
           !dock.getBooleanOr("construction", true) && dock.getDoubleOr("gap", 0) > 1,
           "Commissioning recalculates the finished room's real hull separation");
-      DockingService.tickMotion(server, ship);
+      DockingManeuver.tickMotion(server, ship);
       DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");
       finishDeparture(ctx, level, ship, station);
     } finally {
@@ -219,10 +222,10 @@ public final class DockingRecoveryGameTest {
     var station = StationGameTest.fixture(level, new BlockPos(2331024, 96, 2300000), false);
     var player = board(ctx, level, ship);
     try {
-      var source = DockingService.firstPort(level, ship);
-      var target = DockingService.ports(level, station).getFirst();
+      var source = DockingPorts.firstPort(level, ship);
+      var target = DockingPorts.ports(level, station).getFirst();
       var ready =
-          DockingService.request(
+          DockingManeuver.request(
               player,
               ship,
               station.getStringOr("id", ""),
@@ -231,13 +234,13 @@ public final class DockingRecoveryGameTest {
       var dock = ship.getCompoundOrEmpty("dock");
       dock.putString("state", "CLAMPED");
       dock.remove("gap");
-      var oldGoal = DockingService.matingPose(ship, source, station, target, .05);
+      var oldGoal = DockingManeuver.matingPose(ship, source, station, target, .05);
       pose(ship, oldGoal);
       escape(dock, oldGoal, station, target.facing());
       level.setBlock(target.outer(), Blocks.AIR.defaultBlockState(), 18);
       level.setBlock(target.controller(), Blocks.AIR.defaultBlockState(), 18);
       DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");
-      DockingService.tickMotion(server, ship);
+      DockingManeuver.tickMotion(server, ship);
       ctx.assertTrue(
           SceneService.pose(ship).position().distanceTo(oldGoal.position()) > .3,
           "The saved pre-fix overlap can shrink without requiring a rebuilt station port");
@@ -257,7 +260,7 @@ public final class DockingRecoveryGameTest {
           new ScenePose(current.position().add(normal.scale(50)), current.orientation()));
       WorldStore.get(server).ships().add(obstruction);
       try {
-        DockingService.tickMotion(server, ship);
+        DockingManeuver.tickMotion(server, ship);
         ctx.assertTrue(
             SceneService.pose(ship).position().distanceTo(current.position()) < 1e-6
                 && ship.getStringOr("flightStatus", "").contains("clear the departure corridor"),
@@ -283,11 +286,11 @@ public final class DockingRecoveryGameTest {
     var station = StationGameTest.fixture(level, new BlockPos(2341024, 96, 2300000), false);
     var player = board(ctx, level, ship);
     try {
-      ShipSystems.resizeStation(level, station, 128, 128);
+      SystemsUpgrade.resizeStation(level, station, 128, 128);
       ShipSystems.tick(level, station);
-      var source = DockingService.firstPort(level, ship);
+      var source = DockingPorts.firstPort(level, ship);
       var target =
-          DockingService.ports(level, station).stream()
+          DockingPorts.ports(level, station).stream()
               .filter(p -> p.facing() == Direction.EAST)
               .findFirst()
               .orElseThrow();
@@ -307,7 +310,7 @@ public final class DockingRecoveryGameTest {
               .findFirst()
               .orElseThrow();
       var plan = Map.of(inFutureRoom, Blocks.QUARTZ_BLOCK.defaultBlockState());
-      var problem = DockingService.constructionProblem(level, station, plan);
+      var problem = StationConstruction.constructionProblem(level, station, plan);
       ctx.assertTrue(
           problem.isPresent()
               && problem.get().message().contains("departure corridor")
@@ -322,7 +325,7 @@ public final class DockingRecoveryGameTest {
       var obstruction = source.outer().relative(source.facing());
       level.setBlock(obstruction, Blocks.COBBLESTONE.defaultBlockState(), 18);
       var denied =
-          DockingService.request(
+          DockingManeuver.request(
               player,
               ship,
               station.getStringOr("id", ""),

@@ -1,11 +1,11 @@
 package com.nullandkale.nullspace.ui.apps;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerApplication;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
 import com.nullandkale.nullspace.ui.terminal.TerminalField;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 import java.util.*;
 
@@ -21,14 +21,14 @@ public final class PadTerminal implements ControllerApplication {
   private final List<Runnable> commands = new ArrayList<>();
   private final List<int[]> hits = new ArrayList<>();
 
-  public PadTerminal(String status, String name, List<ComputerTerminal.Destination> data) {
+  public PadTerminal(String status, String name, List<TerminalPackets.Destination> data) {
     this.status = status;
     this.name = new TerminalField(name, 32);
     saved = name;
     catalog(data);
   }
 
-  public void catalog(List<ComputerTerminal.Destination> data) {
+  public void catalog(List<TerminalPackets.Destination> data) {
     data.stream()
         .filter(d -> d.id().equals("pad_status"))
         .findFirst()

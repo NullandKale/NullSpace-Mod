@@ -5,13 +5,15 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.guide.FieldGuide;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
-import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
+import com.nullandkale.nullspace.gameplay.ownership.CrewRelease;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -149,7 +151,7 @@ public final class SpaceStart {
     if (ship == null) {
       BlockPos base = null;
       for (int slot = 0; slot <= 7000 && base == null; slot++) {
-        if (!TravelService.spaceSlotFree(server, slot)) continue;
+        if (!TransferLocks.spaceSlotFree(server, slot)) continue;
         var candidate = new BlockPos(slot * TravelService.SPACE_SPACING, 96, 0);
         for (int x = 0; x < 32; x += 16)
           for (int z = 0; z < 32; z += 16) level.getChunk(candidate.offset(x, 0, z));
@@ -179,7 +181,7 @@ public final class SpaceStart {
       ship.putString("owner", key);
       ship.putString("localSpace", record.getStringOr("planet", LocalSpaces.HOME));
       ship.put("crew", new ListTag());
-      var arrival = NavigationService.arrivalOrigin(server, ship);
+      var arrival = Jumps.arrivalOrigin(server, ship);
       ship.putDouble("simX", arrival.x);
       ship.putDouble("simY", arrival.y);
       ship.putDouble("simZ", arrival.z);
@@ -203,16 +205,15 @@ public final class SpaceStart {
     for (var entry : plan.entrySet())
       if (entry.getValue().is(ModBlocks.GENERATOR))
         FuelSystem.provision(level, base.offset(entry.getKey()), 32);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ship.getCompoundOrEmpty("systems")
         .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
     var controller = WorldStore.pos(ship, "controller");
     var facing = level.getBlockState(controller).getValue(HorizontalDirectionalBlock.FACING);
     var at = controller.relative(facing);
-    if (!ShipSystems.breathable(level, ship, at)
-        || !ShipSystems.breathable(level, ship, at.above()))
+    if (!ShipAir.breathable(level, ship, at) || !ShipAir.breathable(level, ship, at.above()))
       throw new IllegalStateException("Starting ship does not have a breathable cabin");
-    ShipStorage.authorize(ship, player);
+    CrewRelease.authorize(ship, player);
     var member = new CompoundTag();
     member.putString("id", key);
     member.putDouble("x", at.getX() - base.getX() + .5);

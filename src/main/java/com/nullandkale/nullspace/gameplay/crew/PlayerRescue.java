@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.gameplay.crew;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.worldgen.sites.TerraHarbor;
 import java.util.*;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -142,7 +142,7 @@ public final class PlayerRescue {
                 p.sendOverlayMessage(Component.literal("Rescue: " + (remaining / 20) + "..."));
               continue;
             }
-            if (TravelService.busy(p))
+            if (TransferLocks.busy(p))
               continue; // Never split an in-progress boarding/physical transfer.
             try {
               arrive(p);

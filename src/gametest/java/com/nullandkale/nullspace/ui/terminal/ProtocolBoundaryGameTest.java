@@ -47,20 +47,20 @@ public final class ProtocolBoundaryGameTest {
     for (var action : ComputerTerminal.Action.values())
       roundTrip(
           ctx,
-          ComputerTerminal.Request.CODEC,
-          new ComputerTerminal.Request(
+          TerminalPackets.Request.CODEC,
+          new TerminalPackets.Request(
               id, action, "x".repeat(32), "d".repeat(36), Integer.MAX_VALUE));
     var destinations =
         java.util.stream.IntStream.range(0, 128)
             .mapToObj(
                 i ->
-                    new ComputerTerminal.Destination(
+                    new TerminalPackets.Destination(
                         UUID.randomUUID().toString(), "N".repeat(160), "S".repeat(16)))
             .toList();
     roundTrip(
         ctx,
-        ComputerTerminal.Open.CODEC,
-        new ComputerTerminal.Open(
+        TerminalPackets.Open.CODEC,
+        new TerminalPackets.Open(
             new BlockPos(-30000000, -64, 30000000),
             "m".repeat(2048),
             "long_range_scanner",
@@ -69,23 +69,23 @@ public final class ProtocolBoundaryGameTest {
             destinations));
     roundTrip(
         ctx,
-        ComputerTerminal.Open.CODEC,
-        new ComputerTerminal.Open(
+        TerminalPackets.Open.CODEC,
+        new TerminalPackets.Open(
             BlockPos.ZERO,
             "Station services",
             "station_core",
             "0",
             id,
             List.of(
-                new ComputerTerminal.Destination(
+                new TerminalPackets.Destination(
                     UUID.randomUUID().toString(),
                     "Halcyon Courier - abandoned freighter",
                     "Available"))));
     roundTrip(
-        ctx, ComputerTerminal.Update.CODEC, new ComputerTerminal.Update(id, "u".repeat(3000), 123));
+        ctx, TerminalPackets.Update.CODEC, new TerminalPackets.Update(id, "u".repeat(3000), 123));
     roundTrip(
-        ctx, ComputerTerminal.Rejected.CODEC, new ComputerTerminal.Rejected(id, "r".repeat(256)));
-    roundTrip(ctx, ComputerTerminal.Close.CODEC, new ComputerTerminal.Close(id));
+        ctx, TerminalPackets.Rejected.CODEC, new TerminalPackets.Rejected(id, "r".repeat(256)));
+    roundTrip(ctx, TerminalPackets.Close.CODEC, new TerminalPackets.Close(id));
     roundTrip(
         ctx, ComputerService.Input.CODEC, new ComputerService.Input(id, "i".repeat(2048), false));
     ctx.succeed();
@@ -105,7 +105,7 @@ public final class ProtocolBoundaryGameTest {
         b.writeVarInt(count);
         rejected(
             ctx,
-            () -> ComputerTerminal.Open.CODEC.decode(b),
+            () -> TerminalPackets.Open.CODEC.decode(b),
             "Reject invalid destination count " + count);
       } finally {
         b.release();
@@ -118,8 +118,7 @@ public final class ProtocolBoundaryGameTest {
       b.writeUtf("");
       b.writeUtf("");
       b.writeInt(0);
-      rejected(
-          ctx, () -> ComputerTerminal.Request.CODEC.decode(b), "Reject unknown action ordinal");
+      rejected(ctx, () -> TerminalPackets.Request.CODEC.decode(b), "Reject unknown action ordinal");
     } finally {
       b.release();
     }
@@ -185,12 +184,12 @@ public final class ProtocolBoundaryGameTest {
           () ->
               ComputerTerminal.authorize(
                   stranger,
-                  new ComputerTerminal.Request(
+                  new TerminalPackets.Request(
                       session.session(), ComputerTerminal.Action.REGISTER, "stolen", "")),
           "Reject another player's session");
       ComputerTerminal.authorize(
           owner,
-          new ComputerTerminal.Request(session.session(), ComputerTerminal.Action.INSPECT, "", ""));
+          new TerminalPackets.Request(session.session(), ComputerTerminal.Action.INSPECT, "", ""));
       ctx.succeed();
     } finally {
       ctx.getLevel().getServer().getPlayerList().remove(owner);
@@ -213,7 +212,7 @@ public final class ProtocolBoundaryGameTest {
             () ->
                 ComputerTerminal.authorize(
                     player,
-                    new ComputerTerminal.Request(
+                    new TerminalPackets.Request(
                         session.session(), ComputerTerminal.Action.REGISTER, name, "")),
             "Reject invalid pad name " + name);
       for (var action :
@@ -226,11 +225,11 @@ public final class ProtocolBoundaryGameTest {
             ctx,
             () ->
                 ComputerTerminal.authorize(
-                    player, new ComputerTerminal.Request(session.session(), action, "", "")),
+                    player, new TerminalPackets.Request(session.session(), action, "", "")),
             "Pad must not grant " + action);
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.REGISTER, "Crew Pad-01", ""));
       ctx.succeed();
     } finally {
@@ -268,7 +267,7 @@ public final class ProtocolBoundaryGameTest {
             () ->
                 ComputerTerminal.authorize(
                     player,
-                    new ComputerTerminal.Request(
+                    new TerminalPackets.Request(
                         session.session(), ComputerTerminal.Action.INSPECT, "", "")),
             "Revoked controller scenario " + scenario);
       }

@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.ui.screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.textures.*;
-import com.nullandkale.nullspace.gameplay.scene.SceneService;
+import com.nullandkale.nullspace.gameplay.scene.ScenePackets;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
@@ -15,12 +15,12 @@ import net.minecraft.network.chat.Component;
 
 public final class ViewportScreen extends Screen implements SceneScreen {
   private final TerminalScreen parent;
-  private SceneService.Frame frame;
+  private ScenePackets.Frame frame;
   private SceneViewport viewport;
   private int ticks, selection, lastUpdate;
   private float yaw, pitch, fov = 70;
 
-  public ViewportScreen(SceneService.Frame frame) {
+  public ViewportScreen(ScenePackets.Frame frame) {
     super(Component.literal("Remote viewport"));
     parent =
         net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof TerminalScreen t
@@ -42,7 +42,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
     return net.minecraft.core.BlockPos.of(frame.scene().getLongOr("source", 0));
   }
 
-  public void update(SceneService.Frame next) {
+  public void update(ScenePackets.Frame next) {
     if (frame.lease().equals(next.lease()) && next.revision() > frame.revision()) {
       frame = next;
       selection = next.scene().getIntOr("selection", selection);
@@ -88,7 +88,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
 
   private void changeCamera(int step) {
     selection = Math.clamp(selection + step, -10000, 10000);
-    ClientPlayNetworking.send(new SceneService.KeepAlive(frame.lease(), false, selection));
+    ClientPlayNetworking.send(new ScenePackets.KeepAlive(frame.lease(), false, selection));
   }
 
   private void resizeViewport() {
@@ -103,7 +103,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
   @Override
   public void tick() {
     if (++ticks % 20 == 0)
-      ClientPlayNetworking.send(new SceneService.KeepAlive(frame.lease(), false, selection));
+      ClientPlayNetworking.send(new ScenePackets.KeepAlive(frame.lease(), false, selection));
   }
 
   @Override
@@ -120,7 +120,7 @@ public final class ViewportScreen extends Screen implements SceneScreen {
   @Override
   public void removed() {
     if (minecraft.getConnection() != null)
-      ClientPlayNetworking.send(new SceneService.KeepAlive(frame.lease(), true, selection));
+      ClientPlayNetworking.send(new ScenePackets.KeepAlive(frame.lease(), true, selection));
     if (viewport != null) {
       viewport.close();
       viewport = null;

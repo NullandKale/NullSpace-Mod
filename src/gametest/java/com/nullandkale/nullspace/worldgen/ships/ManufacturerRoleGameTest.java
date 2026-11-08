@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.worldgen.ships;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
@@ -10,8 +10,10 @@ import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSensors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
@@ -49,7 +51,7 @@ public final class ManufacturerRoleGameTest {
           "All machinery, stairs and upper rooms are connected");
       var ship = ShipTopology.resolve(level, origin.offset(preset.helm()));
       for (var at : scan.blocks()) FuelSystem.provision(level, at, 64);
-      ShipSystems.upgrade(level, ship);
+      SystemsUpgrade.upgrade(level, ship);
       ship.getCompoundOrEmpty("systems")
           .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
       ShipSystems.tick(level, ship);
@@ -65,13 +67,13 @@ public final class ManufacturerRoleGameTest {
               && NavigationService.propulsion(level, ship) > 0,
           "Navigation sensors stay powered while propulsion uses the remaining output");
       ship.putInt("thrustDemand", 0);
-      var port = DockingService.firstPort(level, ship);
+      var port = DockingPorts.firstPort(level, ship);
       for (var room : ManufacturerRoleShips.rooms(preset.id()).entrySet()) {
         var target = origin.offset(room.getValue());
         ctx.assertTrue(
             scan.pressure().breathable(target.above()), preset.name() + " seals " + room.getKey());
         ctx.assertTrue(
-            ShipSystems.breathable(level, ship, target.above()),
+            ShipAir.breathable(level, ship, target.above()),
             "Finite air is retained in " + room.getKey());
         ctx.assertTrue(
             reachable(level, WorldStore.bounds(ship), port.anchors().getFirst(), target),

@@ -4,7 +4,8 @@ import com.google.gson.*;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerChecks;
 import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
@@ -15,6 +16,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -117,16 +119,16 @@ public final class DevStoryFixture {
     var helm = WorldStore.pos(ship, "controller");
     var inspection = ShipService.preflight(player.level(), helm);
     if (inspection.vessel() != ship
-        || !ShipSystems.breathable(player.level(), ship, player.blockPosition().above()))
+        || !ShipAir.breathable(player.level(), ship, player.blockPosition().above()))
       throw new AssertionError("Prepared ship is not ready with breathable air");
     if (NavigationService.propulsion(player.level(), ship) == 0
         || FuelSystem.available(player.level(), ship) <= 0)
       throw new AssertionError("Prepared ship needs working propulsion and real fuel");
-    if (DockingService.ports(player.level(), ship).isEmpty())
+    if (DockingPorts.ports(player.level(), ship).isEmpty())
       throw new AssertionError("Prepared ship has no working docking doorway");
     var destination = ShipDestination.selected(ship);
     if (destination == null
-        || !ShipControl.reason(player, ship, destination, ShipControl.Action.JUMP).isEmpty())
+        || !ControllerChecks.reason(player, ship, destination, ShipControl.Action.JUMP).isEmpty())
       throw new AssertionError("Prepared ship cannot start its selected journey");
     if (SceneService.observer(player) != ship || player.getRespawnConfig() == null)
       throw new AssertionError("Player needs ship ownership and a recovery spawn");

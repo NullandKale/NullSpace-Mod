@@ -2,7 +2,8 @@ package com.nullandkale.nullspace.gameplay.crew;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorageGameTest;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.worldgen.sites.TerraHarbor;
 import java.util.*;
@@ -147,7 +148,7 @@ public final class PlayerRescueGameTest {
         !TerraHarbor.protectedAt(level, base.offset(1, 1, 5)),
         "Workstations are ordinary blocks anyone can use");
     ctx.assertTrue(
-        !TravelService.locked(level, base.offset(1, 1, 5)),
+        !TransferLocks.locked(level, base.offset(1, 1, 5)),
         "The harbor is not a frozen transit area: furnaces smelt and blocks update");
     ctx.assertTrue(
         !TerraHarbor.protectedAt(level, base.offset(200, 1, 200)),
@@ -182,7 +183,7 @@ public final class PlayerRescueGameTest {
           && level.getBlockState(head.above()).isAir()
           && level.getBlockState(foot.below()).isSolidRender()
           && level.getBlockState(head.below()).isSolidRender()
-          && ShipSystems.breathable(level, ship, foot.above())) return foot;
+          && ShipAir.breathable(level, ship, foot.above())) return foot;
     }
     return null;
   }

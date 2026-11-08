@@ -1,6 +1,6 @@
 package com.nullandkale.nullspace.gameplay.travel;
 
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.Boarding;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.*;
@@ -72,7 +72,7 @@ public final class TravelPackets {
                 .server()
                 .execute(
                     () -> {
-                      if (DockingService.ready(context.player(), packet)) return;
+                      if (Boarding.ready(context.player(), packet)) return;
                       if (!NavigationService.ready(context.player(), packet))
                         TravelService.ready(context.player(), packet);
                     }));

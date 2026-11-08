@@ -4,7 +4,7 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.dev.SphereLab;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.TestZones;
 import java.util.*;
@@ -90,7 +90,7 @@ public final class CombatGameTest {
             .defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH),
         18);
-    ShipSystems.upgrade(level, a);
+    SystemsUpgrade.upgrade(level, a);
     a.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 2, 1, 0, 0, 2});
     var player = ctx.makeMockServerPlayerInLevel();
     player.teleportTo(

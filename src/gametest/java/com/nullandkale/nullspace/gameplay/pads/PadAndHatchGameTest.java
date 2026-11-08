@@ -8,8 +8,11 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -184,7 +187,7 @@ public final class PadAndHatchGameTest {
     ship.putInt("width", 8);
     ship.putInt("depth", 8);
     WorldStore.get(level.getServer()).ships().add(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ShipSystems.tick(level, ship);
     var device =
         ship.getCompoundOrEmpty("systems").getListOrEmpty("devices").stream()
@@ -196,14 +199,14 @@ public final class PadAndHatchGameTest {
     var p = ctx.makeMockServerPlayerInLevel();
     p.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
     try {
-      ShipSystems.action(
+      SystemsConsole.action(
           p, helm, ComputerTerminal.Action.CONFIGURE, "group hatch add " + id.substring(0, 8));
-      ShipSystems.action(p, helm, ComputerTerminal.Action.CONFIGURE, "doors hatch open");
+      SystemsConsole.action(p, helm, ComputerTerminal.Action.CONFIGURE, "doors hatch open");
       ShipSystems.tick(level, ship);
       ctx.assertTrue(
           ShipDoors.open(level.getBlockState(hatch)),
           "A named powered group must open an iron hatch");
-      ShipSystems.action(p, helm, ComputerTerminal.Action.CLOSE_DOORS);
+      SystemsConsole.action(p, helm, ComputerTerminal.Action.CLOSE_DOORS);
       for (int i = 0; i < 3; i++) ShipSystems.tick(level, ship);
       ctx.assertTrue(!ShipDoors.open(level.getBlockState(hatch)), "Close all includes hatches");
       ctx.assertTrue(
@@ -214,7 +217,7 @@ public final class PadAndHatchGameTest {
       level.setBlockAndUpdate(hatch.east(), Blocks.REDSTONE_BLOCK.defaultBlockState());
       ctx.assertTrue(
           ShipDoors.open(level.getBlockState(hatch)), "Native redstone must open the hatch");
-      ShipSystems.action(p, helm, ComputerTerminal.Action.CLOSE_DOORS);
+      SystemsConsole.action(p, helm, ComputerTerminal.Action.CLOSE_DOORS);
       for (int i = 0; i < 3; i++) ShipSystems.tick(level, ship);
       ctx.assertTrue(
           ShipDoors.open(level.getBlockState(hatch)),
@@ -267,7 +270,7 @@ public final class PadAndHatchGameTest {
       try {
         ComputerTerminal.authorize(
             p,
-            new ComputerTerminal.Request(
+            new TerminalPackets.Request(
                 session.session(), ComputerTerminal.Action.PREVIEW_PAD, "", ""));
       } catch (IllegalArgumentException expectedError) {
         rejected = expectedError.getMessage().contains("does not belong");

@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.worldgen.encounters;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.entity.RepairBot;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
@@ -135,7 +135,7 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                   id[0] = ship.getStringOr("id", "");
                   // Where a ship actually arrives in this zone, level and facing the scene.
                   ship.putDouble("arrivalAltitude", 0);
-                  var arrival = NavigationService.arrivalOrigin(server, ship);
+                  var arrival = Jumps.arrivalOrigin(server, ship);
                   ship.putDouble("simX", arrival.x);
                   ship.putDouble("simY", arrival.y);
                   ship.putDouble("simZ", arrival.z);

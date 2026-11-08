@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.docking.DockingMotion;
 import com.nullandkale.nullspace.model.power.PowerBus;
@@ -29,23 +30,23 @@ public final class DockingPresetGameTest {
     var station = StationGameTest.fixture(level, new BlockPos(2214000, 96, 2200000), false);
     var player = ctx.makeMockServerPlayerInLevel();
     try {
-      var source = DockingService.firstPort(level, ship);
-      var target = DockingService.ports(level, station).getFirst();
+      var source = DockingPorts.firstPort(level, ship);
+      var target = DockingPorts.ports(level, station).getFirst();
       var at = source.anchors().getFirst();
       player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), 0, 0, true);
-      DockingService.request(
+      DockingManeuver.request(
           player,
           ship,
           station.getStringOr("id", ""),
           target.controller().subtract(WorldStore.pos(station, "base")));
       var dock = ship.getCompoundOrEmpty("dock");
       dock.putDouble("gap", 4.05);
-      pose(ship, DockingService.matingPose(ship, source, station, target, 4.05));
+      pose(ship, DockingManeuver.matingPose(ship, source, station, target, 4.05));
       dock.putString("state", "CLAMPED");
       var existing = source.outer().below().relative(source.facing());
       level.setBlock(
           existing, net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
-      DockingService.tickMotion(server, ship);
+      DockingManeuver.tickMotion(server, ship);
       ctx.assertTrue(
           dock.contains("tunnel")
               && DockingTunnel.sections(level, ship) == 1
@@ -83,7 +84,7 @@ public final class DockingPresetGameTest {
             ShipSystems.power(level, vessel, PowerBus.System.CONTROLS) == 0,
             "Fixture is fully unpowered");
       }
-      DockingService.tickMotion(server, ship);
+      DockingManeuver.tickMotion(server, ship);
       boolean noPropulsion = false;
       try {
         DockingService.perform(player, ship, source.controller(), "DOCK_UNDOCK");
@@ -97,7 +98,7 @@ public final class DockingPresetGameTest {
           "An unpowered source cannot retract the safe connection and begin departure");
       DockingService.perform(player, ship, source.controller(), "DOCK_BOARD");
       ctx.assertTrue(
-          DockingService.busy(player),
+          Boarding.busy(player),
           "A captured connection permits boarding without either ship's power");
       WorldStore.get(server)
           .list("stationBoarding")
@@ -111,17 +112,17 @@ public final class DockingPresetGameTest {
                 .add(DockingMotion.normal(port.facing()).scale(3.2));
         ShipDoors.setOpen(level, port.outer(), false);
         player.teleportTo(end.x, end.y, end.z);
-        DockingService.walkThrough(server);
-        ctx.assertTrue(!DockingService.busy(player), "A closed door still prevents boarding");
+        DockingPorts.walkThrough(server);
+        ctx.assertTrue(!Boarding.busy(player), "A closed door still prevents boarding");
         ShipDoors.setOpen(level, port.outer(), true);
         var side = DockingMotion.normal(port.facing().getClockWise()).scale(2);
         player.teleportTo(end.x + side.x, end.y, end.z + side.z);
-        DockingService.walkThrough(server);
-        ctx.assertTrue(!DockingService.busy(player), "Passengers beside the collar cannot board");
+        DockingPorts.walkThrough(server);
+        ctx.assertTrue(!Boarding.busy(player), "Passengers beside the collar cannot board");
         player.teleportTo(end.x, end.y, end.z);
-        DockingService.walkThrough(server);
+        DockingPorts.walkThrough(server);
         ctx.assertTrue(
-            DockingService.busy(player),
+            Boarding.busy(player),
             "A passenger at either collar end stop boards during a blackout after delayed"
                 + " movement");
         WorldStore.get(server)
@@ -159,7 +160,7 @@ public final class DockingPresetGameTest {
     var station = StationGameTest.fixture(level, new BlockPos(2211000, 96, 2200000), false);
     var player = ctx.makeMockServerPlayerInLevel();
     try {
-      var original = DockingService.firstPort(level, ship);
+      var original = DockingPorts.firstPort(level, ship);
       for (var door : List.of(original.outer(), original.outer().above()))
         level.setBlock(
             door,
@@ -169,16 +170,16 @@ public final class DockingPresetGameTest {
                     net.minecraft.world.level.block.DoorBlock.FACING,
                     original.facing().getOpposite()),
             18);
-      var inwardDoor = DockingService.firstPort(level, ship);
+      var inwardDoor = DockingPorts.firstPort(level, ship);
       ctx.assertTrue(
           inwardDoor.facing() == original.facing()
               && inwardDoor.anchors().equals(original.anchors()),
           "The Docking Base defines the exterior and cabin even when the door faces inward");
       var at = StationGameTest.boardingPoint(level, ship);
       player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
-      var target = DockingService.ports(level, station).getFirst();
+      var target = DockingPorts.ports(level, station).getFirst();
       var requested =
-          DockingService.request(
+          DockingManeuver.request(
               player,
               ship,
               station.getStringOr("id", ""),
@@ -187,7 +188,7 @@ public final class DockingPresetGameTest {
           requested.ready() && ship.contains("dock"),
           "An inward-facing ordinary door can start docking");
       WorldStore.get(server).ships().remove(station);
-      DockingService.tickMotion(server, ship);
+      DockingManeuver.tickMotion(server, ship);
       ctx.assertTrue(
           !ship.contains("dock")
               && ship.getStringOr("flightStatus", "")
@@ -222,7 +223,7 @@ public final class DockingPresetGameTest {
     station.putDouble("simX", 3000);
     station.putDouble("simY", 1000);
     station.putDouble("simZ", -3000);
-    var target = DockingService.ports(level, station).getFirst();
+    var target = DockingPorts.ports(level, station).getFirst();
     var player = ctx.makeMockServerPlayerInLevel();
     int i = 0;
     for (var preset : ShipBlueprints.PRESETS) {
@@ -242,7 +243,7 @@ public final class DockingPresetGameTest {
         level.setBlock(base.offset(e.getKey()), e.getValue(), 18);
       for (var p : ShipBlueprints.blocks(preset).keySet())
         FuelSystem.provision(level, base.offset(p), 64);
-      ShipSystems.upgrade(level, ship);
+      SystemsUpgrade.upgrade(level, ship);
       ship.getCompoundOrEmpty("systems")
           .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
       ShipSystems.tick(level, ship);
@@ -255,16 +256,16 @@ public final class DockingPresetGameTest {
       player.teleportTo(
           level, front.getX() + .5, front.getY(), front.getZ() + .5, Set.of(), 0, 0, true);
       var ready =
-          DockingService.request(
+          DockingManeuver.request(
               player,
               ship,
               station.getStringOr("id", ""),
               target.controller().subtract(WorldStore.pos(station, "base")));
       ctx.assertTrue(ready.ready(), preset.name() + ": " + ready.message());
-      var source = DockingService.firstPort(level, ship);
+      var source = DockingPorts.firstPort(level, ship);
       var d = ship.getCompoundOrEmpty("dock");
       var goal =
-          DockingService.matingPose(ship, source, station, target, d.getDoubleOr("gap", .05));
+          DockingManeuver.matingPose(ship, source, station, target, d.getDoubleOr("gap", .05));
       var normal =
           SceneService.pose(station)
               .toUniverse(DockingMotion.normal(target.facing()))
@@ -273,12 +274,12 @@ public final class DockingPresetGameTest {
       d.putString("state", "CONNECTING");
       for (int step = 0;
           step < 10 && !ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED");
-          step++) DockingService.tickMotion(server, ship);
+          step++) DockingManeuver.tickMotion(server, ship);
       ctx.assertTrue(
           ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"),
           preset.name() + " clamps: " + ship.getStringOr("flightStatus", ""));
       DockingService.perform(player, ship, helm, "DOCK_UNDOCK");
-      for (int step = 0; step < 8; step++) DockingService.tickMotion(server, ship);
+      for (int step = 0; step < 8; step++) DockingManeuver.tickMotion(server, ship);
       ctx.assertTrue(
           ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("UNDOCKING")
               && SceneService.pose(ship).position().distanceTo(goal.position()) > 1,

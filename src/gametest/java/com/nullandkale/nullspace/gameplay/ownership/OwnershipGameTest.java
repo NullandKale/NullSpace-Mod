@@ -8,7 +8,9 @@ import com.nullandkale.nullspace.gameplay.pads.PadStatus;
 import com.nullandkale.nullspace.gameplay.scene.SceneSnapshots;
 import com.nullandkale.nullspace.gameplay.scene.SceneVolumes;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.space.VisualSnapshot;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
@@ -106,14 +108,14 @@ public final class OwnershipGameTest {
     ship.putLong("controller", controller.asLong());
     ship.putInt("width", 8);
     ship.putInt("depth", 8);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     int before = ShipSystems.revision(level, ship);
     var replacement = ship.copy();
     int[] air = replacement.getCompoundOrEmpty("systems").getIntArray("air").orElseThrow();
     air[Atmosphere.index(4, 2, 3)] = 123;
     replacement.getCompoundOrEmpty("systems").putIntArray("air", air);
     ctx.assertTrue(
-        ShipSystems.pressure(level, replacement, 4, 2, 3) == 123
+        ShipAir.pressure(level, replacement, 4, 2, 3) == 123
             && ShipSystems.revision(level, replacement) > before,
         "A recovered record must not reuse the old air array or devices");
     ctx.succeed();

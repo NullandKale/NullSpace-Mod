@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.ownership;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import java.util.*;
@@ -66,7 +66,7 @@ public final class ClaimsGameTest {
           // A player action resolves its vessel at execution time; the test must do the same.
           var current = WorldStore.get(server).repository().find(id);
           ctx.assertTrue(current != null, "The derelict remains registered before the claim");
-          if (!StationService.ready(current)) {
+          if (!StationAccess.ready(current)) {
             // A fresh lambda: runAfterDelay drops a Runnable rescheduled from inside itself.
             ctx.runAfterDelay(5, () -> poll[0].run());
             return;

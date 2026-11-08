@@ -7,10 +7,12 @@ import com.nullandkale.nullspace.dev.SystemsLab;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -48,7 +50,7 @@ public final class ShipSystemsGameTest {
     var player = ctx.makeMockServerPlayerInLevel();
     player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() + .5);
     try {
-      var check = ShipSystems.upgradeCheck(level, ship, helm);
+      var check = SystemsUpgrade.upgradeCheck(level, ship, helm);
       ctx.assertTrue(
           !check.ready()
               && check.message().contains("Generator: installed at " + battery.toShortString())
@@ -59,7 +61,7 @@ public final class ShipSystemsGameTest {
           "One diagnostic distinguishes disconnected upper deck, missing supply and outside"
               + " equipment: "
               + check.message());
-      ShipSystems.action(player, helm, ComputerTerminal.Action.UPGRADE);
+      SystemsConsole.action(player, helm, ComputerTerminal.Action.UPGRADE);
       ctx.assertTrue(
           ComputerTerminal.reading(player, helm)
               .contains("Generator: installed at " + battery.toShortString()),
@@ -72,17 +74,17 @@ public final class ShipSystemsGameTest {
       level.setBlock(base.offset(3, 1, 1), ModBlocks.COMPUTER.defaultBlockState(), 18);
       level.setBlock(base.offset(4, 1, 1), ModBlocks.AIR_SUPPLY.defaultBlockState(), 18);
       ctx.assertTrue(
-          !ShipSystems.upgradeCheck(level, ship, helm).ready(),
+          !SystemsUpgrade.upgradeCheck(level, ship, helm).ready(),
           "An upper deck still needs a physical connection");
       for (int y = 1; y < 4; y++)
         level.setBlock(base.offset(0, y, 0), Blocks.IRON_BLOCK.defaultBlockState(), 18);
       ctx.assertTrue(
-          ShipSystems.upgradeCheck(level, ship, helm).ready(),
+          SystemsUpgrade.upgradeCheck(level, ship, helm).ready(),
           "A pillar between floors connects equipment on both decks");
       ctx.assertTrue(
           ComputerTerminal.reading(player, helm).contains("Required equipment is connected"),
           "Live diagnostics notice the repair and prompt for an explicit upgrade");
-      ShipSystems.action(player, helm, ComputerTerminal.Action.UPGRADE);
+      SystemsConsole.action(player, helm, ComputerTerminal.Action.UPGRADE);
       ctx.assertTrue(
           ShipSystems.enabled(ship), "Repairing all reported issues permits the upgrade");
       ctx.succeed();
@@ -114,18 +116,18 @@ public final class ShipSystemsGameTest {
     var player = ctx.makeMockServerPlayerInLevel();
     player.teleportTo(base.getX() + 2.5, base.getY() + 3, base.getZ() + 4.5);
     ctx.assertTrue(
-        ShipSystems.equipmentStatus(level, generator).contains("SYSTEMS NOT SET UP"),
+        EquipmentPanel.equipmentStatus(level, generator).contains("SYSTEMS NOT SET UP"),
         "Equipment on a ship without systems explains how to set them up");
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ShipSystems.tick(level, ship);
     var system = ship.getCompoundOrEmpty("systems");
     system.putBoolean("supplyDisabled", true);
     ShipSystems.tick(level, ship);
-    ShipSystems.use(player, generator);
+    EquipmentPanel.use(player, generator);
     ctx.assertTrue(
         system.getBooleanOr("supplyDisabled", false),
         "Inspecting a generator must not silently restart it");
-    ShipSystems.equipmentAction(player, generator, ComputerTerminal.Action.DEVICE_RESET);
+    EquipmentPanel.equipmentAction(player, generator, ComputerTerminal.Action.DEVICE_RESET);
     ShipSystems.tick(level, ship);
     ctx.assertTrue(
         ShipSystems.power(level, ship, PowerBus.System.CONTROLS) == 1,
@@ -141,7 +143,7 @@ public final class ShipSystemsGameTest {
     try {
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(),
               ComputerTerminal.Action.FIRE,
               "",
@@ -157,28 +159,28 @@ public final class ShipSystemsGameTest {
     try {
       ComputerTerminal.authorize(
           stranger,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.DEVICE_REFRESH, "", ""));
     } catch (IllegalArgumentException expected) {
       stolen = true;
     }
     ctx.assertTrue(stolen, "Equipment sessions must be player bound");
     int revision = ShipSystems.revision(level, ship);
-    ShipSystems.equipmentAction(player, generator, ComputerTerminal.Action.DEVICE_DISABLE);
+    EquipmentPanel.equipmentAction(player, generator, ComputerTerminal.Action.DEVICE_DISABLE);
     boolean stale = false;
     try {
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.DEVICE_ENABLE, "", "", revision));
     } catch (IllegalArgumentException expected) {
       stale = true;
     }
     ctx.assertTrue(stale, "Concurrent equipment edits must reject stale revisions");
     ctx.assertTrue(
-        ShipSystems.equipmentStatus(level, generator).contains("OFF (disabled)"),
+        EquipmentPanel.equipmentStatus(level, generator).contains("OFF (disabled)"),
         "Disabled equipment must explain its condition");
-    var localPanel = ShipSystems.equipmentStatus(level, generator);
+    var localPanel = EquipmentPanel.equipmentStatus(level, generator);
     ctx.assertTrue(
         !localPanel.contains(generator.toShortString())
             && !localPanel.contains(ship.getStringOr("id", "").substring(0, 8))
@@ -186,7 +188,7 @@ public final class ShipSystemsGameTest {
         "Equipment readings must omit coordinates, UUIDs and the repeated header name");
     boolean wrongHardware = false;
     try {
-      ShipSystems.equipmentAction(
+      EquipmentPanel.equipmentAction(
           player, base.offset(0, 3, 3), ComputerTerminal.Action.DEVICE_RESET);
     } catch (IllegalArgumentException expected) {
       wrongHardware = true;
@@ -197,7 +199,7 @@ public final class ShipSystemsGameTest {
     try {
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.DEVICE_REFRESH, "", ""));
     } catch (IllegalArgumentException expected) {
       replaced = true;
@@ -206,12 +208,12 @@ public final class ShipSystemsGameTest {
     var isolated = base.offset(7, 10, 7);
     level.setBlock(isolated, ModBlocks.CAMERA.defaultBlockState(), 18);
     ctx.assertTrue(
-        ShipSystems.equipmentStatus(level, isolated).contains("DISCONNECTED"),
+        EquipmentPanel.equipmentStatus(level, isolated).contains("DISCONNECTED"),
         "Detached equipment must report disconnection");
     var outside = base.offset(64, 0, 64);
     level.setBlock(outside, ModBlocks.MONITOR.defaultBlockState(), 18);
     ctx.assertTrue(
-        ShipSystems.equipmentStatus(level, outside).contains("no recognized ship"),
+        EquipmentPanel.equipmentStatus(level, outside).contains("no recognized ship"),
         "Unregistered equipment must explain setup instead of ignoring the click");
     level.getServer().getPlayerList().remove(player);
     level.getServer().getPlayerList().remove(stranger);
@@ -284,7 +286,7 @@ public final class ShipSystemsGameTest {
     ctx.assertTrue(
         id.equals(ShipTopology.resolve(level, helm).getStringOr("id", "")),
         "Helm and systems controller must share identity");
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     var player = ctx.makeMockServerPlayerInLevel();
     // Stand at the ship controller, which runs systems actions.
     player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() - .5);
@@ -295,7 +297,7 @@ public final class ShipSystemsGameTest {
     int free = 0;
     for (int slot = 0; free < 3; slot++) {
       int x = slot * TravelService.SPACE_SPACING;
-      if (TravelService.spaceSlotFree(server, slot)) {
+      if (TransferLocks.spaceSlotFree(server, slot)) {
         for (int dx = 0; dx <= 1; dx++)
           for (int dz = 0; dz <= 1; dz++) space.setChunkForced((x >> 4) + dx, dz, true);
         free++;
@@ -353,13 +355,13 @@ public final class ShipSystemsGameTest {
           try {
             ComputerTerminal.authorize(
                 player,
-                new ComputerTerminal.Request(
+                new TerminalPackets.Request(
                     session.session(), ComputerTerminal.Action.POWER_AIR, "", "", -1));
           } catch (IllegalArgumentException e) {
             stale = true;
           }
           ctx.assertTrue(stale, "Stale systems revision must be rejected");
-          ShipSystems.action(player, console, ComputerTerminal.Action.OPEN_DOORS);
+          SystemsConsole.action(player, console, ComputerTerminal.Action.OPEN_DOORS);
           ctx.runAfterDelay(
               16,
               () -> {
@@ -376,7 +378,7 @@ public final class ShipSystemsGameTest {
                         && doors.stream()
                             .allMatch(p -> level.getBlockState(p).getValue(DoorBlock.OPEN)),
                     "Powered controller must open ten room doors and both airlock doors");
-                ShipSystems.action(player, console, ComputerTerminal.Action.CLOSE_DOORS);
+                SystemsConsole.action(player, console, ComputerTerminal.Action.CLOSE_DOORS);
                 ctx.runAfterDelay(
                     16,
                     () -> {
@@ -400,12 +402,12 @@ public final class ShipSystemsGameTest {
                                   .findFirst()
                                   .orElseThrow();
                       var shortId = door.getStringOr("id", "").substring(0, 8);
-                      ShipSystems.action(
+                      SystemsConsole.action(
                           player,
                           console,
                           ComputerTerminal.Action.CONFIGURE,
                           "group lock add " + shortId);
-                      ShipSystems.action(
+                      SystemsConsole.action(
                           player, console, ComputerTerminal.Action.CONFIGURE, "doors lock open");
                       ctx.runAfterDelay(
                           2,
@@ -422,7 +424,7 @@ public final class ShipSystemsGameTest {
                                             .count()
                                         == 1,
                                 "Named group must move only its stable door ID");
-                            ShipSystems.action(
+                            SystemsConsole.action(
                                 player, console, ComputerTerminal.Action.CLOSE_DOORS);
                             var session2 =
                                 ComputerTerminal.issue(
@@ -439,7 +441,7 @@ public final class ShipSystemsGameTest {
                                       level.getBlockState(selected).getValue(DoorBlock.OPEN),
                                       "Closing the terminal cancels queued door work before it can"
                                           + " resume");
-                                  ShipSystems.action(
+                                  SystemsConsole.action(
                                       player,
                                       console,
                                       ComputerTerminal.Action.CONFIGURE,
@@ -449,7 +451,7 @@ public final class ShipSystemsGameTest {
                                       () -> {
                                         boolean blackout = false;
                                         try {
-                                          ShipSystems.action(
+                                          SystemsConsole.action(
                                               player, console, ComputerTerminal.Action.OPEN_DOORS);
                                         } catch (IllegalArgumentException expected) {
                                           blackout = true;
@@ -475,7 +477,7 @@ public final class ShipSystemsGameTest {
                                             base.getX() + 18.5,
                                             base.getY() + 6,
                                             base.getZ() + 19.5);
-                                        ShipSystems.equipmentAction(
+                                        EquipmentPanel.equipmentAction(
                                             player,
                                             base.offset(14, 6, 21),
                                             ComputerTerminal.Action.DEVICE_RESET);
@@ -490,7 +492,7 @@ public final class ShipSystemsGameTest {
                                                               vessel,
                                                               PowerBus.System.CONTROLS)
                                                           == 1
-                                                      && ShipSystems.summary(level, vessel)
+                                                      && SystemsConsole.summary(level, vessel)
                                                           .contains("Generation 16"),
                                                   "Local supply reset must recover an intentionally"
                                                       + " unpowered console");
@@ -540,7 +542,7 @@ public final class ShipSystemsGameTest {
                                                                   b -> b.getIntOr("energy", 0))
                                                               .sum()
                                                           == 1204
-                                                      && ShipSystems.summary(level, vessel)
+                                                      && SystemsConsole.summary(level, vessel)
                                                           .contains("Battery 1204"),
                                                   "A full second cell cannot double charging rate"
                                                       + " or make bus accounting disagree with"
@@ -568,7 +570,7 @@ public final class ShipSystemsGameTest {
                                                               vessel,
                                                               PowerBus.System.ENGINES)
                                                           == 3
-                                                      && ShipSystems.summary(level, vessel)
+                                                      && SystemsConsole.summary(level, vessel)
                                                           .contains("Generation 0"),
                                                   "Generator destruction must recompute against"
                                                       + " surviving charged batteries immediately");

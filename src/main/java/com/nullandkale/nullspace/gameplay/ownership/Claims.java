@@ -2,8 +2,8 @@ package com.nullandkale.nullspace.gameplay.ownership;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.station.StationService;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -16,18 +16,18 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 public final class Claims {
   public static boolean claimable(CompoundTag s) {
     return s != null
-        && StationService.station(s)
+        && StationAccess.station(s)
         && s.getBooleanOr("salvage", false)
         && s.getIntOr("encounterKind", 0) > 0
         && s.getStringOr("owner", "").isEmpty()
-        && StationService.ready(s);
+        && StationAccess.ready(s);
   }
 
   public static String claim(ServerPlayer p, CompoundTag s) {
     if (!claimable(s)) return "This vessel is not an unclaimed derelict";
     String name = s.getStringOr("home", "This vessel");
     var server = p.level().getServer();
-    if (TravelService.busy(p) || TravelService.busy(server, s))
+    if (TransferLocks.busy(p) || TransferLocks.busy(server, s))
       return "Wait until travel and docking have finished";
     if (!p.level().dimension().identifier().toString().equals(s.getStringOr("dimension", ""))
         || !WorldStore.bounds(s).box().inflate(1).contains(p.position()))
@@ -65,7 +65,7 @@ public final class Claims {
   public static String claimWreck(ServerPlayer p, CompoundTag s, net.minecraft.core.BlockPos at) {
     if (!damaged(p.level(), s)) return "";
     String name = s.getStringOr("home", "This vessel");
-    if (TravelService.busy(p) || TravelService.busy(p.level().getServer(), s))
+    if (TransferLocks.busy(p) || TransferLocks.busy(p.level().getServer(), s))
       return "Wait until travel and docking have finished";
     if (!WorldStore.bounds(s).contains(at) || !p.level().getBlockState(at).is(ModBlocks.COMPUTER))
       return "";

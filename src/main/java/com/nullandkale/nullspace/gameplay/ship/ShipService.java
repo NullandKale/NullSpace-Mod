@@ -6,7 +6,9 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.combat.ShipCombat;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
@@ -16,6 +18,8 @@ import com.nullandkale.nullspace.gameplay.ship.structure.Occupants;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
@@ -105,7 +109,7 @@ public final class ShipService {
           systemAction);
       return 0;
     }
-    if (TravelService.busy(player) || TravelService.locked(player.level(), pos)) return 0;
+    if (TransferLocks.busy(player) || TransferLocks.locked(player.level(), pos)) return 0;
     long now = System.nanoTime();
     Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
     if (previous != null && now - previous < (systemAction ? 100_000_000L : 500_000_000L)) {
@@ -122,11 +126,11 @@ public final class ShipService {
         return 1;
       }
       if (action.equals("navigation")) {
-        NavigationService.navigation(player, pos);
+        Piloting.navigation(player, pos);
         return 1;
       }
       if (action.equals("fast_travel")) {
-        NavigationService.jump(player, pos, destination);
+        Jumps.jump(player, pos, destination);
         return 1;
       }
       if (action.equals("helm")) {
@@ -138,7 +142,7 @@ public final class ShipService {
         return 1;
       }
       if (systemAction) {
-        ShipSystems.action(
+        SystemsConsole.action(
             player,
             pos,
             ComputerTerminal.Action.valueOf(action.toUpperCase(Locale.ROOT)),

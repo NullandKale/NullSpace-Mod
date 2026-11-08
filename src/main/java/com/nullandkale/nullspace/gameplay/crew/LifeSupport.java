@@ -3,13 +3,16 @@ package com.nullandkale.nullspace.gameplay.crew;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingTunnel;
+import com.nullandkale.nullspace.gameplay.docking.StationConstruction;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
-import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
+import com.nullandkale.nullspace.gameplay.ownership.CrewRelease;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.air.SpatialAir;
@@ -29,7 +32,7 @@ public final class LifeSupport {
   public static final int TETHER_RANGE = 72;
 
   public static double tetherDistance(CompoundTag vessel, Vec3 position) {
-    if (!StationService.station(vessel))
+    if (!StationAccess.station(vessel))
       return position.distanceTo(Vec3.atCenterOf(WorldStore.pos(vessel, "controller")));
     var bounds = WorldStore.bounds(vessel).box();
     return position.distanceTo(
@@ -157,12 +160,12 @@ public final class LifeSupport {
   /** Oxygen at the player's head inside this vessel. Air comes only from working ship systems. */
   private static int localOxygen(ServerPlayer player, CompoundTag ship) {
     if (ship == null || !ShipSystems.enabled(ship)) return 0;
-    return ShipSystems.oxygen(player.level(), ship, BlockPos.containing(player.getEyePosition()));
+    return ShipAir.oxygen(player.level(), ship, BlockPos.containing(player.getEyePosition()));
   }
 
   private static void surfaceAir(ServerPlayer player, WorldStore store, CompoundTag savedAir) {
     if (!player.isAlive()
-        || TravelService.busy(player)
+        || TransferLocks.busy(player)
         || player.isCreative()
         || player.isSpectator()) return;
     var ship = store.at(player.level(), player.blockPosition());
@@ -170,9 +173,8 @@ public final class LifeSupport {
     // A ship whose systems are not set up (no generator and Air Supply) has no air to give.
     if (ship != null && ShipSystems.enabled(ship)) {
       cabin =
-          ShipSystems.breathable(
-              player.level(), ship, BlockPos.containing(player.getEyePosition()));
-      source = !cabin && suited(player) && ShipSystems.tether(player.level(), ship);
+          ShipAir.breathable(player.level(), ship, BlockPos.containing(player.getEyePosition()));
+      source = !cabin && suited(player) && ShipAir.tether(player.level(), ship);
     }
     int local = localOxygen(player, ship);
     int meter = breathe(player, suitTarget(player, local, source), savedAir);
@@ -216,7 +218,7 @@ public final class LifeSupport {
               continue;
             }
             if (!player.isAlive()) continue;
-            if (TravelService.busy(player)) continue;
+            if (TransferLocks.busy(player)) continue;
             CompoundTag vessel = null;
             for (Tag tag : store.ships()) {
               var candidate = (CompoundTag) tag;
@@ -267,11 +269,11 @@ public final class LifeSupport {
             // A ship whose systems are not set up has no air: suits are needed until it does.
             if (ShipSystems.enabled(vessel)) {
               cabin =
-                  ShipSystems.breathable(
+                  ShipAir.breathable(
                       player.level(), vessel, BlockPos.containing(player.getEyePosition()));
-              source = !cabin && suited(player) && ShipSystems.tether(player.level(), vessel);
+              source = !cabin && suited(player) && ShipAir.tether(player.level(), vessel);
             }
-            boolean construction = DockingService.constructionAir(player, vessel);
+            boolean construction = StationConstruction.constructionAir(player, vessel);
             boolean protection = suited(player) && source || construction;
             if (!player.isSpectator()) {
               boolean vacuumFlight = (player.isCreative() || suited(player)) && !cabin;
@@ -327,7 +329,7 @@ public final class LifeSupport {
     UseBlockCallback.EVENT.register(
         (player, world, hand, hit) -> {
           if (player instanceof ServerPlayer p) {
-            if (TravelService.busy(p) || TravelService.locked(p.level(), hit.getBlockPos()))
+            if (TransferLocks.busy(p) || TransferLocks.locked(p.level(), hit.getBlockPos()))
               return InteractionResult.FAIL;
             if (world.dimension().equals(TravelService.SPACE)) {
               if (player.getItemInHand(hand).getItem()
@@ -341,8 +343,7 @@ public final class LifeSupport {
                 return InteractionResult.FAIL;
             }
           }
-          if (player instanceof ServerPlayer p
-              && DockingService.useCompactDoor(p, hit.getBlockPos()))
+          if (player instanceof ServerPlayer p && DockingPorts.useCompactDoor(p, hit.getBlockPos()))
             return InteractionResult.SUCCESS;
           return InteractionResult.PASS;
         });
@@ -350,8 +351,8 @@ public final class LifeSupport {
         (player, world, hand, pos, face) -> {
           if (player instanceof ServerPlayer p
               && (DockingTunnel.protectedAt(p.level(), pos)
-                  || TravelService.busy(p)
-                  || TravelService.locked(p.level(), pos)
+                  || TransferLocks.busy(p)
+                  || TransferLocks.locked(p.level(), pos)
                   || (world.dimension().equals(TravelService.SPACE)
                       && WorldStore.get(p.level().getServer()).at(p.level(), pos) == null)))
             return InteractionResult.FAIL;
@@ -361,27 +362,27 @@ public final class LifeSupport {
         (world, player, pos, state, be) ->
             !(player instanceof ServerPlayer p)
                 || (!DockingTunnel.protectedAt(p.level(), pos)
-                    && !TravelService.busy(p)
-                    && !TravelService.locked(p.level(), pos)
+                    && !TransferLocks.busy(p)
+                    && !TransferLocks.locked(p.level(), pos)
                     && (!world.dimension().equals(TravelService.SPACE)
                         || WorldStore.get(p.level().getServer()).at(p.level(), pos) != null)));
     UseItemCallback.EVENT.register(
         (player, world, hand) ->
-            player instanceof ServerPlayer p && TravelService.busy(p)
+            player instanceof ServerPlayer p && TransferLocks.busy(p)
                 ? InteractionResult.FAIL
                 : InteractionResult.PASS);
     UseEntityCallback.EVENT.register(
         (player, world, hand, entity, hit) ->
             player instanceof ServerPlayer p
-                    && (TravelService.busy(p)
-                        || TravelService.locked(p.level(), entity.blockPosition()))
+                    && (TransferLocks.busy(p)
+                        || TransferLocks.locked(p.level(), entity.blockPosition()))
                 ? InteractionResult.FAIL
                 : InteractionResult.PASS);
     AttackEntityCallback.EVENT.register(
         (player, world, hand, entity, hit) ->
             player instanceof ServerPlayer p
-                    && (TravelService.busy(p)
-                        || TravelService.locked(p.level(), entity.blockPosition()))
+                    && (TransferLocks.busy(p)
+                        || TransferLocks.locked(p.level(), entity.blockPosition()))
                 ? InteractionResult.FAIL
                 : InteractionResult.PASS);
     net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
@@ -396,7 +397,7 @@ public final class LifeSupport {
     ServerLivingEntityEvents.AFTER_DEATH.register(
         (entity, damage) -> {
           if (entity instanceof ServerPlayer p) {
-            ShipStorage.rememberDeath(p);
+            CrewRelease.rememberDeath(p);
             var store = WorldStore.get(p.level().getServer());
             for (Tag tag : store.ships())
               ((CompoundTag) tag)

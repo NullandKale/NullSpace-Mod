@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.*;
@@ -80,7 +81,7 @@ public final class ManufacturerRoleClientGameTest implements FabricClientGameTes
                 var ship = ShipTopology.resolve(level, base.offset(preset.helm()));
                 for (var at : ShipSystems.connected(level, ship))
                   FuelSystem.provision(level, at, 64);
-                ShipSystems.upgrade(level, ship);
+                SystemsUpgrade.upgrade(level, ship);
                 ship.getCompoundOrEmpty("systems")
                     .putIntArray(
                         "requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});

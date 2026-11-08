@@ -5,6 +5,7 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.CabinPaths;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -106,7 +107,7 @@ public final class SphereGameTest {
     int free = 0;
     for (int slot = 0; free < 3; slot++) {
       final int x = slot * TravelService.SPACE_SPACING;
-      if (TravelService.spaceSlotFree(server, slot)) {
+      if (TransferLocks.spaceSlotFree(server, slot)) {
         for (int dx = 0; dx <= 1; dx++)
           for (int dz = 0; dz <= 1; dz++) space.setChunkForced((x >> 4) + dx, dz, true);
         free++;

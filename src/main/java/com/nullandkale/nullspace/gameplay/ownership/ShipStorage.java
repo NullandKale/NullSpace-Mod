@@ -5,8 +5,9 @@ import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.mixin.ShipBlockEventsAccessor;
 import com.nullandkale.nullspace.core.save.PadRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.Boarding;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
@@ -14,9 +15,11 @@ import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.BlockSupport;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
-import com.nullandkale.nullspace.worldgen.sites.TerraHarbor;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import net.minecraft.core.*;
@@ -28,13 +31,13 @@ import net.minecraft.world.level.ChunkPos;
 
 /** Uncrewed recovery uses the same durable transfer journal as normal flight. */
 public final class ShipStorage {
-  private static final ServerContext.Key<Map<UUID, Job>> KEY = new ServerContext.Key<>();
+  static final ServerContext.Key<Map<UUID, Job>> KEY = new ServerContext.Key<>();
 
-  private static Map<UUID, Job> jobs(MinecraftServer server) {
+  static Map<UUID, Job> jobs(MinecraftServer server) {
     return ServerContext.get(server).service(KEY, LinkedHashMap::new);
   }
 
-  private static final class Job {
+  static final class Job {
     final UUID player, session;
     final BlockPos computer;
     final String ship, dimension;
@@ -72,73 +75,9 @@ public final class ShipStorage {
     ServerContext.tick(ServerContext.Phase.TRAVEL, ShipStorage::tick);
     // When each player was last online, for deciding when a ship left on a pad is abandoned.
     net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
-        (handler, sender, server) -> seen(server, handler.player.getUUID()));
+        (handler, sender, server) -> CrewRelease.seen(server, handler.player.getUUID()));
     net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-        (handler, server) -> seen(server, handler.player.getUUID()));
-  }
-
-  /** A ship left on a pad counts as abandoned once its owner has been away this long. */
-  public static final long ABANDONED_TICKS = 24000;
-
-  private static void seen(MinecraftServer server, UUID player) {
-    WorldStore.get(server)
-        .section("lastSeen")
-        .putLong(player.toString(), server.overworld().getGameTime());
-    WorldStore.get(server).requestSave();
-  }
-
-  /**
-   * Whether a ship's owner has been away for an in-game day and none of its crew are online. Anyone
-   * at a pad may then store it, so it no longer blocks the pad; it stays the owner's ship.
-   */
-  public static boolean abandoned(MinecraftServer server, CompoundTag ship) {
-    String owner = ship.getStringOr("owner", "");
-    if (owner.isEmpty()) return false;
-    var online =
-        server.getPlayerList().getPlayers().stream()
-            .map(p -> p.getUUID().toString())
-            .collect(java.util.stream.Collectors.toSet());
-    if (online.contains(owner)) return false;
-    for (var item : ship.getListOrEmpty("crew"))
-      if (online.contains(((CompoundTag) item).getStringOr("id", ""))) return false;
-    long last = WorldStore.get(server).section("lastSeen").getLongOr(owner, -1);
-    return last < 0 || server.overworld().getGameTime() - last >= ABANDONED_TICKS;
-  }
-
-  /**
-   * Offline crew no longer hold a ship in place: they are taken off its crew list and will log in
-   * at Terra Harbor instead of inside a ship that has moved.
-   */
-  static void releaseOfflineCrew(MinecraftServer server, CompoundTag ship, UUID requester) {
-    var online =
-        server.getPlayerList().getPlayers().stream()
-            .map(p -> p.getUUID().toString())
-            .collect(java.util.stream.Collectors.toSet());
-    var crew = ship.getListOrEmpty("crew");
-    var store = WorldStore.get(server);
-    for (var item : List.copyOf(crew)) {
-      String id = ((CompoundTag) item).getStringOr("id", "");
-      if (id.isEmpty() || online.contains(id) || id.equals(requester.toString())) continue;
-      net.minecraft.world.phys.Vec3 at;
-      try {
-        at = TerraHarbor.arrival(server);
-      } catch (IllegalStateException busy) {
-        at =
-            net.minecraft.world.phys.Vec3.atBottomCenterOf(
-                TerraHarbor.ensure(server).offset(8, 1, 12));
-      }
-      var targets = store.list("targets");
-      targets.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(id));
-      var target = new CompoundTag();
-      target.putString("id", id);
-      target.putString("dimension", "minecraft:overworld");
-      target.putDouble("x", at.x);
-      target.putDouble("y", at.y);
-      target.putDouble("z", at.z);
-      targets.add(target);
-      crew.remove(item);
-    }
-    store.save();
+        (handler, server) -> CrewRelease.seen(server, handler.player.getUUID()));
   }
 
   public static boolean active(MinecraftServer server) {
@@ -165,40 +104,13 @@ public final class ShipStorage {
     return areaBusy(level, new HullScan.Bounds(at, at), null);
   }
 
-  /** Crew death must remove respawn targets without erasing the right to recover their ship. */
-  public static void authorize(CompoundTag ship, ServerPlayer p) {
-    if (Set.of("station", "debris").contains(ship.getStringOr("kind", ""))) return;
-    if (ship.getStringOr("owner", "").isEmpty()) ship.putString("owner", p.getUUID().toString());
-    var users = ship.getCompoundOrEmpty("recallUsers");
-    users.putBoolean(p.getUUID().toString(), true);
-    ship.put("recallUsers", users);
-  }
-
-  public static void rememberDeath(ServerPlayer p) {
-    var store = WorldStore.get(p.level().getServer());
-    for (var tag : store.ships()) {
-      var ship = (CompoundTag) tag;
-      for (var member : ship.getListOrEmpty("crew")) {
-        var crew = (CompoundTag) member;
-        if (!crew.getStringOr("id", "").equals(p.getUUID().toString())) continue;
-        String returnShip = crew.getStringOr("returnShip", "");
-        var home =
-            !returnShip.isEmpty()
-                ? store.repository().find(returnShip)
-                : Set.of("station", "debris").contains(ship.getStringOr("kind", "")) ? null : ship;
-        if (home != null) authorize(home, p);
-      }
-    }
-    store.requestSave();
-  }
-
-  private static String key(CompoundTag ship) {
+  static String key(CompoundTag ship) {
     return UUID.nameUUIDFromBytes(
             ("recall:" + ship.getStringOr("id", "")).getBytes(StandardCharsets.UTF_8))
         .toString();
   }
 
-  private static PadRegistry.Pad pad(ServerPlayer p, BlockPos at) {
+  static PadRegistry.Pad pad(ServerPlayer p, BlockPos at) {
     return PadRepository.get(p.level().getServer())
         .dimension(p.level().dimension().identifier().toString())
         .stream()
@@ -207,21 +119,20 @@ public final class ShipStorage {
         .orElse(null);
   }
 
-  private static boolean permitted(ServerPlayer p, CompoundTag ship, PadRegistry.Pad pad) {
+  static boolean permitted(ServerPlayer p, CompoundTag ship, PadRegistry.Pad pad) {
     String user = p.getUUID().toString();
     return ship.getStringOr("owner", "").equals(user)
         || ship.getCompoundOrEmpty("recallUsers").getBooleanOr(user, false);
   }
 
-  private static String unavailable(MinecraftServer server, CompoundTag ship, UUID requester) {
+  static String unavailable(MinecraftServer server, CompoundTag ship, UUID requester) {
     String shipId = ship.getStringOr("id", "");
     if (jobs(server).values().stream()
         .anyMatch(j -> j.ship.equals(shipId) && !j.player.equals(requester)))
       return "This ship is already being recalled by another player";
-    if (TravelService.physicalBusy(server, ship)
+    if (TransferLocks.physicalBusy(server, ship)
         || NavigationService.pending(server, shipId)
-        || DockingService.boarding(server, shipId))
-      return "This ship is already travelling or boarding";
+        || Boarding.boarding(server, shipId)) return "This ship is already travelling or boarding";
     if (!ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString())
         || Set.of("station", "debris").contains(ship.getStringOr("kind", "")))
       return "Only ships in space can be recalled";
@@ -247,7 +158,7 @@ public final class ShipStorage {
    * My ships: owned or recoverable ships in space (deployable here; stored ones need their title)
    * and owned ships standing on this pad (storable).
    */
-  public static List<ComputerTerminal.Destination> candidates(ServerPlayer p, BlockPos at) {
+  public static List<TerminalPackets.Destination> candidates(ServerPlayer p, BlockPos at) {
     var pad = pad(p, at);
     var server = p.level().getServer();
     String space = TravelService.SPACE.identifier().toString();
@@ -259,7 +170,7 @@ public final class ShipStorage {
                 s.getStringOr("dimension", "").equals(space) && permitted(p, s, pad)
                     || pad != null
                         && onPad(s, pad)
-                        && (ShipTitles.owner(p, s) || abandoned(server, s)))
+                        && (ShipTitles.owner(p, s) || CrewRelease.abandoned(server, s)))
         .sorted(Comparator.comparing(s -> s.getStringOr("home", "Ship")))
         .limit(128)
         .map(
@@ -280,7 +191,7 @@ public final class ShipStorage {
                       : here && !ShipTitles.owner(p, s)
                           ? "ABANDONED"
                           : here ? "ON_PAD" : ShipTitles.stored(s) ? "STORED" : "AVAILABLE";
-              return new ComputerTerminal.Destination(
+              return new TerminalPackets.Destination(
                   key(s), name.substring(0, Math.min(32, name.length())), state, problem);
             })
         .toList();
@@ -306,7 +217,7 @@ public final class ShipStorage {
         || p.distanceToSqr(at.getX() + .5, at.getY() + .5, at.getZ() + .5) > 64
         || !p.mayInteract(p.level(), at))
       return "Use an accessible surface Pad Computer within 8 blocks";
-    if (active(p) || TravelService.busy(p))
+    if (active(p) || TransferLocks.busy(p))
       return "Finish or cancel your current travel or recall first";
     var pad = pad(p, at);
     if (pad == null) return "Register this landing pad before recalling a ship";
@@ -327,12 +238,12 @@ public final class ShipStorage {
         new HullScan.Bounds(
             new BlockPos(pad.bounds().minX(), pad.bounds().y() + 1, pad.bounds().minZ()),
             new BlockPos(pad.bounds().maxX(), pad.bounds().y() + 32, pad.bounds().maxZ()));
-    if (TravelService.areaBusy(p.level(), area))
+    if (TransferLocks.areaBusy(p.level(), area))
       return "This landing pad is reserved by another ship";
-    authorize(ship, p);
+    CrewRelease.authorize(ship, p);
     WorldStore.get(p.level().getServer()).save();
     NavigationService.closeShip(p.level().getServer(), ship.getStringOr("id", ""));
-    NavigationService.stop(ship);
+    Piloting.stop(ship);
     var job = new Job(p, at, ship, pad, session);
     jobs(p.level().getServer()).put(p.getUUID(), job);
     return "Recall requested. Stay beside this computer; the pad and ship must remain clear";
@@ -356,7 +267,7 @@ public final class ShipStorage {
           "Pad registration or ship access changed; reopen Recall ships");
     String problem = unavailable(server, ship, p.getUUID());
     if (!problem.isEmpty()) return TravelService.Result.rejected(problem);
-    releaseOfflineCrew(server, ship, p.getUUID());
+    CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
     var padBounds =
         new HullScan.Bounds(
             new BlockPos(
@@ -367,7 +278,7 @@ public final class ShipStorage {
                 destination.bounds().maxX(),
                 destination.bounds().y() + 32,
                 destination.bounds().maxZ()));
-    if (TravelService.areaBusy(p.level(), padBounds, p.getUUID()))
+    if (TransferLocks.areaBusy(p.level(), padBounds, p.getUUID()))
       return TravelService.Result.rejected("This landing pad is reserved by another ship");
     var source = server.getLevel(TravelService.SPACE);
     if (source == null) return TravelService.Result.rejected("Space is unavailable");
@@ -422,7 +333,7 @@ public final class ShipStorage {
         new ShipService.Inspection(scan, null, ship, WorldStore.pos(ship, "base")));
   }
 
-  private static CompoundTag find(MinecraftServer server, String selection) {
+  static CompoundTag find(MinecraftServer server, String selection) {
     return WorldStore.get(server).ships().stream()
         .map(t -> (CompoundTag) t)
         .filter(s -> key(s).replace("-", "").equals(selection))
@@ -430,30 +341,29 @@ public final class ShipStorage {
         .orElse(null);
   }
 
-  private static HullScan.Bounds padColumn(PadRegistry.Pad pad) {
+  static HullScan.Bounds padColumn(PadRegistry.Pad pad) {
     var b = pad.bounds();
     return new HullScan.Bounds(
         new BlockPos(b.minX(), b.y() + 1, b.minZ()), new BlockPos(b.maxX(), b.y() + 32, b.maxZ()));
   }
 
   /** A ship sits on this pad when its record is in the pad's level and inside its column. */
-  private static boolean onPad(CompoundTag ship, PadRegistry.Pad pad) {
+  static boolean onPad(CompoundTag ship, PadRegistry.Pad pad) {
     return ship.getStringOr("dimension", "").equals(pad.dimension())
         && !Set.of("station", "debris").contains(ship.getStringOr("kind", ""))
         && padColumn(pad).box().intersects(WorldStore.bounds(ship).box());
   }
 
   /** Crew, docking and travel checks for a ship on a surface pad (mirrors unavailable()). */
-  private static String surfaceProblem(
+  static String surfaceProblem(
       MinecraftServer server, ServerLevel level, CompoundTag ship, UUID requester) {
     String shipId = ship.getStringOr("id", "");
     if (jobs(server).values().stream()
         .anyMatch(j -> j.ship.equals(shipId) && !j.player.equals(requester)))
       return "This ship is already being stored or recalled by another player";
-    if (TravelService.physicalBusy(server, ship)
+    if (TransferLocks.physicalBusy(server, ship)
         || NavigationService.pending(server, shipId)
-        || DockingService.boarding(server, shipId))
-      return "This ship is already travelling or boarding";
+        || Boarding.boarding(server, shipId)) return "This ship is already travelling or boarding";
     if (ship.contains("dock") || !ship.getCompoundOrEmpty("dockLinks").isEmpty())
       return "Undock this ship before storing it";
     var bounds = WorldStore.bounds(ship);
@@ -465,7 +375,7 @@ public final class ShipStorage {
     return "";
   }
 
-  private static String access(ServerPlayer p, BlockPos at) {
+  static String access(ServerPlayer p, BlockPos at) {
     if (!p.isAlive()
         || p.level().dimension().equals(TravelService.SPACE)
         || !p.level().hasChunkAt(at)
@@ -478,7 +388,7 @@ public final class ShipStorage {
 
   static void markStored(ServerPlayer p, CompoundTag ship) {
     NavigationService.closeShip(p.level().getServer(), ship.getStringOr("id", ""));
-    NavigationService.stop(ship);
+    Piloting.stop(ship);
     ship.putBoolean("stored", true);
     // Only the owner is issued a title: a crew member storing the ship must not void the owner's.
     if (ShipTitles.owner(p, ship)) ShipTitles.ensureHeld(p, ship);
@@ -492,7 +402,7 @@ public final class ShipStorage {
   public static String store(ServerPlayer p, BlockPos at, String selection, UUID session) {
     String access = access(p, at);
     if (!access.isEmpty()) return access;
-    if (active(p) || TravelService.busy(p))
+    if (active(p) || TransferLocks.busy(p))
       return "Finish or cancel your current travel or recall first";
     var server = p.level().getServer();
     var pad = pad(p, at);
@@ -500,7 +410,8 @@ public final class ShipStorage {
     var ship = find(server, selection);
     if (ship == null) return "Choose one of your ships from the list";
     String name = ship.getStringOr("home", "This ship");
-    boolean clearing = !ShipTitles.owner(p, ship) && onPad(ship, pad) && abandoned(server, ship);
+    boolean clearing =
+        !ShipTitles.owner(p, ship) && onPad(ship, pad) && CrewRelease.abandoned(server, ship);
     if (!ShipTitles.owner(p, ship) && !clearing) return "Only the owner can store " + name;
     if (ShipTitles.stored(ship)) return name + " is already stored";
     if (onPad(ship, pad)) {
@@ -512,7 +423,7 @@ public final class ShipStorage {
     if (ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString())) {
       String problem = unavailable(server, ship, p.getUUID());
       if (!problem.isEmpty()) return problem;
-      releaseOfflineCrew(server, ship, p.getUUID());
+      CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
       markStored(p, ship);
       WorldStore.get(server).save();
       return name + " stored where it was. Its title is in your inventory; deploy it from My ships";
@@ -537,131 +448,17 @@ public final class ShipStorage {
     return "New title for " + name + " issued. Older copies no longer work";
   }
 
-  /** The blocks Store would capture for a ship on this pad: inside both the ship and the column. */
-  private static List<BlockPos> captured(ServerLevel level, CompoundTag ship, PadRegistry.Pad pad) {
-    var column = padColumn(pad);
-    var saved = WorldStore.bounds(ship);
-    var min =
-        new BlockPos(
-            Math.max(column.min().getX(), saved.min().getX()),
-            Math.max(column.min().getY(), saved.min().getY()),
-            Math.max(column.min().getZ(), saved.min().getZ()));
-    var max =
-        new BlockPos(
-            Math.min(column.max().getX(), saved.max().getX()),
-            Math.min(column.max().getY(), saved.max().getY()),
-            Math.min(column.max().getZ(), saved.max().getZ()));
-    var blocks = new ArrayList<BlockPos>();
-    for (var cursor : BlockPos.betweenClosed(min, max))
-      if (level.hasChunkAt(cursor) && !level.getBlockState(cursor).isAir())
-        blocks.add(cursor.immutable());
-    return blocks;
-  }
-
-  /** Outlines every block Store would take, for the asking player only. */
-  public static String show(ServerPlayer p, BlockPos at, String selection) {
-    String access = access(p, at);
-    if (!access.isEmpty()) return access;
-    var server = p.level().getServer();
-    var pad = pad(p, at);
-    var ship = find(server, selection);
-    if (pad == null || ship == null || !onPad(ship, pad))
-      return "Choose a ship standing on this pad";
-    var blocks = captured(p.level(), ship, pad);
-    for (var b : blocks)
-      p.level()
-          .sendParticles(
-              p,
-              net.minecraft.core.particles.ParticleTypes.END_ROD,
-              true,
-              false,
-              b.getX() + .5,
-              b.getY() + .5,
-              b.getZ() + .5,
-              1,
-              .2,
-              .2,
-              .2,
-              0);
-    return "Showing the "
-        + blocks.size()
-        + " blocks Store takes. Anything outside the pad's column stays behind";
-  }
-
-  private static final ServerContext.Key<Map<UUID, String>> SCRAP = new ServerContext.Key<>();
-
-  /**
-   * Scraps a ship permanently: its blocks and everything aboard are removed and every title stops
-   * working. Owner only, nobody aboard, and the button must be pressed twice.
-   */
-  public static String scrap(ServerPlayer p, BlockPos at, String selection) {
-    String access = access(p, at);
-    if (!access.isEmpty()) return access;
-    var server = p.level().getServer();
-    var pad = pad(p, at);
-    var ship = find(server, selection);
-    if (pad == null || ship == null) return "Choose one of your ships from the list";
-    String name = ship.getStringOr("home", "This ship");
-    if (!ShipTitles.owner(p, ship)) return "Only the owner can scrap " + name;
-    boolean here = onPad(ship, pad);
-    boolean space =
-        ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString());
-    if (!here && !space) return "Bring " + name + " to this pad or space to scrap it";
-    String problem =
-        here
-            ? surfaceProblem(server, p.level(), ship, p.getUUID())
-            : unavailable(server, ship, p.getUUID());
-    if (!problem.isEmpty()) return problem;
-    var pending = ServerContext.get(server).service(SCRAP, HashMap::new);
-    String previous = pending.getOrDefault(p.getUUID(), "");
-    String id = ship.getStringOr("id", "");
-    boolean confirmed =
-        previous.startsWith(id + "@")
-            && server.getTickCount() - Long.parseLong(previous.substring(id.length() + 1)) <= 200;
-    if (!confirmed) {
-      pending.put(p.getUUID(), id + "@" + server.getTickCount());
-      return "Scrap "
-          + name
-          + " for good? Its blocks and everything aboard are lost. Press Scrap ship again to"
-          + " confirm";
-    }
-    pending.remove(p.getUUID());
-    releaseOfflineCrew(server, ship, p.getUUID());
-    NavigationService.closeShip(server, ship.getStringOr("id", ""));
-    var level = here ? p.level() : server.getLevel(TravelService.SPACE);
-    var blocks =
-        here
-            ? captured(level, ship, pad)
-            : BlockPos.betweenClosedStream(
-                    WorldStore.bounds(ship).min(), WorldStore.bounds(ship).max())
-                .map(BlockPos::immutable)
-                .toList();
-    if (!here)
-      for (int x = WorldStore.bounds(ship).min().getX() >> 4;
-          x <= WorldStore.bounds(ship).max().getX() >> 4;
-          x++)
-        for (int z = WorldStore.bounds(ship).min().getZ() >> 4;
-            z <= WorldStore.bounds(ship).max().getZ() >> 4;
-            z++) level.getChunk(x, z);
-    for (var b : blocks)
-      if (!level.getBlockState(b).isAir()) {
-        level.removeBlockEntity(b);
-        level.setBlock(b, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
-      }
-    WorldStore.get(server).ships().remove(ship);
-    WorldStore.get(server).save();
-    return name + " was scrapped. Its titles no longer work";
-  }
-
   static TravelService.Result storeMove(ServerPlayer p, BlockPos at, CompoundTag ship) {
     var server = p.level().getServer();
     var pad = pad(p, at);
-    if (pad == null || !onPad(ship, pad) || !ShipTitles.owner(p, ship) && !abandoned(server, ship))
+    if (pad == null
+        || !onPad(ship, pad)
+        || !ShipTitles.owner(p, ship) && !CrewRelease.abandoned(server, ship))
       return TravelService.Result.rejected("The ship or pad changed; reopen My ships");
     var level = p.level();
     String problem = surfaceProblem(server, level, ship, p.getUUID());
     if (!problem.isEmpty()) return TravelService.Result.rejected(problem);
-    releaseOfflineCrew(server, ship, p.getUUID());
+    CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
     var column = padColumn(pad);
     var saved = WorldStore.bounds(ship);
     // Capture only inside the pad column, never neighbouring terrain or builds.
@@ -707,11 +504,11 @@ public final class ShipStorage {
         new ShipService.Inspection(scan, null, ship, WorldStore.pos(ship, "base")));
   }
 
-  private static void tick(MinecraftServer server) {
+  static void tick(MinecraftServer server) {
     for (var job : List.copyOf(jobs(server).values())) tick(server, job);
   }
 
-  private static void tick(MinecraftServer server, Job job) {
+  static void tick(MinecraftServer server, Job job) {
     var p = server.getPlayerList().getPlayer(job.player);
     String notice = "";
     if (p == null
@@ -751,7 +548,7 @@ public final class ShipStorage {
                           : "Ship recalled to this pad. Your cargo, fuel and upgrades are"
                               + " preserved; damage still needs repair";
         } catch (Exception failure) {
-          TravelService.recover(server);
+          TransferRecovery.recover(server);
           if (!(failure instanceof IllegalArgumentException))
             NullSpace.LOGGER.error("Ship recall failed", failure);
           notice = "Recall failed: " + ShipMessages.failure(failure);

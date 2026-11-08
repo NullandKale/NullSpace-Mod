@@ -5,7 +5,8 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.station.StationBuilds;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
@@ -187,7 +188,7 @@ public final class EncounterSites {
       if (!others.isEmpty()) continue;
       var vessel = store.repository().find(vesselId);
       if (vessel != null) {
-        if (!vessel.getStringOr("owner", "").isEmpty() || !StationService.ready(vessel)) continue;
+        if (!vessel.getStringOr("owner", "").isEmpty() || !StationAccess.ready(vessel)) continue;
         SpacePopulation.dispose(server, vessel);
       }
       sites.remove(id);
@@ -204,7 +205,7 @@ public final class EncounterSites {
   }
 
   public static void tick(MinecraftServer server) {
-    if (server.getTickCount() % 20 != 0 || StationService.building(server)) return;
+    if (server.getTickCount() % 20 != 0 || StationAccess.building(server)) return;
     vanish(server);
     var store = WorldStore.get(server);
     var retry = ServerContext.get(server).service(RETRY, HashMap::new);
@@ -229,7 +230,7 @@ public final class EncounterSites {
         metadata.putString(
             "encounterDesign", design(site.getIntOr("kind", 0), site.getLongOr("seed", 1)));
         var vessel =
-            StationService.queueAmbient(
+            StationBuilds.queueAmbient(
                 server,
                 id,
                 site.getStringOr("name", "Signal"),

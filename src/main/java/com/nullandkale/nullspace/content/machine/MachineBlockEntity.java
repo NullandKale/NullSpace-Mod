@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.content.machine;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import java.util.*;
 import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
@@ -190,14 +190,14 @@ public final class MachineBlockEntity extends BaseContainerBlockEntity implement
 
   @Override
   public boolean canPlaceItemThroughFace(int slot, ItemStack stack, Direction face) {
-    if (level instanceof ServerLevel server && TravelService.locked(server, worldPosition))
+    if (level instanceof ServerLevel server && TransferLocks.locked(server, worldPosition))
       return false;
     return face != Direction.DOWN && slot >= 3 && slot < RETURN && canPlaceItem(slot, stack);
   }
 
   @Override
   public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction face) {
-    return !(level instanceof ServerLevel server && TravelService.locked(server, worldPosition))
+    return !(level instanceof ServerLevel server && TransferLocks.locked(server, worldPosition))
         && face == Direction.DOWN
         && slot == RETURN;
   }

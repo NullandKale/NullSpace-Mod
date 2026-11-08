@@ -15,11 +15,14 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.Occupants;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -131,7 +134,7 @@ public final class ShipGameTests {
     }
     for (var pad : com.google.gson.JsonParser.parseString(original).getAsJsonArray())
       crowded.add(pad);
-    ComputerTerminal.Open open;
+    TerminalPackets.Open open;
     try {
       java.nio.file.Files.writeString(registry, crowded.toString());
       PadRegistry.reload(level.getServer());
@@ -146,7 +149,7 @@ public final class ShipGameTests {
     var selected =
         open.destinations().stream().filter(d -> d.name().equals(name)).findFirst().orElseThrow();
     var request =
-        new ComputerTerminal.Request(
+        new TerminalPackets.Request(
             open.session(), ComputerTerminal.Action.LAND, name, selected.id());
     boolean stolen = false;
     try {
@@ -178,7 +181,7 @@ public final class ShipGameTests {
     try {
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               replacement.session(), ComputerTerminal.Action.INSPECT, "", ""));
     } catch (IllegalArgumentException expected) {
       removed = true;
@@ -199,7 +202,7 @@ public final class ShipGameTests {
     try {
       ComputerTerminal.authorize(
           player,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               changedDimension.session(), ComputerTerminal.Action.INSPECT, "", ""));
     } catch (IllegalArgumentException expected) {
       dimension = true;
@@ -233,7 +236,7 @@ public final class ShipGameTests {
     int free = 0;
     for (int slot = 0; free < 3; slot++) {
       final int x = slot * TravelService.SPACE_SPACING;
-      if (TravelService.spaceSlotFree(server, slot)) {
+      if (TransferLocks.spaceSlotFree(server, slot)) {
         space.setChunkForced(x >> 4, 0, true);
         free++;
       }
@@ -265,14 +268,14 @@ public final class ShipGameTests {
           server.getPlayerList().placeNewPlayer(connection, player, cookie);
           player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
           // Ships take off only with systems set up.
-          ShipSystems.upgrade(level, ShipTopology.resolve(level, controller));
+          SystemsUpgrade.upgrade(level, ShipTopology.resolve(level, controller));
           TravelService.request(player, controller, "", ShipService.preflight(level, controller));
           TravelService.ready(player, new TravelPackets.Ready(java.util.UUID.randomUUID(), false));
           ctx.runAfterDelay(
               205,
               () -> {
                 ctx.assertTrue(
-                    !TravelService.busy(player)
+                    !TransferLocks.busy(player)
                         && level.getBlockState(controller).is(ModBlocks.COMPUTER),
                     "Missing/wrong preparation ACK must time out without moving the source");
                 TravelService.request(
@@ -297,11 +300,11 @@ public final class ShipGameTests {
                     () -> {
                       ctx.assertTrue(
                           player.level().dimension().equals(TravelService.SPACE)
-                              && TravelService.busy(player),
+                              && TransferLocks.busy(player),
                           "Arrival must remain quarantined while its ACK is missing (dimension="
                               + player.level().dimension()
                               + ", busy="
-                              + TravelService.busy(player)
+                              + TransferLocks.busy(player)
                               + ")");
                       TravelService.ready(
                           player, new TravelPackets.Ready(java.util.UUID.randomUUID(), true));
@@ -309,7 +312,7 @@ public final class ShipGameTests {
                           205,
                           () -> {
                             ctx.assertTrue(
-                                !TravelService.busy(player) && !connection.isConnected(),
+                                !TransferLocks.busy(player) && !connection.isConnected(),
                                 "Missing/wrong arrival ACK must disconnect the client and release"
                                     + " travel");
                             ctx.assertTrue(
@@ -603,7 +606,7 @@ public final class ShipGameTests {
     ship.putInt("height", 6);
     store.ships().add(ship);
     // Air comes only from working systems: the reference ship's generator and Air Supply.
-    ShipSystems.upgrade(space, ship);
+    SystemsUpgrade.upgrade(space, ship);
     ctx.runAfterDelay(
         25,
         () -> {
@@ -872,7 +875,7 @@ public final class ShipGameTests {
     int slot = 0;
     while (true) {
       final int candidate = slot * TravelService.SPACE_SPACING;
-      if (TravelService.spaceSlotFree(server, slot)) break;
+      if (TransferLocks.spaceSlotFree(server, slot)) break;
       slot++;
     }
     server
@@ -917,8 +920,8 @@ public final class ShipGameTests {
               TravelService.failureInjector = point -> {};
             }
             ctx.assertTrue(interrupted, "Failure hook must interrupt " + stage);
-            TravelService.recover(server);
-            TravelService.recover(server);
+            TransferRecovery.recover(server);
+            TransferRecovery.recover(server);
             ctx.assertTrue(
                 player.level() == level && passenger.level() == level,
                 "Recovery must restore both passengers");
@@ -1120,7 +1123,7 @@ public final class ShipGameTests {
           } finally {
             TravelService.failureInjector = point -> {};
           }
-          TravelService.recover(server);
+          TransferRecovery.recover(server);
           ctx.assertTrue(
               player.level() == space && level.getBlockState(controller).isAir(),
               "Committed transfer must not roll back");

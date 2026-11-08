@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.ownership;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.core.component.DataComponents;
@@ -114,7 +114,7 @@ public final class ShipTitles {
               + ". Right-click again to cancel";
     }
     if (!signed) return "This title is not signed over. Only " + name + "'s owner can sign it";
-    if (TravelService.busy(server, ship) || ShipStorage.active(server, ship.getStringOr("id", "")))
+    if (TransferLocks.busy(server, ship) || ShipStorage.active(server, ship.getStringOr("id", "")))
       return name + " is moving. Take ownership once it has arrived";
     String previous = ship.getStringOr("owner", "");
     ship.putString("owner", player.getUUID().toString());

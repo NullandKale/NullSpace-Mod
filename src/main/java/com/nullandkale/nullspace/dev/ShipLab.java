@@ -6,7 +6,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import java.nio.file.Files;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.loader.api.FabricLoader;
@@ -67,7 +67,7 @@ public final class ShipLab {
 
   private static int visit(ServerPlayer player, int plot) {
     try {
-      if (TravelService.busy(player))
+      if (TransferLocks.busy(player))
         throw new IllegalArgumentException(
             "Wait for ship travel to finish before visiting the lab");
       FieldGuide.supply(player);

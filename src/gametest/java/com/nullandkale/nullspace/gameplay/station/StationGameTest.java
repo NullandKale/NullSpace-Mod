@@ -5,20 +5,28 @@ import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.crew.LifeSupport;
+import com.nullandkale.nullspace.gameplay.docking.Boarding;
+import com.nullandkale.nullspace.gameplay.docking.DockingManeuver;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.StationConstruction;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerChecks;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ownership.Claims;
 import com.nullandkale.nullspace.gameplay.ownership.ShipTitles;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.flight.FlightDynamics;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
@@ -55,10 +63,10 @@ public final class StationGameTest {
             .collect(java.util.stream.Collectors.toSet());
     try {
       ctx.assertTrue(
-          StationService.stationStartTarget(level, floor),
+          StationDeployment.stationStartTarget(level, floor),
           "Ordinary hull/floor blocks can start a station");
       ctx.assertTrue(
-          !StationService.stationStartTarget(level, WorldStore.pos(ship, "controller")),
+          !StationDeployment.stationStartTarget(level, WorldStore.pos(ship, "controller")),
           "Interactive controllers are excluded");
       var callback = net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker();
       callback.interact(player, level, net.minecraft.world.InteractionHand.OFF_HAND, hit);
@@ -164,7 +172,7 @@ public final class StationGameTest {
     for (var e : plan.blocks().entrySet())
       if (e.getValue().is(ModBlocks.GENERATOR))
         FuelSystem.provision(level, base.offset(e.getKey()), 64);
-    ShipSystems.upgrade(level, s);
+    SystemsUpgrade.upgrade(level, s);
     s.getCompoundOrEmpty("systems")
         .putIntArray(
             "requests", ship ? new int[] {1, 4, 1, 3, 2, 0} : new int[] {1, 4, 1, 0, 2, 0});
@@ -188,8 +196,8 @@ public final class StationGameTest {
     player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
     try {
       ctx.assertFalse(LifeSupport.suited(player), "The player wears no suit");
-      var port = DockingService.ports(level, ship).getFirst();
-      DockingService.useCompactDoor(player, port.outer());
+      var port = DockingPorts.ports(level, ship).getFirst();
+      DockingPorts.useCompactDoor(player, port.outer());
       ctx.assertTrue(
           ShipDoors.open(level.getBlockState(port.outer())),
           "Without a suit you can still open an exterior door to vacuum");
@@ -198,13 +206,13 @@ public final class StationGameTest {
       var systems = ship.getCompoundOrEmpty("systems").copy();
       ship.remove("systems");
       ctx.assertTrue(
-          ShipControl.reason(player, ship, null, ShipControl.Action.LAUNCH)
-              .equals(ShipControl.NO_SYSTEMS),
+          ControllerChecks.reason(player, ship, null, ShipControl.Action.LAUNCH)
+              .equals(ControllerChecks.NO_SYSTEMS),
           "A ship without set-up systems has no air and cannot take off");
       ship.put("systems", systems);
       ctx.assertFalse(
-          ShipControl.reason(player, ship, null, ShipControl.Action.LAUNCH)
-              .equals(ShipControl.NO_SYSTEMS),
+          ControllerChecks.reason(player, ship, null, ShipControl.Action.LAUNCH)
+              .equals(ControllerChecks.NO_SYSTEMS),
           "Once systems are set up, the systems rule no longer blocks take-off");
       ctx.succeed();
     } finally {
@@ -225,7 +233,7 @@ public final class StationGameTest {
     try {
       var systems = ship.getCompoundOrEmpty("systems").copy();
       ship.remove("systems");
-      var legacy = DockingService.readiness(player, ship);
+      var legacy = DockingManeuver.readiness(player, ship);
       ctx.assertTrue(
           !legacy.ready()
               && legacy.message().contains("systems record")
@@ -241,7 +249,7 @@ public final class StationGameTest {
       // check.
       WorldStore.get(server).ships().remove(ship);
       WorldStore.get(server).ships().add(replacement);
-      var low = DockingService.readiness(player, replacement);
+      var low = DockingManeuver.readiness(player, replacement);
       ctx.assertTrue(
           !low.ready()
               && low.message().contains("is aboard")
@@ -250,10 +258,10 @@ public final class StationGameTest {
           "An aboard player gets an exact oxygen diagnostic");
       air[Atmosphere.index(eye.getX(), eye.getY(), eye.getZ())] = Atmosphere.FULL;
       ctx.assertTrue(
-          DockingService.readiness(player, replacement).ready(),
+          DockingManeuver.readiness(player, replacement).ready(),
           "Recalled crew in a breathable cabin can dock");
       player.teleportTo(base.getX() - 3, base.getY() + 1, base.getZ() + 4);
-      var outside = DockingService.readiness(player, replacement);
+      var outside = DockingManeuver.readiness(player, replacement);
       ctx.assertTrue(
           !outside.ready()
               && outside.message().contains("outside a sealed cabin")
@@ -272,12 +280,12 @@ public final class StationGameTest {
     var base = ctx.absolutePos(new BlockPos(61000, 64, 61000));
     var s = fixture(level, base, false);
     try {
-      var ports = DockingService.ports(level, s);
+      var ports = DockingPorts.ports(level, s);
       ctx.assertTrue(ports.size() == 2, "Completed station has two valid berths");
       for (var port : ports) {
-        DockingService.readPort(level, s, port.controller(), true);
+        DockingPorts.readPort(level, s, port.controller(), true);
         ctx.assertTrue(
-            ShipSystems.breathable(level, s, port.anchors().getFirst().above()),
+            ShipAir.breathable(level, s, port.anchors().getFirst().above()),
             "Docking chamber starts with finite air");
       }
       var graph = StationGraph.inspect(level, s);
@@ -298,7 +306,7 @@ public final class StationGameTest {
       level.setBlock(broken, Blocks.AIR.defaultBlockState(), 18);
       boolean rejected = false;
       try {
-        DockingService.readPort(level, s, ports.getFirst().controller(), true);
+        DockingPorts.readPort(level, s, ports.getFirst().controller(), true);
       } catch (IllegalArgumentException expected) {
         rejected = true;
       }
@@ -321,15 +329,15 @@ public final class StationGameTest {
       p.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 5.5);
       other.teleportTo(p.getX(), p.getY(), p.getZ());
       ctx.assertTrue(
-          StationService.mayEdit(p, base.offset(4, 3, 4))
-              && !StationService.mayEdit(other, base.offset(4, 3, 4)),
+          StationAccess.mayEdit(p, base.offset(4, 3, 4))
+              && !StationAccess.mayEdit(other, base.offset(4, 3, 4)),
           "Public docking does not grant edit rights");
       var open = ComputerTerminal.issue(p, WorldStore.pos(s, "controller"), "", "station_core", "");
       boolean denied = false;
       try {
         ComputerTerminal.authorize(
             other,
-            new ComputerTerminal.Request(
+            new TerminalPackets.Request(
                 open.session(), ComputerTerminal.Action.STATION_GENERATE, "", ""));
       } catch (IllegalArgumentException expected) {
         denied = true;
@@ -338,17 +346,16 @@ public final class StationGameTest {
       denied = false;
       try {
         ComputerTerminal.authorize(
-            p,
-            new ComputerTerminal.Request(open.session(), ComputerTerminal.Action.LAUNCH, "", ""));
+            p, new TerminalPackets.Request(open.session(), ComputerTerminal.Action.LAUNCH, "", ""));
       } catch (IllegalArgumentException expected) {
         denied = true;
       }
       ctx.assertTrue(denied, "Station terminals never authorize launch");
-      var ports = DockingService.ports(level, s);
+      var ports = DockingPorts.ports(level, s);
       var port = ports.getFirst();
       ctx.assertTrue(
-          StationService.mayUse(other, port.controller())
-              && StationService.mayUse(other, port.outer()),
+          StationAccess.mayUse(other, port.controller())
+              && StationAccess.mayUse(other, port.outer()),
           "Public visitors can inspect and operate compact ports");
       var bulkhead =
           StationGraph.inspect(level, s).nodes().stream()
@@ -357,7 +364,7 @@ public final class StationGameTest {
               .orElseThrow()
               .door();
       ctx.assertTrue(
-          StationService.useDoor(other, bulkhead) && ShipDoors.open(level.getBlockState(bulkhead)),
+          StationAccess.useDoor(other, bulkhead) && ShipDoors.open(level.getBlockState(bulkhead)),
           "Ordinary station iron doors operate directly without buttons");
       ShipDoors.setOpen(level, bulkhead, false);
       var visitor = new CompoundTag();
@@ -366,11 +373,11 @@ public final class StationGameTest {
       s.getListOrEmpty("crew").add(visitor);
       s.putString("access", "private");
       ctx.assertTrue(
-          !StationService.allowed(other, s)
-              && StationService.mayUse(other, port.controller())
-              && StationService.mayUse(other, port.outer()),
+          !StationAccess.allowed(other, s)
+              && StationAccess.mayUse(other, port.controller())
+              && StationAccess.mayUse(other, port.outer()),
           "Revoking public access preserves a visitor's return door");
-      DockingService.useCompactDoor(other, port.outer());
+      DockingPorts.useCompactDoor(other, port.outer());
       ctx.assertTrue(
           ShipDoors.open(level.getBlockState(port.outer())),
           "Returning visitors can still open the compact dock door");
@@ -420,11 +427,11 @@ public final class StationGameTest {
     var start = boardingPoint(level, ship);
     p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
     var target =
-        DockingService.ports(level, wreck).stream()
+        DockingPorts.ports(level, wreck).stream()
             .filter(port -> port.facing() == Direction.EAST)
             .findFirst()
             .orElseThrow();
-    DockingService.request(p, ship, wreck.getStringOr("id", ""), target.controller().subtract(b));
+    DockingManeuver.request(p, ship, wreck.getStringOr("id", ""), target.controller().subtract(b));
     ctx.runAfterDelay(
         1000,
         () -> {
@@ -514,13 +521,14 @@ public final class StationGameTest {
     var start = boardingPoint(level, ship);
     p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
     p.getInventory().add(new ItemStack(Items.DIAMOND, 7));
-    var source = DockingService.firstPort(level, ship);
+    var source = DockingPorts.firstPort(level, ship);
     var target =
-        DockingService.ports(level, station).stream()
+        DockingPorts.ports(level, station).stream()
             .filter(port -> port.facing() == Direction.EAST)
             .findFirst()
             .orElseThrow();
-    DockingService.request(p, ship, station.getStringOr("id", ""), target.controller().subtract(b));
+    DockingManeuver.request(
+        p, ship, station.getStringOr("id", ""), target.controller().subtract(b));
     ctx.assertTrue(DockingService.motionLocked(ship), "Autopilot immediately owns all movement");
     ctx.runAfterDelay(
         1000,
@@ -545,7 +553,7 @@ public final class StationGameTest {
               FlightDynamics.rotate(SceneService.pose(current).orientation(), p.getLookAngle());
           DockingService.action(p, current, source.controller(), "DOCK_BOARD");
           var intent = (CompoundTag) WorldStore.get(server).list("stationBoarding").getFirst();
-          DockingService.ready(
+          Boarding.ready(
               p, new TravelPackets.Ready(UUID.fromString(intent.getStringOr("token", "")), false));
           ctx.runAfterDelay(
               10,
@@ -560,7 +568,7 @@ public final class StationGameTest {
                         < 3e-4,
                     "Boarding keeps the passenger looking through the dock, including their head"
                         + " tilt");
-                DockingService.ready(
+                Boarding.ready(
                     p,
                     new TravelPackets.Ready(
                         UUID.fromString(intent.getStringOr("token", "")), true));
@@ -584,7 +592,7 @@ public final class StationGameTest {
                           "DOCK_BOARD");
                       var back =
                           (CompoundTag) WorldStore.get(server).list("stationBoarding").getFirst();
-                      DockingService.ready(
+                      Boarding.ready(
                           p,
                           new TravelPackets.Ready(
                               UUID.fromString(back.getStringOr("token", "")), false));
@@ -601,7 +609,7 @@ public final class StationGameTest {
                                         .distanceTo(returnLook)
                                     < 3e-4,
                                 "Returning preserves the view in the original ship's frame too");
-                            DockingService.ready(
+                            Boarding.ready(
                                 p,
                                 new TravelPackets.Ready(
                                     UUID.fromString(back.getStringOr("token", "")), true));
@@ -667,10 +675,10 @@ public final class StationGameTest {
     String id = UUID.randomUUID().toString();
     var plan = StationBlueprint.build(StationLayout.waypoint());
     var station =
-        StationService.queue(
+        StationBuilds.queue(
             server, id, "Saved station", "sol_luna", new Vec3(-2000, 0, -2000), "", plan, false);
     ctx.assertTrue(
-        StationService.queue(
+        StationBuilds.queue(
                 server, id, "Saved station", "sol_luna", new Vec3(0, 0, 0), "", plan, false)
             == station,
         "A repeated deployment reuses its reserved identity and section");
@@ -679,15 +687,15 @@ public final class StationGameTest {
         () -> {
           try {
             ctx.assertTrue(
-                StationService.ready(station), "Bounded placement publishes a completed station");
+                StationAccess.ready(station), "Bounded placement publishes a completed station");
             var level = server.getLevel(TravelService.SPACE);
             var base = WorldStore.pos(station, "base");
             ctx.assertTrue(
-                DockingService.ports(level, station).size() == 2,
+                DockingPorts.ports(level, station).size() == 2,
                 "Saved deployment commissions both ports");
             var edited = base.offset(1, 7, 1);
             level.setBlock(edited, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
-            StationService.queue(
+            StationBuilds.queue(
                 server, id, "Saved station", "sol_luna", Vec3.ZERO, "", plan, false);
             ctx.assertTrue(
                 level.getBlockState(edited).is(Blocks.DIAMOND_BLOCK),
@@ -710,12 +718,12 @@ public final class StationGameTest {
     var point = boardingPoint(level, ship);
     p.teleportTo(level, point.x, point.y, point.z, Set.of(), 0, 0, true);
     var target =
-        DockingService.ports(level, station).stream()
+        DockingPorts.ports(level, station).stream()
             .filter(port -> port.facing() == Direction.EAST)
             .findFirst()
             .orElseThrow();
     var port = target.controller().subtract(WorldStore.pos(station, "base"));
-    DockingService.request(p, ship, station.getStringOr("id", ""), port);
+    DockingManeuver.request(p, ship, station.getStringOr("id", ""), port);
     boolean[] cancelled = {false};
     int[] polls = {0};
     Runnable[] poll = new Runnable[1];
@@ -745,7 +753,7 @@ public final class StationGameTest {
           if (!cancelled[0] && phase.equals("CONNECTING") && distance < 50) {
             DockingService.action(p, ship, WorldStore.pos(ship, "controller"), "DOCK_CANCEL");
             cancelled[0] = true;
-            DockingService.request(p, ship, station.getStringOr("id", ""), port);
+            DockingManeuver.request(p, ship, station.getStringOr("id", ""), port);
           }
           if (cancelled[0] && phase.equals("CLAMPED")) {
             server.getPlayerList().remove(p);
@@ -777,15 +785,14 @@ public final class StationGameTest {
         var point = boardingPoint(level, ships.get(i));
         players.get(i).teleportTo(level, point.x, point.y, point.z, Set.of(), 0, 0, true);
       }
-      var port =
-          DockingService.firstPort(level, b).controller().subtract(WorldStore.pos(b, "base"));
-      DockingService.request(pa, a, b.getStringOr("id", ""), port);
+      var port = DockingPorts.firstPort(level, b).controller().subtract(WorldStore.pos(b, "base"));
+      DockingManeuver.request(pa, a, b.getStringOr("id", ""), port);
       ctx.assertTrue(
           a.getCompoundOrEmpty("dock").getStringOr("state", "").equals("WAITING_CONSENT"),
           "Approach never starts before another vessel accepts");
       boolean rejected = false;
       try {
-        DockingService.request(pc, c, b.getStringOr("id", ""), port);
+        DockingManeuver.request(pc, c, b.getStringOr("id", ""), port);
       } catch (IllegalArgumentException expected) {
         rejected = true;
       }
@@ -794,7 +801,7 @@ public final class StationGameTest {
       var session = ComputerTerminal.issue(pb, helm, "Incoming request", "docks", "0");
       ComputerTerminal.authorize(
           pb,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.DOCK_ACCEPT, "", ""));
       DockingService.action(pb, b, helm, "DOCK_ACCEPT");
       ctx.assertTrue(
@@ -827,8 +834,8 @@ public final class StationGameTest {
     p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(ModBlocks.CHEST));
     p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(ModBlocks.LEGS));
     p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(ModBlocks.BOOTS));
-    var station = StationService.start(p, ship);
-    var source = DockingService.firstPort(level, ship);
+    var station = StationDeployment.start(p, ship);
+    var source = DockingPorts.firstPort(level, ship);
     ctx.runAfterDelay(
         1100,
         () -> {
@@ -840,34 +847,34 @@ public final class StationGameTest {
           DockingService.action(p, ship, source.controller(), "DOCK_CONSTRUCTION");
           var intent = (CompoundTag) WorldStore.get(server).list("stationBoarding").getFirst();
           var token = UUID.fromString(intent.getStringOr("token", ""));
-          DockingService.ready(p, new TravelPackets.Ready(token, false));
+          Boarding.ready(p, new TravelPackets.Ready(token, false));
           ctx.runAfterDelay(
               10,
               () -> {
                 ctx.assertTrue(
                     WorldStore.bounds(station).contains(p.blockPosition())
-                        && DockingService.constructionAir(p, station),
+                        && StationConstruction.constructionAir(p, station),
                     "Suited builder reaches the real platform with finite ship oxygen");
-                DockingService.ready(p, new TravelPackets.Ready(token, true));
+                Boarding.ready(p, new TravelPackets.Ready(token, true));
                 ctx.runAfterDelay(
                     10,
                     () -> {
-                      StationService.buildRoom(p, station, "arrival 0 0", false);
+                      StationBuilds.buildRoom(p, station, "arrival 0 0", false);
                       ctx.runAfterDelay(
                           35,
                           () -> {
                             ctx.assertTrue(
-                                StationService.ready(station),
+                                StationAccess.ready(station),
                                 "Arrival module finishes without losing the construction return"
                                     + " route");
-                            StationService.buildRoom(p, station, "engineering 1 0", false);
+                            StationBuilds.buildRoom(p, station, "engineering 1 0", false);
                             ctx.runAfterDelay(
                                 35,
                                 () -> {
                                   try {
                                     ctx.assertTrue(
-                                        StationService.ready(station)
-                                            && DockingService.ports(level, station).size() == 2,
+                                        StationAccess.ready(station)
+                                            && DockingPorts.ports(level, station).size() == 2,
                                         "Engineering joins the existing module through a valid"
                                             + " bulkhead");
                                     ctx.assertTrue(

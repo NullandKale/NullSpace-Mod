@@ -62,7 +62,7 @@ public final class ShipTitleGameTest {
               ctx.assertTrue(ship.getStringOr("dimension", "").equals(surface), "On the pad");
               key[0] = f.selection();
               ctx.assertTrue(
-                  ShipStorage.show(f.player, f.computer, key[0]).startsWith("Showing the "),
+                  ShipScrap.show(f.player, f.computer, key[0]).startsWith("Showing the "),
                   "Show blocks outlines the blocks Store takes");
               // The owner leaves for a long time; one crew member is offline aboard.
               ship.putString("owner", away);
@@ -75,7 +75,7 @@ public final class ShipTitleGameTest {
               WorldStore.get(server)
                   .section("lastSeen")
                   .putLong(
-                      away, server.overworld().getGameTime() - ShipStorage.ABANDONED_TICKS - 1);
+                      away, server.overworld().getGameTime() - CrewRelease.ABANDONED_TICKS - 1);
               visitor.teleportTo(
                   f.surface,
                   f.computer.getX() + .5,
@@ -110,14 +110,13 @@ public final class ShipTitleGameTest {
               // Back to the real owner, who scraps it.
               ship.putString("owner", owner);
               ctx.assertTrue(
-                  ShipStorage.scrap(visitor, f.computer, key[0]).startsWith("Only the owner"),
+                  ShipScrap.scrap(visitor, f.computer, key[0]).startsWith("Only the owner"),
                   "Only the owner can scrap a ship");
               ctx.assertTrue(
-                  ShipStorage.scrap(f.player, f.computer, key[0])
-                      .contains("Press Scrap ship again"),
+                  ShipScrap.scrap(f.player, f.computer, key[0]).contains("Press Scrap ship again"),
                   "The first press asks for confirmation");
               ctx.assertTrue(WorldStore.get(server).repository().find(f.id) != null, "Not yet");
-              String done = ShipStorage.scrap(f.player, f.computer, key[0]);
+              String done = ShipScrap.scrap(f.player, f.computer, key[0]);
               ctx.assertTrue(done.contains("was scrapped"), done);
               ctx.assertTrue(
                   WorldStore.get(server).repository().find(f.id) == null,

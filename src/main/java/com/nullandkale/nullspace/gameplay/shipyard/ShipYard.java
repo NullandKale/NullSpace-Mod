@@ -11,8 +11,8 @@ import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.nio.file.Files;
 import java.util.*;
@@ -70,7 +70,7 @@ public final class ShipYard {
                             .executes(
                                 ctx -> {
                                   var player = ctx.getSource().getPlayerOrException();
-                                  if (TravelService.busy(player))
+                                  if (TransferLocks.busy(player))
                                     throw new IllegalArgumentException(
                                         "Finish travelling before visiting the shipyard.");
                                   try {
@@ -136,7 +136,7 @@ public final class ShipYard {
           y = Math.max(y, level.getHeight(Heightmap.Types.WORLD_SURFACE, x + dx, z + dz));
       y += 4;
       if (y + 33 >= level.getMaxY()) continue;
-      if (TravelService.areaBusy(
+      if (TransferLocks.areaBusy(
           level,
           new HullScan.Bounds(
               new BlockPos(x, y, z), new BlockPos(x + WIDTH - 1, y + 33, z + DEPTH - 1)))) continue;
@@ -196,7 +196,7 @@ public final class ShipYard {
       var ship = ShipTopology.resolve(level, at.offset(preset.helm()));
       ship.putString("blueprint", preset.id());
       ship.putString("name", preset.name());
-      ShipSystems.upgrade(level, ship);
+      SystemsUpgrade.upgrade(level, ship);
       ship.getCompoundOrEmpty("systems")
           .putIntArray("requests", new int[] {1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
       ShipGallery.label(

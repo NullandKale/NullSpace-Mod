@@ -3,7 +3,7 @@ package com.nullandkale.nullspace.gameplay.pads;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import java.util.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.*;
 import net.fabricmc.fabric.api.networking.v1.*;
@@ -156,8 +156,8 @@ public final class BuildPreviews {
 
   public static String toggle(ServerPlayer p, BlockPos controller, boolean ship) {
     if (!p.isAlive()
-        || TravelService.busy(p)
-        || TravelService.locked(p.level(), controller)
+        || TransferLocks.busy(p)
+        || TransferLocks.locked(p.level(), controller)
         || !p.level().hasChunkAt(controller)
         || !p.level().getBlockState(controller).is(PadComputers.BLOCK)
         || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(controller)) > 64

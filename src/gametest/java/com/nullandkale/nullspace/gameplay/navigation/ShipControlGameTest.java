@@ -2,9 +2,12 @@ package com.nullandkale.nullspace.gameplay.navigation;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.TestZones;
@@ -162,14 +165,15 @@ public final class ShipControlGameTest {
               .filter(d -> d.kind() == ShipDestination.Kind.REGION && d.region().equals("sol_luna"))
               .findFirst()
               .orElseThrow();
-      var select = new ShipControl.Input(view.session(), ShipControl.Action.SELECT, target.id());
+      var select =
+          new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, target.id());
       ctx.assertTrue(
           ShipControl.input(player, select).startsWith("Destination set:"),
           "The destination is saved before travel");
       ctx.assertTrue(
           ShipControl.input(player, select).contains("Wait a moment"),
           "Repeated selections remain throttled");
-      var explain = new ShipControl.Input(view.session(), ShipControl.Action.EXPLAIN, "JUMP");
+      var explain = new ControllerPackets.Input(view.session(), ShipControl.Action.EXPLAIN, "JUMP");
       ctx.assertTrue(
           ShipControl.input(player, explain).startsWith("Jump is ready"),
           "The next control works in the same server tick as destination selection");
@@ -247,7 +251,7 @@ public final class ShipControlGameTest {
     var player = ctx.makeMockServerPlayerInLevel();
     var at = StationGameTest.boardingPoint(level, own);
     player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
-    var port = DockingService.ports(level, station).getFirst();
+    var port = DockingPorts.ports(level, station).getFirst();
     var links = new CompoundTag();
     links.put(port.id(), new CompoundTag());
     station.put("dockLinks", links);
@@ -263,14 +267,16 @@ public final class ShipControlGameTest {
       var occupied =
           ports.stream().filter(d -> d.state().equals("Occupied")).findFirst().orElseThrow();
       ctx.assertTrue(
-          ShipControl.reason(player, own, occupied, ShipControl.Action.DOCK).contains("occupied"),
+          ControllerChecks.reason(player, own, occupied, ShipControl.Action.DOCK)
+              .contains("occupied"),
           "Explain berth occupancy instead of showing an empty list");
       ShipDestination.select(player, own, occupied);
       var view = ShipControl.open(player, WorldStore.pos(own, "controller"), "");
       var before = own.copy();
       var explanation =
           ShipControl.input(
-              player, new ShipControl.Input(view.session(), ShipControl.Action.EXPLAIN, "DOCK"));
+              player,
+              new ControllerPackets.Input(view.session(), ShipControl.Action.EXPLAIN, "DOCK"));
       ctx.assertTrue(
           explanation.equals("Dock blocked: Destination port is occupied") && before.equals(own),
           "A disabled click reports the server's real reason without starting a maneuver");
@@ -278,7 +284,8 @@ public final class ShipControlGameTest {
       before = own.copy();
       explanation =
           ShipControl.input(
-              player, new ShipControl.Input(view.session(), ShipControl.Action.EXPLAIN, "INSPECT"));
+              player,
+              new ControllerPackets.Input(view.session(), ShipControl.Action.EXPLAIN, "INSPECT"));
       ctx.assertTrue(
           explanation.equals("Inspect is ready now. Press it again to start.")
               && before.equals(own),
@@ -287,7 +294,7 @@ public final class ShipControlGameTest {
       before = own.copy();
       var refused =
           ShipControl.input(
-              player, new ShipControl.Input(view.session(), ShipControl.Action.DOCK, ""));
+              player, new ControllerPackets.Input(view.session(), ShipControl.Action.DOCK, ""));
       ctx.assertTrue(
           refused.equals("Dock blocked: Destination port is occupied") && before.equals(own),
           "An actual refused docking request has the same clear diagnostic and changes no ship"
@@ -326,7 +333,7 @@ public final class ShipControlGameTest {
     var p = ctx.makeMockServerPlayerInLevel();
     try {
       ctx.assertTrue(!level.hasChunkAt(base), "Remote fixture starts unloaded");
-      var ports = DockingService.destinations(p, own, true);
+      var ports = DockingTargets.destinations(p, own, true);
       ctx.assertTrue(
           ports.stream()
               .anyMatch(
@@ -350,7 +357,7 @@ public final class ShipControlGameTest {
     var helm = WorldStore.pos(ship, "controller");
     var scanner = helm.above();
     level.setBlock(scanner, ModBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 0, 0, 0, 5, 0});
     ShipSystems.tick(level, ship);
     var player = ctx.makeMockServerPlayerInLevel();
@@ -371,14 +378,14 @@ public final class ShipControlGameTest {
       var stolen =
           ShipControl.input(
               stranger,
-              new ShipControl.Input(view.session(), ShipControl.Action.SELECT, target.id()));
+              new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, target.id()));
       ctx.assertTrue(
           stolen.contains("Reopen") && ShipDestination.selected(ship) == null,
           "Another player cannot use this scanner session");
       var result =
           ShipControl.input(
               player,
-              new ShipControl.Input(view.session(), ShipControl.Action.SELECT, target.id()));
+              new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, target.id()));
       ctx.assertTrue(
           result.startsWith("Destination set:")
               && ShipDestination.selected(ship).id().equals(target.id())
@@ -393,7 +400,7 @@ public final class ShipControlGameTest {
       ctx.assertTrue(
           ShipControl.input(
                   player,
-                  new ShipControl.Input(
+                  new ControllerPackets.Input(
                       controller.session(), ShipControl.Action.SELECT, target.id()))
               .startsWith("Destination set"),
           "Only the controller selects the course");
@@ -402,7 +409,7 @@ public final class ShipControlGameTest {
       var forged =
           ShipControl.input(
               player,
-              new ShipControl.Input(
+              new ControllerPackets.Input(
                   controller.session(), ShipControl.Action.SELECT, UUID.randomUUID().toString()));
       ctx.assertTrue(
           forged.contains("Choose a destination") && before.equals(ship),
@@ -410,7 +417,8 @@ public final class ShipControlGameTest {
       var scannerAgain = ShipControl.open(player, scanner, "Scanner test");
       var travel =
           ShipControl.input(
-              player, new ShipControl.Input(scannerAgain.session(), ShipControl.Action.JUMP, ""));
+              player,
+              new ControllerPackets.Input(scannerAgain.session(), ShipControl.Action.JUMP, ""));
       ctx.assertTrue(
           travel.contains("Use the ship controller") && !NavigationService.pending(server),
           "A scanner session cannot initiate travel");
@@ -418,7 +426,7 @@ public final class ShipControlGameTest {
       var distant =
           ShipControl.input(
               player,
-              new ShipControl.Input(
+              new ControllerPackets.Input(
                   scannerAgain.session(), ShipControl.Action.SELECT, target.id()));
       ctx.assertTrue(
           distant.contains("out of range"), "Moving away invalidates equipment authority");
@@ -452,21 +460,22 @@ public final class ShipControlGameTest {
               .findFirst()
               .orElseThrow();
       ctx.assertTrue(
-          ShipControl.reason(player, ship, target, ShipControl.Action.JUMP).isEmpty(),
+          ControllerChecks.reason(player, ship, target, ShipControl.Action.JUMP).isEmpty(),
           "Port destination supplies its jump region");
       ctx.assertTrue(
-          ShipControl.reason(player, ship, target, ShipControl.Action.DOCK).contains("Jump"),
+          ControllerChecks.reason(player, ship, target, ShipControl.Action.DOCK).contains("Jump"),
           "Dock requires the destination region first");
       ShipControl.input(
-          player, new ShipControl.Input(view.session(), ShipControl.Action.SELECT, target.id()));
-      DockingService.contacts(player, ship);
+          player,
+          new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, target.id()));
+      DockingTargets.contacts(player, ship);
       ctx.assertTrue(
           ShipDestination.selected(ship).id().equals(target.id()),
           "Legacy local contact listing cannot replace the selected remote destination");
       ship.putString("localSpace", "sol_luna");
       ctx.assertTrue(
           ShipDestination.selected(ship).id().equals(target.id())
-              && ShipControl.reason(player, ship, target, ShipControl.Action.JUMP)
+              && ControllerChecks.reason(player, ship, target, ShipControl.Action.JUMP)
                   .contains("Already"),
           "Changing region preserves the final port");
       DockingService.perform(player, ship, helm, "DOCK_NEXT");
@@ -486,12 +495,12 @@ public final class ShipControlGameTest {
           "Unavailable port stays selected and named");
       var blocked =
           ShipControl.input(
-              player, new ShipControl.Input(reserved.session(), ShipControl.Action.DOCK, ""));
+              player, new ControllerPackets.Input(reserved.session(), ShipControl.Action.DOCK, ""));
       ctx.assertTrue(
           blocked.toLowerCase(Locale.ROOT).contains("unavailable") && !ship.contains("dock"),
           "Reserved port disables docking without choosing a different berth");
       ctx.assertTrue(
-          ShipControl.reason(
+          ControllerChecks.reason(
                   player,
                   ship,
                   new ShipDestination(

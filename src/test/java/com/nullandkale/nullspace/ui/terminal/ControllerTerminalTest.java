@@ -12,7 +12,7 @@ class ControllerTerminalTest {
     var routes =
         java.util.stream.IntStream.range(0, 17)
             .mapToObj(
-                i -> new ComputerTerminal.Destination("route_" + i, "Saved planet " + i, "READY"))
+                i -> new TerminalPackets.Destination("route_" + i, "Saved planet " + i, "READY"))
             .toList();
     terminal.catalog(routes);
     for (int i = 0; i < 8; i++) terminal.input(TerminalInput.Key.DOWN);

@@ -2,11 +2,12 @@ package com.nullandkale.nullspace.gameplay.systems;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.*;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
@@ -45,7 +46,7 @@ public final class EngineeringGameTest {
     ship.putInt("width", 8);
     ship.putInt("depth", 8);
     WorldStore.get(level.getServer()).ships().add(ship);
-    ShipSystems.upgrade(level, ship);
+    SystemsUpgrade.upgrade(level, ship);
     ShipSystems.tick(level, ship);
     return new Fixture(base, helm, ship);
   }
@@ -67,7 +68,7 @@ public final class EngineeringGameTest {
             bounds.max().getZ() - bounds.min().getZ() + 1),
         false,
         List.of());
-    TravelService.place(level, template, bounds.min());
+    TransferRecovery.place(level, template, bounds.min());
     ctx.assertTrue(
         f.ship.getCompoundOrEmpty("systems").equals(before),
         "Replaying an authoritative journal cannot delete device records, battery energy or stored"
@@ -111,30 +112,30 @@ public final class EngineeringGameTest {
               "devices",
               "doors list",
               "groups"))
-        ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, query);
+        SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, query);
       ctx.assertTrue(
           writes[0] == 0
               && before.equals(f.ship.getCompoundOrEmpty("systems"))
               && revision == ShipSystems.revision(level, f.ship),
           "Passive telemetry cannot save, change allocations/air, or advance the editing revision");
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "rooms");
-      ShipSystems.action(other, f.controller, ComputerTerminal.Action.CONFIGURE, "profiles");
+      SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "rooms");
+      SystemsConsole.action(other, f.controller, ComputerTerminal.Action.CONFIGURE, "profiles");
       ctx.assertTrue(
           ComputerTerminal.reading(p, f.controller).startsWith("ROOMS")
               && ComputerTerminal.reading(other, f.controller).startsWith("CRUISE"),
           "Each viewer must retain their own live page");
       WorldStore.writeObserver = observer;
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "power controls 0");
+      SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "power controls 0");
       ctx.assertTrue(
           ShipSystems.power(level, f.ship, PowerBus.System.CONTROLS) == 0,
           "Allocation changes must update grants immediately");
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "room here");
+      SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "room here");
       ctx.assertTrue(
           ComputerTerminal.reading(p, f.controller).contains("BREATHABLE"),
           "A blacked-out console must still explain cabin air");
       boolean blocked = false;
       try {
-        ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile cruise");
+        SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile cruise");
       } catch (IllegalArgumentException expected) {
         blocked = true;
       }
@@ -143,13 +144,13 @@ public final class EngineeringGameTest {
           ComputerTerminal.issue(p, f.controller, "", "systems", Integer.toString(revision));
       ComputerTerminal.authorize(
           p,
-          new ComputerTerminal.Request(
+          new TerminalPackets.Request(
               session.session(), ComputerTerminal.Action.CONFIGURE, "rooms", "", revision));
       boolean stale = false;
       try {
         ComputerTerminal.authorize(
             p,
-            new ComputerTerminal.Request(
+            new TerminalPackets.Request(
                 session.session(), ComputerTerminal.Action.CONFIGURE, "power air 0", "", revision));
       } catch (IllegalArgumentException expected) {
         stale = expected.getMessage().contains("Systems changed");
@@ -178,7 +179,7 @@ public final class EngineeringGameTest {
               .findFirst()
               .orElseThrow();
       battery.putInt("energy", 100);
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile combat");
+      SystemsConsole.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile combat");
       ctx.assertTrue(
           ShipSystems.power(level, f.ship, PowerBus.System.WEAPONS) == 2,
           "Combat allocation must immediately power the physical weapon");
@@ -188,22 +189,24 @@ public final class EngineeringGameTest {
       ctx.assertTrue(
           battery.getIntOr("energy", 0) == energy,
           "Reading refreshed grants cannot charge or discharge batteries");
-      ShipSystems.equipmentAction(
+      EquipmentPanel.equipmentAction(
           p, f.base.offset(4, 3, 6), ComputerTerminal.Action.DEVICE_DISABLE);
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile emergency");
+      SystemsConsole.action(
+          p, f.controller, ComputerTerminal.Action.CONFIGURE, "profile emergency");
       ctx.assertTrue(
           ShipSystems.power(level, f.ship, PowerBus.System.WEAPONS) == 0
               && ShipSystems.power(level, f.ship, PowerBus.System.ENGINES) == 0
               && ShipSystems.power(level, f.ship, PowerBus.System.AIR) == 0,
           "Emergency cuts optional loads and cannot re-enable disabled air hardware");
-      ShipSystems.equipmentAction(p, f.base.offset(4, 3, 6), ComputerTerminal.Action.DEVICE_ENABLE);
+      EquipmentPanel.equipmentAction(
+          p, f.base.offset(4, 3, 6), ComputerTerminal.Action.DEVICE_ENABLE);
       ctx.assertTrue(
           ShipSystems.power(level, f.ship, PowerBus.System.AIR) == SpatialAir.MAX_SUPPLY_POWER,
           "Emergency overdrives the one re-enabled Air Supply to its 8-power cap: "
               + ShipSystems.power(level, f.ship, PowerBus.System.AIR));
-      ShipSystems.equipmentAction(
+      EquipmentPanel.equipmentAction(
           p, f.base.offset(1, 3, 6), ComputerTerminal.Action.DEVICE_DISABLE);
-      ShipSystems.equipmentAction(
+      EquipmentPanel.equipmentAction(
           p, f.base.offset(2, 3, 6), ComputerTerminal.Action.DEVICE_DISABLE);
       ctx.assertTrue(
           ShipSystems.power(level, f.ship, PowerBus.System.CONTROLS) == 0,
@@ -226,8 +229,8 @@ public final class EngineeringGameTest {
     p.teleportTo(f.base.getX() + 4.5, f.base.getY() + 3, f.base.getZ() + 3.5);
     other.teleportTo(p.getX(), p.getY(), p.getZ());
     try {
-      ShipSystems.action(p, f.controller, ComputerTerminal.Action.OPEN_DOORS);
-      ShipSystems.action(other, f.controller, ComputerTerminal.Action.CONFIGURE, "rooms");
+      SystemsConsole.action(p, f.controller, ComputerTerminal.Action.OPEN_DOORS);
+      SystemsConsole.action(other, f.controller, ComputerTerminal.Action.CONFIGURE, "rooms");
       var session = ComputerTerminal.issue(other, f.controller, "", "systems", "");
       ComputerTerminal.close(other, session.session());
       ShipSystems.tick(level, f.ship);

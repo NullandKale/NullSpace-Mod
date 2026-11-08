@@ -2,9 +2,9 @@ package com.nullandkale.nullspace.ui.apps;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.ControllerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ class StationCoreTerminalTest {
   void occupiedRoomCannotQueueAReplacementAndSelectingAnEmptyTileCostsNothing() {
     var terminal =
         new StationCoreTerminal(
-            "Station", List.of(new ComputerTerminal.Destination("0_0", "ARRIVAL", "ROOM")));
+            "Station", List.of(new TerminalPackets.Destination("0_0", "ARRIVAL", "ROOM")));
     terminal.input(new TerminalInput.Pointer(4, 12));
     assertNull(terminal.pollAction());
     assertTrue(terminal.status().contains("empty room tile"));

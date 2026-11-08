@@ -2,9 +2,9 @@ package com.nullandkale.nullspace.gameplay.navigation;
 
 import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -67,7 +67,7 @@ public record ShipDestination(
               pad.name(),
               status.state().name()));
     }
-    for (var berth : DockingService.destinations(p, own, true)) {
+    for (var berth : DockingTargets.destinations(p, own, true)) {
       var target = WorldStore.get(p.level().getServer()).repository().find(berth.vessel());
       if (target != null
           && (!JourneyService.special(p.level().getServer(), LocalSpaces.address(target))
@@ -135,7 +135,7 @@ public record ShipDestination(
               BlockPos.ZERO,
               first.region(),
               vessel.getStringOr("home", "Vessel"),
-              (StationService.station(vessel) ? "Station" : "Ship")
+              (StationAccess.station(vessel) ? "Station" : "Ship")
                   + ": "
                   + free
                   + "/"

@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.ui.apps;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
@@ -36,13 +37,13 @@ class ShipControlTerminalTest {
     var original = state(true, "");
     var entries =
         List.of(
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "station", ShipDestination.Kind.VESSEL, "Outpost", "sol_luna", "Station: 2/2 free"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "ship", ShipDestination.Kind.VESSEL, "Courier", "sol_luna", "Ship: 1/1 free"));
     var panel =
         new ShipControlTerminal(
-            new ShipControl.View(
+            new ControllerPackets.View(
                 original.session(),
                 BlockPos.ZERO,
                 true,
@@ -85,7 +86,7 @@ class ShipControlTerminalTest {
         "Confirmation is not offered before the server's review");
     assertNull(panel.pollAction());
     var reviewed =
-        new ShipControl.View(
+        new ControllerPackets.View(
             original.session(),
             original.position(),
             false,
@@ -98,8 +99,8 @@ class ShipControlTerminalTest {
             "3 loose blocks and their contents will stay here",
             original.entries(),
             List.of(
-                new ShipControl.Button(ShipControl.Action.REVIEW_LOOSE_BLOCKS, ""),
-                new ShipControl.Button(ShipControl.Action.CONFIRM_LEAVE_BLOCKS, "")),
+                new ControllerPackets.Button(ShipControl.Action.REVIEW_LOOSE_BLOCKS, ""),
+                new ControllerPackets.Button(ShipControl.Action.CONFIRM_LEAVE_BLOCKS, "")),
             1);
     panel.update(reviewed);
     assertEquals(
@@ -120,9 +121,9 @@ class ShipControlTerminalTest {
                           b.action() != ShipControl.Action.INVESTIGATE
                               && b.action() != ShipControl.Action.RESUME)
                   .toList());
-      buttons.add(new ShipControl.Button(action, ""));
+      buttons.add(new ControllerPackets.Button(action, ""));
       var view =
-          new ShipControl.View(
+          new ControllerPackets.View(
               original.session(),
               original.position(),
               false,
@@ -169,7 +170,7 @@ class ShipControlTerminalTest {
   void longFaultDetailsCanBeReadAndLiveUpdatesKeepTheScrollPosition() {
     var original = state(false, "pad");
     var next =
-        new ShipControl.View(
+        new ControllerPackets.View(
             original.session(),
             original.position(),
             false,
@@ -199,21 +200,21 @@ class ShipControlTerminalTest {
     var original = state(true, "");
     var entries =
         List.of(
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "terra", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "luna", ShipDestination.Kind.REGION, "Sol / Luna", "sol_luna", "Orbit"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "vega", ShipDestination.Kind.REGION, "Vega / Pelagos", "vega_pelagos", "Orbit"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "station", ShipDestination.Kind.VESSEL, "Outpost", "sol_luna", "Station: 2/2 free"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "berth1", ShipDestination.Kind.PORT, "Outpost A", "sol_luna", "Available"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "berth2", ShipDestination.Kind.PORT, "Outpost B", "sol_luna", "Available"));
     var panel =
         new ShipControlTerminal(
-            new ShipControl.View(
+            new ControllerPackets.View(
                 original.session(),
                 BlockPos.ZERO,
                 true,
@@ -243,7 +244,8 @@ class ShipControlTerminalTest {
     panel.input(new TerminalInput.Pointer(3, 8));
     panel.input(new TerminalInput.Pointer(3, 22));
     assertEquals(
-        new ShipControl.Input(SESSION, ShipControl.Action.SELECT, "station"), panel.pollAction());
+        new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "station"),
+        panel.pollAction());
     assertTrue(panel.picker());
   }
 
@@ -252,11 +254,11 @@ class ShipControlTerminalTest {
     var original = state(true, "");
     var entries =
         List.of(
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "terra", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "corion", ShipDestination.Kind.REGION, "Corion / Corion I", "sys_d_1", "Orbit"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "nebula",
                 ShipDestination.Kind.REGION,
                 "Kel Nebula / Kel Nebula",
@@ -264,9 +266,9 @@ class ShipControlTerminalTest {
                 "Orbit"));
     var chart =
         List.of(
-            new ShipControl.ChartPlace(
+            new ControllerPackets.ChartPlace(
                 "sol", "Sol", "System", 100, 100, "sol_terra", 0, 0, true, true, "G star", ""),
-            new ShipControl.ChartPlace(
+            new ControllerPackets.ChartPlace(
                 "feature_a",
                 "Kel Nebula",
                 "Nebula",
@@ -279,7 +281,7 @@ class ShipControlTerminalTest {
                 false,
                 "Nebula | stepping stone",
                 ""),
-            new ShipControl.ChartPlace(
+            new ControllerPackets.ChartPlace(
                 "sys_d",
                 "Corion",
                 "System",
@@ -294,7 +296,7 @@ class ShipControlTerminalTest {
                 "3 hops via Kel Nebula, Tal Drift"));
     var panel =
         new ShipControlTerminal(
-            new ShipControl.View(
+            new ControllerPackets.View(
                 original.session(),
                 BlockPos.ZERO,
                 true,
@@ -329,7 +331,8 @@ class ShipControlTerminalTest {
     assertTrue(panel.display().row(19).contains("18.2 ly | jump 2.82 fuel | in range"));
     panel.input(new TerminalInput.Pointer(3, 22));
     assertEquals(
-        new ShipControl.Input(SESSION, ShipControl.Action.SELECT, "nebula"), panel.pollAction());
+        new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "nebula"),
+        panel.pollAction());
     panel.update(panel.state());
     int corion = panel.display().row(16).indexOf("* Corion");
     panel.input(new TerminalInput.Pointer(corion, 16));
@@ -343,13 +346,14 @@ class ShipControlTerminalTest {
     assertTrue(panel.display().row(7).contains("Corion I"), "Selecting a system again opens it");
   }
 
-  private static ShipControl.View state(boolean scanner, String selected) {
+  private static ControllerPackets.View state(boolean scanner, String selected) {
     var entries =
         List.of(
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
                 "region", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"),
-            new ShipControl.Entry("pad", ShipDestination.Kind.PAD, "My yard", "sol_terra", "READY"),
-            new ShipControl.Entry(
+            new ControllerPackets.Entry(
+                "pad", ShipDestination.Kind.PAD, "My yard", "sol_terra", "READY"),
+            new ControllerPackets.Entry(
                 "port", ShipDestination.Kind.PORT, "Waypoint berth", "sol_luna", "Available"));
     var buttons =
         Arrays.stream(ShipControl.Action.values())
@@ -360,13 +364,13 @@ class ShipControlTerminalTest {
                         && a != ShipControl.Action.RETURN_TO_CONTROLLER)
             .map(
                 a ->
-                    new ShipControl.Button(
+                    new ControllerPackets.Button(
                         a,
                         a == ShipControl.Action.LAND
                             ? "Jump to the destination's region first"
                             : ""))
             .toList();
-    return new ShipControl.View(
+    return new ControllerPackets.View(
         SESSION,
         BlockPos.ZERO,
         scanner,
@@ -404,7 +408,7 @@ class ShipControlTerminalTest {
     assertTrue(click(t, "[ Manual steps ]"));
     t.input(new TerminalInput.Pointer(3, 10));
     assertEquals(
-        new ShipControl.Input(SESSION, ShipControl.Action.EXPLAIN, "LAND"), t.pollAction());
+        new ControllerPackets.Input(SESSION, ShipControl.Action.EXPLAIN, "LAND"), t.pollAction());
     assertTrue(t.status().contains("Jump to the destination"));
     assertNull(t.pollAction());
   }
@@ -417,12 +421,13 @@ class ShipControlTerminalTest {
     t.input(new TerminalInput.Pointer(3, 7));
     assertNull(t.pollAction());
     t.input(new TerminalInput.Pointer(3, 22));
-    assertEquals(new ShipControl.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
+    assertEquals(
+        new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
     assertNull(t.pollAction());
     assertTrue(t.picker(), "Wait for the server to save the destination");
     var accepted = state(false, "port");
     t.update(
-        new ShipControl.View(
+        new ControllerPackets.View(
             accepted.session(),
             accepted.position(),
             false,
@@ -459,7 +464,8 @@ class ShipControlTerminalTest {
     assertFalse(t.display().row(8).contains("[ Jump ]"));
     t.input(new TerminalInput.Pointer(3, 9));
     t.input(new TerminalInput.Pointer(3, 22));
-    assertEquals(new ShipControl.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
+    assertEquals(
+        new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
     assertTrue(t.picker());
   }
 
@@ -508,7 +514,7 @@ class ShipControlTerminalTest {
     panel.input(new TerminalInput.Pointer(3, 10));
     panel.pollAction();
     panel.update(
-        new ShipControl.View(
+        new ControllerPackets.View(
             original.session(),
             original.position(),
             false,
@@ -532,7 +538,7 @@ class ShipControlTerminalTest {
     var original = state(false, "region");
     var panel =
         new ShipControlTerminal(
-            new ShipControl.View(
+            new ControllerPackets.View(
                 SESSION,
                 BlockPos.ZERO,
                 false,

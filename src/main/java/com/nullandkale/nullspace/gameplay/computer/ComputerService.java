@@ -6,12 +6,16 @@ import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.combat.ShipCombat;
-import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
+import com.nullandkale.nullspace.gameplay.navigation.Jumps;
+import com.nullandkale.nullspace.gameplay.navigation.Piloting;
 import com.nullandkale.nullspace.gameplay.ship.ShipDiagnostics;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSensors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.FairScheduler;
@@ -162,7 +166,7 @@ public final class ComputerService {
             : WorldStore.pos(ship, "base").offset(BlockPos.of(m.position));
     if (!level.hasChunkAt(pos) || ship != null && !ShipTopology.loaded(level, ship))
       throw new ScriptLanguage.Unavailable("Ship chunks are not fully loaded");
-    if (TravelService.locked(level, pos))
+    if (TransferLocks.locked(level, pos))
       throw new ScriptLanguage.Unavailable("Ship is in transit");
     if (!level.getBlockState(pos).is(ModBlocks.TERMINAL))
       throw new IllegalArgumentException("Computer block was removed");
@@ -272,8 +276,8 @@ public final class ComputerService {
         || player.distanceToSqr(position.getX() + .5, position.getY() + .5, position.getZ() + .5)
             > 64
         || !player.mayInteract(level, position)
-        || TravelService.busy(player)
-        || TravelService.locked(level, position)) return;
+        || TransferLocks.busy(player)
+        || TransferLocks.locked(level, position)) return;
     var server = level.getServer();
     hydrate(server);
     var r = state(server);
@@ -318,7 +322,7 @@ public final class ComputerService {
     if (p == null
         || !p.isAlive()
         || p.level().getServer().getTickCount() > s.expires
-        || TravelService.busy(p)) return false;
+        || TransferLocks.busy(p)) return false;
     try {
       var l = locate(s.machine);
       return p.level() == l.level
@@ -425,9 +429,9 @@ public final class ComputerService {
     String argument = String.join(" ", args.stream().map(ScriptLanguage::text).toList());
     var helm = WorldStore.pos(ship, "controller");
     return switch (name) {
-      case "status" -> ShipSystems.summary(l.level, ship);
+      case "status" -> SystemsConsole.summary(l.level, ship);
       case "rooms" ->
-          ShipSystems.rooms(l.level, ship).stream()
+          ShipAir.rooms(l.level, ship).stream()
               .limit(128)
               .map(
                   r ->
@@ -446,7 +450,7 @@ public final class ComputerService {
         int x = (int) ScriptLanguage.number(args.get(0)),
             y = (int) ScriptLanguage.number(args.get(1)),
             z = (int) ScriptLanguage.number(args.get(2));
-        yield ShipSystems.pressure(l.level, ship, x, y, z);
+        yield ShipAir.pressure(l.level, ship, x, y, z);
       }
       case "targets" -> ShipSensors.targets(l.level, ship);
       case "contacts" -> ShipSensors.contacts(l.level, ship);
@@ -454,8 +458,8 @@ public final class ComputerService {
           ShipSensors.scan(l.level, ship, argument.equals("long") || argument.equals("long_range"));
       case "fire" -> ShipCombat.fire(l.level, ship, l.position, null);
       case "stop" -> {
-        NavigationService.automate(l.level, ship, l.position, m.id, FlightDynamics.BRAKE, 1);
-        NavigationService.stop(ship);
+        Piloting.automate(l.level, ship, l.position, m.id, FlightDynamics.BRAKE, 1);
+        Piloting.stop(ship);
         yield "Stopped";
       }
       case "thrust", "pilot" -> {
@@ -479,7 +483,7 @@ public final class ComputerService {
                 case "brake" -> FlightDynamics.BRAKE;
                 default -> throw new IllegalArgumentException("Unknown flight control: " + word);
               };
-        yield NavigationService.automate(
+        yield Piloting.automate(
             l.level, ship, l.position, m.id, buttons, (int) ScriptLanguage.number(args.get(1)));
       }
       case "inspect" ->
@@ -498,7 +502,7 @@ public final class ComputerService {
                     () ->
                         new ScriptLanguage.Unavailable(
                             "A crew member must board the helm before travel"));
-        if (name.equals("jump")) NavigationService.jump(actor, helm, argument);
+        if (name.equals("jump")) Jumps.jump(actor, helm, argument);
         else
           TravelService.request(
               actor,
@@ -537,7 +541,7 @@ public final class ComputerService {
           "group",
           "supply",
           "air" ->
-          ShipSystems.automation(
+          SystemsConsole.automation(
               l.level, ship, l.position, name + (argument.isBlank() ? "" : " " + argument));
       default -> throw new IllegalArgumentException("Unknown ship API: " + name);
     };

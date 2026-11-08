@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.gameplay.pads;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.PadRepository;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import java.util.*;
 import net.minecraft.core.BlockPos;
@@ -34,8 +35,8 @@ public final class PadRefresh {
   public static void refresh(ServerLevel level, PadRegistry.Pad pad) {
     if (!level.hasChunkAt(pad.computer())
         || !level.getBlockState(pad.computer()).is(PadComputers.BLOCK)
-        || TravelService.locked(level, pad.computer())
-        || TravelService.locked(
+        || TransferLocks.locked(level, pad.computer())
+        || TransferLocks.locked(
             level, new BlockPos(pad.bounds().minX(), pad.bounds().y() + 1, pad.bounds().minZ())))
       return;
     var result = PadComputers.inspect(level, pad.computer());

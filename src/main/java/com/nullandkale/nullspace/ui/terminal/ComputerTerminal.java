@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ownership.Claims;
+import com.nullandkale.nullspace.gameplay.ownership.ShipScrap;
 import com.nullandkale.nullspace.gameplay.ownership.ShipStorage;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
@@ -16,22 +17,31 @@ import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.systems.EquipmentPanel;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.engineering.EngineeringCommands;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.ui.menu.EquipmentMenus;
 import com.nullandkale.nullspace.ui.menu.StationMenus;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Ack;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Authorized;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Close;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Destination;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Open;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Refresh;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Rejected;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Request;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets.Update;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import java.util.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.*;
 import net.fabricmc.fabric.api.networking.v1.*;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
 /** Server-owned, expiring sessions. Commands remain for development; the GUI uses typed packets. */
@@ -110,35 +120,7 @@ public final class ComputerTerminal {
     SHIP_SCRAP
   }
 
-  public record Destination(String id, String name, String state, String detail) {
-    public Destination(String id, String name, String state) {
-      this(id, name, state, "");
-    }
-  }
-
-  /** Session-scoped live data can never open a closed terminal. */
-  public record Refresh(Open view) implements CustomPacketPayload {
-    public static final Type<Refresh> TYPE =
-        new Type<>(Identifier.parse("nullspace:terminal_refresh"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Refresh> CODEC =
-        Open.CODEC.map(Refresh::new, Refresh::view);
-
-    public Type<Refresh> type() {
-      return TYPE;
-    }
-  }
-
-  public record Ack(UUID session) implements CustomPacketPayload {
-    public static final Type<Ack> TYPE = new Type<>(Identifier.parse("nullspace:terminal_ack"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Ack> CODEC =
-        StreamCodec.of((b, p) -> b.writeUUID(p.session), b -> new Ack(b.readUUID()));
-
-    public Type<Ack> type() {
-      return TYPE;
-    }
-  }
-
-  private static final class Session {
+  static final class Session {
     final UUID id = UUID.randomUUID();
     final BlockPos position;
     final String dimension, mode;
@@ -153,162 +135,18 @@ public final class ComputerTerminal {
     }
   }
 
-  private static final ServerContext.Key<Map<UUID, Session>> KEY = new ServerContext.Key<>();
+  static final ServerContext.Key<Map<UUID, Session>> KEY = new ServerContext.Key<>();
 
-  private static Map<UUID, Session> sessions(net.minecraft.server.MinecraftServer server) {
+  static Map<UUID, Session> sessions(net.minecraft.server.MinecraftServer server) {
     return ServerContext.get(server).service(KEY, HashMap::new);
   }
-
-  /** Readings never open a screen: a late update for a closed session is discarded. */
-  public record Update(UUID session, String message, int revision) implements CustomPacketPayload {
-    public Update {
-      if (message.length() > 2048) message = message.substring(0, 2048);
-    }
-
-    public static final Type<Update> TYPE =
-        new Type<>(Identifier.parse("nullspace:terminal_update"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Update> CODEC =
-        StreamCodec.of(
-            (b, p) -> {
-              b.writeUUID(p.session);
-              b.writeUtf(p.message, 2048);
-              b.writeInt(p.revision);
-            },
-            b -> new Update(b.readUUID(), b.readUtf(2048), b.readInt()));
-
-    @Override
-    public Type<Update> type() {
-      return TYPE;
-    }
-  }
-
-  public record Open(
-      BlockPos position,
-      String message,
-      String mode,
-      String value,
-      UUID session,
-      List<Destination> destinations)
-      implements CustomPacketPayload {
-    public Open(BlockPos p, String message) {
-      this(p, message, "pad", "");
-    }
-
-    public Open(BlockPos p, String message, String mode) {
-      this(p, message, mode, "");
-    }
-
-    public Open(BlockPos p, String message, String mode, String value) {
-      this(p, message, mode, value, NONE, List.of());
-    }
-
-    public static final Type<Open> TYPE = new Type<>(Identifier.parse("nullspace:terminal"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Open> CODEC =
-        StreamCodec.of(
-            (b, p) -> {
-              b.writeBlockPos(p.position);
-              b.writeUtf(p.message, 2048);
-              b.writeUtf(p.mode, 32);
-              b.writeUtf(p.value, 32);
-              b.writeUUID(p.session);
-              b.writeVarInt(p.destinations.size());
-              for (var d : p.destinations) {
-                b.writeUtf(d.id, 36);
-                b.writeUtf(d.name, 160);
-                b.writeUtf(d.state, 16);
-                b.writeUtf(d.detail, 256);
-              }
-            },
-            b -> {
-              var pos = b.readBlockPos();
-              var message = b.readUtf(2048);
-              var mode = b.readUtf(32);
-              var value = b.readUtf(32);
-              var id = b.readUUID();
-              int count = b.readVarInt();
-              if (count < 0 || count > 256)
-                throw new IllegalArgumentException("Invalid terminal catalog size");
-              var destinations = new ArrayList<Destination>();
-              for (int i = 0; i < count; i++)
-                destinations.add(
-                    new Destination(b.readUtf(36), b.readUtf(160), b.readUtf(16), b.readUtf(256)));
-              return new Open(pos, message, mode, value, id, List.copyOf(destinations));
-            });
-
-    @Override
-    public Type<Open> type() {
-      return TYPE;
-    }
-  }
-
-  public record Request(
-      UUID session, Action action, String argument, String destinationId, int revision)
-      implements CustomPacketPayload {
-    public Request(UUID session, Action action, String argument, String destinationId) {
-      this(session, action, argument, destinationId, -1);
-    }
-
-    public static final Type<Request> TYPE =
-        new Type<>(Identifier.parse("nullspace:terminal_action"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC =
-        StreamCodec.of(
-            (b, p) -> {
-              b.writeUUID(p.session);
-              b.writeEnum(p.action);
-              b.writeUtf(p.argument, 32);
-              b.writeUtf(p.destinationId, 36);
-              b.writeInt(p.revision);
-            },
-            b ->
-                new Request(
-                    b.readUUID(),
-                    b.readEnum(Action.class),
-                    b.readUtf(32),
-                    b.readUtf(36),
-                    b.readInt()));
-
-    @Override
-    public Type<Request> type() {
-      return TYPE;
-    }
-  }
-
-  public record Close(UUID session) implements CustomPacketPayload {
-    public static final Type<Close> TYPE = new Type<>(Identifier.parse("nullspace:terminal_close"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Close> CODEC =
-        StreamCodec.of((b, p) -> b.writeUUID(p.session), b -> new Close(b.readUUID()));
-
-    @Override
-    public Type<Close> type() {
-      return TYPE;
-    }
-  }
-
-  public record Rejected(UUID session, String reason) implements CustomPacketPayload {
-    public static final Type<Rejected> TYPE =
-        new Type<>(Identifier.parse("nullspace:terminal_rejected"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, Rejected> CODEC =
-        StreamCodec.of(
-            (b, p) -> {
-              b.writeUUID(p.session);
-              b.writeUtf(p.reason, 256);
-            },
-            b -> new Rejected(b.readUUID(), b.readUtf(256)));
-
-    @Override
-    public Type<Rejected> type() {
-      return TYPE;
-    }
-  }
-
-  public record Authorized(BlockPos position, String mode, String argument) {}
 
   public static boolean current(ServerPlayer p, UUID id) {
     var s = sessions(p.level().getServer()).get(p.getUUID());
     return s != null && s.id.equals(id) && valid(p, s);
   }
 
-  private static boolean valid(ServerPlayer p, Session s) {
+  static boolean valid(ServerPlayer p, Session s) {
     return p.isAlive()
         && s.expires >= p.level().getServer().getTickCount()
         && s.dimension.equals(p.level().dimension().identifier().toString())
@@ -328,9 +166,9 @@ public final class ComputerTerminal {
                             || s.mode.equals("systems")
                                 && p.level().getBlockState(s.position).is(ModBlocks.STATION_CORE))
         && p.mayInteract(p.level(), s.position)
-        && StationService.mayUse(p, s.position)
-        && !TravelService.busy(p)
-        && !TravelService.locked(p.level(), s.position);
+        && StationAccess.mayUse(p, s.position)
+        && !TransferLocks.busy(p)
+        && !TransferLocks.locked(p.level(), s.position);
   }
 
   public static Open issue(
@@ -421,7 +259,7 @@ public final class ComputerTerminal {
             "weapons", new Destination("weapons", Integer.toString(requests[5]), "ALLOCATION"));
       }
     } else if (EquipmentMenus.supports(mode)) {
-      int request = ShipSystems.requestedAllocation(player.level(), pos);
+      int request = EquipmentPanel.requestedAllocation(player.level(), pos);
       if (request >= 0)
         session.destinations.put(
             "device", new Destination("device", Integer.toString(request), "ALLOCATION"));
@@ -459,7 +297,7 @@ public final class ComputerTerminal {
             "station_rights",
             new Destination(
                 "station_rights",
-                StationService.owner(player, station) ? "Owner" : "Builder",
+                StationAccess.owner(player, station) ? "Owner" : "Builder",
                 "SETTING"));
         if (Claims.claimable(station))
           session.destinations.put(
@@ -520,7 +358,7 @@ public final class ComputerTerminal {
    */
   public static Authorized authorize(ServerPlayer player, Request request) {
     var s = sessions(player.level().getServer()).get(player.getUUID());
-    if (s == null || !s.id.equals(request.session))
+    if (s == null || !s.id.equals(request.session()))
       throw new IllegalArgumentException(
           "Terminal session expired or belongs to another player. Reopen the computer.");
     if (!valid(player, s)) {
@@ -594,35 +432,35 @@ public final class ComputerTerminal {
       allowed = new HashSet<>(allowed);
       allowed.add(Action.CONTROLLER_BACK);
     }
-    if (!allowed.contains(request.action))
+    if (!allowed.contains(request.action()))
       throw new IllegalArgumentException("Action does not belong to this controller");
     if ((s.mode.equals("systems") || EquipmentMenus.supports(s.mode))
-        && request.action != Action.SYSTEMS
-        && request.action != Action.DEVICE_REFRESH
-        && request.action != Action.DEVICE_VIEW
-        && request.action != Action.MACHINE_BACK
-        && request.action != Action.CONTROLLER_BACK
-        && !(request.action == Action.CONFIGURE
-            && EngineeringCommands.readOnly(request.argument))) {
+        && request.action() != Action.SYSTEMS
+        && request.action() != Action.DEVICE_REFRESH
+        && request.action() != Action.DEVICE_VIEW
+        && request.action() != Action.MACHINE_BACK
+        && request.action() != Action.CONTROLLER_BACK
+        && !(request.action() == Action.CONFIGURE
+            && EngineeringCommands.readOnly(request.argument()))) {
       var vessel = ShipTopology.resolve(player.level(), s.position);
-      if (request.revision != ShipSystems.revision(player.level(), vessel))
+      if (request.revision() != ShipSystems.revision(player.level(), vessel))
         throw new IllegalArgumentException("Systems changed. Refresh before editing.");
     }
-    if (request.argument.length() > 32 || !request.argument.matches("[A-Za-z0-9 _-]*"))
+    if (request.argument().length() > 32 || !request.argument().matches("[A-Za-z0-9 _-]*"))
       throw new IllegalArgumentException(
           "Use at most 32 letters, numbers, spaces, underscores, or hyphens in this field.");
-    String argument = request.argument;
-    if ((request.action == Action.SHIP_QUOTE || request.action == Action.SHIP_BUY)
+    String argument = request.argument();
+    if ((request.action() == Action.SHIP_QUOTE || request.action() == Action.SHIP_BUY)
         && !s.destinations.containsKey(argument))
       throw new IllegalArgumentException("Choose a ship from this beacon's catalog.");
-    if (request.action == Action.FAST_TRAVEL && !s.destinations.containsKey(argument))
+    if (request.action() == Action.FAST_TRAVEL && !s.destinations.containsKey(argument))
       throw new IllegalArgumentException("Choose a route from this session");
-    if (request.action == Action.LAND) {
+    if (request.action() == Action.LAND) {
       var chosen = s.destinations.get(argument.strip().toLowerCase(Locale.ROOT));
-      if (chosen == null || !chosen.id.equals(request.destinationId))
+      if (chosen == null || !chosen.id().equals(request.destinationId()))
         throw new IllegalArgumentException(
             "Choose a destination from this session's catalog. Reopen to refresh it.");
-      argument = "id:" + chosen.id;
+      argument = "id:" + chosen.id();
     }
     int tick = player.level().getServer().getTickCount();
     if (tick < s.nextAction)
@@ -649,7 +487,7 @@ public final class ComputerTerminal {
 
   public static String reading(ServerPlayer player, BlockPos pos) {
     var session = sessions(player.level().getServer()).get(player.getUUID());
-    return ShipSystems.reading(
+    return SystemsConsole.reading(
         player, pos, session != null && session.position.equals(pos) ? session.query : "");
   }
 
@@ -671,83 +509,92 @@ public final class ComputerTerminal {
                       var player = context.player();
                       try {
                         var a = authorize(player, packet);
-                        if (packet.action == Action.CONTROLLER_BACK) {
-                          close(player, packet.session);
-                          if (player.level().getBlockState(a.position).is(ModBlocks.STATION_CORE))
-                            StationService.open(player, a.position, "");
-                          else ShipControl.open(player, a.position, "Returned from engineering");
-                        } else if (packet.action == Action.MACHINE_BACK) {
-                          close(player, packet.session);
-                          MachineMenus.open(player, a.position);
-                        } else if (a.mode.equals("recall")) {
-                          if (packet.action == Action.RECALL_BACK)
-                            PadComputers.action(player, a.position, null);
+                        if (packet.action() == Action.CONTROLLER_BACK) {
+                          close(player, packet.session());
+                          if (player.level().getBlockState(a.position()).is(ModBlocks.STATION_CORE))
+                            StationService.open(player, a.position(), "");
+                          else ShipControl.open(player, a.position(), "Returned from engineering");
+                        } else if (packet.action() == Action.MACHINE_BACK) {
+                          close(player, packet.session());
+                          MachineMenus.open(player, a.position());
+                        } else if (a.mode().equals("recall")) {
+                          if (packet.action() == Action.RECALL_BACK)
+                            PadComputers.action(player, a.position(), null);
                           else {
                             String notice =
-                                packet.action == Action.RECALL_SHIP
+                                packet.action() == Action.RECALL_SHIP
                                     ? ShipStorage.request(
-                                        player, a.position, a.argument, packet.session)
-                                    : packet.action == Action.RECALL_CANCEL
+                                        player, a.position(), a.argument(), packet.session())
+                                    : packet.action() == Action.RECALL_CANCEL
                                         ? ShipStorage.cancel(player)
-                                        : packet.action == Action.SHIP_STORE
+                                        : packet.action() == Action.SHIP_STORE
                                             ? ShipStorage.store(
-                                                player, a.position, a.argument, packet.session)
-                                            : packet.action == Action.SHIP_TITLE
-                                                ? ShipStorage.title(player, a.position, a.argument)
-                                                : packet.action == Action.SHIP_SHOW
-                                                    ? ShipStorage.show(
-                                                        player, a.position, a.argument)
-                                                    : packet.action == Action.SHIP_SCRAP
-                                                        ? ShipStorage.scrap(
-                                                            player, a.position, a.argument)
+                                                player,
+                                                a.position(),
+                                                a.argument(),
+                                                packet.session())
+                                            : packet.action() == Action.SHIP_TITLE
+                                                ? ShipStorage.title(
+                                                    player, a.position(), a.argument())
+                                                : packet.action() == Action.SHIP_SHOW
+                                                    ? ShipScrap.show(
+                                                        player, a.position(), a.argument())
+                                                    : packet.action() == Action.SHIP_SCRAP
+                                                        ? ShipScrap.scrap(
+                                                            player, a.position(), a.argument())
                                                         : "";
-                            ShipStorage.open(player, a.position, notice);
+                            ShipStorage.open(player, a.position(), notice);
                           }
-                        } else if (a.mode.equals("pad")) {
-                          if (packet.action == Action.RECALL_LIST)
-                            ShipStorage.open(player, a.position, "");
-                          else if (packet.action == Action.PAD_PROBLEM
-                              || packet.action == Action.PAD_ADVANCED)
+                        } else if (a.mode().equals("pad")) {
+                          if (packet.action() == Action.RECALL_LIST)
+                            ShipStorage.open(player, a.position(), "");
+                          else if (packet.action() == Action.PAD_PROBLEM
+                              || packet.action() == Action.PAD_ADVANCED)
                             PadComputers.details(
-                                player, a.position, packet.action == Action.PAD_PROBLEM);
-                          else if (packet.action == Action.PREVIEW_PAD
-                              || packet.action == Action.PREVIEW_SHIP)
+                                player, a.position(), packet.action() == Action.PAD_PROBLEM);
+                          else if (packet.action() == Action.PREVIEW_PAD
+                              || packet.action() == Action.PREVIEW_SHIP)
                             PadComputers.preview(
-                                player, a.position, packet.action == Action.PREVIEW_SHIP);
+                                player, a.position(), packet.action() == Action.PREVIEW_SHIP);
                           else
                             PadComputers.action(
                                 player,
-                                a.position,
-                                packet.action == Action.REGISTER ? a.argument : null);
-                        } else if (StationMenus.supports(a.mode)) {
-                          if (packet.action == Action.HELM)
-                            ShipService.open(player, a.position, "Ready");
-                          else StationService.action(player, a.position, packet.action, a.argument);
-                        } else if (a.mode.equals("shipyard"))
+                                a.position(),
+                                packet.action() == Action.REGISTER ? a.argument() : null);
+                        } else if (StationMenus.supports(a.mode())) {
+                          if (packet.action() == Action.HELM)
+                            ShipService.open(player, a.position(), "Ready");
+                          else
+                            StationService.action(
+                                player, a.position(), packet.action(), a.argument());
+                        } else if (a.mode().equals("shipyard"))
                           ShipYardService.action(
-                              player, a.position, a.argument, packet.action == Action.SHIP_BUY);
-                        else if (EquipmentMenus.supports(a.mode))
-                          ShipSystems.equipmentAction(
-                              player, a.position, packet.action, a.argument);
+                              player,
+                              a.position(),
+                              a.argument(),
+                              packet.action() == Action.SHIP_BUY);
+                        else if (EquipmentMenus.supports(a.mode()))
+                          EquipmentPanel.equipmentAction(
+                              player, a.position(), packet.action(), a.argument());
                         else
                           ShipService.act(
                               player,
-                              a.position,
-                              packet.action.name().toLowerCase(Locale.ROOT),
-                              a.argument);
-                        ServerPlayNetworking.send(player, new Ack(packet.session));
+                              a.position(),
+                              packet.action().name().toLowerCase(Locale.ROOT),
+                              a.argument());
+                        ServerPlayNetworking.send(player, new Ack(packet.session()));
                       } catch (Exception error) {
                         if (!(error instanceof IllegalArgumentException))
                           NullSpace.LOGGER.error(
                               "Computer action failed for {}", player.getPlainTextName(), error);
                         ServerPlayNetworking.send(
-                            player, new Rejected(packet.session, ShipMessages.failure(error)));
+                            player, new Rejected(packet.session(), ShipMessages.failure(error)));
                       }
                     }));
     ServerPlayNetworking.registerGlobalReceiver(
         Close.TYPE,
         (packet, context) ->
-            context.server().execute(() -> close(context.player(), packet.session)));
+            context.server().execute(() -> close(context.player(), packet.session())));
     ServerPlayConnectionEvents.DISCONNECT.register(
         (handler, server) -> {
           var s = sessions(server).remove(handler.player.getUUID());
@@ -792,7 +639,7 @@ public final class ComputerTerminal {
             if ((!session.mode.equals("systems") && !equipment && !station)
                 || !ServerPlayNetworking.canSend(player, Update.TYPE)) continue;
             var message =
-                equipment ? ShipSystems.equipmentStatus(player.level(), session.position) : "";
+                equipment ? EquipmentPanel.equipmentStatus(player.level(), session.position) : "";
             var ship = WorldStore.get(server).at(player.level(), session.position);
             if (ship == null && !equipment) continue;
             if (station) {

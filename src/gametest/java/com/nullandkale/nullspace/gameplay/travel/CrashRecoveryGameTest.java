@@ -8,7 +8,7 @@ import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
-import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.ScriptLanguage;
 import com.nullandkale.nullspace.model.computer.VirtualComputer;
@@ -65,7 +65,7 @@ public final class CrashRecoveryGameTest {
                 [x - 2].defaultBlockState(),
             18);
       var initial = ShipTopology.resolve(planet, planetController);
-      ShipSystems.upgrade(planet, initial);
+      SystemsUpgrade.upgrade(planet, initial);
       var player = ctx.makeMockServerPlayerInLevel();
       player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
       player.setYRot(63);
@@ -166,8 +166,8 @@ public final class CrashRecoveryGameTest {
           space,
           base,
           () -> {
-            TravelService.recover(server);
-            TravelService.recover(server);
+            TransferRecovery.recover(server);
+            TransferRecovery.recover(server);
             var authoritative = committed ? target : source;
             var pos = committed ? targetController : controller;
             ctx.assertTrue(

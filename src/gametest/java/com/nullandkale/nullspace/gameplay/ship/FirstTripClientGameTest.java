@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.MachineTestUi;
@@ -150,7 +151,7 @@ public final class FirstTripClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server -> {
-                if (TravelService.active(server))
+                if (TransferLocks.active(server))
                   throw new AssertionError("No-fuel click must not start travel");
               });
       c.runOnClient(mc -> mc.gui.screen().onClose());
@@ -197,7 +198,7 @@ public final class FirstTripClientGameTest implements FabricClientGameTest {
           .getServer()
           .runOnServer(
               server -> {
-                if (TravelService.active(server))
+                if (TransferLocks.active(server))
                   throw new AssertionError("Covered exhaust must block travel");
                 server.overworld().setBlock(obstruction, Blocks.AIR.defaultBlockState(), 18);
               });

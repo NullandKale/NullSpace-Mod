@@ -2,17 +2,20 @@ package com.nullandkale.nullspace.worldgen.ships;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
+import com.nullandkale.nullspace.gameplay.station.StationDeployment;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.station.StationGraph;
-import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.flight.ShipHeading;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
@@ -109,12 +112,12 @@ public final class ManufacturerTemplateGameTest {
           scan.blocks().size() == plan.size(), "Every pod and mounted part is face-connected");
       var ship = ShipTopology.resolve(level, origin.offset(preset.helm()));
       for (var at : scan.blocks()) FuelSystem.provision(level, at, 64);
-      ShipSystems.upgrade(level, ship);
+      SystemsUpgrade.upgrade(level, ship);
       ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[] {1, 4, 1, 3, 2, 0});
       ShipSystems.tick(level, ship);
-      var port = DockingService.firstPort(level, ship);
+      var port = DockingPorts.firstPort(level, ship);
       ctx.assertTrue(
-          DockingService.ports(level, ship).size() == 1 && port.anchors().size() >= 2,
+          DockingPorts.ports(level, ship).size() == 1 && port.anchors().size() >= 2,
           "Scout has one usable powered dock");
       var rear =
           origin.offset(
@@ -125,7 +128,7 @@ public final class ManufacturerTemplateGameTest {
           reachable(level, port.anchors().getFirst(), rear),
           "Dock can reach rear workshop through real doorway");
       ctx.assertTrue(
-          ShipSystems.breathable(level, ship, rear.above()), "Powered interior retains finite air");
+          ShipAir.breathable(level, ship, rear.above()), "Powered interior retains finite air");
       for (var room : ShipRooms.rooms(preset.id())) {
         ctx.assertTrue(
             scan.pressure().breathable(origin.offset(room.walk()).above())
@@ -153,14 +156,14 @@ public final class ManufacturerTemplateGameTest {
     var p = ctx.makeMockServerPlayerInLevel();
     var boarding = StationGameTest.boardingPoint(space, source);
     p.teleportTo(space, boarding.x, boarding.y, boarding.z, Set.of(), 0, 0, true);
-    var station = StationService.showcase(p);
+    var station = StationDeployment.showcase(p);
     ctx.assertTrue(
-        StationService.showcase(p) == station, "Repeated requests keep one station identity");
+        StationDeployment.showcase(p) == station, "Repeated requests keep one station identity");
     ctx.onEachTick(
         () -> {
-          if (!StationService.ready(station)) return;
+          if (!StationAccess.ready(station)) return;
           var base = WorldStore.pos(station, "base");
-          var ports = DockingService.ports(space, station);
+          var ports = DockingPorts.ports(space, station);
           ctx.assertTrue(ports.size() == 2, "Compact station has two opposite usable berths");
           var graph = StationGraph.inspect(space, station);
           ctx.assertTrue(
@@ -173,7 +176,7 @@ public final class ManufacturerTemplateGameTest {
                   reachable(space, port.anchors().getFirst(), at),
                   "Berth reaches " + room.getKey());
               ctx.assertTrue(
-                  ShipSystems.breathable(space, station, at.above()),
+                  ShipAir.breathable(space, station, at.above()),
                   "Room is sealed and supplied: " + room.getKey());
             }
           for (var at : ShipSystems.connected(space, station))
@@ -182,7 +185,7 @@ public final class ManufacturerTemplateGameTest {
           var edited = base.offset(6, 3, 15);
           space.setBlock(edited, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
           ctx.assertTrue(
-              StationService.showcase(p) == station
+              StationDeployment.showcase(p) == station
                   && space.getBlockState(edited).is(Blocks.DIAMOND_BLOCK),
               "Revisiting never regenerates the showroom or erases edits");
           ctx.succeed();

@@ -1,7 +1,7 @@
 package com.nullandkale.nullspace.core.mixin;
 
 import com.llamalad7.mixinextras.injector.WrapWithCondition;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -18,6 +18,6 @@ public abstract class TransitBlockEntityMixin {
               target = "Lnet/minecraft/world/level/block/entity/TickingBlockEntity;tick()V"))
   private boolean nullspace$pauseTransit(TickingBlockEntity ticker) {
     return !((Object) this instanceof ServerLevel server)
-        || !TravelService.locked(server, ticker.getPos());
+        || !TransferLocks.locked(server, ticker.getPos());
   }
 }

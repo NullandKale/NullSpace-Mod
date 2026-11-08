@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.ui.screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.ui.apps.MyShipsTerminal;
 import com.nullandkale.nullspace.ui.apps.PadTerminal;
@@ -17,6 +18,7 @@ import com.nullandkale.nullspace.ui.terminal.StreamTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalBuffer;
 import com.nullandkale.nullspace.ui.terminal.TerminalDevice;
 import com.nullandkale.nullspace.ui.terminal.TerminalInput;
+import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -39,7 +41,7 @@ public final class TerminalScreen extends Screen {
     returnLevel = net.minecraft.client.Minecraft.getInstance().level;
   }
 
-  public static TerminalScreen restore(ShipControl.View view) {
+  public static TerminalScreen restore(ControllerPackets.View view) {
     var saved = returning;
     if (saved != null
         && returnLevel == net.minecraft.client.Minecraft.getInstance().level
@@ -53,7 +55,7 @@ public final class TerminalScreen extends Screen {
     return new TerminalScreen(view);
   }
 
-  public static TerminalScreen restore(ComputerTerminal.Open view) {
+  public static TerminalScreen restore(TerminalPackets.Open view) {
     var saved = returning;
     if (saved != null
         && returnLevel == net.minecraft.client.Minecraft.getInstance().level
@@ -68,12 +70,12 @@ public final class TerminalScreen extends Screen {
     return new TerminalScreen(view);
   }
 
-  private ComputerTerminal.Open state;
+  private TerminalPackets.Open state;
   private TerminalDevice device;
   private int ticks;
   private Runnable deviceTick = () -> {}, deviceClose = () -> {};
 
-  private static ControllerApplication application(ComputerTerminal.Open state) {
+  private static ControllerApplication application(TerminalPackets.Open state) {
     return state.mode().equals("pad")
         ? new PadTerminal(state.message(), state.value(), state.destinations())
         : state.mode().equals("station_core")
@@ -83,23 +85,23 @@ public final class TerminalScreen extends Screen {
                 : controller(state);
   }
 
-  private static ControllerTerminal controller(ComputerTerminal.Open state) {
+  private static ControllerTerminal controller(TerminalPackets.Open state) {
     var terminal = new ControllerTerminal(state.mode(), state.message(), state.value());
     terminal.catalog(state.destinations());
     return terminal;
   }
 
-  public TerminalScreen(ComputerTerminal.Open state) {
+  public TerminalScreen(TerminalPackets.Open state) {
     super(Component.literal("NullSpace Terminal"));
     this.state = state;
     device = application(state);
   }
 
-  public TerminalScreen(ShipControl.View view) {
+  public TerminalScreen(ControllerPackets.View view) {
     this(new ShipControlTerminal(view));
   }
 
-  public boolean shipControl(ShipControl.View view) {
+  public boolean shipControl(ControllerPackets.View view) {
     if (!(device instanceof ShipControlTerminal control)
         || !control.state().session().equals(view.session())) return false;
     control.update(view);
@@ -131,12 +133,12 @@ public final class TerminalScreen extends Screen {
   public void removed() {
     if (device instanceof ShipControlTerminal control && minecraft.getConnection() != null)
       net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-          new ShipControl.Input(control.state().session(), ShipControl.Action.CLOSE, ""));
+          new ControllerPackets.Input(control.state().session(), ShipControl.Action.CLOSE, ""));
     if (state != null
         && !state.session().equals(ComputerTerminal.NONE)
         && minecraft.getConnection() != null)
       net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-          new ComputerTerminal.Close(state.session()));
+          new TerminalPackets.Close(state.session()));
     deviceClose.run();
     minecraft.textInputManager().stopTextInput(this);
     super.removed();
@@ -147,7 +149,7 @@ public final class TerminalScreen extends Screen {
       app.acknowledged();
   }
 
-  public void refresh(ComputerTerminal.Open next) {
+  public void refresh(TerminalPackets.Open next) {
     if (state == null || !state.session().equals(next.session())) return;
     if (device instanceof ControllerApplication app) app.refresh(next.message());
     if (device instanceof ControllerTerminal controller) controller.catalog(next.destinations());
@@ -156,13 +158,13 @@ public final class TerminalScreen extends Screen {
     state = next;
   }
 
-  public void rejected(ComputerTerminal.Rejected packet) {
+  public void rejected(TerminalPackets.Rejected packet) {
     if (state != null
         && state.session().equals(packet.session())
         && device instanceof ControllerApplication p) p.rejected(packet.reason());
   }
 
-  public void reading(ComputerTerminal.Update packet) {
+  public void reading(TerminalPackets.Update packet) {
     if (state == null
         || !(state.mode().equals("systems")
             || EquipmentMenus.supports(state.mode())
@@ -170,7 +172,7 @@ public final class TerminalScreen extends Screen {
         || !state.session().equals(packet.session())
         || packet.revision() < revision()) return;
     state =
-        new ComputerTerminal.Open(
+        new TerminalPackets.Open(
             state.position(),
             packet.message(),
             state.mode(),
@@ -180,7 +182,7 @@ public final class TerminalScreen extends Screen {
     if (device instanceof ControllerApplication controller) controller.refresh(packet.message());
   }
 
-  public void update(ComputerTerminal.Open next) {
+  public void update(TerminalPackets.Open next) {
     if (state == null
         || !state.mode().equals(next.mode())
         || !state.position().equals(next.position())
@@ -202,7 +204,7 @@ public final class TerminalScreen extends Screen {
         : state == null ? ComputerTerminal.NONE : state.session();
   }
 
-  public java.util.List<ComputerTerminal.Destination> destinations() {
+  public java.util.List<TerminalPackets.Destination> destinations() {
     return state == null ? java.util.List.of() : state.destinations();
   }
 
@@ -263,7 +265,7 @@ public final class TerminalScreen extends Screen {
       return;
     }
     if (device instanceof ShipControlTerminal control && minecraft.getConnection() != null) {
-      ShipControl.Input action;
+      ControllerPackets.Input action;
       while ((action = control.pollAction()) != null)
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(action);
     }
@@ -283,7 +285,7 @@ public final class TerminalScreen extends Screen {
             }
         int revision = revision();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-            new ComputerTerminal.Request(
+            new TerminalPackets.Request(
                 state.session(),
                 ComputerTerminal.Action.valueOf(action.verb().toUpperCase(java.util.Locale.ROOT)),
                 action.argument(),
@@ -304,7 +306,7 @@ public final class TerminalScreen extends Screen {
 
   private void backToParent() {
     net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-        new ComputerTerminal.Request(
+        new TerminalPackets.Request(
             state.session(),
             minecraft.level.getBlockEntity(state.position()) instanceof MachineBlockEntity
                 ? ComputerTerminal.Action.MACHINE_BACK

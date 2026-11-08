@@ -3,12 +3,15 @@ package com.nullandkale.nullspace.gameplay.ship;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerChecks;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import java.util.*;
@@ -109,16 +112,16 @@ public final class FirstShipGameTest {
         inspected.scan().blocks().size() == (width == 3 ? 34 : 82),
         "Exact documented occupied block count");
     ctx.assertTrue(
-        ShipSystems.breathable(level, ship, player.blockPosition().above()),
+        ShipAir.breathable(level, ship, player.blockPosition().above()),
         "Standing room has real supplied air");
     ctx.assertTrue(
         ShipSystems.power(level, ship, PowerBus.System.ENGINES) > 0,
         "One stock generator powers propulsion without a battery");
     ctx.assertTrue(
-        ShipControl.reason(player, ship, null, ShipControl.Action.LAUNCH).isEmpty(),
+        ControllerChecks.reason(player, ship, null, ShipControl.Action.LAUNCH).isEmpty(),
         "Launch button is ready with the default settings");
     int slot = 0;
-    while (!TravelService.spaceSlotFree(server, slot)) slot++;
+    while (!TransferLocks.spaceSlotFree(server, slot)) slot++;
     var orbit =
         new HullScan.Bounds(
             new BlockPos(slot * TravelService.SPACE_SPACING, 96, 0),

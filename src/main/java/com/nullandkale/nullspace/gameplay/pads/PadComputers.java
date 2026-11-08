@@ -8,7 +8,7 @@ import com.nullandkale.nullspace.content.machine.PadComputerBlock;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.PadRepository;
 import com.nullandkale.nullspace.gameplay.ship.ShipDiagnostics;
-import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import java.nio.file.*;
 import java.util.*;
@@ -143,7 +143,7 @@ public final class PadComputers {
   }
 
   public static int action(ServerPlayer player, BlockPos pos, String name) {
-    if (TravelService.busy(player)) return 0;
+    if (TransferLocks.busy(player)) return 0;
     if (!player.level().hasChunkAt(pos)
         || !player.level().getBlockState(pos).is(BLOCK)
         || player.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) > 64

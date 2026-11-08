@@ -2,13 +2,17 @@ package com.nullandkale.nullspace.gameplay.ship.structure;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.navigation.ControllerPackets;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
+import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TransferReplay;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
@@ -52,7 +56,7 @@ public final class LooseBlocksGameTest {
             started[0] = true;
             return;
           }
-          if (TravelService.busy(f.player)) return;
+          if (TransferLocks.busy(f.player)) return;
           client.connection().flushChannel();
           client.channel().runPendingTasks();
           String message = "";
@@ -91,7 +95,7 @@ public final class LooseBlocksGameTest {
     var controller = origin.offset(preset.helm());
     var ship = ShipTopology.resolve(f.surface, controller);
     String id = ship.getStringOr("id", "");
-    ShipSystems.upgrade(f.surface, ship);
+    SystemsUpgrade.upgrade(f.surface, ship);
     ShipSystems.tick(f.surface, ship);
     var boarding = StationGameTest.boardingPoint(f.surface, ship);
     f.player.teleportTo(f.surface, boarding.x, boarding.y, boarding.z, Set.of(), 0, 0, true);
@@ -233,7 +237,7 @@ public final class LooseBlocksGameTest {
             }
             ctx.assertTrue(
                 interrupted, "The actual transfer reaches the selected journal boundary");
-            TravelService.recover(f.space.getServer());
+            TransferRecovery.recover(f.space.getServer());
             ctx.assertTrue(
                 WorldStore.pos(f.ship(), "base").equals(f.base)
                     && ((ChestBlockEntity) f.space.getBlockEntity(chest)).getItem(0).getCount() == 7
@@ -315,7 +319,7 @@ public final class LooseBlocksGameTest {
           ctx.assertTrue(
               ShipControl.input(
                       f.player,
-                      new ShipControl.Input(
+                      new ControllerPackets.Input(
                           view.session(), ShipControl.Action.CONFIRM_LEAVE_BLOCKS, ""))
                   .contains("Review"),
               "A forged confirmation packet has no reviewed set and cannot launch");
@@ -351,7 +355,7 @@ public final class LooseBlocksGameTest {
             refused = expected.getMessage().contains("sealed");
           }
           ctx.assertTrue(
-              refused && !TravelService.busy(f.player),
+              refused && !TransferLocks.busy(f.player),
               "Acknowledgement cannot bypass a real cabin leak");
           client.close();
           ctx.succeed();

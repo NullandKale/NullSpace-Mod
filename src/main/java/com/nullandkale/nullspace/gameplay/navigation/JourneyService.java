@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.navigation;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
-import com.nullandkale.nullspace.gameplay.station.StationService;
+import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
@@ -167,7 +167,7 @@ public final class JourneyService {
       return !site.getStringOr("state", "").equals("planned")
           ? "This site has already been salvaged"
           : "Signal resolving; try again shortly";
-    return StationService.ready(vessel) ? "" : "Signal resolving; try again shortly";
+    return StationAccess.ready(vessel) ? "" : "Signal resolving; try again shortly";
   }
 
   /** Select the investigated site's berth once; the paid destination stays in journey.selection. */
@@ -223,7 +223,7 @@ public final class JourneyService {
       if (cruising(ship)) {
         int elapsed = Math.min(j.getIntOr("duration", 0), j.getIntOr("elapsed", 0) + 20);
         j.putInt("elapsed", elapsed);
-        NavigationService.stop(ship);
+        Piloting.stop(ship);
         if (contact(ship) && !j.getBooleanOr("announced", false)) {
           j.putBoolean("announced", true);
           for (var p : crew)
@@ -233,7 +233,7 @@ public final class JourneyService {
                         + j.getStringOr("contact", "")
                         + ". Use Investigate at the ship controller, or keep travelling."));
         }
-        if (elapsed >= j.getIntOr("duration", 0)) NavigationService.arrive(crew.getFirst(), ship);
+        if (elapsed >= j.getIntOr("duration", 0)) Jumps.arrive(crew.getFirst(), ship);
         WorldStore.get(server).requestSave();
       }
       if (active(ship))

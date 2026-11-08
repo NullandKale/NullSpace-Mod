@@ -2,7 +2,7 @@ package com.nullandkale.nullspace.gameplay.systems;
 
 import static com.nullandkale.nullspace.gameplay.systems.ShipSystems.*;
 
-import com.nullandkale.nullspace.gameplay.docking.DockingService;
+import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import java.util.*;
@@ -33,7 +33,7 @@ final class DoorSystem {
         var b = level.getBlockState(p);
         if (!ShipDoors.isDoor(b) || !r.blocks.contains(p) || !ShipDoors.framed(level, p))
           r.result = "Door MISSING/INVALID at " + p.toShortString();
-        else if (DockingService.ownsDoor(level, p))
+        else if (DockingPorts.ownsDoor(level, p))
           r.result = "DOCKING owns door at " + p.toShortString();
         else if (!active(r, p)) r.result = "DISABLED at " + p.toShortString();
         else if (!r.open && ShipDoors.powered(level, p))
