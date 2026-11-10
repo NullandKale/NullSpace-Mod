@@ -346,7 +346,7 @@ Connect inspect, launch, destination selection, and landing to the computers and
 
 **Gate:** the full build/inspect/launch/EVA/land loop works in singleplayer and with two passengers on a dedicated server. Readiness failures and reconnects do not reveal an incomplete destination or duplicate a ship. The empty space dimension is sufficient to pass this gate.
 
-The user has now selected the next extension: shared ship systems/power and reusable remote viewports for same-dimension cameras, ship presentation, and celestial surroundings. Follow [the extension's implementation sequence](../design/ship-systems-and-viewports.md#11-implementation-sequence-and-gates). Finite oxygen consumes the shared system's power; it should not be implemented as a separate unlimited controller effect. These extensions do not retroactively change the acceptance gates of the completed first loop.
+The user has now selected the next extension: shared ship systems/power and reusable remote viewports for same-dimension cameras, ship presentation, and celestial surroundings. Follow [the extension's implementation sequence](../design/ship-systems-and-viewports.md#10-status). Finite oxygen consumes the shared system's power; it should not be implemented as a separate unlimited controller effect. These extensions do not retroactively change the acceptance gates of the completed first loop.
 
 ## 12. Verification plan
 

@@ -1,186 +1,85 @@
-# Procedural ships and manufacturer stations
+# Manufacturers, roles and harbors
 
-Status: nine manufacturer ships are implemented: a scout, freighter and explorer for Rivet, Halcyon and Bastion, plus one compact Manufacturer Showcase station. Stations now support a 128 x 32 x 128 build area and a generic eight-berth ring. Seeded orbital population now places a Waypoint outpost and Manufacturer Exchange automatically per visited region. Procedural ship synthesis and the three manufacturer-specific harbor designs below remain proposed.
+Ships and stations should have a recognizable manufacturer, a clear job, useful rooms and a distinctive outline, while staying buildable from ordinary blocks and editable after placement. This document records the design intent for the three manufacturers and the three ship roles, how much of it the generator does today, and the design for the manufacturer harbors, which are not built. How ships are built is in [the ship generator](ship-generator.md), how they are delivered in [the shipyard](shipyard.md), and how stations work in [station pieces](station-modules-and-systems.md).
 
-Generate ships and space stations that have a recognizable manufacturer, a clear job, useful rooms and a distinctive outline. Keep them buildable from ordinary blocks and editable after placement. Include one reference station for each manufacturer alongside its ship range.
+## Manufacturers
 
-## Manufacturer personas
-
-Manufacturer and role are separate choices. The manufacturer defines how a ship is designed; its role defines what it must do. A freighter and scout from one manufacturer should look related without sharing the same floor plan.
-
-These names are working names:
+Manufacturer and role are separate choices. The manufacturer defines *how* a ship is designed and the role defines *what it must do*, so a freighter and a scout from one maker should look related without sharing a floor plan. The names are working names.
 
 | Manufacturer | Personality | Hull habits | Interior habits |
 | --- | --- | --- | --- |
-| Rivet Works | Practical, repairable industrial equipment | Exposed engine pods, broad cargo sections, blunt or stepped nose, strong structural spine | Direct service corridors, equipment access, workshop beside engineering, cargo near the dock |
-| Halcyon Aerospace | Quiet, efficient exploration ships | Tapered nose, swept shoulders, narrow tail, integrated engines and grouped windows | Forward bridge, brighter crew areas, observation spaces, machinery separated from living space |
-| Bastion Shipbuilding | Durable, disciplined fleet hardware | Angular bow, recessed windows, compact bridge, heavy shoulders and protected engines | Short routes to controls and machinery, compartment bulkheads, compact crew rooms, an alternate route on larger ships |
+| Rivet Works | Practical, repairable industrial equipment | Exposed engine pods, broad cargo sections, a blunt or stepped nose, a strong structural spine | Direct service corridors, workshop beside engineering, cargo near the dock |
+| Halcyon Aerospace | Quiet, efficient exploration ships | Tapered nose, swept shoulders, a narrow tail, integrated engines, grouped windows | A forward bridge, brighter crew areas, observation spaces, machinery apart from living space |
+| Bastion Shipbuilding | Durable, disciplined fleet hardware | Angular bow, recessed windows, a compact bridge, heavy shoulders, protected engines | Short routes to controls and machinery, compartment bulkheads, compact crew rooms, an alternate route on larger ships |
 
-Each persona needs rules for shape, proportions, windows, materials, lighting, room arrangement and external equipment. Colors reinforce the identity. Changing the paint alone does not produce a different manufacturer.
+Colors reinforce an identity, and changing paint alone does not make a different manufacturer.
 
-Start with one consistent construction language per manufacturer, shared across its ships and stations. Later, individual product lines can introduce controlled exceptions.
+### What the generator does today
 
-**Notes:**
+In the generator (`Spec.Maker`) the maker chooses **materials and accent colour** and nothing else. The shape, size and rooms come from the other choices, so the manufacturer personality shows up through which shapes the catalog gives each maker and through the interior and palette:
 
-## Ship roles
+| Maker | Scout | Freighter | Explorer |
+| --- | --- | --- | --- |
+| Rivet Works | Bolt (spine, small) | Hauler (spine, medium) | Ranger (spine, large) |
+| Halcyon Aerospace | Swift (dome, small) | Courier (twin hull, medium) | Horizon (dome, large) |
+| Bastion Shipbuilding | Ward (twin hull, small) | Tender (dome, medium) | Pioneer (twin hull, large) |
+
+Rivet is always a spine, which is the "strong structural spine" habit, while Halcyon and Bastion mix domes and twin hulls. Exposed engine pods and an accent stripe are common to all. The tapered noses, swept shoulders, angular bows and protected engines of the table above are the design target for a future exterior pass, not current behavior (see [the ship generator](ship-generator.md#not-yet)).
+
+## Roles
 
 | Role | Space priorities | Shape priorities |
 | --- | --- | --- |
-| Scout | Bridge, sensors, small engineering area and compact crew space | Small forward section and a clear propulsion arrangement |
-| Freighter | Accessible hold, workshop and engineering; modest bridge and crew area | Cargo volume visibly dominates the ship |
-| Explorer | Crew space, workshop, stores, observation area and engineering | Longer inhabited section; a second deck when size permits |
-| Patrol | Bridge, supported cannon placement, engineering and compact stores | Clear firing direction, machinery protection and a compact outline |
+| Scout | Bridge, sensors, small engineering and compact crew space | A small forward section and a clear propulsion arrangement |
+| Freighter | An accessible hold, workshop and engineering, with a modest bridge and crew area | Cargo volume visibly dominates |
+| Explorer | Crew space, workshop, stores, observation and engineering | A longer inhabited section, with extra decks when size allows |
+| Patrol (not built) | Bridge, supported cannon placement, engineering and compact stores | A clear firing direction, protected machinery and a compact outline |
 
-Small ships combine functions in one room. Larger ships earn separate rooms and routes. Do not force a tiny scout to contain a kitchen, bedroom, cargo room and engineering room as four unusable closets.
-
-For example, a Rivet freighter can have a broad hold, offset bridge and external engine pods. A Halcyon freighter can carry the same usable cargo space inside a tapered hull with integrated engines. Both still need a practical route from the dock to cargo.
-
-**Notes:**
-
-## One station per manufacturer
-
-Each manufacturer gets a complete station showing the same design habits at a different scale. These are distinct destinations with useful interiors, not enlarged ships or recolored copies of Waypoint. Names are provisional.
-
-| Manufacturer | Reference station | Silhouette | Rooms and routes |
-| --- | --- | --- | --- |
-| Rivet Works | Rivet Exchange — cargo and maintenance depot | An asymmetric freight spine with branching docking piers, broad storage pods and an offset operations room | Dock beside receiving/storage, workshop beside engineering, crew rooms away from the freight route, and a second service route around the hold |
-| Halcyon Aerospace | Halcyon Observatory — exploration and survey station | A central hub surrounded by an open polygonal docking ring, observation wings and recessed utilities | Arrival lounge, observation/sensor room, furnished research/work space, crew quarters and engineering; a short circulation loop keeps visitors out of machinery access |
-| Bastion Shipbuilding | Bastion Watchpost — patrol support station | A stepped command section with separated angular docking arms, recessed berth faces and protected utility pods | Dock reception, operations, equipment stores, compact crew rooms and engineering; framed bulkheads divide compartments, with an alternate maintenance route |
-
-Each station starts with a core section and grows into a harbor assembled from multiple sections. Ships keep their existing 32 x 32 x 32 limit; a full station's docking ring or piers must not be squeezed into one ship-sized cube. The compact showcase proves each manufacturer's rooms; use the expanded station runtime for the full harbor layouts. Smaller or shaped room pieces express the outline within each section.
-
-Each station has one station identity and managing Station Core, a multi-ship harbor, working generators, batteries, compartment air supplies and reachable controls. Berths use framed standard doors on Docking Bases. Stations use their core for control and have no propulsion requirement. Capacity means ships can actually remain docked together and still arrive, depart and board safely.
-
-The research and patrol themes use existing equipment and furnishing. They do not require new research progression, trading systems or combat AI. A station's job should already be apparent from its layout, storage, sensors and work areas.
-
-Generate these stations directly in space through the station placement/construction path, preserving ownership and access rules. Keep them out of surface ship delivery. Provide a development gallery with each manufacturer's scout and station together for comparison. Keep the existing Waypoint and player stations intact; opening an old save must not replace them with a new template.
-
-**Notes:**
-
-## Docking rings and multi-ship harbors
-
-Stations need actual docking districts with circulation, receiving areas and space for many ships. A ring is a walkable structure made from ordinary blocks and framed doors, with connections back to the core. Rings can be polygonal and use horizontal doorway faces; they do not require angled doors or rotating station physics.
-
-| Manufacturer | Harbor layout | Boarding and service routes |
-| --- | --- | --- |
-| Rivet Works | Branching cargo piers on a service spine; outward berths along separated fingers, with larger ships at the ends | Short dock-to-storage routes, receiving areas, workshops and a parallel crew/service corridor |
-| Halcyon Aerospace | An open docking ring around the central hub, connected by spokes; berths face outward | A continuous passenger promenade, observation lounges and cross-routes through the hub; service rooms stay off the main route |
-| Bastion Shipbuilding | Separated docking arms around a protected command section; angular bulkheads divide groups of berths | Reception and equipment stores near the docks, with an alternate maintenance route and independent compartment isolation |
-
-Proposed capacity targets are **4 simultaneous ships for a small harbor, 8 for a standard station, and 12 or more for a large station**. These are design targets, not existing capabilities. Berths declare the ship dimensions and docking orientations they accept. A station must state its capacity for each supported size mix; twelve small berths do not mean twelve maximum-size ships fit.
-
-Place berth positions, docked ship envelopes and approach/departure corridors before adding harbor decoration. Reserve space for the full ship, its orientation changes during approach, its engines and a separation margin. A door socket's size does not determine ship spacing. Cargo pods, observation wings, neighboring ships and the station itself must remain outside each accepted route.
-
-Docking remains automatic. Selecting a station as Destination assigns a free compatible berth; an individual berth can also be a destination in the same list. Reserve that berth and its traffic corridor before approach. Serialize conflicting maneuvers; ships should queue at clear holding points when the harbor is full or a shared corridor is busy. Release reservations on cancellation, disconnect or failed approach, without releasing an existing clamp. Docked ships must retain their route home when new arrivals use other berths.
-
-Every berth needs a safe boarding anchor and a walking route into the station's rooms. Validate departure with neighboring berths occupied, and validate arrival into the last available berth. A ship at a large berth must not trap smaller ships beside it. Include mixed ship sizes, offset ship ports, blocked approaches, damage, unloading and save/reload in the harbor checks.
-
-The current station runtime supports one identity and pose across a 128 x 32 x 128 build area, sixteen 32-block render sections, shared finite power and a continuous air grid. A generic 28-room ring provides eight exterior berths. Section boundaries do not create air, block walking routes or clip collision geometry. The three manufacturer-specific harbors and traffic queues below remain proposed. Expansion preserves existing rooms and occupied berth links.
-
-**Notes:**
-
-## Shape and rooms are planned together
-
-The original rectangular builder has been replaced: every design is now a template edited in game (see [generation infrastructure](generation-infrastructure.md)).
-
-1. **Choose a brief:** manufacturer, role, size, seed and generation version. Set room, equipment, fuel and block budgets.
-2. **Choose a silhouette:** long spine, broad cargo body, wedge, stepped decks, connected side pods or an offset command section. Manufacturer rules control which combinations make sense.
-3. **Plan the room graph:** required functions, doors, corridors and deck connections. Put the dock where boarding and loading make sense, then reserve routes to every required room.
-4. **Fit actual room volumes:** vary width and length along the ship, reserve stairs and door swings, and keep enough usable floor space. If rooms do not fit the outline, revise the outline or reject that attempt.
-5. **Build the sealed hull:** wrap the planned interior, add deck floors and bulkheads, then place windows, engines, landing supports and the compact dock.
-6. **Furnish and validate:** install real hardware, storage, lights and work areas. Add restrained exterior detail, then check the final blocks again.
-
-Use different cross-sections along the length: a narrower nose, wider working section, stepped shoulders and a tail arranged around engines. Changes in deck height and connected pods should change the actual silhouette and interior space.
-
-Keep a full-block pressure shell. Stairs, slabs and other partial blocks can shape exterior trim around it. Every pod, engine and decorative assembly must remain face-connected to the captured ship.
-
-**Notes:**
-
-## Room pieces and door nodes
-
-Use the same doorway idea as [station rooms](station-modules-and-systems.md), with smaller and more flexible pieces. The station's fixed 16-block tiles are too coarse for these ships.
-
-Each room piece declares its role, usable floor, occupied blocks, reserved walking space, doorway sockets and equipment anchors. Offer small, medium and stretched variants. A bulkhead joint owns one framed doorway; ordinary doors become graph nodes without another equipment block.
-
-Keep these views separate:
-
-- **Design graph:** which rooms should connect and why.
-- **Walking graph:** whether a player can actually use those routes, including doors, stairs, headroom and landings.
-- **Pressure compartments:** what is sealed when doors are closed and which air outlets supply it.
-
-On larger ships, add a useful loop when space allows. Avoid a long chain of rooms that forces every trip through sleeping quarters. A cargo route should not run through the bridge, and stairs should not empty into a machine or door swing.
-
-Once delivered, the placed blocks are authoritative. Breaking walls or moving equipment updates the existing topology and atmosphere; generation metadata must not restore the original layout.
-
-**Notes:**
+Small ships combine functions in one room, and larger ships earn separate rooms and routes. A tiny scout is not given a kitchen, bedroom, cargo room and engineering room as four unusable closets. The role sets the wish list of rooms (see [rooms and resources](ship-rooms-and-resources.md)).
 
 ## What a finished ship must pass
 
-- Fit the selected pad and the existing 32 x 32 x 32 ship allocation, including trim and equipment. Keep launch, docking approach, engine exhaust and cannon clearances valid.
-- Contain exactly one Ship Controller and the connected engines, generator and air equipment needed for its job. Use only current hardware and actual upgrade slots.
-- Have a framed standard door on a Docking Base, with usable interior boarding space and a clear outward approach.
-- Provide a checked walking route from the dock to every required room and equipment interaction position. Closed doors can be operated along the route; a graph edge alone does not prove clearance.
-- Seal occupied compartments and supply their air. Separate rooms behind closed bulkheads need an actual air source or a validated gas path.
-- Supply the real power demand. Fuel, upgrades and any starting resources initialize once and survive normal delivery, travel and recovery.
-- Have a readable front, rear and propulsion arrangement, plus useful rooms rather than an empty outer shell. Judge this in-game from outside and by walking the interior.
+The generator is checked against these on every combination, and ship tests check them again in the real air system:
 
-Generation has a fixed attempt budget. An impossible brief returns a clear failure before world placement; it must not loop indefinitely or silently substitute a different manufacturer or role.
+- It fits the pad and the 32 × 32 × 32 allocation, including trim and equipment, and keeps launch, docking approach and engine exhaust clear.
+- It has exactly one Ship Controller and the engines, generator and air equipment its job needs, using current hardware and real upgrade slots.
+- It has a framed standard door on a Docking Base with usable boarding space inside and a clear approach outside.
+- A checked walking route runs from the dock to every room and machine. A graph edge alone does not prove clearance.
+- Occupied compartments are sealed and supplied with air, and the power demand is met. Fuel, upgrades and starting resources initialize once and survive delivery, travel and recovery.
+- It has a readable front, rear and propulsion arrangement and useful rooms, which is judged in game from the outside and by walking through it.
 
-**Notes:**
+Generation has a fixed attempt budget. An impossible brief returns a clear failure before anything is placed and never loops or substitutes a different manufacturer or role.
 
-## Implementation order
+## Keep three views of a ship separate
 
-| Step | Deliverable | Review gate |
-| --- | --- | --- |
-| 1. Manufacturer examples | Three small ships with the same role and similar size, one per manufacturer | Their shape and room arrangement remain distinguishable with the same material palette |
-| 2. Room kit and graph | Reusable rooms, doorway joints, corridors and stairs | All required spaces are reachable and pressure checks agree with the placed blocks |
-| 3. Nine reference ships | Scout, freighter and explorer for each manufacturer | Each manufacturer stays recognizable across roles; each role changes usable space and silhouette |
-| 4. Station section prototype | One core/room/berth example for each manufacturer | Each example fits the current runtime, has valid systems and belongs visually with its ships |
-| 5. Multi-section stations | Shared station identity, section placement, doorway links, systems boundaries and harbor reservations | Save/reload, expansion, damage, ownership and boarding work across sections without duplicating resources |
-| 6. Three reference harbors | Exchange piers, Observatory ring and Watchpost arms | Distinct silhouettes and useful rooms; the advertised capacity works with all berths occupied |
-| 7. Seeded generation | Controlled choices of ship/station proportions, room variants, routes and details | A large repeatable seed set stays valid, terminates and produces meaningful variation |
-| 8. Placement integration | Ships in the existing beacon catalog; stations through space construction; both in a development gallery | Preview and placement use the same plan; interruption resumes that exact build and preserves ownership |
+The *design graph* says which rooms should connect and why. The *walking graph* says whether a player can really use those routes, including doors, stairs, headroom and landings. The *pressure compartments* say what is sealed with the doors closed and which outlets supply it. Once a ship is delivered, the placed blocks are authoritative: breaking walls or moving equipment updates topology and air, and generation data never restores the original layout. Keep a full-block pressure shell, since stairs and slabs can shape the exterior trim around it, and every pod and engine must remain face-connected to the ship.
 
-Keep the current presets while reviewing the first examples. Patrol ships follow once the first three roles establish the generation rules.
+## Harbors (not built)
 
-Generation produces a plan containing its blocks, rooms, doorway connections, controller position, equipment placements and reserved clearances. This replaces the current assumption that a controller's position can be calculated from a rectangular preset's dimensions.
+The design calls for one reference station per manufacturer, each showing its habits at station scale and each with a multi-ship harbor. These are destinations with useful interiors, not enlarged ships or recolored Waypoints. Today a region has a Waypoint Station, a compact three-wing Manufacturer Exchange, and a generic eight-berth ring is available to builders (see [stations](stations.md)). The three manufacturer harbors are a later project.
 
-Plans explicitly identify ships versus stations. Share manufacturer rules and room/joint definitions, while validating station cores, berth reservations and station placement separately from ship propulsion and surface delivery.
-
-Save the resolved plan with its seed and version before delivery. Recovery must use that plan, even after generator rules change. Reuse the existing delivery intent and transfer systems, and store initial fuel/upgrades as part of the order so retries cannot refill them.
-
-For the first player-facing version, use curated generated designs in the existing catalog. Show manufacturer, role, size and the existing preview beside Deliver ship. Seed entry and reroll controls can be considered later; they are not required to prove the designs work.
-
-**Notes:**
-
-## Current review set
-
-The Ship Beacon now lists nine designs, generated by the [ship generator](ship-generator.md): one scout, freighter and explorer for each manufacturer, in a mix of spine, dome and twin-hull shapes. `/nullspace shipyard` creates the gallery at a fresh reserved site; earlier galleries and player edits remain intact. The captures below were taken of the earlier hand-built versions of these nine, and are kept for the record.
-
-| Manufacturer | Scout | Freighter | Explorer |
+| Manufacturer | Station | Harbor layout | Routes |
 | --- | --- | --- | --- |
-| Rivet Works | Bolt | Hauler | Ranger |
-| Halcyon Aerospace | Swift | Courier | Horizon |
-| Bastion Shipbuilding | Ward | Tender | Pioneer |
+| Rivet Works | Rivet Exchange: cargo and maintenance depot | Branching cargo piers on a service spine, with outward berths along separated fingers and larger ships at the ends | Short dock-to-storage routes, receiving areas, workshops and a parallel crew and service corridor |
+| Halcyon Aerospace | Halcyon Observatory: exploration and survey station | An open docking ring around a central hub, joined by spokes, with berths facing outward | A continuous passenger promenade, observation lounges and cross-routes through the hub, with service rooms off the main route |
+| Bastion Shipbuilding | Bastion Watchpost: patrol support station | Separated docking arms around a protected command section, with angular bulkheads dividing groups of berths | Reception and stores near the docks, an alternate maintenance route and independent compartment isolation |
 
-Freighters have cargo holds with real storage barrels; explorers have workshops and living space. The [ship generator](ship-generator.md) lists each room and what it holds.
+Design targets: 4 ships docked at once for a small harbor, 8 for a standard station and 12 or more for a large one. Berths declare the ship sizes and orientations they accept, and a station states its capacity for each size mix (twelve small berths do not mean twelve large ships fit). Berth positions, docked-ship envelopes and approach corridors are laid out first and decoration comes after, with room for the full ship, its orientation changes, its engines and a separation margin. A door socket's size does not set ship spacing.
 
-Enter space and open **Destination > Ports**. Each region automatically contains a Waypoint Station and Manufacturer Exchange. Choose an exchange port and press **Dock**, then open the normal dock door and walk through. The compact exchange reuses the three-wing showcase template; it is not one of the proposed large manufacturer harbors. `/nullspace station showcase` remains an explicit development fixture command.
+Docking stays automatic. Choosing a station as the destination would assign a free compatible berth, and a single berth stays selectable. The berth and its corridor would be reserved before the approach, conflicting maneuvers serialized, and ships queued at holding points when the harbor is full. Reservations release on cancel, disconnect or failure and never release an existing clamp. Departure would be validated with neighbouring berths full, and arrival into the last free berth, with mixed sizes, offset ports, blocked approaches, damage and save and reload in the checks.
 
-The showcase occupies one 32 x 32 x 32 allocation, with a Rivet workshop, Halcyon observation lounge, Bastion operations room and a central arrival/core area. Two opposite berths demonstrate the compact dock templates. It is a section prototype. The expanded runtime also provides a generic eight-berth ring; manufacturer-specific harbors remain later work.
+The station runtime already supports what this needs: one identity across a 128 × 32 × 128 area, shared power, a continuous air grid and sixteen render sections, where section boundaries create no air, block no routes and clip no collision.
 
-Captured in-game: [Rivet Bolt](../images/rivet-bolt.png), [Halcyon Swift](../images/halcyon-swift.png), [Bastion Ward](../images/bastion-ward.png), [showcase exterior](../images/manufacturer-station.png), [Rivet workshop](../images/rivet-workshop.png), [Halcyon observation](../images/halcyon-observation.png), [Bastion operations](../images/bastion-operations.png).
+## Status
 
-Freighter captures: [Rivet Hauler](../images/rivet-hauler.png), [Halcyon Courier](../images/halcyon-courier.png), [Bastion Tender](../images/bastion-tender.png).
+| Step | State |
+| --- | --- |
+| Nine reference ships (a scout, freighter and explorer for each maker) | Built, generated |
+| Room kit and doorway graph | Built (ships and station tiles) |
+| One compact station for the three makers | Built (the Manufacturer Exchange) |
+| Station expansion to 128 × 128 with a generic eight-berth ring | Built |
+| Three manufacturer harbors and berth traffic queues | Not built |
+| Patrol ships | Not built |
+| Seed entry and reroll in the beacon | Not built (curated designs only) |
 
-Explorer captures: [Rivet Ranger](../images/rivet-ranger.png), [Halcyon Horizon](../images/halcyon-horizon.png), [Bastion Pioneer](../images/bastion-pioneer.png). The Pioneer stairwell was walked up and down in survival mode: [upper crew deck](../images/explorer-crew-deck.png), [lower workshop deck](../images/explorer-engineering-deck.png).
-
-The [three-page catalog](../images/manufacturer-beacon-catalog.png), [expanded showroom](../images/shipyard-manufacturer-fleet.png) and [delivered explorer in space](../images/manufacturer-explorer-in-space.png) were captured in the graphical test run. The role fleet verification records 477 passing unit tests, 12 existing skips, 148 passing server tests and all 21 graphical entrypoints.
-
-**Notes:**
-
-## Next review
-
-Walk the nine generated ships and compare their exterior outlines and room use, then judge the silhouettes: the generator bevels the hull and adds engine pods and an accent stripe, but swept wings, fins and landing gear are still to come. Review the same manufacturer across all three roles as well.
-
-**Notes:**
+Captures: [Rivet Bolt](../images/rivet-bolt.png), [Halcyon Swift](../images/halcyon-swift.png), [Bastion Ward](../images/bastion-ward.png), [Rivet Hauler](../images/rivet-hauler.png), [Halcyon Courier](../images/halcyon-courier.png), [Bastion Tender](../images/bastion-tender.png), [Rivet Ranger](../images/rivet-ranger.png), [Halcyon Horizon](../images/halcyon-horizon.png), [Bastion Pioneer](../images/bastion-pioneer.png), [showcase exterior](../images/manufacturer-station.png), [Rivet workshop](../images/rivet-workshop.png), [Halcyon observation](../images/halcyon-observation.png), [Bastion operations](../images/bastion-operations.png). The ship captures predate the generator and show the earlier hand-built versions of the same nine designs.

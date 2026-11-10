@@ -1,46 +1,88 @@
-# FTL journeys and encounters
+# FTL journeys and signals
 
-Implemented first pass. Jump now starts a timed journey aboard the existing ship. The short loading screen only synchronizes a region change; the countdown runs with normal movement, crafting, inventories and ship controls available.
+A jump between places in space is not a loading screen. It is a **journey**: a timed trip during which the crew keep playing aboard their ship, and partway through which a *signal* may appear that can be investigated. This document explains how a journey works and why it is built this way. The code is `gameplay/navigation` (`Jumps`, `JourneyService`), `model/galaxy/JourneyPlan`, and `worldgen/encounters` (`EncounterSites`, `SiteThreats`). How the map and ranges work is in [the galaxy](star-systems.md); how the ship looks and steers while cruising is in [flight motion](flight-motion-and-transitions.md).
 
-Controller captures: [Investigate signal](../images/ftl-investigate.png) and [Resume journey](../images/ftl-resume.png).
+![Investigate a signal at the Ship Controller](../images/ftl-investigate.png) ![Resume the journey](../images/ftl-resume.png)
 
-[Flight motion and transitions](flight-motion-and-transitions.md) describes engine-defined forward direction, directional FTL streaks, docking parallax and arrival fades. Region changes preserve the ship's orientation.
+## The idea
+
+Space travel should take time that the player can use. A short loading screen would make jumping feel like a menu action. Instead, the loading screen only covers the one moment the ship changes region, and the journey itself runs as ordinary gameplay: walking the cabin, crafting, tending machines, building. Because the journey has duration, it also has room for something to happen in it.
 
 ## Player walkthrough
 
-1. Choose a destination at the Ship Controller and press **Jump**. The same destination still covers its region, landing pad or docking port.
-2. Walk around the cabin while travelling. The HUD shows the destination and remaining time. The controller shows the same journey; Details includes the fuel cost and estimated duration before departure.
-3. A signal appears partway through the route. Keep travelling to ignore it, or press **Investigate signal** at the controller. An unresolved signal explains that it is still resolving; it becomes available when its physical vessel finishes construction.
-4. Investigation pauses the trip, enters the encounter's space and selects its available docking port. Open the controller and press **Dock**. The destination picker still allows choosing another berth.
-5. Open the ordinary docking door and walk through. Collect real supplies, repair access with ordinary blocks/tools, or salvage equipment. Return through the docking connection.
-6. **Undock**, then press **Resume journey**. The original destination selection is restored. Completed travel time and the paid jump fee are retained.
-7. Arrival happens automatically after the remaining travel time. Use **Land** or **Dock** for the final pad or port, as before.
+1. At the Ship Controller choose a destination and press **Jump**. The destination can be a region, a landing pad or a docking port; the same choice covers all three. The Details panel shows the fuel cost and estimated time before departing.
+2. The ship enters the journey. The HUD shows the destination and remaining time, and the controller shows the same journey. Normal movement, inventories and ship controls stay available.
+3. Partway through, a **signal** may be announced in chat. Ignore it and keep travelling, or press **Investigate signal** at the controller.
+4. Investigating pauses the trip and takes the ship to the signal's own space, with its docking port already selected. **Dock** at the controller, open the docking door and walk through. Take supplies, repair access with ordinary blocks and tools, or salvage equipment.
+5. **Undock**, then **Resume journey**. The original destination and the time already spent are kept, and the jump fee already paid is not charged again.
+6. Arrival happens automatically when the remaining time runs out. **Land** or **Dock** works for the final pad or port, as it always did.
 
-## First places
+## What a journey is, in the data
 
-| Signal | What is there | Useful supplies |
-| --- | --- | --- |
-| Abandoned growing station | Sealed arrival room and a lit growing room with 48 mature wheat plants, hydrated farmland and contained water. Three hull palettes follow the manufacturers. | 12 bread, 16 seeds, iron hoe and 8 coal in a barrel; ordinary harvestable crops. |
-| Damaged freighter | One of the three manufacturer freighters. Its exterior docking entrance works; two cobblestone blocks obstruct the interior cargo doorway. Break these to reach its working and living rooms. | Engineering fuel, galley food, repair supplies and cargo materials in [separate room containers](ship-rooms-and-resources.md). |
-| Salvage ship | One of the three manufacturer scouts, parked and uncrewed. Its machinery, furnishings and hull can be recovered. | Two System Upgrades, 16 iron ingots and 12 redstone at the workbench; 8 coal beside engineering; bread and carrots in the galley nook. |
+Each ship saves a `journey` record: the destination, the region it left, the original destination selection, a private *corridor* region (the FTL space it travels through), the signal's site id, the encounter kind and seed, the total duration, ticks elapsed, the fuel paid and whether the signal was visited. The state is `CRUISE` while travelling and paused otherwise. Because it is part of the ship's saved record, a restart changes nothing.
 
-These places permit visitors to open storage and alter blocks in Survival. Supplies exist in actual inventories and transfer as normal Minecraft items. Machinery has real operating fuel. Crops follow normal Minecraft growth; containers do not refill. The vessels are anchored exploration sites in this pass, without NPC crews, trading or combat AI.
+`JourneyService.tick` runs once a second. For every ship with a journey and crew in space it adds a second to `elapsed`, announces the signal when its time comes, and arrives the ship when the duration is up. Two rules keep it fair:
 
-## Timing, fuel and saves
+- **An empty ship does not travel.** Progress pauses while the crew are offline; another crew member can keep it going.
+- **Arrival is already paid.** It does not need the pilot at the helm or engine power, so a ship that loses power mid-journey still arrives. If crew are outside a safe cabin, arrival waits until they return ("Arrival ready: return crew to safe cabins").
 
-- Unupgraded travel takes **45–90 seconds within a star system**, or **120–180 seconds between stars**, at 20 server ticks per second. Engine upgrades shorten the saved duration using `4 / (4 + tier)`, for tiers 0–3. These are initial balance values.
-- The existing 2,000/8,000 burn-unit jump charge, adjusted by engine upgrades, is paid once on departure. Investigation, resuming and automatic arrival add no jump charge. Generators continue consuming fuel for electricity; local docking maneuvers use their ordinary fuel.
-- Each ship owns a saved journey: departure, final destination, original destination selection, corridor, encounter identity, duration, completed ticks, paid amount and visited state. Save/reload retains that record. Empty ships pause while their crew is offline; another crew can keep travelling.
-- A route has one seeded optional encounter in this pass. World seed and the unordered pair of endpoints determine its identity, role and manufacturer variant. Reversing the route, changing engines or reconnecting does not reroll it. Later journeys can revisit the same physical site.
-- Encounter construction uses the existing saved, incremental station plans. Two crews on the same route reach the same object. Removed objects are not rebuilt by normal travel; damaged blocks and depleted inventories remain changed.
-- Ordinary orbit population is excluded from FTL corridors and encounter regions. Ships still occupy the existing physical space dimension; encounters do not create additional native dimensions or planetary terrain.
-- FTL steers the ship during cruise. Manual piloting, scripted thrust, landing and docking become available after investigation or arrival. Crew must be in safe cabins before a region transition. Automatic arrival uses the paid route even if engine power is lost; unsafe crew delay arrival until they return.
-- An authorized surface recall can recover an empty ship after death. Landing through that recovery clears the journey rather than leaving a surface ship travelling in FTL.
+Cruising also cancels any thrust or autopilot (`Piloting.stop`); manual piloting, landing and docking become available again after investigating or arriving.
 
-## Verification
+## Time and fuel
 
-`JourneyPlanTest` covers stable route identity, reverse routes, speed-independent contacts, role coverage and timing bounds. `JourneyGameTest` exercises all three real templates, safe entrances, accessible rewards, offline progress, shared signals, disk reload, docking, boarding, collecting coal, return, undocking, resume and arrival. The existing multiplayer concurrency test now expects independent cruise records after entry.
+Duration comes from the route (`JourneyPlan`):
 
-`NavigationClientGameTest` uses the real controller clicks for Jump, Investigate and Resume, checks that the cabin is usable during cruise, and continues through the existing generated-planet landing/launch checks. Its timer acceleration changes only the test fixture's saved progress. Production timing has no test-speed setting.
+- within a system, 45 to 90 seconds;
+- between systems, 60 seconds plus 4 per light-year, plus 0 to 20 seconds that depend on the route;
+- scaled by the engine: `4 / (4 + tier)` for upgrade tiers 0 to 3, and never below 20 seconds.
 
-Current run evidence is recorded in journey verification.
+Fuel is charged once, on departure. A jump inside a system costs 0.5 fuel, and between systems 1 plus 0.1 per light-year. The best active engine's tier reduces it, as `(base * 4 + 3 + tier) / (4 + tier)`. Ranges per tier, hop routes and the map are covered in [the galaxy](star-systems.md). Investigating, resuming and arriving cost nothing more. Generators keep burning fuel for electricity throughout, and local docking maneuvers use ordinary fuel.
+
+## Signals
+
+A journey's *length* comes from its route, but its *signal* comes from a random nonce rolled at departure. Every trip meets a different signal, even on the same route, so repeating a route is not a way to farm a known site. (The route itself still gives stable quotes: the preview in the controller uses a fixed signal derived from the route.) A route has at most one signal.
+
+The signal arrives between a quarter and a half of the way through the trip. Its kind decides what is found:
+
+| Kind | What is there |
+| --- | --- |
+| Abandoned growing station | A sealed arrival room and a lit growing room with mature wheat, hydrated farmland and contained water, in one of three hull palettes. A barrel holds bread, seeds, an iron hoe and coal |
+| Damaged freighter | One of the three manufacturer freighters. The dock works, and the interior cargo door is blocked by two cobblestone blocks. Engineering fuel, galley food, repair supplies and cargo are in separate room containers |
+| Salvage ship | One of the six smaller manufacturer ships, uncrewed. Its machinery, furnishings and hull can be recovered, and it carries System Upgrades, iron, redstone, coal and food |
+| Drifting cargo | A small sealed pod, adrift with no power or air: one dock, a core and a few crates, one of which holds the treasure |
+
+These are real vessels built from the ship catalog (see [the ship generator](ship-generator.md)), with real inventories. Items are ordinary Minecraft items, machinery has real fuel, crops grow normally, and containers never refill. Depleted supplies stay depleted.
+
+### Danger
+
+Places have a danger level from 0 to 3 (`StarSystems.danger`); a signal is as dangerous as the more dangerous end of the trip, and trips of danger 2 or more announce freighters and salvage ships as "Distress call". When a player first reaches a salvage site (once, and persistently), `SiteThreats` places defenders in the ship's own floor spots:
+
+| Danger | Lost crew (zombies) | Skeletons | Repair bots |
+| --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 |
+| 1 | 2 | 0 | 0 |
+| 2 | 2 | 1 | 1 |
+| 3 | 3 | 2 | 2 |
+
+Lost crew wear spacesuits, and repair bots are a custom hostile entity. Threats do not respawn, which is the other half of "supplies do not refill".
+
+### How a signal exists
+
+A signal is a vessel built on demand by the same machinery as [orbital population](space-world-generation.md): the plan is saved first, the blocks are queued as an ambient build, and the signal says "resolving" until the vessel is complete. Two crews with the same signal reach the same object.
+
+Signals **fade**. Once no ship's journey refers to a signal and no other ship is in its region, its vessel is disposed of and the region forgotten (`EncounterSites.vanish`). A site a player has claimed is their ship and stays. Old FTL corridors left by finished journeys are forgotten the same way. This keeps a long-lived world from collecting wrecks.
+
+Ordinary orbital population is excluded from corridors and encounter regions, and encounters do not create extra dimensions or planetary terrain.
+
+## Rules around landing and recovery
+
+- A ship cannot land while cruising: "Finish the FTL journey before landing".
+- The loading handshake is deliberately separate from journey time. It exists only to synchronize the region change on the clients.
+- Landing through an authorized surface [recall](ship-recall.md) clears the journey instead of leaving a surface ship travelling.
+- The encounter itself has no NPC crews, trading or combat AI beyond the threats above.
+
+## Where this is tested
+
+`JourneyPlanTest` covers duration, contact timing and distinct nonces. `JourneyGameTest` exercises all four signal types with their real templates, safe entrances, reachable rewards, offline progress, shared signals, disk reload, docking, boarding, return, undocking, resume and arrival. `NavigationClientGameTest` uses the real controller clicks for Jump, Investigate and Resume.
+
+Tests shorten a journey by setting `nextJourneySeconds` on the ship's saved record before the jump (and fix the signal with `nextSignalNonce`), so waiting through a real cruise stays cheap. Production has no way to set these.

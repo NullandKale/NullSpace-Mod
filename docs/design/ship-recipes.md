@@ -1,6 +1,6 @@
 ﻿# Ship recipes
 
-**Implemented. All twenty-four recipes use native shaped crafting and recipe-book unlocks.**
+This is the crafting reference. Every recipe is native shaped crafting with recipe-book unlocks, and `data/nullspace/recipe/` is the source of truth (this page is checked against it when it changes). There are 32 recipes: three shared components, the equipment blocks, the three upgrade grades, the station parts, the space suit and its armored version, the air canister and the field guide.
 
 The [in-game field guide](../player/in-game-guide.md) contains these patterns and feature instructions. Obtain it with `/nullspace guide`, or craft a normal book above a copper ingot in a vertical two-slot pattern.
 
@@ -112,7 +112,13 @@ Use shaped armor-like patterns with copper fittings, a glass visor, and a contro
 | Space boots | `I.I / C.C / ...` | 2 iron + 2 copper |
 | **Full set** | | **19 iron + 5 copper + 1 glass + 1 board** |
 
-All four pieces are still required for suit protection. The chestplate electronics do not add portable oxygen storage: current EVA still depends on the ship's working air source and tether rules.
+All four pieces are still required for suit protection (plain and armored pieces can be mixed). Suit pieces hold no air themselves: a suited player outside a breathable room breathes from a carried **Air Canister** if there is one, and otherwise from the ship tether, which holds the oxygen meter at a floor of 20 (see below).
+
+**Armored suit.** Each piece has a second recipe that wraps the plain piece in more iron, giving it better protection. It protects against vacuum in the same way. Helmet `III / IHI`, chestplate `IHI / III / III`, leggings `III / IHI / I.I`, boots `IHI / II.` with `H` the plain piece of the same kind.
+
+### Air Canister
+
+`.I. / IGI / III`: iron and glass. A canister gives two minutes of full suit air outside a breathable room (`LifeSupport.CANISTER_TICKS`), drawn from the emptiest canister first, and is shown as a percentage of one canister. Refill it by using it on a powered Air Supply. An Air Supply with no power refuses. Canisters make short EVA possible away from the tether (the tether range is 72 blocks, and a station measures it from its build area).
 
 ## Building materials
 
@@ -144,9 +150,15 @@ Craft one Pad Computer, one Ship Controller, one engine, one generator, an optio
 
 These totals include native subrecipes and batch rounding. The starter leaves two circuit boards and three sticks; adding the suit uses one spare board. Add hull materials, a door, crafting table and generator fuel separately. A newly crafted battery and generator are empty. Load any furnace fuel by hand or hopper before flight. The ready controller initializes ship systems automatically.
 
-### Universal System Upgrade
+### Upgrades
 
-`ICI / CRC / ICI`: I = iron ingot, C = circuit board, R = redstone. One recipe makes one upgrade item. Engine, Generator, Battery and Scanner accept up to three of this same item in actual slots.
+Three grades, each used in the Engine, Generator, Battery and Scanner (three slots each). A block's tier is the number installed, capped by the best grade installed (see [fuel and power](ship-fuel-and-power-design.md#upgrades)).
+
+| Item | Pattern | Ingredients |
+| --- | --- | --- |
+| System Upgrade | `ICI / CRC / ICI` | iron ingot, circuit board, redstone. Tier I |
+| Advanced System Upgrade | `.A. / AUA / .A.` | amethyst shard around a System Upgrade. Tier II |
+| Exotic System Upgrade | `N / U` or `E / U / E` | netherite scrap above an Advanced upgrade, or an echo shard above and below it. Tier III |
 
 ### Compact Docking Base
 
@@ -154,23 +166,23 @@ These totals include native subrecipes and batch rounding. The starter leaves tw
 
 ## Recipe chest gallery
 
-Use **`/nullspace lab recipes`** in a development run to visit twenty-four labeled recipe chests. The annex is also added automatically when preparing `NullSpace-Dev` or `NullSpace-Lab`, including existing saves.
+Use **`/nullspace lab recipes`** in a development run to visit the labeled recipe chests. The annex is also added automatically when preparing `NullSpace-Dev` or `NullSpace-Lab`, including existing saves.
 
 Each single chest shows the ingredient pattern in a 3 x 3 square on the left (columns 2-4), a paper arrow in the middle, and the actual output on the right. Empty pattern cells stay empty. Gray panes frame the grid; the chest title names the output and quantity. The circuit board chest shows four boards as its result. A crafting table stands beside each chest.
 
 ![Circuit board recipe chest](../images/recipe-chest.png)
 
-The displays read the server's loaded shaped recipes when first built; they do not maintain separate ingredient definitions. Example tag ingredients use oak planks and cobblestone. Samples are ordinary removable items. Revisiting does not refill chests, recreate removed blocks, or overwrite player edits. The gallery has its own saved marker and chooses a new clear site above terrain, outside registered pads. New galleries contain all twenty-four recipes; previously saved nineteen-, twenty-two-, or twenty-three-chest galleries retain their layout and edits. An interrupted build is reported and preserved rather than regenerated.
+The displays read the server's loaded shaped recipes when first built; they do not maintain separate ingredient definitions. Example tag ingredients use oak planks and cobblestone. Samples are ordinary removable items. Revisiting does not refill chests, recreate removed blocks, or overwrite player edits. The gallery has its own saved marker and chooses a new clear site above terrain, outside registered pads. New galleries contain every recipe; previously saved galleries with fewer chests keep their layout and edits. An interrupted build is reported and preserved rather than regenerated.
 
 ## Implementation and checks
 
-The computer base block/item, machine casing item, and circuit board item are registered with distinct models and names. There are twenty-four native shaped recipes: three shared components, fourteen active equipment blocks, the upgrade item, station module kit, four suit pieces and field guide. Only the board recipe has a batch output. Ingredients use the vanilla planks item tag and a mod tag containing cobblestone and cobbled deepslate. Equipment and the computer base have self-drop loot tables and the pickaxe mining tag, so crafted machines can be recovered when mined. Battery charge is not created by crafting or replacing a block.
+The computer base block/item, machine casing item, and circuit board item are registered with distinct models and names. There are 32 native shaped recipes (see the opening paragraph). Only the board recipe has a batch output. Ingredients use the vanilla planks item tag and a mod tag containing cobblestone and cobbled deepslate. Equipment and the computer base have self-drop loot tables and the pickaxe mining tag, so crafted machines can be recovered when mined. Battery charge is not created by crafting or replacing a block.
 
 Recipe-book unlocks follow the crafting chain. Casings unlock on iron, boards on redstone, the computer base on boards, controller recipes on the computer base, machinery/display recipes on casings, and suit recipes on iron. These unlocks reveal recipes without adding mandatory progression flags.
 
 Verify exact ingredient counts, outputs, mirrored patterns, required empty slots, and rejection of incorrect arrangements. Compare normalized and mirrored patterns against each other and native recipes. Check mixed plank/cobble inputs, the new base's exclusion from active-ship controller counts, and the shopping-list totals against actual recipe data. In a disposable survival world, craft the starter kit and suit, build and register a small ship, upgrade systems, charge the battery, then launch and land through the normal terminals without commands or creative inventory.
 
-Fuel, real inventories, hopper automation and System Upgrades are implemented. See [fuel and power](ship-systems-redesign.md#fuel) for operation. Cannon ammunition, solar panels and fuel residues remain separate future decisions.
+Fuel, real inventories, hopper automation and System Upgrades are implemented. See [fuel and power](ship-fuel-and-power-design.md) for operation. Cannon ammunition, solar panels and fuel residues remain separate future decisions.
 
 
 ## Computers and scanners
@@ -181,6 +193,6 @@ These additions use the same shaped crafting and component progression.
 | --- | --- | --- |
 | Computer Terminal | `GGG/BKB/CTC` | Existing symbols above |
 | Local Scanner | `IGI/RKR/CTC` | Existing symbols above |
-| System Upgrade | `ICI/CRC/ICI` | Three identical items reach Tier III |
+| System Upgrade | `ICI/CRC/ICI` | Tier I; see Upgrades below for Tiers II and III |
 
 The computer runs the [NullOS shell and scripts](../development/nullos.md). Scanners use the cameras/sensors bus: installed enabled cameras occupy its first power slots, followed by enabled scanners sorted by position. Allocate another unit for each scanner you want online. The Scanner reports local contacts; installing its first System Upgrade enables distant destinations.

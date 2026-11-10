@@ -1,26 +1,31 @@
 # Interactive block UI audit
 
-Audit handoff: feedback is now part of the [current design work](recovery-stations-and-ship-design.md#ui-refinement-from-the-interactive-audit) and [playtestable delivery plan](../development/playtest-chunks.md#ui-refinement-added-after-the-navigation-playtest). The player has assigned the remaining screens to the standard review below; missing screenshots do not mean those screens were individually reviewed or approved.
+This is the record of a screen-by-screen review of every ship, station and computer block, made by looking at the real screens with the player and writing down their critique. It is the evidence behind [the UI design](ui-refinement-design.md), and each block's current screen is described in [the block UI reference](ship-block-ui-design.md). Read it when changing a screen, to see what was wrong with the earlier version and why the current one is the way it is.
 
-Review one block at a time: purpose, current screenshot, player critique. Record notes only; do not implement changes or run tests during the audit.
+## How the audit was done
 
-After recording each critique, automatically show the next block's purpose and screenshot. Do not ask whether to move on.
+One block at a time: its purpose, a screenshot of the current screen, and the player's critique, recorded as written. The next block followed automatically. Screens were reviewed as they were, without changing code or running tests during the review, and wording was not chosen unilaterally: replacement labels were proposed for the player to approve at implementation time. Every screen also got a shared layout pass, including those that were otherwise considered fine.
 
-When implementing label or wording improvements, propose specific suggestions and ask the player to approve them before applying them. Do this at implementation time, not during this audit; do not choose replacement wording unilaterally.
+"Fine" in the feedback means just barely good enough. It does not mean the player was satisfied or had approved the design, and that reading applies to earlier and later notes.
 
-All screens need a shared layout pass, including those otherwise considered fine.
+## What it found
 
-Establish a consistent design language across the interfaces.
+Across the screens, a few themes recurred:
 
-Implementation checkpoint, 2026-11-05: the player approved Scanner categories **All**, **Stations**, **Ships**, **Planets & moons**, **Landing pads**, with **Berths** as an optional detail; power labels **Generating**, **Ship demand**, **Charging batteries**, **Power stored**; and the Engine hint **Uses fuel stored in generators.** These are implemented in the navigation/equipment batch. Shared equipment screens now group readings, controls and inventory, with ordinary power allocation buttons instead of an Advanced entry. The Air Supply reads its whole room rather than a single vent cell and shows the breathing threshold. This is a first equipment pass; air/leak visualization tuning, camera/fullscreen presentation, station previews and the other audit work remain open. New screenshots include Battery and Ship Cannon; missing screenshots below describe the original audit.
+- **Hierarchy.** Screens felt "samey and mushy": the current location, the destination and the actions looked alike, so it was hard to see what mattered. Fix: separate regions with their own space and colour, with the controls and the message log never overlapping.
+- **Duplication.** The same place appeared as both location and destination. Fix: say each fact once ("Current location" apart from "Destination").
+- **Categories.** Destinations were a flat list. Fix: the Scanner groups by **All**, **Stations**, **Ships**, **Planets & moons** and **Landing pads**, with **Berths** as an optional detail.
+- **Advanced on equipment screens.** Routine fuel and power faults sent players to Advanced. Fix: equipment screens group readings, controls and inventory, with ordinary power-allocation buttons, and Advanced is out of the everyday path.
+- **Text instead of interface.** Equipment should look like inventory-style graphical screens, with visual indicators for power generated and consumed. Fix: the labels **Generating**, **Ship demand**, **Charging batteries** and **Power stored**, an upgrade column in its own panel, and a hint on the Engine reading **Uses fuel stored in generators**.
+- **Unclear action names.** Fly ship, Look at ship, Close all doors, Review loose blocks, Check ship, Show problem and Build station were not clear in context. Fix: the player approved *Current location*, *Fly manually*, *View ship*, *Loose blocks* and *Locate problem*, kept *Destination*, *Trip*, *Engage*, *Disengage* and *Check ship*, and removed *Build station* from the controller (a station is started in the world by holding a Station Core).
+- **Air.** The Air Supply read a single vent cell. Fix: it reads its whole room, shows the room size in blocks (levels only when there are several), this pump's output as a percentage, whether the room's pumps hold its leak, and the breathing threshold.
+- **My ships** gained *Show blocks* and *Scrap ship*.
 
-Equipment pass, 2026-11-07:
-- **Shared screen:** the upgrade column (Generator, Engine, Battery, Scanner) has its own panel instead of straddling the readings panel. Every machine names the same way, with a Name button that opens the field (Camera, Monitor and Docking Base used to show a bare text field). The Scanner's page number sits beside its arrows instead of over the fourth result.
-- **Air Supply:** the screen shows the room's size in blocks, with levels only when there are several (it used to read "0 levels"). It shows this pump's output in percent and whether the room's pumps hold its leak ("Pumps hold the leak" or "Leak covered: 50%"). The Room air label sits above its bar, so the breathing-threshold tick no longer cuts the text.
-- **Flight and camera:** the pilot view (compact H/R/F buttons, one-line control hint) and the edge-to-edge fullscreen camera already match the 1c feedback; reviewed in screenshots.
-- **My ships** gained Show blocks and Scrap ship.
+Open at the time of the audit and tracked elsewhere: tuning of the air and leak visualization, camera and fullscreen presentation, and station previews.
 
-"Fine" means just barely good enough. It does not mean the player is satisfied with the UI or has approved its design. Apply this interpretation to earlier and later feedback.
+## Per-block records
+
+Each entry below is the original audit of one block. The "Status" lines record where the audit left each item and are historical. The current behavior is in the block reference.
 
 ## 1. Ship Controller
 
@@ -40,7 +45,7 @@ Screenshot reviewed: `build/scanner-block-focus/20261105-151710/screenshots/0002
 - Fly ship, Look at ship, Close all doors, Review loose blocks, Check ship, Show problem and Build station are unclear in meaning/context.
 - The screen's Close button sometimes overlaps log text. Give controls and messages separate space.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 2. Scanner
 
@@ -54,7 +59,7 @@ Screenshot reviewed: `build/scanner-block-focus/20261105-151710/screenshots/0000
 - Shares the Ship Controller's samey, mushy presentation. Improve visual hierarchy and separation so categories, destinations and actions are easier to distinguish.
 - Specific replacement categories have not been decided.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 3. Generator
 
@@ -70,7 +75,7 @@ Screenshot reviewed: `docs/images/ui-generator-fuel.png`.
 - Make power generated and power consumed easier to understand through clearer presentation and visual indicators.
 - Specific replacement labels and indicators have not been decided.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 4. Ship Engine
 
@@ -85,7 +90,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - The layout is not arranged well and needs improvement; specific placement changes have not been decided.
 - The earlier request to remove Advanced from equipment screens still applies.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 5. Air Supply
 
@@ -99,7 +104,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - This is a representative example of a broader lack of refinement, not just a problem with this screen's layout or labels.
 - Follow-up needs to consider the usefulness and tuning of the underlying feedback, not only its visual presentation.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 6. Camera
 
@@ -115,7 +120,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Increase rendering resolution and expose it as a graphics setting in Space Settings.
 - Improve the fullscreen overlay; specific overlay changes have not been decided.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 7. Monitor
 
@@ -127,7 +132,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 
 - Shares the overall layout problem identified on the other equipment screens. Specific Monitor placement changes have not been decided.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 8. Docking Base
 
@@ -140,7 +145,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Fine functionally; no specific functional change requested.
 - Could use a layout pass, as could all the screens.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 9. Station Controller / Station Core
 
@@ -154,7 +159,7 @@ Screenshot reviewed: `build/course-integration/20261105-151156/screenshots/0008_
 - The UI needs a complete revamp.
 - Provide better construction previews and a preview of the whole station.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 10. Pad Computer
 
@@ -167,7 +172,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - "Fine": just barely good enough, not satisfaction or design approval.
 - No additional specific change requested here; include it in the shared layout pass.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 11. Ship Delivery Beacon
 
@@ -181,7 +186,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Center the ship layout/preview better.
 - Consider real ship screenshots or rendering the ship in space instead of the small layout graphic. These are alternatives to explore, not a selected implementation.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 12. Programmable Computer Terminal
 
@@ -194,7 +199,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - UI is "fine" under the audit's barely-good-enough definition.
 - The operating system needs work, but this is the feature the player cares least about. Give it the lowest priority.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 13. Ship Recall — Pad Computer screen
 
@@ -208,7 +213,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Layout needs work.
 - Establish a consistent design language across the interfaces.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 14. Flight View — Ship Controller screen
 
@@ -221,7 +226,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Button placement needs work.
 - Buttons feel very large on the player's screen; revisit sizing and scale.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 15. Fullscreen Camera View — Camera/Monitor screen
 
@@ -234,7 +239,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 - Movement controls do not need dedicated buttons. If retained, use compact directional controls such as arrows rather than large labeled buttons.
 - Earlier Camera feedback still applies: fill the screen, raise resolution with a Space Settings option, and improve the overlay.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## 16. Travel Transition
 
@@ -246,7 +251,7 @@ Screenshot reviewed: `build/parallel-verification/20261105-102144-229709/graphic
 
 - "Fine" under the barely-good-enough definition.
 
-Status: recorded for the planned UI pass; no implementation changes made.
+Status: audit record (see the block reference for the current screen).
 
 ## Remaining screens: standard review
 

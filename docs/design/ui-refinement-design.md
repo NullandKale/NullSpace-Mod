@@ -1,16 +1,14 @@
-# UI fixes: design and implementation order
+# UI design: rules and screen contracts
 
-**Status: implemented refinement pass; automated verification passed.** The [block UI reference](ship-block-ui-design.md) describes the implemented controls; verification records the checks. The contracts below also guide subsequent playtesting.
+This is the design for how ship, station and computer screens behave, and why. The [block UI reference](ship-block-ui-design.md) describes each block's screen as built, and the [UI audit](ui-audit-notes.md) records the problems that led to these rules. The rules below are implemented and also guide playtesting and new screens.
 
-Keep the existing game rules. Make each choice, result and way to fix a problem clear. The audit explains the problems; the click inventory records current behavior. This document defines the fixes. The block reference remains in [ship block UI design](ship-block-ui-design.md).
-
-Start with the shared rules and first trip below. The remaining screen table and coverage map let us apply the same design without redesigning everything at once.
+The goal is to keep the game's rules and make each choice, result and way to fix a problem clear. Start with the shared rules and the first trip below. The screen contracts apply the same design to every other task without redesigning them one by one.
 
 ## Decisions to carry through every screen
 
 1. **Design around a task.** Fuel loading, choosing a destination and building a room each have a clear beginning and a visible result. A smaller button count is not the goal.
 2. **Keep the chosen interfaces.** Controller, Pad Computer and Station Core stay terminals. Machines keep graphical controls and native item slots. Programming stays a shell. A terminal can still have clear buttons, editable fields and visible selection.
-3. **Keep one destination and five travel actions.** Launch, Jump, Land, Dock and Undock remain directly visible in fixed positions. No generic Travel button or action-category menus.
+3. **Keep one destination, one trip action and the individual steps.** A single saved destination feeds an **Engage** button that runs the whole trip, and Launch, Jump, Land, Dock and Undock stay directly visible in fixed positions under Manual steps. No action-category menus.
 4. **Separate looking from doing.** Opening, inspecting and selecting a row never start travel, spend construction items or deliver a ship. Existing automatic systems initialization stays; opening must not introduce new charges or toggle equipment.
 5. **Put the remedy with the problem.** Ordinary fuel, power and door faults do not send a player into Advanced. Advanced keeps allocation overrides, commands and detailed diagnostics.
 6. **Use the world where it helps.** Repair a highlighted block, put coal in slots, open a dock door and walk through. No extra confirmation screen for each ordinary Minecraft action.
@@ -74,6 +72,8 @@ Opening an unfinished ship must still produce an understandable controller scree
 This is where presentation gains life: make the player's action and its consequence perceptible. Use existing Minecraft sounds/visual language where suitable; do not add a notification, sound or animation to every reading tick.
 
 ## First complete task: launch and return Home
+
+Note: the steps below were written around the five direct travel buttons. In the current controller the same trip can be made with **Engage**, and the individual **Launch** and **Land** buttons are on the **Manual steps** tab. The task, its failure designs and its finish line are unchanged.
 
 This is the first UI implementation slice because the [exact build](../player/first-ship-walkthrough.md) already has a verified material/layout/transfer baseline. It does not settle the separate space-start food/resource opportunity in A1-A3 of the [player stories](player-stories.md).
 
@@ -141,7 +141,7 @@ Respect Minecraft slot geometry when laying this out; this is an information ord
 
 Distinguish **this generator's inventory/reserve** from **fuel available across the ship**. Slots belong to this actual block, including hopper changes. Electricity Off does not mean engines lose access to its fuel. Say so beside that switch. Restart ship supply invokes the existing supply/control recovery, with its ship-wide scope visible; it never grants fuel or charge. Container-return blockage points at the actual slot.
 
-### Ship Controller: five explicit actions, each understandable
+### Ship Controller: a trip action, and the steps behind it
 
 ```text
 SHIP CONTROLLER                 Here: Earth / Surface
@@ -181,57 +181,25 @@ Each row is a screen contract: purpose, normal actions, important states and ret
 | Task / screen | Normal design | Failures, permissions and return |
 | --- | --- | --- |
 | Choose a place: destination picker + scanner | Labeled search with Clear; All, Planets & moons, Landing pads, Docking ports; readable place name and system/world. Selected details show full dock identity. Set destination is the only commit; do not start travel. Scanner keeps modules and capability visible. | Distinguish Loading, no search matches, no known places, device Off, disconnected, no power and upgrade-limited capability. Show the actual remedy; no fabricated Rescan. Use U4 for paging/refresh. Controller returns after success; scanner shows success in place. |
-| Improve a machine: upgrades | Same three native module slots on supported blocks, same item, `0/3` to `3/3`. Show current benefit and next supported benefit, derived from the actual block's tier rules. | Removing a battery module names the required charge threshold at that slot. No refilling, hidden apply step or modules for unsupported blocks. Invalid drops keep native behavior. |
+| Improve a machine: upgrades | Same three native module slots on supported blocks, `0/3` to `3/3`, with a tier set by the count and the best grade installed. Show current benefit and next supported benefit, derived from the actual block's tier rules. | Removing a battery module names the required charge threshold at that slot. No refilling, hidden apply step or modules for unsupported blocks. Invalid drops keep native behavior. |
 | Check an engine | Ready/Running, thrust, fuel source and clear/blocked exit. Electricity/control faults distinct from fuel shortage. On/Off affects this engine; Show engine exit is an orientation aid and Show problem marks a fault. | `Load fuel in a generator` rather than an invented engine inventory. Connected generator location offered only when known. Close to world; Advanced returns here. |
 | Check a battery | Large stored/capacity bar, Charging/Discharging/Idle/Full and three modules. Actual transfer rate in Details. Local On/Off names its scope. | Explain removal refusal at the affected upgrade slot. Do not call a healthy idle battery broken. Return as for other machines. |
 | Keep a room breathable: Air Supply | Cabin air and Pumping/Idle, with outlet/room condition. On/Off plus direct Show air opening / Show problem. | Separate leaking room, blocked opening, no power and switched off. A healthy device says No leak when asked, without requiring leak inspection every visit. |
 | Connect and board: controller + Docking Base | Name the chosen port and actual approach stage. Show requesting ship beside Allow docking / Decline request; Cancel docking only during a cancellable approach. Docked state names partner; open the physical door and walk through. | Read-only visitors see the permission reason. Captured tunnel/traversal persists through power loss. Undock shows crew/passage blockers. Emergency release stays in Advanced with consequences visible before its final action. No new everyday Board button. |
 | Choose/view a camera: Camera + Monitor | Keep name field/Save name, mounted direction, preview and On/Off. Monitor has a named camera list, actual active-feed marker and whole-wall size/scope. Fullscreen goes straight to the view. | Separate waiting, missing camera and power faults. Feed loss never selects a different camera silently. Escape returns through a fresh validated open; if the block is gone/out of reach, close to world with a reason. Preserve feed/selection draft where valid. |
 | Fly / inspect the ship; Ship Cannon | Fly ship and Look at ship have distinct entry labels. Basic steering, Brake, Fire readiness/key and Close/Back hints visible on entry. Mouse drag says Look around; it does not promise steering. Cannon inspection shows readiness and barrel exit; it never fires. | Observer view explicitly cannot pilot. Input/lease releases on close or focus loss. Full help remains optional; preserve flight mechanics and server-validated shots. Return to originating controls only when a fresh server validation permits it. |
-| Build and manage a station: Station Core | Keep one terminal with a small section map and four room tiles. Show four named room choices directly: Entrance, Workshop, Bedroom, Power room. Selected tile + room + kit cost sit beside Build room. Occupied tile is information, not a fake build button. | Whole-station construction says it needs an empty station, shows full footprint and cost. Expanding the build area is distinct from building rooms. Visitors Allowed/Not allowed shows current docking access. Builder lists use named IDs; Invite uses an online-player value picker. Remove names the selected person's access. Construction return appears when valid. |
+| Build and manage a station: Station Core | Keep one terminal with a small section map and four room tiles. Show the named piece choices directly (entrance, workshop, bedroom, power room, tunnels, garden and observation domes). Selected tile + room + kit cost sit beside Build room. Occupied tile is information, not a fake build button. | Whole-station construction says it needs an empty station, shows full footprint and cost. Expanding the build area is distinct from building rooms. Visitors Allowed/Not allowed shows current docking access. Builder lists use named IDs; Invite uses an online-player value picker. Remove names the selected person's access. Construction return appears when valid. |
 | Bring back a ship: Pad Computer recovery | Named ship rows with location and live eligibility; destination pad is explicit. `Bring back [name]` starts the existing recovery. Active progress and Cancel recall appear when supported. | Actual crew, docking, pad or recovery blocker beside the action. No restore of player inventory. List updates automatically. Back and Escape return to Pad Computer when valid. |
 | Get a delivered ship: Ship Beacon | Preserve one catalog: choose design, inspect preview/specification, Deliver ship or Resume delivery. Readiness beside the action, Free delivery stated under current rules. | Selecting does not buy/deliver. Missing clearance identifies obstruction/occupant. Close does not cancel active delivery. Preserve matching resumed job; never create a duplicate on repeated clicks. |
 | Learn/craft: guide and Computer Base | Task-first contents for both starts plus equipment reference. Left-click craftable ingredients follows the recipe; right-click remains optional. A visible Back returns from a component recipe to the previous recipe/instruction. Keep native page controls and output counts. | Raw ingredients have no fake recipe link. Show accepted ingredient family and stable hover information. No free item on output click. Computer Base explains its crafting role instead of opening an empty UI. Discovery of the guide itself remains a progression question. |
 | Engineering / programming | Advanced is scoped to the originating ship/block. Display current allocation and explicit increase/decrease or direct choices, not an unexplained cycle. Preserve commands and the programmable shell. | Existing recovery remedies also appear on normal fault panels. Compatibility operations do not become a second ordinary travel workflow. Shell keeps program Escape; visible Close terminal and accurate Shift+Escape help leave the screen without discarding saved work. |
 | Travel overlay / graphics options | Transit names destination and actual stage; completion is automatic. Graphics retains presets, current selection and On/Off effects, with technical sampling controls under Advanced graphics. | Keep committed-transfer input handling. Options change presentation, not cabin air or world rules. Ordinary ship tasks never require a renderer setting. |
 
-## Implementation slices and completion checks
+## How the screens were built
 
-Do one slice, verify it, then play that task before spreading the pattern. The following order is UI work, not a decision to add supplies, change crafting or rebalance progression.
+The work was done one slice at a time, verifying each against real play before spreading the pattern, and in this order: reliable interactions first (scanner candidate ids and paging, recipe click and history behaviour, honest exit labels and validated returns, silent refusals), then the first trip, then exploring and docking, then maintaining and improving machines, then building, recovery and cameras, then the supporting controls (guide history, expert controls, settings). It was UI work only, with no change to supplies, crafting or balance. State, ownership, costs and duplicate prevention are checked with native and server tests, and hit targets, slot use, selection, feedback and returns are checked with focused graphical tests that use real clicks.
 
-| Slice | Change | Required evidence before expanding |
-| --- | --- | --- |
-| 0. Reliable interactions | Fix scanner candidate IDs/paging, explicit recipe click/history behavior, truthful exit labels/validated return, and silent consequential refusals. | Real GUI clicks: page/select/refresh/remove target; left and right recipe links; fullscreen return and destroyed parent; unpowered/empty scanner. No wrong destination, silent success or invalid remote inventory. |
-| 1. First trip | Implement the three layouts and fuel/exhaust recovery above, suggested pad name and visible travel blockers, including incomplete/unregistered setup. | Existing native launch/return tests still pass. GUI walkthrough uses normal slots, no typed name or Advanced, no mandatory inspection/reselection. Both failures block travel and permit the documented repair. Before registration/ship discovery, controller diagnostics and generator fuel remain understandable. Repeat registration/launch cannot duplicate work. |
-| 2. Explore and dock | Shared destination presentation, remote-pad Jump -> Land, scanner capability messages and dock feedback. | One saved remote destination across both actions; both ends of docking; doors/tunnel, loss of power and crew-blocked undock. Occupied/disappeared target cannot falsely succeed. World supply opportunities remain separate work. |
-| 3. Maintain and improve | Engine, battery, air, remaining generator states and shared upgrades. | Invalid/full slots, hopper fuel/container return, switched-off electrical output with engine fuel access, battery removal threshold, idle versus fault, leak location and permission changes. Fuel/charge accounting unchanged. |
-| 4. Build, recover and observe | Station construction/access, recovery, catalog, cameras/monitors and flight help. | Selection never builds/spends; exact kit/permission rules; whole-station error; named builder changes; empty/blocked recovery; delivery resume; camera removal and proper view exits. |
-| 5. Supporting controls | Guide history/task contents, remaining expert controls, settings and compatibility consistency. | Back restores instruction; controls work by mouse/keyboard at supported GUI scales; no clipped primary repair, overlapping slots or active whitespace; program Escape preserved. |
-
-Use native/server checks for state, ownership, costs and duplicate prevention, and focused graphical checks for hit targets, slot use, selection, feedback and returns. Run independent test workers in parallel through the existing isolated runner; do not share a player world or change sources during a frozen run. Do not add label-by-label tests that only mirror the layout.
-
-### Coverage map
-
-These ranges refer to the 165 distinct interaction groups in the inventory; repeated slots/rows are still grouped. Shared rules apply to every row, not just G01-G10.
-
-| Inventory | Design coverage | Slice |
-| --- | --- | --- |
-| G01-G10 | U1-U10; action/error states; validated parent return | 0-5 |
-| P01-P08 | Pad layout, first trip, suggested names, recovery contract | 1, 4 |
-| I01-I08 | U8; generator layout; upgrade contract | 1, 3 |
-| M01-M08 | Generator layout; engine/battery/air contracts | 1, 3 |
-| S01-S16 | Controller layout; action states; first trip; docking/flight contracts | 0-2, 4 |
-| D01-D09 | Selection rules; destination contract; single-destination remote travel | 0, 2 |
-| R01-R05 | Selection rules; scanner capability/fault contract | 0, 2 |
-| C01-C11 | Camera/monitor contract; U4-U7 validated view return | 0, 4 |
-| K01-K14 | Docking contract; expert compatibility scope | 2, 5 |
-| F01-F09 | Flight/cannon contract; U6 return and input release | 0, 4 |
-| T01-T15 | Station contract: map, direct types, costs, access and named builders | 4 |
-| Q01-Q08 | Recovery contract; U4-U6 and matching hit areas | 4 |
-| B01-B06 | Catalog contract; U4-U6 duplicate-safe delivery | 4 |
-| H01-H10 | Guide/crafting contract; U6-U7 history and normal clicks | 0, 5 |
-| A01-A14 | Engineering/programming contract; U1-U10 where applicable | 1, 3, 5 |
-| O01-O14 | Travel/settings contract; U5, U9-U10 | 1, 5 |
+Every interaction group in the click inventory (165 groups, from the pad computer through the guide and settings) is covered by the shared rules U1 to U10 plus one screen contract above, which is how the rules are kept consistent and how a new screen is checked: find the nearest contract, then apply U1 to U10.
 
 ## How we decide a fix helped
 
@@ -239,6 +207,3 @@ Play the same task before and after. Record where someone hesitates, tries the w
 
 For the first trip, the target is specific: **no required typing, no Advanced, no duplicate inspection, no reselecting an unchanged Home, no hidden fault explanation**. The player can identify the generator fuel slots, predict Launch versus Land, recognize arrival and repair either designed failure without a developer translating it. Test at supported GUI scales with mouse and keyboard. A child playtest is still needed; automated checks cannot establish that a seven-year-old understands the screen.
 
-**Your notes / decisions to change:**
-
--

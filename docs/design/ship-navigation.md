@@ -1,88 +1,81 @@
-# Ship cameras, local flight, and ship controller navigation
+# Ship controller, local flight and cameras
 
-Ships have a simulated pose and velocity inside a named local space. Their hull blocks, rooms, cargo, and crew stay in their existing axis-aligned storage slot in the shared `nullspace:space` dimension. Moving or rotating the simulated ship changes its observer-relative surroundings, third-person image, and combat coordinates.
+A ship has a position and orientation in space, but its blocks stay put. This document explains how a ship is controlled from its Ship Controller, how hand flight works and why it is built the way it is, and how the camera views relate to the physical ship. The code is `gameplay/navigation` (`ControllerScreen`, `ShipControl`, `NavigationService`, `Piloting`, `Jumps`), `model/flight/FlightDynamics`, `gameplay/scene` and the client's `ShipPilotScreen`.
 
-## Star systems
+## Two coordinate systems
 
-The world now has a saved star chart: Sol and Vega retain their existing locations, and four seeded systems add two planets and a moon each. They appear automatically under **Destination > Regions**. Jump to a body, choose its registered Landing pad, then Land. Launch returns to that body's orbit. Each new surface has its own dimension; orbit views share the system's actual star, planets and moon.
+A ship's hull, rooms, cargo and crew live in a fixed axis-aligned **storage slot** in the shared `nullspace:space` dimension. Players walk on real blocks, and nothing about piloting moves those blocks. What moves is the ship's **simulated pose**: a position and orientation inside a named *local space* (a region of a planet's or star's orbit). The simulated pose determines what the windows, monitors, third-person camera and weapons see. Moving the ship, or turning it, changes the sky and the other ships around it, not the floor under the crew.
 
-Stations populate each region automatically when you visit. Returning preserves the chart, stations, surface builds and resources. See [saved star systems](star-systems.md) for the current generation limits.
+Two ships in different regions can have identical simulated coordinates, because their storage slots stay distinct. Backgrounds, monitors, cameras, weapon targets and explosion fan-out all filter by region.
 
-## Using the ship controller
+This split is why hand flight is cheap and safe: a ship can fly, spin and roll without any block transfer, and a crash in the middle of a maneuver cannot damage the world. The only physical transfers are launch, landing and recall (see [independent ship actions](independent-ship-actions.md)). Moving between regions is a [journey](ftl-journeys.md) that changes only metadata.
 
-Right-click a Ship Controller or Ship Computer to open the controller. It has one saved **Destination** and separate **Launch**, **Jump**, **Land**, **Dock** and **Undock** buttons. Disabled actions explain what is needed when selected.
+## The Ship Controller
+
+Right-clicking a Ship Controller (or Ship Computer) opens it. It holds **one saved destination**, and its main tab, **Trip**, shows the planned steps and one primary action, **Engage**, with **Stop** beside it. Choosing a destination never starts travel, and a disabled action says what is missing. The separation matters: players kept starting actions they did not mean to when choosing and acting were one click.
+
+**Engage runs a whole trip** (`CourseService`). The controller previews it ("Trip: Undock -> Launch -> Interstellar jump -> Dock", from whichever of undock, launch, local travel or jump, and land, dock or hold in orbit apply), then saves a *course* on the ship and steps through the phases on the server tick, using the same services as the manual buttons, so each phase keeps its own checks and reservations. It closes doors first and stops with the reason if one will not close. The course pauses if the pilot leaves the ship ("Engage again aboard") and if the destination moves or becomes unavailable. **Stop** (disengage) finishes the current indivisible transfer or backs away from a dock safely, then halts. Changing the destination mid-course is refused until the course is stopped. A journey signal is *investigate*: the player consents to the approach, and the course continues into docking.
+
+The **Manual steps** tab has the individual **Launch**, **Jump**, **Land**, **Dock** and **Undock** buttons for troubleshooting and for doing a single phase. The **More** tab has Loose blocks, Check ship, Locate problem, Details and Advanced. Fly manually, View ship and Close all doors are on every tab, and Investigate signal and Resume journey appear when they apply.
 
 - **Pilot** opens the external ship camera and acquires exclusive flight control.
-- **Ship camera** opens an independent observer camera without acquiring control. Another crew member can use it while the pilot flies.
-- **Destination** opens one searchable list of regions, registered landing pads and available docking ports. Filter by type, select an entry, then choose **Set destination**. Selection alone never starts travel.
+- **Ship camera** opens an independent observer camera without control. Another crew member can use it while the pilot flies.
+- **Destination** is a single searchable list of regions, registered landing pads and available docking ports. Filter by type, select, then **Set destination**.
+- **Inspect hull**, **Close all doors** and **Deploy station** are direct controls, and **Advanced systems** opens engineering (see [ship block UI](ship-block-ui-design.md)).
 
-To reach a remote pad or port, select it once, **Launch** if grounded, **Jump** to its region, then **Land** or **Dock**. Launch, jumps, landings and reopening the controller retain that final selection. Region-only destinations support Jump; landing and docking need an actual pad or port. An unavailable destination stays selected so the ship never silently switches targets.
-
-Powered scanners use the same list and **Set destination** action, updating the ship controller's selection. The Scanner shows the current region; installing a System Upgrade includes other regions. Destination lists update automatically. Unloaded pads and registered ports remain subject to a full check when used; listing them does not load remote terrain.
-
-**Inspect hull**, **Close all doors** and **Deploy station** are direct controls. **Advanced systems** opens engineering. Waypoint and Manufacturer Exchange stations populate automatically as players enter space, and their berths appear under **Destination > Ports**. Docking and walking through the normal door handle boarding. Propulsion and generators consume finite shared furnace fuel.
+To reach a remote pad or port: select it once and press **Engage**, or do it phase by phase (**Launch** if grounded, **Jump** to its region, then **Land** or **Dock**). Every phase and reopening the controller keeps that final selection. A region on its own supports Jump only, because landing and docking need an actual pad or port. An unavailable destination stays selected, so the ship never silently switches targets. Powered scanners use the same list and set the same destination. The Scanner shows the current region, and a System Upgrade adds the other regions. Listing never loads remote terrain.
 
 ![One destination and separate travel actions](../images/ship-controller-docking.png)
 
 ![Scanner sets the same ship destination](../images/ship-scanner-destination.png)
 
+## Hand flight
+
 | Input | Action |
 | --- | --- |
-| W / S | Forward / reverse thrust toward the bridge's forward direction (opposite the panel face) |
-| A / D | Yaw left / right |
-| Up / Down | Pitch nose up / down |
-| Q / E | Roll left / right |
-| Space / Ctrl | Ship-relative vertical thrust |
+| W / S | Forward and reverse thrust toward the ship's bow (the direction set by the engines, see [flight motion](flight-motion-and-transitions.md)) |
+| A / D | Yaw left and right |
+| Up / Down | Pitch up and down |
+| Q / E | Roll left and right |
+| Space / Ctrl | Thrust up and down relative to the ship |
 | R | Brake |
-| F | Fire the mounted weapon using its existing power and cooldown rules |
+| F | Fire the mounted weapon, under its own power and cooldown rules |
 | Mouse drag | Orbit the third-person camera independently of steering |
 | Mouse wheel | Zoom |
 | H | Toggle the controls overlay |
-| Escape | Release controls and return to the cabin |
+| Escape | Release control and return to the cabin |
 
-The chase camera starts behind the bridge's forward direction, aims at the connected hull's bounds, and chooses its distance from the hull size. It supplies a modest camera fill light so an unlit hull remains readable; this changes camera presentation only, without changing world light or equipment power. It renders ordinary textured ship blocks and crew through the existing independent scene renderer, with the same compute-rendered celestial surfaces and gas as cockpit and monitor views.
+The server integrates flight at 20 Hz in `FlightDynamics.step`:
 
-Pilot and observer cameras fill the screen with aspect-correct targets and compact status overlays. Press **H** for controls. See the visual-fix record for the fullscreen capture.
+- **Steering** rotates about the ship's own axes (2.25° per tick of yaw or roll, 1.75° of pitch), so a ship turns the same way whichever way its controller faces.
+- **Thrust** combines the held directions and is normalized, so flying diagonally is no faster. It adds `power × 0.6` of acceleration, with velocity decaying by 2.5% a tick, or by 35% when braking. The speed limit is `12 + 8 × power` blocks per second, where *power* (0 to 8) comes from the engines.
+- **Engine power** (`NavigationService.propulsion`) counts engines that are switched on and have a clear exhaust (each worth one plus its upgrade tier), capped at 8, and limited by the power delivered to the engines and controls. A ship with no fuel, no clear engine, or no control power has no power. Its velocity drops to zero and steering is locked. The camera still works and says why: "NO CONTROL / ENGINE POWER".
+- **Fuel.** Any flight input except firing (thrust, steering or braking) burns fuel from the shared generator supply on each tick it is held, and a ship that cannot pay stops responding.
+- **Crew safety.** Flight stops, with "CREW EVA / CABIN UNSAFE - FLIGHT STOPPED", while online crew are outside a breathable cabin, including after a breach.
+- **Range and collision.** The simulated position stays within an 8,192-block radius of the region's center. Swept conservative bounds stop translation into explicit celestial bodies and into other ships in the same local space. This avoids collisions and does not simulate them: there is no impact damage or rigid-body response, and asteroid-field instances are visual obstacles for now. Weapon fire traces the actual hull geometry and explicit celestial shapes.
 
-## Local flight
+### Who holds the controls
 
-The server integrates flight at 20 Hz. Inputs are bounded button masks tied to the owning player, ship controller, ship, and random session token. Sequence numbers reject replays. Only one pilot can control a ship; observer views have no thrust authority. Leaving ship controller range, changing dimension, losing the ship controller, dying, disconnecting, missing heartbeats, or closing the screen releases control and stops the ship. Window focus loss clears held controls.
+Input is a bounded button mask tied to the owning player, ship controller, ship and a random session token, and each message carries a sequence number so a replay is rejected. Only one pilot controls a ship; an observer's non-zero input is ignored. A lease needs a heartbeat: it expires after 80 ticks (four seconds) without one. Control is released, and the ship stops, when the pilot leaves controller range, changes dimension, loses the controller, dies, disconnects, stops sending heartbeats or closes the screen. Window focus loss clears held keys, so a ship does not keep thrusting in the background.
 
-Translation uses normalized combined thrust, damping, a brake, and a power-dependent speed cap. Steering operates in ship-local axes, including a ship controller mounted facing any horizontal direction. Rotation preserves the storage cube's simulated center. Powered ships require delivered control and engine power and enabled engines with clear exhaust. Legacy ships retain their compatibility engine output. Power loss stops movement; the camera remains available and shows the reason. Flight stops while online crew are outside breathable cabins, including after a breach.
+Cancelling a pilot's control also clears any saved velocity that no pilot is holding, so a ship that was left moving does not drift when someone reopens its controls.
 
-Local movement stays within an 8,192-block radius. Swept conservative bounds stop translation into explicit celestial bodies or another ship in the same local space. This is collision avoidance; generated asteroid-field instances are currently visual obstacles, and contact does not apply impact damage or rigid-body response. Weapon fire still traces actual hull geometry and explicit celestial shapes. [Automatic docking](stations.md) provides a separate checked approach and airlock boarding path. Gravity, orbit integration and free EVA between ship frames remain separate work.
+## Cameras and snapshots
 
-Authoritative scene snapshots advance at 10 Hz during piloting. All client views share bounded position/quaternion interpolation. Geometry arrays remain shared; pose changes do not rebake hull models. The motion cache is limited to 64 ship/region entries and clears on disconnect. Poses save periodically while piloting and when controls are released; a process crash may lose the latest unsaved flight movement. Opening controls or an observer camera without an active pilot clears stale saved velocity.
+The chase camera starts behind the bow, aims at the bounds of the connected hull, and sizes its distance from the hull. A modest camera fill light keeps an unlit hull readable. It affects presentation only and changes neither world light nor equipment power. It renders ordinary textured blocks and crew through the same independent scene renderer, with the same compute-rendered celestial surfaces and gas as cockpit and monitor views. Pilot and observer cameras fill the screen with aspect-correct targets and compact status overlays.
 
-## Planets and systems
+The server sends scene snapshots at 10 Hz while piloting, and all client views share bounded interpolation of position and orientation. Geometry is shared between views, and a pose change does not rebake the hull model. The motion cache holds at most 64 ship and region entries and clears on disconnect. Poses are saved periodically while piloting and when control is released, so a process crash can lose the latest unsaved movement.
 
-| System | Local spaces |
-| --- | --- |
-| Sol | Terra, Luna, Ares |
-| Vega | Pelagos, Cinder |
+![Third-person sphere camera](../images/ship-camera-sphere.png) ![Flight view](../images/ship-flight.png) ![Orbit view](../images/ship-camera-orbit.png) ![Ship controller navigation menu](../images/helm-navigation.png)
 
-Each destination has a stable server address and a persisted celestial definition with its own ID, seed, bodies, gas, asteroid field, and epoch. Existing saves without an address default to Sol / Terra. Local thrust never changes this address, even if the ship reaches the edge of the encounter space. Planet-to-planet and system-to-system changes use **Jump** at the controller.
+## Regions and jumping
 
-Ships in different regions can occupy identical simulated coordinates. Their storage slots remain distinct. Backgrounds, monitors, ship cameras, weapon targets, and native TNT blast fan-out filter by region. A bounded arrival search leaves clearance around ships and explicit bodies before choosing the new pose.
+Every destination region has a stable server address and a saved definition (id, seed, bodies, gas, asteroid fields, epoch). Local thrust never changes a ship's region, even at the edge of the space. Only **Jump**, [investigating a signal](ftl-journeys.md), launching and landing do. The chart of regions is described in [the galaxy](star-systems.md), and landing pads in [pads and hatches](pad-previews-and-hatches.md).
 
-Fast travel validates the issued route, ship/cargo preflight, a sealed occupied cabin, powered propulsion, and recalled EVA crew. It rejects the current destination and unresolved queued combat impacts. It closes pilot leases, locks the hull and crew through the existing transit protections, and shows the loading screen to all online occupants.
+A jump validates the route, the ship and its cargo, a sealed occupied cabin, powered propulsion and recalled EVA crew. It refuses the current region, and any unresolved queued weapon impacts. It closes pilot leases, locks the hull and crew using the transit protections, and shows the loading screen to everyone aboard. After every client acknowledges, the server rechecks the ship and saves the new region and arrival pose in one step. **No blocks or entities are transferred.** A failed save restores the old metadata. The loading screen waits for the new region's definition and a prepared scene before acknowledging arrival, and a wrong or early acknowledgement cannot release the crew. A timeout or a pilot disconnect cancels before commit, and a client that fails to synchronize after commit must reconnect. Jumps and physical launches serialize against each other so whole-store recovery snapshots stay consistent.
 
-After preparation acknowledgments, the server rechecks the ship and atomically saves its new region and arrival pose. It transfers no blocks or entities. A save failure restores the old metadata. The loading screen waits for the new definition and a prepared scene on each client before acknowledging arrival. Wrong-token and premature arrival acknowledgments cannot release the crew. Preparation timeout or pilot disconnect cancels before commit; a client that fails destination synchronization after commit must reconnect. Region jumps and physical launch/landing transactions serialize to keep whole-store recovery snapshots consistent.
+Arrival chooses a clear pose (see [flight motion](flight-motion-and-transitions.md)), and the journey, not an instant jump, decides how long the trip takes. Player facing, block facing and physical crew positions are unchanged by a jump.
 
-The initial navigation feature used Terra landing pads only. [Planet surfaces](planet-computers-and-rendering.md#planet-surfaces-and-travel) now add four native flat terrain dimensions and starter landing sites. Jump to a pad's planet before landing there; existing overworld pads belong to **Sol / Terra**. Fuel costs, unlocks and route progression remain separate work. Jump arrival resets simulated orientation and velocity; player facing, block facing, and physical crew positions stay intact.
+## Where this is tested
 
-## Verification
-
-`FlightDynamicsTest` covers every ship controller facing, steering direction, diagonal thrust, speed bounds, opposing inputs, braking, power loss, invalid inputs, and repeated rotations. Terminal tests cover the flight actions and stable route selection. Native navigation tests cover persisted region definitions, session catalog validation, arrival placement, exclusive ownership, stolen/replayed input, and stopping on release.
-
-`NavigationClientGameTest` drives the real typed terminal and input packets, checks simulated movement with stationary physical crew, opens the observer camera, and performs Terra ? Luna ? Vega/Pelagos ? Terra with destination-scene readiness. The local two-client harness adds exclusive piloting, a simultaneous crew camera, stale-velocity recovery, and shared-region round trips before its existing offline landing and engineering scenarios.
-
-Verified: 98 unit tests, 40 server tests, nine graphical test classes, and the two-client loopback scenario passed. See [local verification](../development/local-verification.md) and the verification manifest.
-
-![Third-person sphere camera](../images/ship-camera-sphere.png)
-
-The [flight view](../images/ship-flight.png), [orbit view](../images/ship-camera-orbit.png), and [ship controller navigation menu](../images/helm-navigation.png) are captures from the graphical regression.
-
-## Stations, docking and future encounters
-
-[Stations and automatic docking](stations.md) implement Waypoint, player construction started directly in space, a room-module graph, automatic approach/alignment/capture and departure, and short airlock boarding transfers. Players select Dock at the ship controller; manual positioning or alignment is never required. A deployed core/platform provides the first construction berth. The broader [encounter design](space-encounters-and-docking.md) retains future random scheduling, additional exploration contacts and stations spanning several simulation sections.
+`FlightDynamicsTest` covers every controller facing, steering directions, diagonal thrust, speed bounds, opposing inputs, braking, power loss, invalid input and repeated rotations. Terminal tests cover the flight actions and stable route selection. Native navigation tests cover saved region definitions, catalog validation, arrival placement, exclusive ownership, stolen and replayed input, and stopping on release. `NavigationClientGameTest` drives the real typed terminal and input packets, checks movement with stationary crew, opens the observer camera, and flies a multi-region route with destination-scene readiness. The two-client test adds exclusive piloting, a simultaneous crew camera and shared-region round trips.

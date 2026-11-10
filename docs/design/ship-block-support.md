@@ -1,8 +1,8 @@
 # Ship block support
 
-Minecraft Java **26.3**, October 25, 2026. This guide describes **transport and use inside a ship**. The [complete vanilla block catalog](../development/ship-block-catalog.md) lists every one of the pinned registry's **1,286 vanilla block IDs**; [JSON](../development/ship-block-catalog.json) is available for tools.
+This guide describes **transport and use inside a ship**: which blocks and entities can travel with a ship, and what a ship must settle first. It matches the policy in `gameplay/ship/structure/BlockSupport`, which is what ship preflight runs. It is written for Minecraft Java 26.3. The [complete vanilla block catalog](../development/ship-block-catalog.md) lists every one of the pinned registry's **1,286 vanilla block IDs**; [JSON](../development/ship-block-catalog.json) is available for tools.
 
-The current policy makes **1,258 block IDs eligible**: 674 have no additional block-specific conditions and 584 have conditions such as dry states, framing, support, or settled mechanisms. The remaining 28 IDs are excluded, including the three air variants. These counts are eligibility, not a claim that every state, arrangement, or vanilla gameplay interaction has been tested.
+The current policy makes **1,282 block IDs eligible**: 1,176 have no extra block-specific conditions and 106 have conditions such as dry states, framing, support or settled mechanisms. The remaining 4 are excluded: the three air variants and the moving piston, which is never a stable block. These counts are eligibility, not a claim that every state, arrangement, or vanilla gameplay interaction has been tested.
 
 ## Common rules
 
@@ -58,15 +58,15 @@ Every entity fully inside the ship travels with its UUID and saved state: mobs, 
 
 ## How transfer preserves data
 
-The policy is centralized in `ShipBlockSupport` and called by the real ship scan. Vanilla structure snapshots retain block states and block-entity data. Placement and removal suppress neighbor, placement, drop and block-entity removal side effects, so transporting a circuit does not count as placing fresh TNT, firing a dispenser, extending a piston, or breaking a full container. Scheduled block and fluid ticks inside the ship are copied to the destination with the same delays.
+The policy is centralized in `BlockSupport` and called by the real ship scan. Vanilla structure snapshots retain block states and block-entity data. Placement and removal suppress neighbor, placement, drop and block-entity removal side effects, so transporting a circuit does not count as placing fresh TNT, firing a dispenser, extending a piston, or breaking a full container. Scheduled block and fluid ticks inside the ship are copied to the destination with the same delays.
 
 Vanilla structure placement randomizes container loot seeds. The transfer path reloads each block entity from the exact saved snapshot afterward, preserving unopened loot instead of rerolling it. Replacing an existing snapshot first removes its block entities without emptying their inventories: emptying a jukebox can notify neighbors and pop a flower above it, which the workshop rollback test caught. Hive position changes apply to a copy of the destination snapshot; the original journal retains the source coordinates for exact rollback.
 
 This guide concerns normal native gameplay inside the physical ship. Distant camera/third-person snapshots still have the existing limits on special block-entity visuals and animations; transport support is not a promise of complete remote visual parity.
 
-## Verification and updating the list
+## How this is tested and how to update the list
 
-Native tests exercise **176 portable block variants across 36 block-entity types** with named contents/components, valid written books, jukebox discs, and stored bees, checking exact saved data and no dropped cargo. Additional tests cover loot seeds, stationary/malformed pistons, pending ticks/events, dry/wet states, supported falling blocks, garden membership, and hive flower reference translation. A populated workshop ship is also tested through journal interruption/recovery and a real space/planet round trip. Existing furnace quarantine, pressure, graphics, and multiplayer regressions remain in the suite. Final results are recorded in [local verification](../development/local-verification.md).
+`BlockSupportGameTest` exercises portable block variants across the block-entity types with named contents and components, written books, jukebox discs and stored bees, and checks exact saved data and no dropped cargo. Further cases cover loot seeds, stationary and malformed pistons, pending ticks and events, dry and wet states, supported falling blocks, garden membership and hive flower translation. A populated workshop ship is tested through journal interruption and recovery and a real space and planet round trip. Procedures are in [local verification](../development/local-verification.md).
 
 The complete catalog is generated by the native registry test using the production policy. Refresh with:
 

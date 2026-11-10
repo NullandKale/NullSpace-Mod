@@ -1,6 +1,6 @@
 # Ship block UI reference
 
-Editable reference for the UI refinement. The [fix design](ui-refinement-design.md) explains the shared behavior and implementation order; the audit records the earlier problems. The [player stories](player-stories.md) and [first-ship walkthrough](../player/first-ship-walkthrough.md) explain the player tasks. Verification is recorded separately in UI verification.
+This is the block-by-block reference for every ship, station and computer block: what its screen shows, what each control does, and why. The [UI design](ui-refinement-design.md) explains the shared behavior and the reasons behind it, and the [audit](ui-audit-notes.md) records the problems that led to it. The [player stories](player-stories.md) and [first-ship walkthrough](../player/first-ship-walkthrough.md) explain the player tasks.
 
 The [hardware decisions](ship-systems-redesign.md), [fuel/power design](ship-fuel-and-power-design.md) and [recovery rules](ship-recall.md) provide the underlying system reference.
 
@@ -34,7 +34,7 @@ Captured from the focused GUI pass: [generator fuel slots](../images/ui-generato
 - Core actions stay visible with their known blockers. Movement still runs full server validation; a visible action is not a guarantee that the hull passed preflight.
 - Switches name their scope: Device On/Off or Electricity On/Off. A matched monitor wall shares its setting.
 - Machines keep normal item slots, drag, split and shift-click. A generator's fuel inventory belongs to that actual block; it is not copied around the ship.
-- Generator, Engine, Battery and Scanner have three slots for the same System Upgrade item. Zero modules is stock; three is the highest tier. Hover the slots for current/next benefits. Upgrades never refill fuel or charge.
+- Generator, Engine, Battery and Scanner have three upgrade slots. A block's tier is the number installed, capped by the best grade (System, Advanced, Exotic), so zero is stock (see [fuel and power](ship-fuel-and-power-design.md#upgrades)). Hover the slots for current/next benefits. Upgrades never refill fuel or charge.
 - Ordinary repairs are on the normal screen. Details shows exact numbers; Advanced opens scoped engineering controls.
 - Camera, monitor and dock names remain visible. Other machines use Edit name to reveal the field inline. Save name saves that name only.
 - A picker highlights a candidate without applying it. Set destination waits for the server. A page/filter change cannot silently pick a different target.
@@ -168,7 +168,7 @@ Undocking needs the departing ship's controls, engine power and fuel; the target
 
 ## Station Core
 
-One terminal holds the section map, four room tiles, direct Entrance / Workshop / Bedroom / Power room choices, kit cost and Build room. Selecting a tile/type does not spend kits. Occupied tiles cannot be overwritten.
+One terminal holds the section map, four room tiles, direct piece choices (entrance, workshop, bedroom, power room, tunnels and the garden and observation domes), kit cost and Build room. Selecting a tile/type does not spend kits. Occupied tiles cannot be overwritten.
 
 Build whole station requires an empty station, with the 4- or 28-kit cost visible. Enlarge area reserves 128 x 32 x 128; it does not build rooms. Existing construction remains intact.
 

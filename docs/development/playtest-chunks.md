@@ -13,8 +13,8 @@ This breaks [the recovery, station and ship design](../design/recovery-stations-
 | 4. Store a ship and clear a pad | Physical Ship Title and server-backed storage preserving blocks, cargo and damage | Store a ship, use the cleared pad, then deploy the same ship |
 | 5. Transfer and recover ships | Hand over titles, replace lost titles, recover stranded vessels | Two players can exchange the same vessel without duplication or old-title access |
 | 6. Take over an encounter | Explicit unclaimed/damaged controller states and Claim | Claim an existing derelict without refilling supplies or regenerating it at its old site |
-| 7. A useful ship and station | Moved into [procedural generation step 3](../design/procedural-generation.md#build-order) (November 7) | — |
-| 8. Build a station | Moved into [procedural generation step 4](../design/procedural-generation.md#build-order) (November 7) | — |
+| 7. A useful ship and station | Moved into [procedural generation step 3](../design/procedural-generation.md#status) (November 7) | — |
+| 8. Build a station | Moved into [procedural generation step 4](../design/procedural-generation.md#status) (November 7) | — |
 
 ## Playtest 2 batch (November 6): today's goal
 

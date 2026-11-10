@@ -1,49 +1,47 @@
-# Atmosphere, sunrise/sunset, and clouds
+# Atmosphere and cloud references
 
-Research and recommendation, October 26, 2026. The replacement is now implemented; see the [implementation, approximations and verification record](atmosphere-and-cloud-renderer.md). The proposal below records the research and intended direction. The earlier daytime-star visibility correction was a separate shader fix.
+The planet sky renderer is described in [atmosphere and cloud renderer](atmosphere-and-cloud-renderer.md). This document records the published work it was based on, what was taken from each, what was left out, and why. Read it when changing the model or when evaluating a different technique.
 
-## Recommended references
+## Why a physical model at all
 
-| Work | Publication | Why it matters here |
+The first planetary sky was a blue gradient with an exponential fade and a gray blend for rain. That cannot give a consistent sunset: the sky color, the cloud lighting and the sun disk each follow their own rule, so recoloring one leaves the others wrong. NullSpace has several planets with different atmospheres, and players view them from the ground, from orbit, and through ship monitors. A single scattering model, shared by sky, clouds and distant views, gives all of those the same answer from the same parameters, and makes a different planet a matter of changing numbers.
+
+## The references
+
+| Work | Where | Used for |
 | --- | --- | --- |
-| Sébastien Hillaire, **A Scalable and Production Ready Sky and Atmosphere Rendering Technique** | EGSR 2020 research paper; related SIGGRAPH 2020 course presentation | Recommended atmosphere foundation. Ground-to-space viewpoints, multiple-scattering approximation, economical lookup tables, and dynamic atmosphere composition suit our different planets. [Paper page](https://diglib.eg.org/items/8a3e5350-18b3-46bd-9274-3add5af88c75), [SIGGRAPH course/slides](https://blog.selfshadow.com/publications/s2020-shading-course/), [author's implementation](https://github.com/sebh/UnrealEngineSkyAtmosphere). |
-| Andrew Schneider, **Nubis: Authoring Real-Time Volumetric Cloudscapes with the Decima Engine** | SIGGRAPH 2017 Advances in Real-Time Rendering course | Cloud authoring, weather, Perlin-Worley noise, animation, lighting, and integration with an atmosphere system. A course presentation rather than a peer-reviewed technical paper. [Course and PDF link](https://advances.realtimerendering.com/s2017/index.html). |
-| Andrew Schneider, **Nubis, Evolved: Real-Time Volumetric Clouds for Skies, Environments, and VFX** | SIGGRAPH 2022 Advances in Real-Time Rendering course | Follow-up addressing close clouds, flying through them, fast movement, and temporal artifacts; useful for ship and remote-camera views. [Course and materials](https://advances.realtimerendering.com/s2022/index.html). |
-| Alexander Wilkie and colleagues, **A Fitted Radiance and Attenuation Model for Realistic Atmospheres** | SIGGRAPH 2021 / ACM TOG 40(4), DOI 10.1145/3450626.3459758 | Strong reference for twilight and post-sunset appearance, observer altitude, finite-distance attenuation, and downward views. Use its images/model as an appearance reference; its terrestrial fitted model is a different tradeoff from a configurable planetary scattering solver. [Paper, supplemental images, and source](https://cgg.mff.cuni.cz/publications/skymodel-2021/). |
+| Sébastien Hillaire, **A Scalable and Production Ready Sky and Atmosphere Rendering Technique** | EGSR 2020 paper, SIGGRAPH 2020 course. [Paper](https://diglib.eg.org/items/8a3e5350-18b3-46bd-9274-3add5af88c75), [slides](https://blog.selfshadow.com/publications/s2020-shading-course/), [implementation](https://github.com/sebh/UnrealEngineSkyAtmosphere) | The atmosphere foundation. Its factorization into small lookup tables, a multiple-scattering approximation and a per-view sky table works from the ground to space and with a changeable composition |
+| Andrew Schneider, **Nubis: Authoring Real-Time Volumetric Cloudscapes with the Decima Engine** | SIGGRAPH 2017 Advances in Real-Time Rendering course. [Materials](https://advances.realtimerendering.com/s2017/index.html) | Cloud modeling and lighting: layered density, coverage and type fields, noise, and sunlight attenuation with self-shadowing |
+| Andrew Schneider, **Nubis, Evolved** | SIGGRAPH 2022 Advances in Real-Time Rendering course. [Materials](https://advances.realtimerendering.com/s2022/index.html) | Guidance on close clouds, flying through them and fast motion, relevant to ship and remote cameras |
+| Wilkie and colleagues, **A Fitted Radiance and Attenuation Model for Realistic Atmospheres** | SIGGRAPH 2021, ACM TOG 40(4), DOI 10.1145/3450626.3459758. [Paper and images](https://cgg.mff.cuni.cz/publications/skymodel-2021/) | An appearance reference for twilight and altitude. Not implemented: a fitted terrestrial model is a different tradeoff from a configurable planetary solver |
+| Bruneton and Neyret, **Precomputed Atmospheric Scattering** | EGSR 2008. [Documented implementation](https://ebruneton.github.io/precomputed_atmospheric_scattering/) | A validation reference: its documented implementation provides density profiles, ozone and CPU reference images to compare against |
+| Hillaire, **Physically Based Sky, Atmosphere & Cloud Rendering in Frostbite** | SIGGRAPH 2016 course. [Notes](https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf) | How a sky, clouds and celestial bodies share one system |
 
-Two additional references are useful:
+The adaptation to Minecraft (compressed units, quantized cloud cells, flat terrain under a spherical sky) is this project's own. The papers do not prescribe it.
 
-- **Physically Based Sky, Atmosphere & Cloud Rendering in Frostbite**, Hillaire, SIGGRAPH 2016 course. Read for the combined sky/cloud/celestial system. The author's [publication page](https://sebh.github.io/publications/) identifies the talk and links materials; the old EA article URL currently returns 404. The [EA-hosted course notes PDF](https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf) is a large download.
-- **Precomputed Atmospheric Scattering**, Bruneton and Neyret, EGSR 2008. Useful comparison and validation reference. The author's [documented implementation](https://ebruneton.github.io/precomputed_atmospheric_scattering/) supplies GLSL/OpenGL code, configurable density profiles, ozone, tests, and CPU reference images. Its publication venue is EGSR, not SIGGRAPH.
+## What was adopted, and what was left out
 
-The recommendation is **Hillaire for atmosphere, Nubis for clouds, and Wilkie/Bruneton for reference comparisons**. The implementation choices below are our proposed adaptation, not claims that the papers prescribe our Minecraft integration.
+Adopted: Hillaire's lookup-table structure and sky view; Nubis-style bounded layers with coverage fields and lighting; Bruneton's approach as a numerical check (the GPU transmittance table is compared against an independent double-precision integral).
 
-## What the current renderer actually does
+Left out on purpose:
 
-`space.glsl` currently uses a small blue/horizon gradient and exponential transmission in `surfaceAtmosphere`, then blends toward a gray sky during rain. It does not evaluate a complete atmospheric scattering model. `PlanetSkyMixin` suppresses vanilla sky rendering when the custom planetary viewport is ready, while vanilla clouds remain separately rendered.
+- **Spectral integration, refraction and polarization.** RGB with isotropic multiple scattering is adequate for the look, and spectral work would cost frame time on every viewport.
+- **Wilkie's fitted model.** It targets Earth. The game needs different planets.
+- **Full multi-star scattering and overlapping atmospheres.** One dominant atmosphere per view keeps the lookup tables small and shareable.
+- **Cloud shadows on terrain.** Minecraft's lighting is separate and tied to its own light engine.
+- **Replacing weather.** Minecraft's rain and thunder state drives cloud coverage and thickness, but timers and precipitation stay vanilla.
 
-This split cannot provide a consistent sunset across atmospheric color, cloud illumination, and the sun disk. Recoloring the sky alone leaves clouds with a different lighting model. My recommendation is to replace cloud rendering wherever our custom planetary atmosphere is active, while retaining Minecraft's weather state and precipitation initially.
+The nebula volume integration that already existed was not reused for clouds. Its distance and sample assumptions differ from a planetary shell. Nebulae and clouds share math and resources where that is natural but keep their own sampling and bounds.
 
-The star visibility fix fades the procedural starfield across twilight in atmospheric surface views. Space and airless moons retain stars regardless of solar elevation. This is an interim appearance correction; it does not turn the existing haze into a physical atmosphere model.
+## Acceptance criteria that shaped the tests
 
-The immediate fix passed all 14 graphical entrypoints, including numerical GPU checks for daylight suppression, gradual twilight fading, visible night stars, and unchanged starfields in airless views. Assembly and the pinned formatter check pass. Verification receipt; retained evidence: `build/verification/daytime-stars-20261026-2130`.
+These were written before the renderer and are still the questions to ask of a change:
 
-## Proposed replacement
+- Stars vanish in bright atmospheric daylight, emerge smoothly at twilight, and remain in space.
+- Clouds track the sun's lighting and occlusion, and an opaque cloud hides the sun.
+- Sunrise and sunset vary continuously, with no jump at the horizon crossing.
+- Moving cameras show no jitter, trails, or history from another viewport.
+- The result holds through native terrain, glass and ship monitors, and not only in an isolated sky fixture.
+- It holds from the ground, above the clouds and outside the atmosphere, in clear, overcast and storm weather, on Terra, an airless moon and a planet with different scattering.
 
-1. **Planet atmosphere definition.** Use the existing celestial identity/frame and add atmosphere radius, density profiles, Rayleigh/Mie scattering, absorption, ground albedo, and stellar illumination parameters. Use explicit units and planet-local height; do not treat the flat terrain dimension as an infinite atmosphere or confuse its block coordinates with the spherical celestial frame.
-2. **Atmosphere lookup passes.** Add transmittance and multiple-scattering lookup tables, a per-view sky lookup, and finite-distance aerial perspective using Hillaire's approach. Share planet-dependent data across views and regenerate only what the atmosphere, sun, or camera change requires. Validate low-sun behavior and the planet's shadow, including the period after the sun passes below the horizon.
-3. **Cloud volume pass.** Replace native clouds only once the custom cloud pass is ready. Begin with bounded altitude layers, world-anchored coverage/type fields, wind, and density noise. Borrow Nubis's modeling and lighting ideas; art-direct larger or voxel-shaped formations to keep the selected Minecraft style. Cloud shape stylization should preserve coherent sunlight attenuation and shadowing.
-4. **Shared illumination and composition.** Clouds sample the same atmosphere's sunlight and ambient sky. Cloud transmission obscures stars and the sun; clouds can self-shadow and receive low-angle reddened light. Handle view ordering above, below, and inside cloud layers. Composite our atmosphere/cloud radiance in linear HDR before its display conversion. Match native terrain fog/light carefully and avoid applying atmospheric extinction twice.
-5. **Weather and every camera.** Minecraft's rain/thunder state drives coverage and weather transitions instead of only a gray overlay. The main view, monitors, third-person ship views, and surface/space views use consistent definitions and time. A remote viewport needs its own camera-dependent lookup/history; it must not reuse the main camera's altitude or orientation accidentally. Airless worlds have no atmospheric clouds.
-
-Existing compute dispatch, depth integration, view ownership, and resource reload infrastructure can be reused. The current bounded nebula-volume integration is not a complete planetary cloud renderer; do not force planetary clouds into its distance/sample assumptions without reviewing them. Nebulae and clouds may share math/resources while retaining appropriate sampling and bounds.
-
-Star visibility in the full replacement should follow atmospheric transmission, sky radiance, and display exposure together. Keep the interim daylight fade until reference captures show that the new radiometric/exposure path produces the intended visibility. Preserve the distinction between standing in an atmosphere and viewing that planet from an airless ship location.
-
-## Captures and acceptance checks
-
-Use fixed cameras and sun elevations for clear noon, low sun, horizon crossing, early twilight, late twilight, and midnight. Capture each from ground, above clouds, and outside the atmosphere, with clear/overcast/storm variants. Include Terra, an airless moon, and a planet with different scattering parameters.
-
-Check that stars disappear in bright atmospheric daylight, emerge smoothly at twilight, and remain in space; clouds track solar lighting and occlusion; the sun does not leak through opaque clouds; sunrise/sunset vary continuously; and moving cameras do not produce jitter, trails, or history from another viewport. Render through native terrain, glass, and ship monitors as well as the isolated sky fixture.
-
-Numerical transport tests and reference images should accompany captures. Performance budgets need measured GPU timings for atmosphere updates, cloud integration, reconstruction, and multiple simultaneous viewports on the actual target GPU. Published timings from other games are not a performance guarantee for our mod.
+Published timings from other engines are not a performance guarantee here. Budgets must be measured on the actual GPU for atmosphere updates, cloud integration and several simultaneous viewports.

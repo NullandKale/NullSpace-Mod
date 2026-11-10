@@ -1,60 +1,82 @@
 # Ship rooms and resources
 
-Rooms should help the player decide where to go and what to look for. A ship needs recognizable places to live and work, with different sizes, furniture and walking routes. Finding a useful room should help with the next expedition.
+Rooms should tell the player where to go and what to look for. A ship needs recognizable places to live and work, with different sizes, furniture and walking routes, and finding a useful room should help the next expedition. This document explains how rooms define a ship's interior, and how the same rooms decide what a derelict contains. The layout rules are in [the ship generator](ship-generator.md); the code is `worldgen/blueprint/ShipRooms`, `worldgen/shipgen/RoomUse`, and `worldgen/encounters` (`EncounterSites.stock`, `SiteLoot`, `SitePoints`) with the loot tables under `data/nullspace/loot_table/site/`.
 
-## Implemented manufacturer interiors
+## Rooms are the unit of a ship
 
-This pass updates the nine manufacturer ships. The six original starter designs retain their existing layouts.
+Every ship in the catalog is generated from a recipe and is made of rooms, each with one purpose (bridge, engineering, cargo hold, galley and so on, listed in `RoomUse`). A room holds everything its task needs and nothing from another task. That is deliberate: a player who walks into a room should be able to tell what it is for and what is in it, and the game can say the same thing to its own systems.
 
-| Ship type | Interior |
+Each design has a list of room *landmarks*: a name, a use, a standing spot inside the room (`walk`) and the container that holds its supplies, if any (`supplies`). A generated ship reports these from its own layout, and a hand-edited design lists them in `catalog/ships.json`. Landmarks serve two systems:
+
+- **Walking checks.** Tests use the standing spot to confirm a real walking route from the dock to every room.
+- **Supplies.** The container position is where a derelict's loot goes.
+
+Beds, workstations and furniture are ordinary Minecraft blocks. Specialty rooms add no passive bonuses: a sickbay does not heal and a lab does not research. Beds in the space dimension do not set spawn or let the player sleep. They remain recognizable bunks and recoverable furniture.
+
+## Which rooms a ship gets
+
+The role chooses the wish list, and the seed varies the rest.
+
+| Role | Tends to have |
 | --- | --- |
-| Rivet Ranger | Bridge, workshop, engineering, crew berth, galley and a reclamation bay with a smithing table and blast furnace. |
-| Halcyon Horizon | Observation bridge, workshop, engineering, private crew cabin, galley and a survey lab with cartography table, books and lectern. |
-| Bastion Pioneer | Command, workshop, engineering, crew quarters, galley and a sickbay with a bed and wash basin. |
-| Rivet Hauler | Bridge, cargo hold, engineering, crew mess and a repair shop. |
-| Halcyon Courier | Bridge, cargo hold, engineering, galley and a courier cabin. |
-| Bastion Tender | Bridge, cargo hold, engineering, provisions room and a maintenance bay. |
-| Bolt, Swift and Ward scouts | Retain their small bridge and shared rear compartment. Add recognizable work, food, fuel and sleeping nooks rather than squeezing in extra corridors. |
+| Scout | Bridge, bunks, a store and engineering, in a small hull |
+| Freighter | Bridge, a cargo hold, engineering and crew space, with cargo holds filling the lower deck |
+| Explorer | Workshops, labs, a lounge, hydroponics, bunks and a viewing room, over several decks |
 
-Explorer living rooms open onto a side aisle beside the stairwell. Their bridge entrance joins that aisle. Freighter side rooms flank a three-block cargo route; twenty cargo barrels remain accessible. Working doors, floor support, hull connections, air supplies and the existing stairway are part of the layout checks.
+Maker (Rivet Works, Halcyon Aerospace, Bastion Shipbuilding) changes materials and accents, not the room rules. The shipyard descriptions name the interiors, so a buyer can choose by what is inside and not only by the hull.
 
-Beds, workstations and furniture are ordinary Minecraft blocks. The specialty rooms do not add passive research, healing or other new ship bonuses. Beds in the space dimension do not set spawn or sleep; they remain recognizable bunks and recoverable furniture.
+## Searching a derelict
 
-## Search by room
+A derelict from an [encounter](ftl-journeys.md) or [orbital population](space-world-generation.md) is a real catalog ship with its controller replaced by a station core. Its supplies are stored in **real containers placed in the rooms**, and each room's contents follow what that room is:
 
-Encounter supplies now use explicit room containers, replacing the old first-container reward pile. Their inventory titles identify the supplies.
-
-| Place to search | Freighter encounter | Scout salvage encounter |
+| Room | Loot table | Typical contents |
 | --- | --- | --- |
-| Engineering | 32 coal in a fuel locker. | 8 coal in a fuel locker. |
-| Galley or provisions | 6 bread and 2–5 carrots. | 3 bread and 2–5 carrots. |
-| Workshop or survey bench | 12 iron and an iron pickaxe. | 2 System Upgrades, 16 iron and 12 redstone. |
-| Cargo | 8–16 copper and 4–8 glass. On the Courier, cargo also carries the repair supplies because it has a crew cabin in place of a workshop. | Equipment and hull blocks can still be salvaged. |
-| Courier cabin | 3 white wool and 4–8 paper. | — |
+| Engineering | `engineering` | Coal, charcoal, redstone, circuit boards, machine casings |
+| Galley | `galley` | Bread, carrots, potatoes, apples, cooked beef |
+| Workshop or lab | `workshop` | Iron, redstone, circuit boards, air canisters, System Upgrades |
+| Cargo | `cargo` | Coal, charcoal, copper, iron, glass, string, paper |
+| Crew quarters and other rooms | `crew` | Paper, wool, books, leather, a compass, a clock |
+| Growing station | `garden` | Bread, seeds, bone meal, coal |
 
-Amounts within a range come from the saved encounter seed. Returning to the same site does not reroll or restock anything. Supplies are actual items: carry them home, feed coal into the generator, plant the carrots, or use the components to improve the ship. Normal delivered ships receive their normal starting provisions rather than encounter reward inventories.
+One container in each site is its **treasure**. It is the cargo hold's container if there is one, otherwise the workshop's or lab's, otherwise any supply room. Treasure scales with the zone's [danger](star-systems.md#danger):
 
-An older site saved during construction retains its saved hull plan. If it lacks the new room lockers, its original reward goes into an existing container once. It is not rebuilt into the new layout.
+| Danger | Treasure table | Adds to the everyday supplies |
+| --- | --- | --- |
+| 0 | `treasure_0` | Nothing special: a few extra materials |
+| 1 | `treasure_1` | Books, golden apples, diamonds, shulker shells, System Upgrades, some armor trim templates |
+| 2 | `treasure_2` | More trim templates and amethyst |
+| 3 | `treasure_3` | Echo shards, totems, netherite upgrade templates, enchanted golden apples, music discs, netherite scrap |
+| Pulsar or black hole | `treasure_singularity` | The danger 3 set, plus elytra and a nether star |
 
-The growing station retains its real wheat farm and gardening supplies. Encounter roles and route identities remain stable; this pass makes the existing ships more useful to explore.
+These are ordinary Minecraft loot tables, which means a pack author can change the contents without touching code.
 
-## Player story to test
+**Loot rolls when a player first opens the container**, using the container's saved seed, so a site is stable between visits: returning does not reroll or restock anything, and emptied lockers stay empty. Each container has a title naming its room ("Engineering supplies"). The stock happens only during the site's inaccessible initial construction, and before its ready marker is saved. Nobody can open a half-built site, and a restart cannot stock it twice.
 
-1. I notice that my generator is running low.
-2. I investigate a freighter signal, dock and enter through the normal door.
-3. I use my pickaxe to clear the blocked cargo entrance.
+Supplies are real items to carry home: feed coal to the generator, plant the carrots, or install the upgrades. Normal delivered ships get ordinary starting provisions instead, never encounter loot.
+
+Sites built from kit pieces (see [generation infrastructure](generation-infrastructure.md)) mark their containers with named `loot` points. `SitePoints` saves these with the site, and the first container gets the treasure while the others take the table named in their point.
+
+## The freighter's blocked door
+
+The abandoned freighter's interior cargo doorway is blocked with two cobblestone blocks, while its docking entrance works. Clearing it takes an ordinary pickaxe. The point is a small, physical bit of effort between the player and the reward, with no puzzle or key.
+
+## Player story the design aims at
+
+1. I notice my generator is running low.
+2. I investigate a freighter signal, dock and walk in through the normal door.
+3. I use a pickaxe to open the blocked cargo doorway.
 4. I find fuel beside the generators, then check the galley and workroom for food and parts.
-5. I carry my finds home, load the coal and store the other supplies in the appropriate places.
-6. I return later and find the same ship with my changes and empty lockers still present.
+5. I carry the finds home, load the coal and put the rest where it belongs.
+6. I return later and find the same ship with my changes and empty lockers still there.
 
-The guide's **Already on a ship** chapter teaches the room-search rule. Ship selection descriptions now name the interiors rather than only describing the exterior hull.
+The field guide's **Already on a ship** chapter teaches the room-search rule.
 
 ## Existing worlds
 
-Restart `scripts/run/dev.ps1`, or update the server and clients. Newly delivered ships and newly constructed encounter sites use these interiors. Existing ships and visited sites keep their builds, inventories and player edits. Use a fresh delivery or an unvisited route to review the new layouts; a world reset is unnecessary.
-
-## Verification
-
-The verification receipt records a passing full suite of 526 unit tests, 177 mod server tests plus one native smoke test, and 24 graphical entrypoints. Follow-up checks cover the final older-plan supply fallback and corridor lighting, including another actual stair ascent/descent. The final source fingerprint matched the focused graphical run. Disposable test worlds were removed.
+Newly delivered ships and newly constructed sites use the current interiors. Ships and sites that already exist keep their blocks, inventories and player edits. A site saved while still under construction keeps its saved hull plan and is not rebuilt into a new layout.
 
 ![Upper corridor between explorer rooms](../images/ship-rooms-upper-corridor.png)
+
+## Where this is tested
+
+`RoomKitTest` (unit) runs the walking, light and one-task rules on every room kit and writes breaks to `build/room-kit-audit.txt`. `JourneyGameTest` and the station tests check that stocked containers are reachable and that a site is not stocked twice.

@@ -1,47 +1,60 @@
-# Pad discovery, build previews, and hatches
+# Landing pads, previews and hatches
 
-Implemented October 25, 2026. This extends the [ship plan](../history/ship-and-space-plan.md) and [systems plan](ship-systems-and-viewports.md).
+A ship on a planet's surface stands on a **landing pad**: a registered, player-built area that the game can find, measure and reserve. This document explains how a pad is defined and discovered, how the Pad Computer shows which blocks would travel, and how doors and trapdoor hatches take part in sealing a hull. The code is `gameplay/pads` (`PadScanner`, `PadRegistry`, `PadComputers`, `PadStatus`, `BuildPreviews`) and `gameplay/ship/structure` (`ShipDoors`, `CabinPaths`).
 
-## Pad computers
+The surrounding systems are described in [ship systems](ship-systems-and-viewports.md) and [ship block support](ship-block-support.md).
 
-Place the computer **on top of any cobblestone ring block**, including a corner. Its facing only controls the screen direction. You can stand outside the pad when placing it. The scanner checks grass or dirt beside the supporting ring, validates the full rectangle, and requires an interior no larger than 32 x 32. It scans the layer directly beneath the computer; it cannot fall through to a lower pad. A computer touching two valid pads asks you to move it to an unambiguous outer edge.
+## What a pad is
 
-Pads at different heights may share a footprint. A ship belongs to the nearest registered floor below its ship controller, rather than the first registration in the file. Prelaunch ownership and preview allocations end below the next registered overlapping pad. Adding a higher pad updates existing lower allocations. **Vertical launch and landing still require a clear column to the sky**: a stacked pad overhead is an obstruction, not an elevator or permission to fly through it. Same-height rings still cannot overlap.
+A pad is a rectangle of grass or dirt, between 1×1 and 32×32, enclosed by a one-block ring of cobblestone at the same height. The ring and floor are deliberately cheap and ordinary: anyone can build one with a pickaxe and a few stacks.
+
+The size cap and the ring define the pad's **allocation**. A ship launched from the pad is captured within the pad's footprint and up to 32 blocks above it. Everything in that column that is connected to the ship controller travels. Terrain beside the pad never does. Pads that stack at different heights can share a footprint, and a lower pad's allocation ends below the next registered pad above it (`PadRegistry.buildHeight`). Vertical launch still needs a clear column to the sky, so a stacked pad overhead is an obstruction and not an elevator.
+
+## Placing the Pad Computer
+
+The player places the **Pad Computer** on top of a cobblestone ring block. A corner works. Its facing only decides which way the screen faces. `PadScanner` then validates:
+
+1. The computer must stand on a ring block (the scanner reads only the layer directly beneath it, so it can never fall through to a lower pad).
+2. From each neighbouring grass or dirt block it walks outward in four directions up to 32 blocks to find the ring, then checks the whole rectangle: every ring block is cobblestone, every interior block is grass or dirt.
+3. If it touches two valid pads, it asks the player to move it to an unambiguous outer edge.
+4. If any cell is unloaded, it asks the player to wait. It never loads terrain on its own, and distinguishes "still loading" from "invalid".
+
+Failures name the exact block and coordinates ("Fill this hole with grass or dirt", "Repair the cobblestone ring here"). Pads on the same height may not overlap (rings included), and a computer may be placed from outside the pad.
+
+A ship belongs to the nearest registered pad below its controller (`PadRegistry.below`), never to the first one in the file. When a pad is added or removed, existing ships' allocations are resized and rebased (`reconcileHeights`), unless a transfer is currently moving them.
+
+## Knowing whether a pad is free
+
+Other pads appear in landing and recall menus with a status: ready, occupied, unavailable or unknown. Listing must never be expensive or force-load remote chunks, so `PadStatus` inspects pads incrementally. It has a global budget of 2,048 block reads per tick, caches each result for two seconds, and clears the cache whenever the pad registry changes. A pad whose chunks are not loaded is reported as *unknown*, which is different from a pad that was inspected and found unusable.
 
 ## Previews
 
-Open the pad computer and select **Pad preview** or **Ship preview** with arrows and Enter, or click the action. Select again to turn that mode off. Both modes can be active together, including before registration. Close the terminal to inspect the highlights.
+Opening the Pad Computer offers **Pad preview** and **Ship preview**, toggled with arrows and Enter or by click. Both can be on at once, including before the pad is registered. Closing the terminal leaves them on so the player can look around.
 
-- Cyan highlights show the pad interior and cobblestone ring.
-- Amber outlines show blocks connected to a ship controller or ship computer within the pad's build allocation. Disconnected blocks are excluded. Invalid machinery remains visible for repair; a preview is not travel approval. Multiple ship controllers are shown if present, while launch still requires exactly one.
-- Highlights remain visible through the hull and fade over approximately 30 seconds. Geometry refreshes after block edits, at most twice per second, without restarting the fade. Each mode requires another explicit activation after expiration.
-- Previews belong to the requesting player. Closing the terminal leaves them on; disconnecting, dying, changing dimensions, removing the computer, invalidating the pad, or moving more than 160 blocks away clears them.
+- **Cyan** highlights the pad interior and its cobblestone ring.
+- **Amber** outlines the blocks connected to a ship controller or ship computer in the pad's allocation. Disconnected blocks are excluded. Invalid machinery stays visible so it can be repaired. A preview is *not* approval to travel, and several controllers can be shown even though a launch needs exactly one.
+- The highlights show through the hull and fade over 30 seconds (600 ticks). Geometry refreshes after edits at most twice a second without restarting the fade. After expiry each mode needs to be turned on again.
+- They belong to the requesting player. They end on disconnect, death, a dimension change, removing the computer, invalidating the pad, or moving more than 160 blocks away.
 
-The server supplies bounded block positions through a typed, session-authorized payload. Clients use Minecraft's native batched gizmos, with no extra framebuffer or terrain simulation. Ordinary background ticks do no block scans when previews are inactive. Geometry is limited to the existing maximum 32-cube ship allocation. Surface filtering avoids drawing completely enclosed ship blocks.
+The server sends a bounded list of block positions in a typed, session-authorized payload (at most the 32³ allocation, and fully enclosed blocks are filtered out). Clients draw it with Minecraft's batched gizmos, so no extra framebuffer or terrain simulation is needed. With no preview active, no block scans run.
 
 ![Cyan pad and amber connected ship previews](../images/pad-and-ship-preview.png)
 
 ## Doors and trapdoor hatches
 
-Wooden and iron trapdoors participate in pressure sealing, ship discovery, stable door device IDs, engineering groups, individual operations, and open/close-all batches. A closed, dry trapdoor seals a **floor or ceiling opening with a full solid block on each of its four horizontal sides**. Top- and bottom-half placements are supported. An open or unframed hatch leaks. Pressure rebuilding and finite room air use the actual block state, so opening a hatch into vacuum vents the connected compartment.
+Wooden and iron trapdoors count as doors for pressure sealing, ship discovery, stable door device ids, engineering groups, single operations, and open/close-all.
 
-A high roof hatch needs a usable ladder route; putting an unreachable hatch in a ceiling does not satisfy the exit requirement. Player clearance, half-block steps, stairs, and ladder segments are checked together. A floor hatch may serve as a downward exit. Native redstone keeps working, and a powered remote close operation cannot override an active redstone signal. Framed normal doors retain their existing behavior.
+- A closed, dry trapdoor seals a **floor or ceiling opening that has a full solid block on each of its four horizontal sides**, in either half. An open or unframed hatch leaks. (Leaves are not a seal.) Opening a hatch into vacuum vents the compartment connected to it, because room air uses the real block state.
+- A trapdoor used as an upright decorative panel does not seal. That is deliberate: panels may travel with the ship, but they are not walls.
+- A hatch only counts as an exit if there is a usable route to it (`CabinPaths`). The route search is player-sized: it checks clearance, half-block steps, stairs, and ladders between decks, so an unreachable ceiling hatch does not satisfy the "usable exit" requirement. A floor hatch can be a downward exit.
+- Native redstone keeps working, and a remote close cannot override an active redstone signal. Framed normal doors behave as before.
 
-Trapdoors used as decorative upright panels do not become airtight walls. The initial hatch model deliberately requires the four-sided floor/ceiling frame.
+## What travels, and what it says when it cannot
 
-## Cargo and diagnostics
+Block entities that carry state are captured in the journal and restored on arrival: chests, barrels, shulker boxes, signs, furnaces, blast furnaces and smokers (with inventory, fuel and cooking progress), and the rest of `BlockSupport.PORTABLE_ENTITIES`. See [ship block support](ship-block-support.md) for the full set. While a ship is arriving, edits to its blocks are quarantined (`TransitBlocksMixin`), including explosions from outside, and live block-entity ticks pause. A slow client therefore cannot make a furnace burn fuel or cook past a snapshot.
 
-Furnaces, blast furnaces, and smokers now travel with inventory, fuel, and cooking state, alongside the previously supported chest, barrel, shulker box, and sign block entities. Live block-entity ticks pause during transfer arrival quarantine and resume afterward; a client taking longer to load must not consume extra furnace fuel or cook through a snapshot boundary.
+Anything not supported is refused before the move starts. The message names the block, its block-entity type and its location, and says what to remove or repair. An unsupported passenger gets its entity type and a remedy. A validation failure keeps its highlight in the world, and an unexpected internal exception is logged and shown as a readable retry message, not Java text.
 
-Unsupported machines remain blocked by preflight. The error names the block, gives its block-entity registry type, identifies the location, and tells the player what to remove or repair. Unsupported passengers likewise report their entity type and a specific remedy. Validation failures keep their world highlight; unexpected internal exceptions are logged and show a readable retry message rather than Java exception text.
+## Where this is tested
 
-**World 5 was inspected read-only.** Its saved ship has a furnace at **883, 66, -76** (`minecraft:furnace`), which explains the former generic unsupported-block-entity error. Two nearby chests were already supported. No unsupported passenger was found in the saved pad entity chunks. No player save was opened in Minecraft or modified for this inspection. This identifies the old rejection; it does not certify that every other launch requirement in that save is satisfied.
-
-## Verification
-
-New regression coverage includes all ring edges/corners and controller facings, exact-layer scanning, ambiguous rings, stacked ownership, upper allocation boundaries, independent preview toggles, invalid-machine previews, friendly type-specific errors, wooden/iron hatch sealing, missing frames, ladder-only exits, stable hatch group IDs, redstone override, and all three furnace types. The existing interruption/round-trip test now also checks furnace inventory and cooking NBT after rollback at every pre-commit transfer stage, after launch, and after landing.
-
-The graphical scenario places the computer from outside in Survival, drives both preview actions through the actual terminal and network protocol, checks rendered highlight pixels, edits connected hull geometry, checks fade preservation and expiration, and transfers running furnaces through an arrival held by a second passenger. The loopback two-client scenario additionally checks that one player's highlights and terminal actions never leak to the other client. Final run results are recorded in [local verification](../development/local-verification.md).
-
-
-Later on October 25, [expanded block support](ship-block-support.md) enabled the broader workshop and decorative set, garden soil in the ship/preview mask, and unframed decorative trapdoors. That guide and the generated catalog supersede the earlier limited cargo whitelist and decorative-panel restriction in this record.
+`PadScannerTest` covers every ring edge and corner, exact-layer scanning and ambiguity. Native tests cover stacked pads and allocation boundaries, preview toggles, invalid machines, hatch sealing, missing frames, ladder-only exits, redstone override, and furnaces surviving rollback at every pre-commit stage. The graphical suite places the computer from outside in Survival, drives both previews through the real terminal, checks highlight pixels, edits geometry, and checks fade and expiry. The two-client test checks that one player's highlights and actions never reach the other client.

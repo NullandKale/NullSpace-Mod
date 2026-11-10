@@ -2,7 +2,7 @@
 
 Shipyard ships are generated, not hand built. A **spec** (maker, shape, tier, role, seed) always builds the same ship, so a catalog entry is a short recipe and a derelict or encounter can ask for a random one. The code is in `worldgen/shipgen`.
 
-**Status (November 8):** the nine shipyard designs are generated and replace the old fifteen. The rules below are enforced by tests on every combination of shape, tier and role. Stations are not on the generator yet (see [Not yet](#not-yet)).
+The nine shipyard designs are generated. The rules below are enforced by tests on every combination of shape, tier and role. Stations use the same machinery (see [Stations](#stations)).
 
 ## What a spec chooses
 
@@ -116,7 +116,6 @@ The docking door sits two blocks above the ground, because the hull has a floor 
 
 ## Not yet
 
-- **Stations** still use hand-built tiles.
 - **Armed ships.** No design has a weapon yet.
 - **Exterior variety.** Hulls are bevelled with engine pods and a stripe; swept wings, fins and landing gear would make the silhouettes more distinct.
 - **Mirrored room variety.** Side rooms are exact mirror pairs, so a pair always has the same use.

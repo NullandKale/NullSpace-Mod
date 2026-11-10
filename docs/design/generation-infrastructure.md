@@ -1,143 +1,86 @@
-# Generation infrastructure for steps 3 and 4
+# Generation infrastructure: pieces, kits, assembly and condition
 
-The code that [procedural generation](procedural-generation.md) steps 3 (shipyard exteriors) and 4 (orbit sites, station building) need before any content is drafted.
+NullSpace has two ways to make a build: **generate** it from rules (ships and station tiles, see [the ship generator](ship-generator.md)), or **assemble** it from hand-made pieces. This document describes the second path: the code that reads authored pieces, joins them into a whole build, and wears the result down for a dangerous place. It is the foundation for content authors, and the way to override a generated design by hand. The code is in `worldgen/piece` and `worldgen/condition`, with the authoring commands in `dev/Authoring`. The commands themselves are in [authoring](../development/authoring.md).
 
-**Status (November 8):** G1 to G5 are built. Station rooms come from templates, identical block for block to the Java builders they replaced. The shipyard designs have since moved on from templates to a [ship generator](ship-generator.md), which replaced the fifteen hand-built ships with nine generated ones; the template path remains as an override. How to author pieces, kits and archetypes is in [authoring](../development/authoring.md).
+## What exists, and what does not
 
-## Where we are
+| Part | State |
+| --- | --- |
+| Template codec | Built and used: reads and writes vanilla structure NBT |
+| Piece library | Built and used: loads pieces, and a saved ship template overrides a generated ship |
+| Markers (connectors and points) | Built |
+| Assembler, kits, archetypes | Built and reachable from the authoring commands. **No kit or archetype content has been written yet.** `data/nullspace/kit/`, `archetype/` and `structure/` are empty |
+| Condition pass | Built and reachable from authoring. Not yet applied to a generated derelict |
 
-- The shipyard designs, station rooms, derelicts and encounter pods are all built by Java code (`ShipBlueprints`, `ManufacturerShips`, `ManufacturerRoleShips`, `ShipRooms`, `StationBlueprint`, `EncounterSites`).
-- `/nullspace author save|load|gallery` already saves pad builds as vanilla structure templates, but nothing reads a template back for gameplay. There is no `data/nullspace/structure/` folder yet.
-- Everything downstream takes a block map: `Map<BlockPos, BlockState>` in local coordinates, settled by `BlueprintOrientation`, wrapped in `StationBlueprint.Plan(blocks, core, docks)`.
-- Fixed coordinates leak out: a design's helm, `ShipRooms` landmarks, station tiles of 16 x 16 with doorways at fixed edge midpoints.
-- The shipyard screen builds ship previews **on the client**, so templates must load without a server.
+Today's shipyard ships and station tiles come from the generator, which replaced an earlier plan to convert hand-built Java ships into templates. The template path stayed as an override: a design saved with `author save ship <id>` replaces the generated ship under that id, and deleting the file returns to the generated one. Derelicts still take their shape from catalog ships, with loot and threats from [site loot](ship-rooms-and-resources.md) and [site threats](ftl-journeys.md#danger). The next content step is for a derelict archetype to replace that, using marked spots instead of guessed coordinates.
 
-## What gets built
+## Template codec
 
-Five pieces of code, all under `worldgen`, plus tests and authoring commands.
+Vanilla's `StructureTemplate` needs a running server and cannot be built from a block map. `TemplateCodec` reads and writes the same NBT format directly (palette, blocks, block entities), and works wherever `Bootstrap` has run: the client (the shipyard screen draws ship previews with no server), the server, and unit tests. Templates stay editable with vanilla structure blocks.
 
-| Piece | Package | Does |
+## Pieces and markers
+
+A **piece** is a template together with what its markers say. Authors place two kinds of vanilla block as markers, and they are removed when the piece is loaded:
+
+| Marker | Block | Meaning |
 | --- | --- | --- |
-| **Template codec** | `worldgen/piece` | Reads and writes vanilla structure NBT directly (palette, blocks, block entities). Works on client, server and in unit tests. |
-| **Piece library** | `worldgen/piece` | Loads `nullspace:<kind>/<name>` from the mod's resources (or the authoring folder in a dev run), turns markers into connectors and points, and rotates pieces. |
-| **Design catalog** | `worldgen/design` | Shipyard designs as data: one JSON per design naming its template, manufacturer, role and description. Replaces the hard-coded `Preset` list. |
-| **Assembler** | `worldgen/piece` | Joins kit pieces at matching connectors into a whole ship or station, deterministic per seed, bounded, never overlapping. |
-| **Condition pass** | `worldgen/condition` | Damages an assembled build by danger level: breaches, scorching, dead lights, missing sections. |
-
-### Template codec
-
-Vanilla's `StructureTemplate` needs a server (`StructureTemplateManager`) and has no way to build a template from a block map. The codec reads and writes the same NBT format itself, using `NbtUtils` for block states. Templates stay editable with vanilla structure blocks, and the codec works anywhere `Bootstrap` has run.
-
-### Piece library and markers
-
-A **piece** is a template plus what its markers say. Markers are vanilla blocks the author places, and they are removed when the piece is loaded:
-
-| Marker | Vanilla block | Meaning |
-| --- | --- | --- |
-| **Connector** | Jigsaw block | Facing is the jigsaw's orientation. As with vanilla jigsaws, its *name* is its type and its *target* the type it accepts; an empty target accepts its own type (`spine`), while a pair such as `hull_side` and `wing_root` keeps hulls from joining side by side. Its *final state* is the block it becomes (default air, an opening). Ends left open are closed by cap pieces. |
-| **Point** | Structure block, DATA mode | Its metadata names the spot: `loot:<table>`, `mob:<kind>`, `core`, `light`, `breach_ok`. |
+| **Connector** | Jigsaw | Faces out of the piece. As in vanilla its *name* is its type and its *target* is the type it accepts, with an empty target meaning its own type (a symmetric joint such as a spine). A pair such as `hull_side` and `wing_root` keeps hulls from joining side by side. Its *final state* is the block left there, air by default. A connector only aligns pieces, and an end left open is closed by a cap piece |
+| **Point** | Structure block in DATA mode | Names a spot by its metadata: `loot:<table>`, `mob:<kind>`, `core`, `light`, `breach_ok` |
 
 Pieces rotate in quarter turns, turning block states and markers with them. Mirroring is left out until a kit needs it.
 
-The library looks in the authoring folder of a development run (`-Dnullspace.authoringDir`) first, then in templates saved in the running world, then in the copy bundled in the JAR, so a piece saved in game is used straight away without a rebuild.
+`PieceLibrary` looks for a piece in the authoring folder of a development run (`-Dnullspace.authoringDir`), then in templates saved in the running world, then in the copy bundled in the JAR, so a piece saved in game is used at once without a rebuild.
 
-### Design catalog (step 3)
+## Kits and archetypes
 
-`data/nullspace/design/<id>.json`:
+A **kit** (`data/nullspace/kit/<id>.json`) is one manufacturer's piece set. It lists pieces, each with a template, a role (nose, hull, engine, wing, room or cap) and a weight, plus the kit's materials and accent colour.
+
+An **archetype** (`data/nullspace/archetype/<id>.json`) says what to build from a kit:
 
 ```json
-{ "name": "Rivet Hauler", "manufacturer": "Rivet Works", "role": "Freighter",
-  "description": "Cargo racks, crew mess and a dedicated repair shop.",
-  "template": "nullspace:ship/rivet_hauler", "color": "orange", "armed": false, "cargo": true,
-  "rooms": [ { "name": "Hold", "use": "cargo", "walk": [12, 1, 18], "supplies": [12, 1, 20] } ] }
+{ "kind": "ship", "start": "nose",
+  "roles": [ { "role": "hull", "min": 1, "max": 3 }, { "role": "engine", "min": 1, "max": 1 },
+             { "role": "wing", "min": 0, "max": 2 } ],
+  "cap": "cap", "max": [25, 15, 31] }
 ```
 
-The size comes from the template, and the helm comes from the controller block in it. Room landmarks move into the JSON for converted ships. Pieces built later use point markers instead.
+Roles are in priority order: an open connector takes the first role that is still wanted and has a fitting piece. `kind` is `ship` (needs a computer, generator, engine and Air Supply to fly), `station` (needs a Station Core) or `site` (no required machines). `max` is the largest allowed size.
 
-**Migration, without changing what players get:**
+## Assembly
 
-1. A one-off exporter writes every Java design to `structure/ship/<id>.nbt` with its full declared bounds, so every coordinate stays the same.
-2. A test proves each template's blocks equal the Java builder's blocks.
-3. `ShipBlueprints` switches to the catalog and templates. The Java builders are then deleted: the classic generator, `ManufacturerShips`, `ManufacturerRoleShips` and the furnishing half of `ShipRooms`.
-4. The palette test now covers the templates, and its known iron-block exceptions become the to-do list for the exterior pass.
-
-After that, a design's exterior is fixed by `author load ship <id>`, editing in game, then `author save ship <id>`. No code changes.
-
-### Assembler (step 4)
-
-A **kit** is one manufacturer's piece set: `data/nullspace/kit/<manufacturer>.json` lists its pieces with a role (nose, hull, engine, wing, room, cap) and a weight, plus its materials and accent colour.
-
-An **archetype recipe** says what to build from a kit: the start role, counts per role (for example "hull 2-4, wing 0-2"), the largest allowed size, and whether it is a ship (needs a controller, generator, engine and Air Supply) or a station.
-
-Assembly:
+`Assembler` builds deterministically from a seed, within bounds, and never overlaps pieces.
 
 1. Place the start piece.
-2. Take an open connector. Pick a piece with a matching connector the recipe still wants, weighted and seeded. Rotate it to face the open connector, then offset it so the two connectors meet.
-3. Reject it if any block overlaps or it leaves the size limit. Try the next candidate, with a fixed number of attempts.
-4. When the recipe's minimums are met, close each remaining open connector with a cap piece or its final state.
+2. Take an open connector. Pick a piece with an accepting connector whose role the archetype still wants, in weighted seeded order, rotate it to face the connector, and offset it so the two meet. Walls take one rotation, floors all four.
+3. Reject it if any block overlaps or the size limit is passed, and try the next candidate.
+4. When every role's minimum is met, close each remaining open connector with a cap piece or its final state.
 5. Settle orientation (`BlueprintOrientation`) and return the build.
 
-The output is `Plan`, extended with the points: `Plan(blocks, core, docks, points)`. Loot and mobs then come from marked spots instead of guessed coordinates (`SiteLoot`, `SiteThreats`).
+The whole assembly is tried up to eight times (`Assembler.ATTEMPTS`) with derived seeds, and after the last the final try is returned with its problems listed, so a bad kit is visible in review and never an infinite loop. The result is a `StationBlueprint.Plan(blocks, core, docks, points)`: points carry loot and mob spots through to `SitePoints`, so stocking and threats use the author's spots.
 
-### Condition pass (step 4)
+## Condition pass
 
-A pure function on a `Plan`: `condition(plan, danger, seed)`.
+`Condition.apply(plan, danger, seed)` is a pure function that wears a build down according to danger (0 to 3), and leaves danger 0 unchanged.
 
-- **Breaches:** clusters of exterior hull removed, at `breach_ok` spots or anywhere exterior, more with danger. These leak air through the real air system.
-- **Scorching:** hull near breaches swapped to blackened blocks (blackstone, black concrete, cracked variants).
-- **Dead lights:** some lamps swapped for unlit blocks.
-- **Missing sections:** at danger 2-3, a non-essential piece is left out at assembly time.
+- **Breaches.** Clusters of exterior hull are removed, at `breach_ok` spots or anywhere on the exterior, in larger numbers with higher danger. They leak through the real air system.
+- **Scorching.** Hull near a breach turns to blackened or cracked blocks (blackstone, black concrete, cracked brick variants).
+- **Dead lights.** Some lamps are swapped for unlit blocks.
+- **Missing sections.** At danger 2 (half the time) and 3 (always), one optional end piece is left out at assembly time (`omitSection`).
+- **What is never touched.** Machines (this mod's blocks) and doors, docking bases with two blocks around them, and every point stay intact, so a damaged derelict can still be docked with and stocked.
 
-Fuel, battery charge and fires need machine data in placement, which `Plan` does not carry yet; they come with derelict content.
+Fuel, battery charge and fires need machine data in placement, which `Plan` does not carry yet. They come with derelict content.
 
-### Station rooms
+## Station tiles
 
-Stations keep the 16 x 16 tile grid (decided November 8). The tile grid, saved `roomPieces`, docking and air sections all stay as they are. Each tile holds one **station piece** with door connectors only at the standard doorway spots it actually uses. There are three shapes:
+Station tiles are 16 × 16 pieces on a grid, with doorway slots where the generator puts them. They are generated, not assembled (see [station pieces](station-modules-and-systems.md)), though the assembler's connector idea applies to them too: a tunnel piece only has doorways on the sides it runs to, and the layout check and generator follow each piece's own doorway list instead of assuming four doors.
 
-| Shape | What it is | Doorways |
-| --- | --- | --- |
-| **Room** | A full tile box, 9 high, furnished by role (arrival, workshop, habitation, engineering) | All four sides |
-| **Tunnel** | A narrow pressurised corridor across the tile, open space around it: straight, corner, T and cross | Only the sides it runs to |
-| **Dome** | A domed room, glazed roof, up to the full 32-block station height: garden, observation, hub | All four sides |
+## Not yet
 
-`StationBlueprint.build` places pieces instead of drawing boxes. A joint between two tiles needs a doorway on both facing sides. A tunnel only joins where it runs, so the layout check and the generator respect each piece's connectors instead of assuming four doors.
+- Block-entity data in placement (sign text, machine fuel, preset container contents). Templates keep it, but placement ignores it.
+- Mirroring and multi-tile station rooms.
+- Kit and archetype content, and wiring derelicts to it.
+- Planet piece sets.
 
-"Placing rooms by doorway" picks an open doorway on the station plus a piece; the tile behind the doorway follows from the grid, and the piece is rotated so one of its doorways faces back. Rooms spanning two tiles can follow later without a format change.
+## Where this is tested
 
-## Authoring additions
-
-| Command | Does |
-| --- | --- |
-| `author check <kind>/<name>` | Lists a piece's connectors and points and flags problems: a connector not on the piece's edge, an unknown point name, a palette violation. |
-| `author preview kit:<manufacturer>:<archetype> [danger] [seed]` | Assembles and conditions a site on the pad. Re-run with a new seed to reroll. |
-| `author gallery kit:<manufacturer>` | Every piece of a kit, plus three seeded samples of each archetype. |
-
-## Tests
-
-- Codec round trip: write, then read, gives the same blocks, block entities and size.
-- Markers: a test piece's jigsaws and data blocks become the right connectors and points, and are gone from the blocks.
-- Rotation: four quarter turns give the original piece.
-- Conversion: each design's template equals its Java build (removed together with the Java builders).
-- Assembler, with a small test kit: same seed gives the same build; no overlaps; within bounds; every recipe minimum met; no open connector left.
-- Every bundled template passes the palette check, and every ship design or assembled ship has a controller, generator, engine, Air Supply and dock.
-- Existing game tests keep passing on the converted designs. That is the proof that nothing changed for players.
-
-## Slices
-
-| Slice | Contents | Playable result |
-| --- | --- | --- |
-| **G1** | Template codec, piece library, markers, rotation, unit tests | None (foundation) |
-| **G2** | Design catalog, exporter, equivalence test, `ShipBlueprints` on templates, Java builders deleted | Shipyard unchanged, but exteriors are editable in game (step 3 can start) |
-| **G3** | Kit and recipe format, assembler, test kit, `author check` and kit preview | Kits can be drafted and previewed |
-| **G4** | `Plan` points, condition pass, loot and mobs from points | Assembled derelicts look damaged and are stocked from marked spots |
-| **G5** | Station pieces (rooms, tunnels, domes), connector-aware layouts, pieces placed by doorway | Station pieces are editable in game (step 4 station building can start) |
-
-All five slices are built before content work (decided November 8). Each slice ends with focused tests; the integration sweep runs once after G5.
-
-## Not in this round
-
-- Block-entity data in placement: sign text, machine fuel, preset container contents. Templates keep it; placement ignores it until a slice needs it.
-- Mirroring, multi-tile station rooms, planet piece sets (step 5).
-- Kit samples in the gallery: `author gallery kit` shows a kit's pieces; samples of each archetype are reviewed with `author preview kit:...` and a changing seed.
-- Wiring encounters to kits: `EncounterSites` still builds its derelicts from shipyard designs. Once step 4 kits exist, a derelict archetype replaces `EncounterSites.plan`, and saving its points with `SitePoints` makes stocking and threats use the marked spots.
-- The starter tunnels and domes are plain quartz and glass, generated once; they are first in line for an in-game style pass.
+These need registries, so they are game tests. `PieceGameTest` covers the codec round trip, markers becoming the right connectors and points and leaving the blocks, and four quarter turns returning the original. `AssemblerGameTest` uses a small test kit and checks the same build for the same seed, no overlaps, in bounds, every minimum met and no open connector left. `ConditionGameTest` covers the condition pass. `author check` flags a connector that is not on the piece's edge, an unknown point name or a palette violation.

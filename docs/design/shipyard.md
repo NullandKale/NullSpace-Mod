@@ -1,24 +1,22 @@
-# Ship beacons and preset ships
+# Ship beacons and the shipyard
 
-Implemented October 27, 2026. A Ship Beacon calls a preset ship onto an existing registered landing pad. Purchases are free: no money, XP, items or materials are required. There is no economy or delivery animation yet.
+A **Ship Beacon** calls a catalog ship onto a registered landing pad. This document explains how delivery works and why it is built to survive interruption and abuse. The code is `gameplay/shipyard` (`ShipYardService`, `ShipYard`), `worldgen/ships/ShipBlueprints`, and the beacon's screen. The ships themselves are generated, see [the ship generator](ship-generator.md).
 
-The [manufacturer review fleet](procedural-ships.md#current-review-set) adds nine ships across scout, freighter and explorer roles, plus a compact station template showroom. Seeded generation remains planned.
+Deliveries are free for now: no money, XP, items or materials are required, and there is no economy or delivery animation. The beacon is a way to get a ship onto a pad, not a shop.
 
 ## Using a beacon in survival
 
-1. Register a grass/dirt pad with its ordinary pad computer. Keep the cobblestone ring complete.
-2. Place a **Ship Beacon** on another block of that ring. Its facing does not matter. Keep both controllers on the ground.
-3. Stand beside the ring and right-click the beacon. Select a design in the catalog to read its size and equipment.
-4. Select **Deliver ship**. The server checks the actual pad again, then constructs that ship centered on it.
-5. Walk up the entry stair, open the oak door, enter and close it. Larger ships have a bridge upstairs. Inspect and launch at the Ship Controller; the delivery pad is its home landing destination.
+1. Register a grass or dirt pad with its Pad Computer, and keep the cobblestone ring complete (see [pads](pad-previews-and-hatches.md)).
+2. Place a **Ship Beacon** on another block of the ring. Its facing does not matter, and both controllers stay on the ground.
+3. Stand beside the ring and right-click the beacon. Select a design in the catalog to read its size and what it has.
+4. Select **Deliver ship**. The server checks the real pad again, then constructs the ship centered on it.
+5. Walk up the entry ramp, open the door and enter. Larger ships have a bridge upstairs. Inspect and launch at the Ship Controller, and the delivery pad becomes its home landing destination.
 
-The beacon needs the chosen ship's width and depth as pad interior dimensions; its size readout is **width × height × depth**. It never rotates a hull to make it fit. Every delivery needs clear sky over the entire pad. Existing blocks, fluids and ships are preserved. Players, creatures, items and other entities must be outside the new hull's volume. Entity data must finish loading before construction starts. If the beacon says the area is loading, wait a moment and call again.
+The ship's pad footprint must fit its width and depth, and its size is shown as **width × height × depth**. The beacon never rotates a hull to make it fit. Every delivery needs clear sky over the whole pad. Existing blocks, fluids and ships are preserved, and players, creatures, items and other entities must be outside the new hull's volume. Entity data must finish loading before construction begins. If the beacon says the area is loading, wait a moment and try again.
 
-The beacon cannot clear a damaged ship or merge two ships. After you completely dismantle a ship, delivery automatically releases its empty saved allocation and creates a fresh ship identity. The entire old area must contain no blocks or occupants; offline crew and dock links must be resolved first. Replacing the beacon is unnecessary. Preview only checks readiness; the old assignment is removed together with the saved delivery intent. Physical ship transfers temporarily block delivery and new shipyard generation. A larger pad is discovered through the existing automatic pad refresh; a stacked pad's ring can limit height and obstruct the launch column.
+The catalog has three pages, one for each role (scouts, freighters, explorers), with manufacturer and role beside the specification. Selection, the footprint preview and **Deliver ship** stay on one screen.
 
-The catalog has three pages. Use the arrow buttons beneath the ship list to reach the manufacturer scouts, freighters and explorers. Manufacturer and role appear beside the ship specification. Selection, the footprint preview and Deliver ship remain on the same screen.
-
-## Recipe
+### Recipe
 
 ```text
 Glass       Redstone torch   Glass
@@ -26,9 +24,13 @@ Copper      Computer base    Copper
 Rough stone Machine casing   Rough stone
 ```
 
-This is a shaped recipe (`GTG / CKC / SHS`), making one beacon. Rough stone accepts cobblestone or cobbled deepslate. The native recipe book and newly obtained field guides include the real item-grid recipe. Crafting subcomponents uses the existing recipes. `/give @s nullspace:ship_beacon` is available with command permission.
+A shaped recipe making one beacon. Rough stone accepts cobblestone or cobbled deepslate. The recipe is in the recipe book and the field guide. `/give @s nullspace:ship_beacon` works with command permission.
 
-## Catalog
+### Delivering again onto a used pad
+
+The beacon cannot clear a damaged ship or merge two ships. Once a ship is completely dismantled, the next delivery releases its empty saved allocation and creates a fresh ship identity, with no need to replace the beacon. The whole old area must hold no blocks or occupants, and offline crew and dock links must be resolved first. Physical ship transfers temporarily block delivery. A larger pad is picked up by the automatic pad refresh, and a stacked pad's ring can limit the height and obstruct the launch column.
+
+## The catalog
 
 | Ship | Shape | Pieces | Role |
 | --- | --- | --- | --- |
@@ -42,48 +44,46 @@ This is a shaped recipe (`GTG / CKC / SHS`), making one beacon. Rough stone acce
 | Bastion Tender | Dome | Medium | Freighter: round hull with a cargo hold either side |
 | Bastion Pioneer | Twin hull | Large | Explorer: workshops, stores and mining bays in both hulls |
 
-These nine are **generated**, not hand built: see [ship generator](ship-generator.md). Sizes come from the generator and are shown in the beacon's quote. The six original box ships (Sparrow, Skylark, Mule, Wayfarer, Aegis, Atlas) were removed; saves, settings and servers that still name them get the nearest replacement (Sparrow becomes Rivet Bolt, Mule Rivet Hauler, and so on).
+Designs are entries in `catalog/ships.json` with the generator settings that build them. `ShipBlueprints` loads them, and the showroom and the delivery service build the same block-state maps. To hand-edit a design, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship.
 
-All nine include one Ship Controller, generators, batteries, air supply, a programmable terminal, a Scanner, a small mounted camera and monitors on the bridge. Each has a framed compact docking door on a Docking Base. Each new generator receives one finite stack of coal; batteries start empty and charge from surplus generation. Normal delivery does not require a separate systems-upgrade step. Cargo storage starts empty. Doors and room air remain physical; airless surfaces require a suit until the relevant cabin has air.
+The six box-shaped ships from earlier versions (Sparrow, Skylark, Mule, Wayfarer, Aegis, Atlas) were removed when ships became generated. `ShipBlueprints.get` maps each to its nearest replacement, so an old reference to a preset resolves (Sparrow to Rivet Bolt, Mule to Rivet Hauler, and so on). The space-start setting validates against the current catalog directly and does not apply this mapping (see [starting in space](space-start.md)).
 
-Existing yards make new deliveries using the current blueprints. Already placed ships and showroom builds retain their construction and edits; retrofit them using the [short docking instructions](stations.md#add-a-port-to-your-ship). The native catalog test checks every design with the real docking and pressure validators.
+Every design includes one Ship Controller, generators, batteries, an air supply, a programmable terminal, a Scanner, a small mounted camera, and monitors on the bridge. Each has a framed compact docking door on a Docking Base. Each generator gets one finite stack of coal, and batteries start empty and charge from surplus. Delivery needs no separate upgrade step. Cargo storage starts empty. Doors and room air are physical, so airless surfaces need a suit until the cabin has air.
 
+Existing ships and showroom builds keep their construction and edits. Retrofit them with the [docking instructions](stations.md#add-a-port-to-your-ship).
 
-Designs are listed in `catalog/ships.json` with the generator settings that build them, and loaded by `worldgen/ships/ShipBlueprints.java`; the showroom and delivery service build the same block-state maps. To hand-edit one, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship. The ship tests check every design is launchable, sealed, powered and walkable.
+## The ramp
 
-## Visiting the shipyard
+The docking door sits two blocks above the ground, because the hull has a floor layer under it. The generator adds a three-wide flight of stairs up to the door as part of the ship, with solid under each step, so a delivery works on any pad. It takes the front block of the 32-block depth, and `HullScan` ignores the pad's own computer and a delivery beacon even when the ramp's first step touches one.
 
-Operators can run **`/nullspace shipyard`**. This creates a lit platform with three empty 32 × 32 delivery pads and nine registered showroom pads containing the catalog ships. Showroom ships can be entered, inspected and launched. The yard is generated only on request, in the overworld, above existing terrain and outside registered pad footprints. No survival save is modified by installing the feature.
+## Why delivery is journaled
 
-Generation reserves its site in `nullspace-shipyard-v3.nbt` before writing blocks. Returning reads that marker and preserves edits, purchased ships and emptied display pads. The v3 fifteen-ship gallery reserves a fresh site and leaves the older galleries unchanged. An incomplete generation marker refuses automatic rebuilding; it never clears the site and starts over. The bounded search does not guarantee a site in every heavily built or height-limited world. A large opt-in construction and its save can briefly stall the server.
+Building a ship means placing thousands of blocks, and a server can stop at any time. Delivery is therefore written to be resumable and never destructive.
 
-## Ownership and interrupted deliveries
+**Intent first.** Before the first block, the order is persisted in `ships.nbt` under `shipyardOrders`: the preset and version, the original pad, the beacon and the construction origin. At completion the hull passes the same scan as a player-built ship, receives its ordinary identity and finite systems, and its chunks and metadata are saved *before* the order is removed. At most 64 orders may be pending.
 
-The beacon uses the existing expiring server terminal sessions. It only authorizes catalog/detail and purchase actions. Clients send stable preset IDs; the server rechecks the block, dimension, range, interaction permissions, pad, size, obstructions and entities. A forged client cannot use a beacon session to launch, land or operate engineering. Requests serialize on the server thread, and a second buyer sees the first ship as occupied terrain.
+**Resume.** An interrupted delivery resumes on server startup, with bounded retries while entities load, or when the player selects the same design at the same beacon and delivers again. Resume fills in missing planned blocks and keeps matching blocks and their contents. Conflicts stop it: player edits in the way, a removed beacon, a changed ring or a different order are refused with a message saying what to restore. The system never rotates, moves or overwrites a conflicting build during recovery.
 
-Before the first block is placed, the order is persisted in `ships.nbt` under `shipyardOrders`. It records the preset/version, original pad, beacon and construction origin. At completion, the hull passes the same scan as a player-built ship, receives ordinary ship identity and finite systems, and its chunks/metadata are saved before the intent is removed.
+**Authorization.** The beacon uses the ordinary expiring server terminal session. It only authorizes catalog, detail and delivery actions. A forged client cannot use a beacon session to launch, land or operate engineering. Clients send stable preset ids, and the server rechecks the block, dimension, range, interaction permission, pad, size, obstructions and entities. Requests serialize on the server thread, so a second buyer on the same pad sees the first ship as occupied terrain.
 
-An interrupted delivery can resume on server startup, with bounded retries for entity loading, or by selecting the same design at the same beacon and calling it again. Resume fills missing planned blocks and keeps matching blocks and their contents. Conflicting player edits, a removed beacon, a changed ring or a different order are refused. Restore those conditions to resume. The order count is bounded at 64. The system does not rotate, move or overwrite a conflicting build during recovery.
+## The shipyard showroom
 
-## Validation
+Operators can run **`/nullspace shipyard`**. It builds a lit platform with three empty 32 × 32 delivery pads (each with a beacon) and one registered showroom pad for each catalog ship, where the ships can be entered, inspected and launched. The yard is generated only on request, in the Overworld, above existing terrain and outside registered pad footprints.
 
-Unit checks cover stable catalog IDs, fit failures, centered placements across positive/negative coordinates and the separate quote/purchase keyboard actions. Native tests cover every blueprint's full launch scan, pressure and bridge-to-exit path, equipment, free persistent delivery, rejected obstructions/fluids/entities, session authorization, interrupted construction and conflict-preserving recovery, and showroom revisit preservation. A graphical client scenario purchases a ship through actual block use and typed packets, rejects a duplicate purchase, then launches and returns that purchased ship.
+Generation reserves its site in `nullspace-shipyard-v3.nbt` before writing any block. Returning reads that marker and preserves edits, delivered ships and emptied display pads. A new version of the gallery reserves a fresh site, leaving older ones unchanged. An incomplete marker refuses automatic rebuilding, since it never clears a site to start over. The search is bounded and does not promise a site in a heavily built or height-limited world, and a large build can briefly stall the server.
 
-These checks use disposable worlds. `scripts/test/shipyard-crash-test.ps1` exercises actual process termination followed by another JVM opening the same test save. Its seven checkpoints cover the saved intent, partial unsaved and saved hulls, full hull, ship metadata, flushed terrain and cleared order. Verification requires automatic startup recovery, exactly one ship, preserved committed ship/device identities, a complete launchable hull, saved cargo and untouched blocks outside the pad. Repeated recovery must remain harmless. The ordinary server suite also tests storage failures before construction and when clearing a completed order.
+Three more operator commands build review galleries: `shipyard random [seed]`, `shipyard rooms` and `shipyard stations`, described in [the ship generator](ship-generator.md#random-gallery).
 
-`scripts/test/multiplayer-test.ps1` includes two independent graphical clients purchasing the same preset onto the same empty pad through their own authenticated terminal sessions. Exactly one client must receive delivery and the other an occupied-pad error; the server must retain one ship and no pending order, without charging either buyer. The earlier multiplayer launch, reconnect, engineering and remote-camera checks still run.
+## Where this is tested
+
+`ShipYardGameTest` covers every blueprint's full launch scan, pressure and bridge-to-exit path, equipment, persistent free delivery, rejected obstructions, fluids and entities, session authorization, interrupted construction and conflict-preserving recovery, and showroom revisits. `ShipYardClientGameTest` purchases a ship through real block use and typed packets, rejects a duplicate purchase, then launches and returns it.
+
+Two scripts test what only a real process can. `scripts/test/shipyard-crash-test.ps1` kills the JVM at each of seven checkpoints (saved intent, partial unsaved and saved hulls, full hull, ship metadata, flushed terrain, cleared order) and has another JVM open the same save. It requires automatic recovery, exactly one ship, preserved committed identities, a complete launchable hull, saved cargo and untouched blocks outside the pad, and repeated recovery must be harmless. `scripts/test/multiplayer-test.ps1` includes two real clients buying the same preset onto the same pad: exactly one gets the ship and the other an occupied-pad error.
 
 ```powershell
-# Full delivery crash matrix, each stage in its own disposable save
-.\scripts\test\shipyard-crash-test.ps1
-# A targeted checkpoint while developing recovery
-.\scripts\test\shipyard-crash-test.ps1 -Stages WORLD_SAVED
-# Two real clients and a loopback-only dedicated server
-.\scripts\test\multiplayer-test.ps1
+.\scripts\test\shipyard-crash-test.ps1                      # full crash matrix
+.\scripts\test\shipyard-crash-test.ps1 -Stages WORLD_SAVED  # one checkpoint
+.\scripts\test\multiplayer-test.ps1                         # two clients, loopback server
 ```
 
-The original delivery verification receipt records **454 passing unit tests, 12 existing known-bug skips, 112 passing server tests (111 mod plus one optional vanilla), all 16 graphical entrypoints, all seven delivery crash/restart cases, and the two-client purchase race**, plus assembly, assets and formatting. That evidence certifies the original source fingerprint. The separate fourteen-case launch/landing crash matrix was not rerun. Status is `passed-with-known-skips`; the strict no-skipped-tests gate remains unsatisfied.
-
-The manufacturer role verification records the expanded fifteen-design catalog: 477 passing unit tests, 12 existing skips, 148 passing server tests and all 21 graphical entrypoints. It includes a page-three Pioneer purchase, launch and return, and walking up and down its stairs in survival. The crash matrix and two-client purchase race were not rerun for the role additions.
-
-Current captures: [page-three catalog](../images/manufacturer-beacon-catalog.png), [purchased explorer in space](../images/manufacturer-explorer-in-space.png), [fifteen-ship showroom](../images/shipyard-manufacturer-fleet.png). The earlier [multiplayer purchase](../images/ship-beacon-multiplayer.png) capture belongs to the original delivery verification.
+Captures: [page-three catalog](../images/manufacturer-beacon-catalog.png), [purchased explorer in space](../images/manufacturer-explorer-in-space.png), [showroom](../images/shipyard-manufacturer-fleet.png), [multiplayer purchase](../images/ship-beacon-multiplayer.png).

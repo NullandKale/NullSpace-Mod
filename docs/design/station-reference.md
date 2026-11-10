@@ -1,69 +1,96 @@
 # Station construction and docking reference
 
-The short [station guide](stations.md) covers everyday play. This reference preserves the detailed instructions for the current implementation.
+The [station guide](stations.md) covers everyday play and the [station pieces document](station-modules-and-systems.md) covers the design. This reference lists the rules, limits and failure behavior of the current implementation, for builders, server operators and anyone changing the code. It covers `gameplay/station` and the parts of `gameplay/docking` that stations rely on.
 
-For the implemented hardware and UI simplification, see the short [ship systems redesign](ship-systems-redesign.md). The instructions below describe the currently implemented system.
+## Access
 
-Stations, the completed Waypoint example, room kits, doorway graphs and automatic docking are implemented. Stations begin with a 32 x 32 x 32 build area and can expand at their core to 128 x 32 x 128. Four room tiles remain visible at a time; a section selector exposes all 64 tiles. The full-size ring uses 28 connected rooms and eight widely spaced exterior berths. Orbital regions populate automatically with persistent Waypoint and Manufacturer Exchange stations; random encounter scheduling remains future work.
+Access is decided in `StationAccess`. Three roles apply to a station:
 
-## Visit Waypoint Station
+| Role | Who | May |
+| --- | --- | --- |
+| **Owner** | The player who started it, or any server operator | Everything, plus rename, invite and remove builders, change public or private |
+| **Builder** | Invited by the owner (the invited player must be online at the time) | Build, edit blocks, use storage and the core |
+| **Visitor** | Anyone, if the station is public. Everyone, if it is a derelict | Operate internal doors, use dock controls, the Station Core, a crafting table and a stonecutter. Cannot edit blocks, open protected storage or change berths |
 
-1. Launch a powered ship with a valid docking airlock. Newly delivered Ship Beacon presets include one; existing saved ships retain their construction.
-2. At the controller open **Destination > Ports**. Entering space automatically populates the region with its seeded stations; no menu action creates them.
-3. Select a Waypoint port as **Destination**, return to the controller and press **Dock**. Autopilot navigates, aligns, approaches and clamps. Closing the terminal does not cancel it. The destination list updates automatically as stations finish loading and berths become available.
-4. After capture, open the ordinary dock door and walk through. A short loading transition boards the station with your inventory.
-5. Return through that same station port. Once all crew are back, select **Undock automatically** at the ship's ship controller or port. It closes and checks the airlocks, backs away and releases the berth.
+A **returning visitor** (a player aboard whose record says which ship they came from) keeps the door access needed to get back, even if public access is switched off. A station under construction cannot be edited or used except through the build itself.
 
-Waypoint is a ring of four generated tiles (an entrance, a workshop, a bedroom and a power room, each two stories) joined by offset doors, two on each story of each shared edge; see the [station generator](ship-generator.md#stations). It has two opposing exterior berths, colored room borders, ceiling lights, finite room air, generators and batteries. Starter contents and resources initialize once; visiting never repairs or refills it. Public visitors may use its door controls and crafting table; protected storage and construction require builder access.
+Derelicts from [encounters](ftl-journeys.md) are the exception to protection: visitors may open storage and change blocks, because salvage is the point. A derelict becomes protected property when a player claims it (see [ship ownership](ship-recall.md)).
 
-The graphical integration test captures the [station interior](../images/waypoint-station-interior.png) and [dock controls](../images/station-dock-controls.png) during a complete boarding round trip. The verification receipt records test counts, coverage limits and the packaged artifact hash.
+Doors operated by docking cannot be toggled by hand. A door under a redstone signal cannot be overridden remotely, and the player is told so.
 
-**Cancel** stops an approach before capture. Another player's ship must stop and explicitly accept the incoming request at its controller or selected port. The controller shows **Accept** and **Decline** when a request is waiting. Stations accept according to their access setting. Power loss or an obstructed route stops the maneuver safely. Ships cannot thrust, jump or land while connected.
+## Visiting a station
 
-## Build an airlock into an existing ship
+1. At the controller open **Destination > Ports**. Select a port as the destination. The list updates as stations finish loading and berths become free.
+2. Return to the controller and press **Dock**. Autopilot navigates, aligns, approaches and clamps. Closing the terminal does not cancel it.
+3. Open the dock door and walk through. A short transition boards the station with your inventory.
+4. Return through the same port. When all crew are back, **Undock automatically** at the ship's controller or port closes and checks the doors, backs away and releases the berth.
 
-Place one **Docking Base directly below any standard door**, facing outward. The door needs its full frame, normal walking room inside, and a clear exterior approach. Wood and iron both work; the base operates an iron door without extra buttons. The base connects through the hull to the controller and power bus.
+**Cancel** stops an approach before capture. A port belonging to another player's ship needs that ship to accept the request at its controller or port. The controller then shows **Accept** and **Decline**. Stations accept according to their access setting. Power loss or an obstructed route stops a maneuver safely. A ship cannot thrust, jump or land while it is connected.
 
-The Docking Base determines which side faces space. The door itself may face either way along that same axis; its placement direction does not change the approach or the return route. A base turned sideways relative to the doorway is invalid.
+**Emergency departure** is available from the visiting ship when an airlock is damaged. Return the crew first. It tries to close the surviving doors and then backs away. It waits if propulsion has no power or the corridor is obstructed, and a damaged seal keeps its real vacuum consequences.
 
-After automatic docking, the mated joint seals the open doorway. Open the door normally and walk through to board; the transition preserves your inventory. Undocking closes both ports first. Cabin air remains finite. An undocked exterior door opens into vacuum, so wear a suit when using it outside a sealed connection.
+### The tunnel and the joint
 
-A captured compact joint extends a lit tunnel with a floor and glass walls across the gap. Its collars have a saved recovery plan and retract before departure, preserving existing hull blocks. They are excluded from ship inspection and cargo capture. A passenger standing in a collar prevents retraction. Boarding and returning across the established joint do not require power from either vessel; the transfer holds passengers on an interior floor, and low cabin oxygen does not lock the route. Oxygen simulation and the power needed to move the ship remain unchanged.
+After a compact dock captures, a lit tunnel with a floor and glass walls bridges the gap between the hulls. Its collars have a saved recovery plan and retract before departure, preserving the hulls' own blocks. They are excluded from ship inspection and from cargo capture. A passenger standing in a collar prevents retraction.
 
-Existing two-door airlocks with top controllers and connectors remain supported. They keep their saved construction and advanced door/boarding controls; installing the update never rebuilds a player's ship.
+Boarding and returning across an established joint need power from neither vessel: the transfer holds passengers on an interior floor, and low cabin oxygen never locks the route. Oxygen simulation, and the power needed to move a ship, are unchanged. Docking does not merge the vessels' air or power.
 
-## Start a station directly in space
+An exterior door that is not part of a mated joint opens into vacuum, so wear a suit when using it outside a sealed connection.
 
-Carry a crafted **Station Core**, a complete space suit and **Station Module Kits** aboard the ship. Choose **Deploy station** at the controller. The core deploys a small platform and reserves a nearby clear site; autopilot connects to its temporary construction berth. Open the dock door and walk through, wearing the suit.
+## Ports on ships
 
-The construction tether consumes real oxygen from the connected ship. It supplies the suit rather than filling the station. Keep the ship's air and power systems operating. The ship cannot leave while builders depend on its return route.
+The **Docking Base directly below any standard door**, facing outward, makes a port. The door needs its full frame, normal walking room inside and a clear exterior approach. The Docking Base decides which side faces space, the door itself may face either way along that axis, and a base turned sideways relative to the doorway is invalid. The base connects through the hull to the controller and the power bus.
 
-At the station core, select a room tile (`0,0`, `1,0`, `0,1`, `1,1`) and room type, then choose **Build room**. Naming and builder invitation have distinct fields; construction does not require command syntax.
+Older two-door airlocks with top controllers and connectors remain supported and keep their saved construction. Updating never rebuilds a player's ship.
 
-Each placed piece consumes one kit in Survival. **Build full station** requires an empty station: four kits for the starter, or 28 kits for the ring after expanding the build area. It uses a deterministic connected layout. Creative mode does not consume kits. Joining neighboring pieces creates one shared, framed bulkhead with an ordinary door node. Existing conflicting blocks or occupants stop placement; room kits do not overwrite a player's construction.
+## How construction runs
 
-You can also build rooms and equipment by hand within the reserved build area. Ordinary framed doors participate in the graph without a prefab identity. The station core's **Return to construction ship** action provides a return route before permanent ports work. Once the first powered port is ready, the temporary connection becomes a normal dock.
+Station building is a saved, replayable block plan, never a live paste:
 
-## Station systems and access
+1. **Reserve and pay.** The build reserves a clear region, then takes the kit from the player's inventory with a *receipt*: a token stored together with the saved inventory. A redeemed kit cannot create a second station, and if the server stops between taking the kit and the save, startup settles the receipt (a build that was not paid for is removed or rolled back).
+2. **Queue.** The plan is saved on the station as `stationBuild`. The station is unavailable to docking and editing while it exists.
+3. **Place.** `StationBuilds.tickBuilds` places up to 384 blocks per tick for the first station with work, and player work goes first, ahead of world-generated places. It keeps the plan's chunks loaded, and restarting an interrupted job replays the same plan.
+4. **Commission.** When placement is complete, fuel is provisioned in each generator, battery charge is set once, supplies are stocked once, air and power requests are set, and the world is saved *before* the station is published as ready, so a crash cannot expose a half-built station.
 
-- Stations use the existing shared power bus, finite atmosphere, equipment diagnostics, computers and camera feeds. They need no engines, ship controller, surface pad or launch inspection.
-- Expansion conserves existing gas and fuel. New rooms fill from their installed pumps; keep the station active and powered while they pressurize. The station tether measures distance outside its build area, so distant interior rooms do not trigger a return to the core.
-- Rendering supports up to twelve nearby vessels within a total budget of sixty-four 32-block render sections. One full station and eight visiting ships fit that budget. Station section boundaries do not clip collision, boarding or gas flow.
-- Closing a bulkhead blocks gas exchange without disconnecting the surrounding power bus. Actual blocks and room pressure determine safety; the doorway graph provides connections and routes.
-- The owner can rename the station, invite an online builder by name, and switch docking access between private (owner/invited builders) and public. Public docking grants no construction or protected storage rights.
-- A station keeps its identity, hull and contents if its core breaks. An authorized builder can place and use a replacement core. Existing visitors retain the door access needed to return even if public access is revoked.
-- If an airlock is damaged, return crew before using **Emergency departure** from the visiting ship. It attempts to close surviving doors, then automatically backs away. It waits if propulsion lacks power or the corridor is obstructed. Damaged seals retain their actual vacuum consequences.
+Existing blocks, containers and occupants stop a placement. A piece never overwrites a player's construction: the message names the obstructing block and coordinates, and the player is asked to move any occupant first.
 
-Placement is saved before construction starts and completed with a world save. Restarting an interrupted job replays its reserved plan while the section is unavailable. Kit receipts prevent duplicate deployment. Player stations are limited to 32 per owner; each supports up to 64 room-kit tiles in its expanded build area. Legacy station commands remain available for explicit development fixtures. Normal navigation only discovers existing stations.
+### Kits and limits
 
-The implementation follows the [room and graph design](station-modules-and-systems.md) and [docking design](space-encounters-and-docking.md). Vertical/rotated kit placement, utility sharing between docked vessels and continuous rendering across vessel frames (boarding uses a short transition) are outside this first version.
+- One piece costs one **Station Module Kit** in Survival. **Build full station** needs an empty station and consumes four kits for the starter or 28 for the ring. Creative mode consumes none.
+- A piece must adjoin an existing piece and meet an open doorway. The first goes on tile 0,0. A tile beyond the current envelope needs the area expanded first.
+- Each owner may have **32 stations**. Generated places do not count. Each station holds up to 64 piece tiles.
+- Each Station Core item starts exactly one station: its receipt is its station id, so redeeming the same core twice is refused.
+
+### Expansion
+
+**Expand to 128 × 128** needs the station ready and not travelling, no other registered vessel overlapping the new area, all of that area free of blocks, and no entities in the new part. It uses no kits and changes no existing block. It conserves existing gas and fuel. New rooms fill from their own pumps. The station tether measures distance outside the build area, so distant interior rooms do not trigger a return to the core.
+
+## Station systems
+
+- Stations use the shared power bus, finite atmosphere, equipment diagnostics, computers and camera feeds. They need no engines, ship controller, surface pad or launch inspection.
+- Closing a bulkhead blocks gas without disconnecting the surrounding power bus. Real blocks and room pressure determine safety, and the doorway graph only provides routes.
+- Rendering supports up to **twelve nearby vessels** within a total budget of **sixty-four 32-block sections**, so one full station and eight visiting ships fit. Section boundaries never clip collision, boarding or gas flow.
+- The owner can rename the station, invite an online builder by name and switch docking access. Public docking grants no building or storage rights.
+- A station keeps its identity, hull and contents if its core breaks. An authorized builder can place and use a replacement core.
+- The first powered port turns the temporary construction connection into an ordinary dock. Until then, **Return to construction ship** is available at the core.
+
+Legacy station commands remain for development fixtures. Normal navigation only discovers existing stations.
 
 ## Explicit regeneration
 
-Normal visits preserve station edits. An explicitly requested regeneration uses a world-local `nullspace/station-regeneration-request.json`, identifying the stations, an unchanged source metadata hash and a verified backup. On the next launch, it queues ordinary saved construction jobs and archives the request. Replaying a completed request does not rebuild the station again.
+Normal visits never rebuild a station. A regeneration is requested by writing a world-local file, `nullspace/station-regeneration-request.json`, with these fields:
 
-Regeneration replaces each selected station's blocks, containers and equipment with its current template. It preserves station identity, name, access, ownership, region and position, and preserves other ship records. Crew and visiting ships must be returned before queuing the job. A player entering the rebuild area pauses clearing until they leave. Interrupted construction resumes through the existing build journal.
+- a version (currently 1) and a request id;
+- the ids of 1 to 32 stations;
+- the metadata hash of each station as it was when the request was made, so a station that changed since is refused;
+- a verified backup.
 
-The compact Waypoint template regenerates with two current Docking Bases under ordinary doors. Existing expanded ring stations retain their larger envelope and regenerate with eight berths. The Manufacturer Showcase uses its own template.
+On the next server start (`StationRegeneration.applyPending`), the request is validated and turned into ordinary saved construction jobs, and the request is archived. Replaying a completed request does not rebuild anything again. If the request is invalid, the server logs it and keeps both the request and the backup.
 
-The verification receipt records the tests and World 5's request, including its verified backup, original source metadata hash and subsequent rebuild completion.
+Regeneration replaces the selected stations' blocks, containers and equipment with the *current* template. It keeps the station's identity, name, access, ownership, region and position, and keeps every other ship record. Crew and visiting ships must be returned before it is queued. A player who enters the rebuild area pauses the clearing until they leave, and an interrupted rebuild resumes through the same build journal.
+
+Compact Waypoints regenerate with two current Docking Bases under ordinary doors. Expanded ring stations keep their larger envelope and regenerate with eight berths. The Manufacturer Exchange uses its own template.
+
+## Where this is tested
+
+`StationGameTest`, `StationExpansionGameTest`, `StationRegenerationGameTest` and `DockingRecoveryGameTest` cover building, receipts, expansion, regeneration and complete docking round trips (both on a live server and in the graphical suite, which captures the station interior and dock controls during a full boarding round trip). `StationExpansionTest` checks the envelope arithmetic.
