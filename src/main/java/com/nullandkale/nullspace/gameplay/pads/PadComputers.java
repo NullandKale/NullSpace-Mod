@@ -76,10 +76,9 @@ public final class PadComputers
             if (!level.hasChunkAt(point))
                 return PadScanner.Cell.UNLOADED;
             var state = level.getBlockState(point);
-            if (state.is(Blocks.GRASS_BLOCK))
-                return PadScanner.Cell.GRASS;
-            if (state.is(Blocks.DIRT))
-                return PadScanner.Cell.DIRT;
+            var floor = PadFloor.cell(state);
+            if (floor != null)
+                return floor;
             if (state.is(Blocks.COBBLESTONE))
                 return PadScanner.Cell.BORDER;
             return PadScanner.Cell.OTHER;

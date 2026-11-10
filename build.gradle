@@ -13,6 +13,12 @@ base {
 
 repositories {
     mavenCentral()
+    // Only the mods under test come from here (see the compat source set below).
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
 }
 
 loom {
@@ -74,6 +80,56 @@ fabricApi {
         enableClientGameTests = true
         eula = true
     }
+}
+
+// The compat module: tests that need another mod on the classpath. It has its own dependencies, so nothing
+// here reaches the shipped jar or the normal test suite. Run it with scripts/test/Run-CompatTests.ps1.
+sourceSets {
+    compat {
+        compileClasspath += sourceSets.main.output + sourceSets.client.output + sourceSets.gametest.output + sourceSets.gametest.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.client.output + sourceSets.gametest.output
+    }
+}
+
+// The compat tests compile against Minecraft like any mod; they are not run through this mod.
+loom {
+    mods {
+        'nullspace-compat' {
+            sourceSet sourceSets.compat
+        }
+    }
+}
+
+configurations {
+    // The mods under test: compiled against, and loaded beside NullSpace when the compat tests run.
+    compatMods
+    compatImplementation.extendsFrom implementation, gametestImplementation, compatMods
+}
+
+dependencies {
+    compatMods "maven.modrinth:biomes-o-plenty:${project.compat_biomes_o_plenty}"
+    compatMods "maven.modrinth:glitchcore:${project.compat_glitchcore}"
+    compatMods "maven.modrinth:terrablender:${project.compat_terrablender}"
+    // Waystones (and the libraries it needs)
+    compatMods "maven.modrinth:waystones:${project.compat_waystones}"
+    compatMods "maven.modrinth:balm:${project.compat_balm}"
+    compatMods "maven.modrinth:shogi:${project.compat_shogi}"
+    // Carry On
+    compatMods "maven.modrinth:carry-on:${project.compat_carry_on}"
+    // Chunk Loaders (and the SuperMartijn642 libraries it needs)
+    compatMods "maven.modrinth:chunk-loaders:${project.compat_chunk_loaders}"
+    compatMods "maven.modrinth:supermartijn642s-core-lib:${project.compat_supermartijn642_core_lib}"
+    compatMods "maven.modrinth:supermartijn642s-config-lib:${project.compat_supermartijn642_config_lib}"
+    // Moving Elevators
+    compatMods "maven.modrinth:moving-elevators:${project.compat_moving_elevators}"
+    // Farmer's Delight
+    compatMods "maven.modrinth:farmers-delight-refabricated:${project.compat_farmers_delight}"
+}
+
+tasks.register('prepareCompatMods', Sync) {
+    description = 'Copies the mods under test, with the jars they need, to build/compat-mods.'
+    from configurations.compatMods
+    into layout.buildDirectory.dir('compat-mods')
 }
 
 processResources {

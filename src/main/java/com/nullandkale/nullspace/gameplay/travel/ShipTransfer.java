@@ -37,6 +37,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.*;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.decoration.LeashFenceKnotEntity;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.levelgen.structure.templatesystem.*;
 import net.minecraft.world.level.portal.TeleportTransition;
@@ -299,6 +300,10 @@ final class ShipTransfer
         }
         for (Entity entity : roots)
         {
+            // Leash knots, lightning and fishing bobbers are never saved by Minecraft: a knot is rebuilt from its
+            // fence and the animals tied to it, and the others are over the moment the ship moves.
+            if (!entity.getType().canSerialize())
+                continue;
             var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, source.registryAccess());
             if (!entity.save(output))
                 return Result.rejected("This passenger cannot be saved for travel. Move it off the ship and try again." + "\nOccupant: " + ShipMessages.entity(entity) + "\nLocation: " + entity.blockPosition().toShortString());
@@ -511,9 +516,20 @@ final class ShipTransfer
     private void movePassengers()
     {
         var leashes = new LinkedHashMap<UUID, UUID>();
+        var posts = new LinkedHashMap<UUID, BlockPos>();
+        var snapped = new ArrayList<UUID>();
         var crewIds = new HashSet<UUID>();
         for (ServerPlayer player : crew)
             crewIds.add(player.getUUID());
+        // An animal tied to a fence post: the post is rebuilt at the destination, so remember where it stood
+        // relative to the ship. That holds for a post outside the hull too, if a fence stands at the same spot on
+        // arrival; otherwise the lead snaps there, like any lead that is stretched too far.
+        for (Entity entity : cargo)
+            if (entity instanceof Leashable leashed && leashed.getLeashHolder() instanceof LeashFenceKnotEntity post)
+            {
+                posts.put(entity.getUUID(), post.getPos());
+                leashed.removeLeash();
+            }
         for (Entity entity : cargo)
             if (entity instanceof Leashable leashed && leashed.getLeashHolder() instanceof Entity holder && (cargoIds.contains(holder.getUUID()) || crewIds.contains(holder.getUUID())))
             {
@@ -529,6 +545,11 @@ final class ShipTransfer
             }
         for (Entity entity : roots)
         {
+            if (!entity.getType().canSerialize())
+            {
+                entity.discard();
+                continue;
+            }
             var moved = entity.teleport(new TeleportTransition(target, entity.position().add(delta.getX(), delta.getY(), delta.getZ()), entity.getDeltaMovement(), entity.getYRot(), entity.getXRot(), TeleportTransition.DO_NOTHING));
             if (moved == null)
                 throw new IllegalStateException("Could not transfer passenger entity");
@@ -546,6 +567,22 @@ final class ShipTransfer
             var holder = target.getEntity(leash.getValue());
             if (target.getEntity(leash.getKey()) instanceof Leashable leashed && holder != null)
                 leashed.setLeashedTo(holder, true);
+        }
+        for (var tied : posts.entrySet())
+        {
+            var at = tied.getValue().offset(delta);
+            if (!(target.getEntity(tied.getKey()) instanceof Leashable leashed))
+                continue;
+            if (target.getBlockState(at).is(net.minecraft.tags.BlockTags.FENCES))
+                leashed.setLeashedTo(LeashFenceKnotEntity.getOrCreateKnot(target, at), true);
+            else
+                snapped.add(tied.getKey());
+        }
+        for (var id : snapped)
+        {
+            var animal = target.getEntity(id);
+            if (animal != null)
+                animal.spawnAtLocation(target, net.minecraft.world.item.Items.LEAD);
         }
     }
 }

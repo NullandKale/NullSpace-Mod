@@ -71,9 +71,9 @@ public final class LocalMultiplayerTest
 
     private static void verifyGuide(ClientGameTestContext ctx)
     {
-        ctx.waitFor(c -> c.player.getMainHandItem().is(FieldGuide.ITEM), 6000);
+        waitFor(ctx, c -> c.player.getMainHandItem().is(FieldGuide.ITEM), 6000);
         ctx.runOnClient(c -> c.gameMode.useItem(c.player, net.minecraft.world.InteractionHand.MAIN_HAND));
-        ctx.waitFor(c -> c.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.BookViewScreen, 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.BookViewScreen, 6000);
         ctx.runOnClient(c ->
         {
             var stack = c.player.getMainHandItem();
@@ -109,7 +109,69 @@ public final class LocalMultiplayerTest
 
     private static void await(ClientGameTestContext ctx, String name)
     {
-        ctx.waitFor(c -> Files.exists(directory.resolve(name)), 6000);
+        waitFor(ctx, c -> Files.exists(directory.resolve(name)), 6000);
+    }
+
+    /** Longest any one step may take. A step that needs more than this is a stall, and a stall must fail with its evidence. */
+    private static final int STEP_LIMIT_TICKS = 1800;
+
+    private static void waitFor(ClientGameTestContext ctx, java.util.function.Predicate<net.minecraft.client.Minecraft> condition, int ticks)
+    {
+        var site = new Throwable().getStackTrace()[1];
+        var stalled = directory.resolve("stalled");
+        boolean[] other = {false};
+        try
+        {
+            ctx.waitFor(c ->
+            {
+                if (Files.exists(stalled))
+                {
+                    other[0] = true;
+                    throw new AssertionError("The other client stalled first: " + stalledReason(stalled));
+                }
+                return condition.test(c);
+            }, Math.min(ticks, STEP_LIMIT_TICKS));
+        }
+        catch (RuntimeException | AssertionError failure)
+        {
+            if (other[0])
+                throw failure;
+            String screen = ctx.computeOnClient(c -> c.gui.screen() == null ? "no screen" : c.gui.screen().getClass().getSimpleName() + (c.gui.screen() instanceof ShipyardScreen y ? " status=\"" + y.status().replaceAll("\\s+", " ") + "\" selected=" + y.selected() + " ready=" + y.ready() : ""));
+            String reason = System.getProperty("nullspace.local.role") + " STALLED in " + site.getMethodName() + " at line " + site.getLineNumber() + " after " + Math.min(ticks, STEP_LIMIT_TICKS) + " ticks. Screen: " + screen + ". Checkpoints so far: " + checkpoints();
+            NullSpace.LOGGER.error("MULTIPLAYER_STALL {}", reason);
+            try
+            {
+                Files.writeString(stalled, reason);
+            }
+            catch (java.io.IOException ignored)
+            {
+            }
+            throw new AssertionError(reason, failure);
+        }
+    }
+
+    private static String stalledReason(Path file)
+    {
+        try
+        {
+            return Files.readString(file);
+        }
+        catch (java.io.IOException unreadable)
+        {
+            return "(reason unreadable)";
+        }
+    }
+
+    private static String checkpoints()
+    {
+        try (var files = Files.list(directory))
+        {
+            return files.filter(f -> !Files.isDirectory(f)).map(f -> f.getFileName().toString()).filter(n -> !n.contains(".")).sorted().collect(java.util.stream.Collectors.joining(", "));
+        }
+        catch (java.io.IOException unreadable)
+        {
+            return "(unreadable)";
+        }
     }
 
     private static boolean hasFlightLog(net.minecraft.nbt.CompoundTag ship)
@@ -165,7 +227,7 @@ public final class LocalMultiplayerTest
 
     private static void verifyComputeScene(ClientGameTestContext ctx, String phase)
     {
-        ctx.waitFor(c -> SpaceSceneRenderer.computeReady() && NullSpaceClient.definitions().scene() != null, 6000);
+        waitFor(ctx, c -> SpaceSceneRenderer.computeReady() && NullSpaceClient.definitions().scene() != null, 6000);
         ctx.runOnClient(c ->
         {
             var definition = NullSpaceClient.definitions().scene();
@@ -220,22 +282,23 @@ public final class LocalMultiplayerTest
     private static void connect(ClientGameTestContext ctx, int port)
     {
         ctx.runOnClient(c -> ConnectScreen.startConnecting(new TitleScreen(), c, new ServerAddress("127.0.0.1", port), new ServerData("Local NullSpace verification", "127.0.0.1:" + port, ServerData.Type.OTHER), false, null));
-        ctx.waitFor(c -> c.level != null && c.player != null, 6000);
+        waitFor(ctx, c -> c.level != null && c.player != null, 6000);
     }
 
     private static void buyShipTogether(ClientGameTestContext ctx)
     {
-        ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && yard.status().contains("Two-player delivery test"), 6000);
+        // The notice lasts only until the next 20-tick preview update, so wait for the screen and the design, not the notice.
+        waitFor(ctx, c -> c.gui.screen() instanceof ShipyardScreen yard && yard.selected().equals("rivet_hauler"), 6000);
         ctx.waitTicks(5);
         int design = java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size()).filter(i -> ShipBlueprints.PRESETS.get(i).id().equals("rivet_hauler")).findFirst().orElseThrow();
         ShipYardClientGameTest.choose(ctx, design);
-        ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && yard.selected().equals("rivet_hauler") && yard.ready(), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof ShipyardScreen yard && yard.selected().equals("rivet_hauler") && yard.ready(), 6000);
         String role = System.getProperty("nullspace.local.role");
         signal(role + "-shipyard-ready");
         await(ctx, "pilot-shipyard-ready");
         await(ctx, "crew-shipyard-ready");
         ShipYardClientGameTest.choose(ctx, ShipBlueprints.PRESETS.size());
-        ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && (yard.status().contains("DELIVERED:") || yard.status().contains("Clear the pad")), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof ShipyardScreen yard && (yard.status().contains("DELIVERED:") || yard.status().contains("Clear the pad")), 6000);
         ctx.runOnClient(c ->
         {
             var terminal = (ShipyardScreen) c.gui.screen();
@@ -328,7 +391,7 @@ public final class LocalMultiplayerTest
                     s.overworld().addFreshEntity(item);
                     itemId[0] = item.getUUID();
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 6000);
                 await(ctx, "crew-validated");
                 ctx.waitTicks(15);
                 dedicated.runOnServer(server ->
@@ -358,25 +421,25 @@ public final class LocalMultiplayerTest
                     var p = s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow();
                     PadComputers.open(p, base.offset(-1, 1, 3), "Preview isolation test");
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Preview isolation"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Preview isolation"), 6000);
                 action(ctx, ComputerTerminal.Action.PREVIEW_PAD);
-                ctx.waitFor(c -> PreviewRenderer.count(false) == 100, 6000);
+                waitFor(ctx, c -> PreviewRenderer.count(false) == 100, 6000);
                 ctx.waitTicks(3);
                 action(ctx, ComputerTerminal.Action.PREVIEW_SHIP);
-                ctx.waitFor(c -> PreviewRenderer.count(true) > 100, 6000);
+                waitFor(ctx, c -> PreviewRenderer.count(true) > 100, 6000);
                 signal("pilot-previews");
                 await(ctx, "crew-no-previews");
                 action(ctx, ComputerTerminal.Action.PREVIEW_PAD);
-                ctx.waitFor(c -> PreviewRenderer.count(false) == 0 && PreviewRenderer.count(true) > 0, 6000);
+                waitFor(ctx, c -> PreviewRenderer.count(false) == 0 && PreviewRenderer.count(true) > 0, 6000);
                 ctx.waitTicks(3);
                 action(ctx, ComputerTerminal.Action.PREVIEW_SHIP);
-                ctx.waitFor(c -> PreviewRenderer.count(true) == 0, 6000);
+                waitFor(ctx, c -> PreviewRenderer.count(true) == 0, 6000);
                 dedicated.runOnServer(s ->
                 {
                     var p = s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow();
                     ShipService.open(p, controller, "Preview isolation complete");
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Preview isolation complete"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Preview isolation complete"), 6000);
                 ctx.waitTicks(15);
                 dedicated.runOnServer(server ->
                 {
@@ -385,7 +448,7 @@ public final class LocalMultiplayerTest
                     server.overworld().setBlock(pc, ModBlocks.TERMINAL.defaultBlockState(), BlockSupport.TRANSFER_FLAGS);
                     ComputerService.open(pilot, pc);
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).contains("NullOS")), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).contains("NullOS")), 6000);
                 ctx.runOnClient(c ->
                 {
                     var screen = (TerminalScreen) c.gui.screen();
@@ -402,10 +465,10 @@ public final class LocalMultiplayerTest
                     var pilot = server.getPlayerList().getPlayers().stream().filter(p -> p.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow();
                     ShipService.open(pilot, controller, "Computer cargo ready");
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Computer cargo ready"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Computer cargo ready"), 6000);
                 ctx.waitTicks(15);
                 action(ctx, ComputerTerminal.Action.INSPECT);
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
                 dedicated.runOnServer(s ->
                 {
                     var crew = s.getPlayerList().getPlayers().stream().filter(p -> p.getGameProfile().name().equals("NullSpace_crew")).findFirst().orElseThrow();
@@ -413,7 +476,7 @@ public final class LocalMultiplayerTest
                 });
                 ctx.waitTicks(15);
                 action(ctx, ComputerTerminal.Action.LAUNCH);
-                ctx.waitFor(LocalMultiplayerTest::space, 6000);
+                waitFor(ctx, LocalMultiplayerTest::space, 6000);
                 await(ctx, "crew-space");
                 dedicated.runOnServer(s ->
                 {
@@ -431,7 +494,7 @@ public final class LocalMultiplayerTest
                     WorldStore.get(s).save();
                 });
                 signal("scene-edited");
-                ctx.waitFor(c -> NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().revision() >= 2, 6000);
+                waitFor(ctx, c -> NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().revision() >= 2, 6000);
                 verifyComputeScene(ctx, "edited");
                 await(ctx, "crew-edited.scene");
                 try
@@ -467,7 +530,7 @@ public final class LocalMultiplayerTest
                     return SceneService.pose(vessel).position();
                 });
                 signal("flight-ready");
-                ctx.waitFor(c -> c.gui.screen() instanceof ShipPilotScreen s && s.canPilot(), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof ShipPilotScreen s && s.canPilot(), 6000);
                 await(ctx, "crew-observing");
                 verifyPilotViewport(ctx);
                 ctx.runOnClient(c -> ((ShipPilotScreen) c.gui.screen()).keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_W, 0, 0)));
@@ -489,14 +552,14 @@ public final class LocalMultiplayerTest
                         var p = s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow();
                         Piloting.navigation(p, WorldStore.pos(SceneService.observer(p), "controller"));
                     });
-                    ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
+                    waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 6000);
                     ctx.waitTicks(15);
                     signal(route.equals("sol_luna") ? "jump-luna" : "jump-home");
                     ShipControlTestUi.destination(ctx, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra", "Regions");
                     dedicated.runOnServer(s -> SceneService.observer(s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow()).putInt("nextJourneySeconds", 4));
                     ShipControlTestUi.action(ctx, ShipControl.Action.JUMP);
                     String sceneId = route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";
-                    ctx.waitFor(c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
+                    waitFor(ctx, c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
                     String phase = route.equals("sol_luna") ? "luna" : "home";
                     verifyComputeScene(ctx, phase);
                     await(ctx, "crew-" + phase);
@@ -517,10 +580,10 @@ public final class LocalMultiplayerTest
                     var vessel = WorldStore.get(s).at(p.level(), p.blockPosition());
                     ShipService.open(p, WorldStore.pos(vessel, "controller"), "Return while crew is offline");
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 6000);
                 ctx.waitTicks(15);
                 action(ctx, ComputerTerminal.Action.LAND);
-                ctx.waitFor(c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
+                waitFor(ctx, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
                 signal("reconnect-crew");
                 await(ctx, "crew-returned");
                 dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 2, 6000);
@@ -581,7 +644,7 @@ public final class LocalMultiplayerTest
                     for (var p : s.getPlayerList().getPlayers())
                         SystemsConsole.action(p, engineering, ComputerTerminal.Action.SYSTEMS);
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
                 signal("systems-ready");
                 await(ctx, "crew-system-snapshot");
                 ctx.runOnClient(c ->
@@ -589,7 +652,7 @@ public final class LocalMultiplayerTest
                     var terminal = (TerminalScreen) c.gui.screen();
                     ClientPlayNetworking.send(new TerminalPackets.Request(terminal.sessionId(), ComputerTerminal.Action.CONFIGURE, "power cameras 2", "", terminal.revision()));
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("CAMERAS requested 2"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("CAMERAS requested 2"), 6000);
                 signal("systems-edited");
                 await(ctx, "crew-stale-rejected");
                 dedicated.runOnServer(s ->
@@ -598,7 +661,7 @@ public final class LocalMultiplayerTest
                         SystemsConsole.action(p, engineering, ComputerTerminal.Action.CONFIGURE, p.getGameProfile().name().equals("NullSpace_pilot") ? "rooms" : "profiles");
                 });
                 signal("independent-pages");
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("ROOMS"), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("ROOMS"), 6000);
                 ctx.waitTicks(25);
                 ctx.runOnClient(c -> check(c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("ROOMS"), "Pilot must keep a live room page independently of crew"));
                 await(ctx, "crew-page-preserved");
@@ -613,7 +676,7 @@ public final class LocalMultiplayerTest
                         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new TerminalPackets.Update(oldSession.session(), "Delayed reading from the closed engineering screen", 9999));
                     }
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof ViewportScreen, 6000);
                 await(ctx, "crew-camera");
                 ctx.takeScreenshot("local-multiplayer-camera");
                 var remote = engineering.offset(4096, 0, 0);
@@ -646,7 +709,7 @@ public final class LocalMultiplayerTest
                     }
                 });
                 signal("remote-camera-ready");
-                ctx.waitFor(c -> c.gui.screen() instanceof ViewportScreen v && v.sourcePosition().equals(remote), 6000);
+                waitFor(ctx, c -> c.gui.screen() instanceof ViewportScreen v && v.sourcePosition().equals(remote), 6000);
                 ctx.waitTicks(30);
                 var content = new java.util.concurrent.atomic.AtomicInteger(-1);
                 ctx.runOnClient(c ->
@@ -669,7 +732,7 @@ public final class LocalMultiplayerTest
                         }
                     });
                 });
-                ctx.waitFor(c -> content.get() >= 0, 6000);
+                waitFor(ctx, c -> content.get() >= 0, 6000);
                 check(content.get() > 100, "Distant source must render real geometry outside normal chunk range");
                 await(ctx, "crew-remote-camera");
                 dedicated.runOnServer(s ->
@@ -750,17 +813,17 @@ public final class LocalMultiplayerTest
     {
         await(ctx, "server-ready");
         connect(ctx, port);
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 6000);
         ctx.runOnClient(c -> ClientPlayNetworking.send(new ControllerPackets.Input(UUID.randomUUID(), ShipControl.Action.INSPECT, "")));
         ctx.waitTicks(30);
         ctx.runOnClient(c -> check(c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Local multiplayer inspection"), "A forged controller session must not execute an inspection or replace the crew's" + " real session"));
         action(ctx, ComputerTerminal.Action.INSPECT);
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
         signal("crew-validated");
         await(ctx, "guide-ready");
         verifyGuide(ctx);
         signal("crew-guide");
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready after guide"), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready after guide"), 6000);
         await(ctx, "pilot-previews");
         ctx.runOnClient(c ->
         {
@@ -768,14 +831,14 @@ public final class LocalMultiplayerTest
             check(c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), "Another player's preview actions must not replace the crew terminal");
         });
         signal("crew-no-previews");
-        ctx.waitFor(LocalMultiplayerTest::space, 6000);
+        waitFor(ctx, LocalMultiplayerTest::space, 6000);
         signal("crew-space");
         verifyComputeScene(ctx, "initial");
         await(ctx, "scene-edited");
-        ctx.waitFor(c -> NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().revision() >= 2, 6000);
+        waitFor(ctx, c -> NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().revision() >= 2, 6000);
         verifyComputeScene(ctx, "edited");
         await(ctx, "flight-ready");
-        ctx.waitFor(c -> c.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 6000);
         verifyPilotViewport(ctx);
         signal("crew-observing");
         await(ctx, "flight-stop");
@@ -785,7 +848,7 @@ public final class LocalMultiplayerTest
         {
             await(ctx, "jump-" + phase);
             String sceneId = phase.equals("luna") ? "nullspace:sol_luna" : "nullspace:local-space";
-            ctx.waitFor(c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
+            waitFor(ctx, c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
             verifyComputeScene(ctx, phase);
             signal("crew-" + phase);
         }
@@ -793,7 +856,7 @@ public final class LocalMultiplayerTest
         ctx.runOnClient(c -> c.getConnection().getConnection().disconnect(Component.literal("Local offline-arrival test")));
         try
         {
-            ctx.waitFor(c -> c.level == null && NullSpaceClient.definitions().scene() == null && SpaceComputeRenderer.liveViews() == 0, 200);
+            waitFor(ctx, c -> c.level == null && NullSpaceClient.definitions().scene() == null && SpaceComputeRenderer.liveViews() == 0, 200);
         }
         catch (AssertionError timeout)
         {
@@ -805,10 +868,10 @@ public final class LocalMultiplayerTest
         }
         await(ctx, "reconnect-crew");
         connect(ctx, port);
-        ctx.waitFor(c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD), 6000);
+        waitFor(ctx, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD), 6000);
         signal("crew-returned");
         await(ctx, "systems-ready");
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.revision() >= 0, 6000);
         var stale = new TerminalPackets.Request[1];
         ctx.runOnClient(c ->
         {
@@ -818,14 +881,14 @@ public final class LocalMultiplayerTest
         signal("crew-system-snapshot");
         await(ctx, "systems-edited");
         ctx.runOnClient(c -> ClientPlayNetworking.send(stale[0]));
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Systems changed"), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Systems changed"), 6000);
         signal("crew-stale-rejected");
         await(ctx, "independent-pages");
-        ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("CRUISE"), 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("CRUISE"), 6000);
         ctx.waitTicks(25);
         ctx.runOnClient(c -> check(c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("CRUISE"), "Crew must keep a separate profile page across automatic updates"));
         signal("crew-page-preserved");
-        ctx.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 6000);
+        waitFor(ctx, c -> c.gui.screen() instanceof ViewportScreen, 6000);
         signal("crew-camera");
         await(ctx, "remote-camera-ready");
         ctx.waitTicks(40);
@@ -838,7 +901,7 @@ public final class LocalMultiplayerTest
         buyShipTogether(ctx);
         await(ctx, "passed");
         ctx.runOnClient(c -> c.getConnection().getConnection().disconnect(Component.literal("Local verification complete")));
-        ctx.waitFor(c -> c.level == null, 6000);
+        waitFor(ctx, c -> c.level == null, 6000);
         ctx.runOnClient(c -> c.gui.setScreen(new TitleScreen()));
         signal("crew-finished");
     }

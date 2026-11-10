@@ -10,7 +10,7 @@
   Needs rg on PATH (scripts/lib/LocalVerification.psm1). Start parallel client runs >= 15 s apart:
   several clients launched in the same second can freeze during startup.
 #>
-param([string[]] $Classes = @('com.nullandkale.nullspace.ship.RecoveryGameTest'), [switch] $SkipBuild, [switch] $Client)
+param([string[]] $Classes = @('com.nullandkale.nullspace.ship.RecoveryGameTest'), [switch] $SkipBuild, [switch] $Client, [string[]] $ExtraMods = @(), [string[]] $JvmProperties = @(), [string[]] $ExtraClasspath = @())
 $kind = if ($Client) { 'client' } else { 'server' }
 $entry = if ($Client) { 'fabric-client-gametest' } else { 'fabric-gametest' }
 # Focused native GameTest run for a subset of classes; mirrors scripts/test/parallel-test.ps1's server job.
@@ -25,6 +25,11 @@ if (-not $SkipBuild) {
 $work = Join-Path $root ('build/focused-tests/' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + ($Classes[0].Split('.')[-1]) + '-' + [guid]::NewGuid().ToString('N').Substring(0,4))
 $null = New-Item -ItemType Directory -Path $work
 [IO.File]::WriteAllText((Join-Path $work 'eula.txt'), "eula=true`n")
+# Other mods under test (scripts/test/Run-CompatTests.ps1) load from the game folder, like a player's mods folder.
+if ($ExtraMods.Count) {
+    $null = New-Item -ItemType Directory -Path (Join-Path $work 'mods') -Force
+    foreach ($jar in $ExtraMods) { Copy-Item -LiteralPath $jar -Destination (Join-Path $work 'mods') }
+}
 $spec = Get-Content -LiteralPath "$root/build/local-$kind-launch.json" -Raw | ConvertFrom-Json
 $resources = Join-Path $root 'build/resources/gametest'
 $copy = Join-Path $work 'resources'
@@ -34,10 +39,12 @@ $mod.entrypoints.$entry = @($Classes)
 Write-VerificationJson (Join-Path $copy 'fabric.mod.json') $mod
 $config = [IO.File]::ReadAllText((Join-Path $root '.gradle/loom-cache/launch.cfg')).Replace($resources, $copy)
 $classpath = $spec.classpath.Replace($resources.Replace('\','\\'), $copy.Replace('\','\\')).Replace($resources, $copy)
+if ($ExtraClasspath.Count) { $classpath += [IO.Path]::PathSeparator + ($ExtraClasspath -join [IO.Path]::PathSeparator) }
 $launchConfig = Join-Path $work 'launch.cfg'
 [IO.File]::WriteAllText($launchConfig, $config, [Text.UTF8Encoding]::new($false))
 $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') })
 $arguments += @('-Xmx2G', "-Dfabric.dli.config=$launchConfig", "-Dfabric-api.gametest.report-file=$work/native-tests.xml")
+$arguments += @($JvmProperties)
 $arguments += @('-cp', $classpath, $spec.mainClass) + @($spec.args)
 if ($Client) { $arguments += @('--gameDir', $work, '--width', '1280', '--height', '720') } else { $arguments += @('--universe', $work) }
 $argFile = Join-Path $work 'launch.args'

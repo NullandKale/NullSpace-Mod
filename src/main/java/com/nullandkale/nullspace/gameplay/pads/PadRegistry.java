@@ -166,10 +166,9 @@ public final class PadRegistry
                 return PadScanner.Cell.OTHER;
             }
             var s = level.getBlockState(pos);
-            if (s.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK))
-                return PadScanner.Cell.GRASS;
-            if (s.is(net.minecraft.world.level.block.Blocks.DIRT))
-                return PadScanner.Cell.DIRT;
+            var floor = PadFloor.cell(s);
+            if (floor != null)
+                return floor;
             if (s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE))
                 return PadScanner.Cell.BORDER;
             return PadScanner.Cell.OTHER;

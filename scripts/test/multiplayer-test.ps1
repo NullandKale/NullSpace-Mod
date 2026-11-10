@@ -34,6 +34,8 @@ try {
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while (@($processes | Where-Object { -not $_.HasExited }).Count -gt 0) {
+        $stalled = Join-Path $runRoot 'stalled'
+        if (Test-Path $stalled) { Start-Sleep -Seconds 2; throw "Local multiplayer STALLED: $(Get-Content $stalled -Raw) Logs: $runRoot" }
         if ((Get-Date) -gt $deadline) { throw "Local multiplayer test timed out. Logs: $runRoot" }
         foreach ($process in $processes) {
             if ($process.HasExited -and $process.ExitCode -ne 0) { throw "Local client failed. Logs: $runRoot" }

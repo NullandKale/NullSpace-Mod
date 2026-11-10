@@ -134,7 +134,7 @@ public final class PadStatus
                 {
                     var state = level.getBlockState(pos);
                     boolean ring = b.onRing(x, z);
-                    if (ring ? !state.is(Blocks.COBBLESTONE) : !state.is(Blocks.GRASS_BLOCK) && !state.is(Blocks.DIRT))
+                    if (ring ? !state.is(Blocks.COBBLESTONE) : !PadFloor.is(state))
                     {
                         result = new PadRegistry.Status(job.pad, PadRegistry.State.UNAVAILABLE, "Pad floor or border changed");
                     }

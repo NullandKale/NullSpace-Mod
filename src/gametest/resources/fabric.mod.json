@@ -51,6 +51,7 @@
       "com.nullandkale.nullspace.content.machine.UpgradeTierGameTest",
       "com.nullandkale.nullspace.dev.AuthoringGameTest",
       "com.nullandkale.nullspace.gameplay.travel.CargoTravelGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.EntityTravelGameTest",
       "com.nullandkale.nullspace.gameplay.combat.CombatGameTest",
       "com.nullandkale.nullspace.content.RecipeGameTest",
       "com.nullandkale.nullspace.gameplay.scene.SceneCacheGameTest",

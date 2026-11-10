@@ -71,8 +71,38 @@ public final class TransferRecovery
         TransferReplay.clear(level, min, max);
     }
 
+    /** Servers with a journal that could not be replayed yet because the chunks' saved entities were still loading. */
+    private static final Set<MinecraftServer> WAITING = Collections.newSetFromMap(new WeakHashMap<>());
+
+    static
+    {
+        // Entities load from disk on level ticks, so a journal that has to wait is retried every tick until it can run.
+        ServerTickEvents.END_SERVER_TICK.register(server ->
+        {
+            if (WAITING.contains(server) && !replay(server))
+                WAITING.remove(server);
+        });
+    }
+
+    /** Asks for the chunks around a hull and says whether their saved entities are loaded yet. */
+    private static boolean entitiesReady(ServerLevel level, HullScan.Bounds bounds)
+    {
+        for (int x = (bounds.min().getX() - 2) >> 4; x <= (bounds.max().getX() + 2) >> 4; x++)
+            for (int z = (bounds.min().getZ() - 2) >> 4; z <= (bounds.max().getZ() + 2) >> 4; z++)
+                level.getChunkSource().addTicketWithRadius(TicketType.PORTAL, new ChunkPos(x, z), 2);
+        return HullEntities.loaded(level, bounds);
+    }
+
     public static void recover(MinecraftServer server)
     {
+        if (replay(server))
+            WAITING.add(server);
+    }
+
+    /** Replays every unfinished journal that can run now. Returns true when some journal has to wait for its entities. */
+    private static boolean replay(MinecraftServer server)
+    {
+        boolean waiting = false;
         var store = WorldStore.get(server);
         try (var files = Files.list(store.directory.resolve("transfers")))
         {
@@ -86,6 +116,13 @@ public final class TransferRecovery
                 var source = WorldStore.level(server, journal.getStringOr("source", ""));
                 var target = WorldStore.level(server, journal.getStringOr("target", ""));
                 BlockPos min = WorldStore.pos(journal, "min"), max = WorldStore.pos(journal, "max"), delta = WorldStore.pos(journal, "delta");
+                // Entities load from disk after their chunk does. Restoring a passenger before that finishes leaves it
+                // unregistered, so a journal waits (and is retried every tick) until both ends of the move are ready.
+                if (!entitiesReady(source, new HullScan.Bounds(min, max)) | !entitiesReady(target, new HullScan.Bounds(min.offset(delta), max.offset(delta))))
+                {
+                    waiting = true;
+                    continue;
+                }
                 store.replace(journal.getCompoundOrEmpty("before").copy(), ShipRepository.Mutation.RECOVERY);
                 for (Tag tag : journal.getListOrEmpty("entities"))
                     for (UUID moved : journaled((CompoundTag) tag))
@@ -110,8 +147,13 @@ public final class TransferRecovery
                         throw new IllegalStateException("Could not restore passenger " + id);
                     source.addFreshEntityWithPassengers(entity);
                     if (entity.isRemoved() || source.getEntity(entity.getUUID()) != entity)
-                        throw new IllegalStateException("Could not establish authoritative passenger " + id);
+                        throw new IllegalStateException("Could not establish authoritative passenger " + id + " (" + entity.getType() + ", removed " + entity.isRemoved() + ", reason " + entity.getRemovalReason() + ", the level holds " + source.getEntity(entity.getUUID()) + ", entities loaded here " + HullEntities.loaded(source, new HullScan.Bounds(min, max)) + ")");
                 }
+                // A fence-post knot is never journaled: an animal leaves one at the destination when it is tied there. With the
+                // animals gone it would only block the next ship, so it goes with them.
+                for (var stray : HullEntities.inBounds(target, new HullScan.Bounds(min.offset(delta), max.offset(delta))))
+                    if (stray instanceof net.minecraft.world.entity.decoration.LeashFenceKnotEntity)
+                        stray.discard();
                 for (Tag tag : journal.getListOrEmpty("players"))
                 {
                     var p = (CompoundTag) tag;
@@ -129,6 +171,7 @@ public final class TransferRecovery
         {
             throw new IllegalStateException("Cannot recover transfer journal", error);
         }
+        return waiting;
     }
 
     public static void resolveArrival(ServerPlayer player)

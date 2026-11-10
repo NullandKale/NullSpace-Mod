@@ -1,0 +1,11 @@
+{
+  "unplaceable": [
+    "waystones:warp_plate",
+    "waystones:warp_portal"
+  ],
+  "entities": [],
+  "blocks": [],
+  "position-waystones": [
+    "waystone identity"
+  ]
+}

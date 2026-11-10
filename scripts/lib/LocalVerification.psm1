@@ -98,6 +98,7 @@ function Get-VerificationNativeInventory([string] $Workspace, [string[]] $Classe
     foreach($class in $Classes) {
         if($class -notmatch '^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$'){throw 'Invalid native test class name'}
         $source=Join-Path $Workspace ('src/gametest/java/'+$class.Replace('.','/')+'.java')
+        if(-not (Test-Path -LiteralPath $source)){$source=Join-Path $Workspace ('src/compat/java/'+$class.Replace('.','/')+'.java')}
         $text=[IO.File]::ReadAllText($source)
         $methods=[regex]::Matches($text,'@GameTest(?:\([^)]*\))?\s+public\s+void\s+(\w+)\s*\(')
         if(-not $methods.Count -or $methods.Count -ne [regex]::Matches($text,'(?m)^\s*@GameTest\b').Count){throw "Cannot derive the full native inventory for $class"}
