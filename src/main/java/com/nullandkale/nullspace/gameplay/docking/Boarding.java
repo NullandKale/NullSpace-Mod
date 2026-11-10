@@ -73,7 +73,7 @@ public final class Boarding
             throw new IllegalArgumentException("Enter the airlock chamber before boarding");
         BlockPos to;
         if (construction)
-            to = WorldStore.pos(target, "base").offset(8, 3, 8);
+            to = WorldStore.pos(target, "base").offset(com.nullandkale.nullspace.worldgen.stations.StationBlueprint.ARRIVAL);
         else if (other != null)
             to = DockingPorts.anchor(p.level(), other);
         else

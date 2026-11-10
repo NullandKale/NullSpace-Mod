@@ -34,7 +34,8 @@ public final class StationRegenerationGameTest
         other.putString("home", "Keep this ship");
         other.putInt("cargoMarker", 71);
         store.ships().add(other);
-        var oldCargo = (net.minecraft.world.Container) level.getBlockEntity(base.offset(10, 3, 10));
+        var chest = java.util.stream.StreamSupport.stream(BlockPos.betweenClosed(base, base.offset(31, 31, 31)).spliterator(), false).filter(at -> level.getBlockEntity(at) instanceof net.minecraft.world.Container).map(BlockPos::immutable).findFirst().orElseThrow();
+        var oldCargo = (net.minecraft.world.Container) level.getBlockEntity(chest);
         oldCargo.setItem(0, new ItemStack(Items.DIAMOND, 17));
         var outside = base.offset(40, 3, 8);
         level.setBlock(outside, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
@@ -88,7 +89,7 @@ public final class StationRegenerationGameTest
         ctx.assertTrue(WorldStore.pos(station, "base").equals(base), "Station identity and location survive regeneration");
         ctx.assertTrue(level.getEntities(null, WorldStore.bounds(station).box()).stream().noneMatch(e -> e instanceof net.minecraft.world.entity.item.ItemEntity), "Old container contents are reset without dropping duplicate cargo into space");
         ctx.assertTrue(level.getBlockState(outside).is(Blocks.DIAMOND_BLOCK), "Blocks outside the station remain intact");
-        var barrel = base.offset(10, 3, 10);
+        var barrel = chest;
         var inventory = (net.minecraft.world.Container) level.getBlockEntity(barrel);
         inventory.setItem(0, new ItemStack(Items.DIAMOND, 7));
         var archive = file.resolveSibling("station-regeneration-queued-" + request.get("id").getAsString() + ".json");

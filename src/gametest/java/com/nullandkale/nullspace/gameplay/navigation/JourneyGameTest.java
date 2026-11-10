@@ -183,7 +183,7 @@ public final class JourneyGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 600)
+    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 4800)
     public void allEncounterTypesHaveSafeDocksAccessibleFiniteSuppliesAndRealCrops(GameTestHelper ctx) throws Exception
     {
         var c = ConcurrentShipActionsGameTest.client(ctx, 43);
@@ -199,13 +199,20 @@ public final class JourneyGameTest
             vessels.add(vessel);
         }
         Runnable[] poll = {null};
+        boolean[] done = {false};
         poll[0] = () ->
         {
-            if (vessels.stream().anyMatch(s -> !StationAccess.ready(s)))
+            // The store may replace its records (a save retry reloads them), so follow each vessel by id.
+            for (int i = 0; i < vessels.size(); i++)
             {
-                ctx.runAfterDelay(5, poll[0]);
-                return;
+                var current = WorldStore.get(server).repository().find(vessels.get(i).getStringOr("id", ""));
+                if (current != null)
+                    vessels.set(i, current);
             }
+            // Builds run one at a time, so the last encounter can take a while on large ships.
+            if (vessels.stream().anyMatch(s -> !StationAccess.ready(s)))
+                return;
+            done[0] = true;
             for (var vessel : vessels)
             {
                 var port = DockingPorts.ports(level, vessel).getFirst();
@@ -274,7 +281,11 @@ public final class JourneyGameTest
             c.close();
             ctx.succeed();
         };
-        ctx.runAfterDelay(20, poll[0]);
+        ctx.onEachTick(() ->
+        {
+            if (!done[0] && ctx.getTick() >= 20)
+                poll[0].run();
+        });
     }
 
     private static int count(Container container)

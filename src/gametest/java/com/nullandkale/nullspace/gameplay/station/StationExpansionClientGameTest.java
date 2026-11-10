@@ -77,6 +77,8 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             });
             c.waitFor(mc -> mc.player != null && mc.player.isSpectator() && mc.player.distanceToSqr(64, 188, -36) < 1, 200);
             var base = world.getServer().computeOnServer(server -> WorldStore.pos(station[0], "base"));
+            // The far-side berth: the easternmost port, whichever tile the generated ring puts it on.
+            var far = world.getServer().computeOnServer(server -> DockingPorts.ports(server.getLevel(TravelService.SPACE), station[0]).stream().max(Comparator.comparingInt(port -> port.controller().getX())).orElseThrow().controller().subtract(WorldStore.pos(station[0], "base")));
             c.getInput().lookAt(base.offset(64, 4, 64));
 
             c.waitFor(mc -> mc.level != null && java.util.stream.Stream.of(base.offset(8, 4, 8), base.offset(120, 4, 8), base.offset(8, 4, 120), base.offset(120, 4, 120)).allMatch(at ->
@@ -86,7 +88,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             }), 600);
             c.waitTicks(30);
             c.takeScreenshot("nullspace-full-station-ring");
-            world.getServer().waitFor(server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], base.offset(126, 4, 104)), 2400);
+            world.getServer().waitFor(server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], base.offset(far).offset(-1, 2, 0)), 2400);
 
             world.getServer().runOnServer(server ->
             {
@@ -100,7 +102,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 ship[0].getListOrEmpty("crew").add(member);
                 p.teleportTo(level, 4130, 112, 16, Set.of(), 90, 0, true);
                 doors[0] = DockingPorts.firstPort(level, ship[0]).controller();
-                doors[1] = DockingPorts.ports(level, station[0]).stream().filter(port -> port.controller().getX() == base.getX() + 127 && port.controller().getZ() == base.getZ() + 104).findFirst().orElseThrow().controller();
+                doors[1] = DockingPorts.ports(level, station[0]).stream().filter(port -> port.controller().equals(base.offset(far))).findFirst().orElseThrow().controller();
             });
             c.waitFor(mc -> mc.player != null && mc.player.distanceToSqr(4130, 112, 16) < 1 && mc.level.hasChunkAt(new BlockPos(4096, 96, 0)), 200);
             c.getInput().lookAt(new BlockPos(3960, 100, 64));
@@ -121,12 +123,12 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 ShipService.open(p, WorldStore.pos(ship[0], "controller"), "Choose the far-side station port");
             });
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
-            ShipControlTestUi.destination(c, world, "127,2,104", "Ports");
+            ShipControlTestUi.destination(c, world, far.getX() + "," + far.getY() + "," + far.getZ(), "Ports");
             c.takeScreenshot("nullspace-far-station-port-discovery");
             ShipControlTestUi.action(c, ShipControl.Action.DOCK);
             world.getServer().waitFor(server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 1800);
             StationClientGameTest.walkThrough(c, world, ship[0], doors[0]);
-            c.waitFor(mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(127, 3, 104)), 200);
+            c.waitFor(mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(far).above()), 200);
             c.waitTicks(12);
             c.takeScreenshot("nullspace-full-station-far-berth");
             world.getServer().runOnServer(server ->

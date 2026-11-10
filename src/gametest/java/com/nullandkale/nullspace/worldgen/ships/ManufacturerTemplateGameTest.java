@@ -88,7 +88,7 @@ public final class ManufacturerTemplateGameTest
         var footprints = new HashSet<Set<BlockPos>>();
         for (var preset : ShipBlueprints.PRESETS)
         {
-            if (!ManufacturerShips.contains(preset.id()) || ManufacturerRoleShips.contains(preset.id()))
+            if (!preset.role().equals("Scout"))
                 continue;
             var base = new BlockPos(600000 + index++ * 4096, 80, 600000);
             ShipYard.buildPad(level, base, 32, 32, "Manufacturer test " + preset.id());
@@ -113,10 +113,6 @@ public final class ManufacturerTemplateGameTest
             ShipSystems.tick(level, ship);
             var port = DockingPorts.firstPort(level, ship);
             ctx.assertTrue(DockingPorts.ports(level, ship).size() == 1 && port.anchors().size() >= 2, "Scout has one usable powered dock");
-            var rear = origin.offset(preset.id().equals("rivet_bolt") ? new BlockPos(8, 1, 17) : new BlockPos(9, 1, 18));
-            ctx.assertTrue(scan.pressure().breathable(rear.above()), "Separate rear room has a sealed hull");
-            ctx.assertTrue(reachable(level, port.anchors().getFirst(), rear), "Dock can reach rear workshop through real doorway");
-            ctx.assertTrue(ShipAir.breathable(level, ship, rear.above()), "Powered interior retains finite air");
             for (var room : ShipRooms.rooms(preset.id()))
             {
                 ctx.assertTrue(scan.pressure().breathable(origin.offset(room.walk()).above()) && reachable(level, port.anchors().getFirst(), origin.offset(room.walk())), preset.name() + " has a safe walking route to " + room.name());
@@ -149,7 +145,7 @@ public final class ManufacturerTemplateGameTest
             var ports = DockingPorts.ports(space, station);
             ctx.assertTrue(ports.size() == 2, "Compact station has two opposite usable berths");
             var graph = StationGraph.inspect(space, station);
-            ctx.assertTrue(graph.nodes().size() == 5, "Three room doors and two dock nodes come from physical blocks");
+            ctx.assertTrue(graph.nodes().size() == 18, "Sixteen room doors and two dock nodes come from physical blocks: " + graph.nodes().size());
             for (var port : ports)
                 for (var room : ManufacturerStation.ROOMS.entrySet())
                 {
@@ -159,7 +155,7 @@ public final class ManufacturerTemplateGameTest
                 }
             for (var at : ShipSystems.connected(space, station))
                 ctx.assertTrue(WorldStore.bounds(station).contains(at), "Showcase fits one 32-block allocation");
-            var edited = base.offset(6, 3, 15);
+            var edited = base.offset(24, 2, 3);
             space.setBlock(edited, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
             ctx.assertTrue(StationDeployment.showcase(p) == station && space.getBlockState(edited).is(Blocks.DIAMOND_BLOCK), "Revisiting never regenerates the showroom or erases edits");
             ctx.succeed();

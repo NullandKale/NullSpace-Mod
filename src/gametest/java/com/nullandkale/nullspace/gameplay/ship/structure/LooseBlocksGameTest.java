@@ -85,7 +85,7 @@ public final class LooseBlocksGameTest
         var client = ConcurrentShipActionsGameTest.client(ctx, 93);
         var f = client.fixture();
         var origin = f.padBase.above();
-        var preset = ShipBlueprints.get("sparrow");
+        var preset = ShipBlueprints.get("rivet_bolt");
         for (var e : ShipBlueprints.blocks(preset).entrySet())
         {
             f.surface.setBlock(origin.offset(e.getKey()), e.getValue(), 18);
@@ -99,8 +99,9 @@ public final class LooseBlocksGameTest
         ShipSystems.tick(f.surface, ship);
         var boarding = StationGameTest.boardingPoint(f.surface, ship);
         f.player.teleportTo(f.surface, boarding.x, boarding.y, boarding.z, Set.of(), 0, 0, true);
-        var loose = origin.offset(10, 2, 10);
-        var extra = origin.offset(11, 2, 11);
+        // Beside the hull on the pad: touching nothing, and a second block further along.
+        var loose = origin.offset(21, 2, 12);
+        var extra = origin.offset(21, 2, 16);
         var obstruction = controller.above(33);
         f.surface.setBlock(loose, Blocks.CHEST.defaultBlockState(), 18);
         ((ChestBlockEntity) f.surface.getBlockEntity(loose)).setItem(0, new ItemStack(Items.EMERALD, 9));
@@ -309,7 +310,19 @@ public final class LooseBlocksGameTest
             }
             if (shell == null)
                 throw new AssertionError("The fixture cabin has a glass wall");
-            f.space.setBlock(shell, Blocks.AIR.defaultBlockState(), 18);
+            // A window is glass the whole way through the hull: open the full run, not just its inner face.
+            var run = new java.util.ArrayDeque<BlockPos>(List.of(shell));
+            var glass = new java.util.HashSet<BlockPos>();
+            while (!run.isEmpty())
+            {
+                var at = run.poll();
+                if (!glass.add(at))
+                    continue;
+                for (var d : net.minecraft.core.Direction.values())
+                    if (blocks.contains(at.relative(d)) && f.space.getBlockState(at.relative(d)).is(Blocks.GLASS) && glass.size() < 16)
+                        run.add(at.relative(d));
+            }
+            glass.forEach(at -> f.space.setBlock(at, Blocks.AIR.defaultBlockState(), 18));
             boolean refused = false;
             try
             {

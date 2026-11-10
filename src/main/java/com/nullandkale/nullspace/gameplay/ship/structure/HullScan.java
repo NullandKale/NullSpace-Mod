@@ -62,6 +62,9 @@ public final class HullScan
             // Snow that settled on the hull is weather, not ship: it never joins the scan.
             if (state.isAir() || state.is(Blocks.SNOW) && !pos.equals(controller))
                 continue;
+            // A pad's own computer and a delivery beacon stand at the pad edge, and are never part of the ship, even when the hull's ground step touches one.
+            if (state.is(com.nullandkale.nullspace.gameplay.pads.PadComputers.BLOCK) || state.is(ModBlocks.SHIP_BEACON))
+                continue;
             if (!allowed.contains(pos))
                 fail(level, "This connected block extends outside the pad or above the 32-block height limit. Move" + " it inside the build area.", pos);
             BlockSupport.validate(level, pos);

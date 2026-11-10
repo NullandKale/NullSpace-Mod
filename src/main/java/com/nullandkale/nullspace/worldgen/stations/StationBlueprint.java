@@ -2,6 +2,8 @@ package com.nullandkale.nullspace.worldgen.stations;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.worldgen.blueprint.BlueprintOrientation;
+import com.nullandkale.nullspace.worldgen.piece.Piece;
+import com.nullandkale.nullspace.worldgen.shipgen.*;
 
 import java.util.*;
 
@@ -13,7 +15,11 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 /** Pure block plan; placement never overwrites an existing player's build. */
 public final class StationBlueprint
 {
-    public record Plan(Map<BlockPos, BlockState> blocks, BlockPos core, List<BlockPos> docks)
+    /**
+     * A build ready to place. {@code points} are the named spots from its pieces (loot, mobs), in
+     * the same local coordinates; hand-coded plans have none.
+     */
+    public record Plan(Map<BlockPos, BlockState> blocks, BlockPos core, List<BlockPos> docks, List<Piece.Point> points)
     {
         public Plan
         {
@@ -22,6 +28,17 @@ public final class StationBlueprint
             BlueprintOrientation.fix(settled);
             blocks = Collections.unmodifiableMap(settled);
             docks = List.copyOf(docks);
+            points = List.copyOf(points);
+        }
+
+        public Plan(Map<BlockPos, BlockState> blocks, BlockPos core, List<BlockPos> docks)
+        {
+            this(blocks, core, docks, List.of());
+        }
+
+        public List<Piece.Point> points(String name)
+        {
+            return points.stream().filter(p -> p.name().equals(name)).toList();
         }
     }
 
@@ -50,91 +67,76 @@ public final class StationBlueprint
         out.put(at.above(), Blocks.AIR.defaultBlockState());
     }
 
+    /**
+     * Joins two neighbouring tiles. Each side has two doorway slots on each of the two stories, so
+     * four doors: a closed iron door in the first tile's wall, and the second tile's wall cut open
+     * behind it. Everything else about the seam is already wall.
+     */
     public static void connect(Map<BlockPos, BlockState> out, StationLayout.Room a, StationLayout.Room b)
     {
         var face = StationLayout.direction(a, b);
-        var da = StationLayout.doorway(a, face);
-        var db = StationLayout.doorway(b, face.getOpposite());
-        out.put(da.below(), Blocks.QUARTZ_BLOCK.defaultBlockState());
-        out.put(db.below(), Blocks.QUARTZ_BLOCK.defaultBlockState());
-        door(out, da, face);
-        opening(out, db);
-        out.put(da.above(2), Blocks.QUARTZ_BLOCK.defaultBlockState());
+        var da = StationLayout.doorways(a, face);
+        var db = StationLayout.doorways(b, face.getOpposite());
+        for (int i = 0; i < da.size(); i++)
+        {
+            door(out, da.get(i), face);
+            opening(out, db.get(i));
+        }
+    }
+
+    /** The cells of {@code a} that {@link #connect} replaces with a door: the wall there is expected, not an obstruction. */
+    public static List<BlockPos> seam(StationLayout.Room a, StationLayout.Room b)
+    {
+        var out = new ArrayList<BlockPos>();
+        for (var door : StationLayout.doorways(a, StationLayout.direction(a, b)))
+        {
+            out.add(door);
+            out.add(door.above());
+        }
+        return out;
+    }
+
+    private static final Map<String, Map<BlockPos, BlockState>> TILES = new HashMap<>();
+
+    /** The generated blocks of a piece, unturned. */
+    private static synchronized Map<BlockPos, BlockState> tile(StationPieces.Definition piece, Spec.Maker maker)
+    {
+        return TILES.computeIfAbsent(piece.id() + "/" + maker, k -> ShipBlocks.blocks(StationGenerator.tile(piece.kit(), piece.doors(), piece.windows(), maker)));
     }
 
     public static Plan build(StationLayout.Layout layout)
+    {
+        return build(layout, Spec.Maker.HALCYON);
+    }
+
+    public static Plan build(StationLayout.Layout layout, Spec.Maker maker)
+    {
+        return build(layout, room -> maker);
+    }
+
+    /** As {@link #build(StationLayout.Layout)}, with each room in its own maker's materials. */
+    public static Plan build(StationLayout.Layout layout, java.util.function.Function<StationLayout.Room, Spec.Maker> makers)
     {
         var out = new LinkedHashMap<BlockPos, BlockState>();
         var docks = new ArrayList<BlockPos>();
         BlockPos core = null;
         for (var room : layout.rooms())
         {
+            var def = StationPieces.get(room.piece());
+            var size = new Vec3i(StationGenerator.TILE, StationGenerator.HEIGHT, StationGenerator.TILE);
+            var piece = new Piece(def.id(), size, tile(def, makers.apply(room)), List.of(), List.of()).rotate(room.turn());
             var b = room.origin();
-            for (int x = 0; x < 16; x++)
-                for (int z = 0; z < 16; z++)
-                    for (int y = 0; y < 9; y++)
-                    {
-                        boolean shell = x == 0 || z == 0 || x == 15 || z == 15 || y == 0 || y == 8;
-                        if (!shell)
-                            continue;
-                        boolean window = y >= 4 && y <= 6 && (x == 0 || x == 15 || z == 0 || z == 15);
-                        var block = y == 0 && (x + z) % 7 == 0 ? Blocks.SEA_LANTERN : window ? Blocks.GLASS : Blocks.QUARTZ_BLOCK;
-                        out.put(b.offset(x, y, z), block.defaultBlockState());
-                    }
-            // Lift the walking floor to y=2, giving every module the same doorway height.
-            for (int x = 0; x < 16; x++)
-                for (int z = 0; z < 16; z++)
-                    out.put(b.offset(x, 2, z), (x == 2 || z == 2 || x == 13 || z == 13 ? switch (room.role())
-                    {
-                        case ARRIVAL -> Blocks.CONCRETE.lightBlue();
-                        case WORKSHOP -> Blocks.CONCRETE.orange();
-                        case HABITATION -> Blocks.CONCRETE.green();
-                        case ENGINEERING -> Blocks.CONCRETE.yellow();
-                    } : Blocks.QUARTZ_BLOCK).defaultBlockState());
-            for (int x : new int[]{3, 8, 12})
-                for (int z : new int[]{3, 8, 12})
-                    out.put(b.offset(x, 8, z), Blocks.SEA_LANTERN.defaultBlockState());
-            machine(out, b.offset(4, 3, 1), ModBlocks.AIR_SUPPLY, Direction.SOUTH);
-            switch (room.role())
+            for (var e : piece.blocks().entrySet())
             {
-                case ARRIVAL ->
-                {
-                    core = b.offset(4, 3, 4);
-                    machine(out, core, ModBlocks.STATION_CORE, Direction.SOUTH);
-                    machine(out, b.offset(5, 3, 4), ModBlocks.TERMINAL, Direction.SOUTH);
-                    machine(out, b.offset(6, 3, 4), ModBlocks.LOCAL_SCANNER, Direction.SOUTH);
-                    machine(out, b.offset(7, 3, 4), ModBlocks.MONITOR, Direction.SOUTH);
-                    out.put(b.offset(10, 3, 10), Blocks.BARREL.defaultBlockState());
-                }
-                case WORKSHOP ->
-                {
-                    for (int x = 3; x < 7; x++)
-                        out.put(b.offset(x, 3, 3), Blocks.BARREL.defaultBlockState());
-                    out.put(b.offset(4, 3, 4), Blocks.CRAFTING_TABLE.defaultBlockState());
-                    out.put(b.offset(5, 3, 4), Blocks.FURNACE.defaultBlockState());
-                }
-                case HABITATION ->
-                {
-                    for (int x = 3; x < 7; x++)
-                        out.put(b.offset(x, 3, 4), Blocks.OAK_STAIRS.defaultBlockState());
-                    out.put(b.offset(4, 3, 10), Blocks.BARREL.defaultBlockState());
-                }
-                case ENGINEERING ->
-                {
-                    machine(out, b.offset(5, 3, 3), ModBlocks.GENERATOR, Direction.SOUTH);
-                    machine(out, b.offset(6, 3, 3), ModBlocks.GENERATOR, Direction.SOUTH);
-                    machine(out, b.offset(7, 3, 3), ModBlocks.BATTERY, Direction.SOUTH);
-                    machine(out, b.offset(8, 3, 3), ModBlocks.BATTERY, Direction.SOUTH);
-                    machine(out, b.offset(9, 3, 3), ModBlocks.CAMERA, Direction.SOUTH);
-                }
+                out.put(b.offset(e.getKey()), e.getValue());
+                if (e.getValue().is(ModBlocks.STATION_CORE))
+                    core = b.offset(e.getKey());
             }
         }
         if (core == null)
-            core = layout.rooms().getFirst().origin().offset(1, 3, 1);
+            core = layout.rooms().getFirst().origin().offset(1, StationGenerator.DOOR_ROWS[0], 1);
         for (var edge : layout.joints())
-        {
             connect(out, layout.room(edge.a()), layout.room(edge.b()));
-        }
         boolean large = layout.rooms().stream().anyMatch(r -> r.x() > 1 || r.z() > 1);
         for (var room : layout.rooms())
         {
@@ -154,7 +156,7 @@ public final class StationBlueprint
             }
             for (var face : faces)
             {
-                if (layout.rooms().stream().anyMatch(r -> r.x() == room.x() + face.getStepX() && r.z() == room.z() + face.getStepZ()))
+                if (!room.doors().contains(face) || layout.rooms().stream().anyMatch(r -> r.x() == room.x() + face.getStepX() && r.z() == room.z() + face.getStepZ()))
                     continue;
                 var at = StationLayout.doorway(room, face);
                 compact(out, at, face);
@@ -181,13 +183,19 @@ public final class StationBlueprint
         }
     }
 
+    /**
+     * Where a builder stands when they arrive at a construction platform: on the platform, in the
+     * aisle by the west wall, where no kit puts anything (so the first room can go up around them).
+     */
+    public static final BlockPos ARRIVAL = new BlockPos(4, StationGenerator.BASE + 1, 7);
+
     public static Plan foundation()
     {
         var out = new LinkedHashMap<BlockPos, BlockState>();
         for (int x = 4; x <= 11; x++)
             for (int z = 4; z <= 11; z++)
-                out.put(new BlockPos(x, 2, z), Blocks.POLISHED_ANDESITE.defaultBlockState());
-        var core = new BlockPos(5, 3, 5);
+                out.put(new BlockPos(x, StationGenerator.BASE, z), Blocks.POLISHED_ANDESITE.defaultBlockState());
+        var core = new BlockPos(5, StationGenerator.BASE + 1, 5);
         machine(out, core, ModBlocks.STATION_CORE, Direction.SOUTH);
         return new Plan(out, core, List.of());
     }

@@ -227,9 +227,9 @@ public final class LocalMultiplayerTest
     {
         ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && yard.status().contains("Two-player delivery test"), 6000);
         ctx.waitTicks(5);
-        int design = java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size()).filter(i -> ShipBlueprints.PRESETS.get(i).id().equals("mule")).findFirst().orElseThrow();
+        int design = java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size()).filter(i -> ShipBlueprints.PRESETS.get(i).id().equals("rivet_hauler")).findFirst().orElseThrow();
         ShipYardClientGameTest.choose(ctx, design);
-        ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && yard.selected().equals("mule") && yard.ready(), 6000);
+        ctx.waitFor(c -> c.gui.screen() instanceof ShipyardScreen yard && yard.selected().equals("rivet_hauler") && yard.ready(), 6000);
         String role = System.getProperty("nullspace.local.role");
         signal(role + "-shipyard-ready");
         await(ctx, "pilot-shipyard-ready");
@@ -493,6 +493,7 @@ public final class LocalMultiplayerTest
                     ctx.waitTicks(15);
                     signal(route.equals("sol_luna") ? "jump-luna" : "jump-home");
                     ShipControlTestUi.destination(ctx, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra", "Regions");
+                    dedicated.runOnServer(s -> SceneService.observer(s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow()).putInt("nextJourneySeconds", 4));
                     ShipControlTestUi.action(ctx, ShipControl.Action.JUMP);
                     String sceneId = route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";
                     ctx.waitFor(c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
@@ -558,6 +559,8 @@ public final class LocalMultiplayerTest
                         for (int x = 14; x <= 19; x++)
                             s.overworld().setBlock(origin.offset(x, 6, 21), new net.minecraft.world.level.block.Block[]{ModBlocks.GENERATOR, ModBlocks.BATTERY, ModBlocks.AIR_SUPPLY, ModBlocks.LOCAL_SCANNER, ModBlocks.LOCAL_SCANNER, ModBlocks.MONITOR}[x - 14].defaultBlockState(), 18);
                         s.overworld().setBlock(origin.offset(16, 7, 21), ModBlocks.CAMERA.defaultBlockState(), 18);
+                        // The camera console beside the controller, which the later steps open for each player.
+                        s.overworld().setBlock(SphereLab.controller(origin).east(), ModBlocks.MONITOR.defaultBlockState().setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, net.minecraft.core.Direction.NORTH), 18);
                         var vessel = ShipTopology.resolve(s.overworld(), SphereLab.controller(origin));
                         SystemsUpgrade.upgrade(s.overworld(), vessel);
                         for (var p : s.getPlayerList().getPlayers())
@@ -683,12 +686,12 @@ public final class LocalMultiplayerTest
                 dedicated.runOnServer(s ->
                 {
                     var level = s.overworld();
-                    for (int x = (deliveryBase.getX() - 4) >> 4; x <= (deliveryBase.getX() + 16) >> 4; x++)
-                        for (int z = (deliveryBase.getZ() - 1) >> 4; z <= (deliveryBase.getZ() + 20) >> 4; z++)
+                    for (int x = (deliveryBase.getX() - 4) >> 4; x <= (deliveryBase.getX() + 32) >> 4; x++)
+                        for (int z = (deliveryBase.getZ() - 1) >> 4; z <= (deliveryBase.getZ() + 32) >> 4; z++)
                             level.setChunkForced(x, z, true);
                     try
                     {
-                        ShipYard.buildPad(level, deliveryBase, 16, 20, "Shared Delivery");
+                        ShipYard.buildPad(level, deliveryBase, 32, 32, "Shared Delivery");
                     }
                     catch (java.io.IOException error)
                     {
@@ -707,7 +710,7 @@ public final class LocalMultiplayerTest
                 dedicated.runOnServer(s ->
                 {
                     for (var p : s.getPlayerList().getPlayers())
-                        ShipYardService.open(p, deliveryBeacon, "mule", "Two-player delivery test");
+                        ShipYardService.open(p, deliveryBeacon, "rivet_hauler", "Two-player delivery test");
                 });
                 buyShipTogether(ctx);
                 await(ctx, "crew-shipyard-done");
@@ -721,7 +724,7 @@ public final class LocalMultiplayerTest
                 }
                 dedicated.runOnServer(s ->
                 {
-                    var deliveries = WorldStore.get(s).ships().stream().map(t -> (net.minecraft.nbt.CompoundTag) t).filter(t -> t.getStringOr("blueprint", "").equals("mule")).toList();
+                    var deliveries = WorldStore.get(s).ships().stream().map(t -> (net.minecraft.nbt.CompoundTag) t).filter(t -> t.getStringOr("blueprint", "").equals("rivet_hauler")).toList();
                     check(deliveries.size() == 1, "Concurrent purchases create exactly one ship identity");
                     check(WorldStore.get(s).list("shipyardOrders").isEmpty(), "The completed purchase has no leftover order");
                     for (var p : s.getPlayerList().getPlayers())
@@ -730,7 +733,7 @@ public final class LocalMultiplayerTest
                     var pad = PadRepository.get(s).dimension(s.overworld().dimension().identifier().toString()).stream().filter(p -> p.name().equals("Shared Delivery")).findFirst().orElseThrow();
                     HullScan.inspect(s.overworld(), WorldStore.pos(ship, "controller"), pad.bounds(), true);
                     ShipYardService.recover(s);
-                    check(WorldStore.get(s).ships().stream().filter(t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("blueprint", "").equals("mule")).count() == 1, "Recovery after a buyer race never duplicates the ship");
+                    check(WorldStore.get(s).ships().stream().filter(t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("blueprint", "").equals("rivet_hauler")).count() == 1, "Recovery after a buyer race never duplicates the ship");
                 });
                 ctx.takeScreenshot("local-multiplayer-shipyard");
                 signal("shipyard-race-passed");

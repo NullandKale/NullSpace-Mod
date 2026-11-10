@@ -256,7 +256,10 @@ public final class EncounterSites
         var base = WorldStore.pos(ship, "base");
         long seed = ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 0x9e3779b97f4a7c15L;
         String treasure = SiteLoot.treasure(level.getServer(), LocalSpaces.address(ship));
-        if (kind == 3)
+        var points = SitePoints.read(ship);
+        if (!points.isEmpty())
+            SitePoints.stock(level, base, points, treasure, seed, ship.getStringOr("name", "Salvage") + " supplies");
+        else if (kind == 3)
         {
             int index = 0;
             for (var crate : POD_CRATES)

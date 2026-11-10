@@ -273,7 +273,7 @@ public final class SpacePopulation
                 blocks = StationBlueprint.build(layout);
                 var pieces = new CompoundTag();
                 for (var room : layout.rooms())
-                    pieces.putString(room.x() + "_" + room.z(), room.role().name());
+                    pieces.putString(room.x() + "_" + room.z(), room.encode());
                 metadata.put("roomPieces", pieces);
             }
             var station = StationBuilds.queueAmbient(server, plan.id(), plan.name(), address, position, blocks, metadata);

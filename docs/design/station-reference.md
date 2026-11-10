@@ -14,7 +14,7 @@ Stations, the completed Waypoint example, room kits, doorway graphs and automati
 4. After capture, open the ordinary dock door and walk through. A short loading transition boards the station with your inventory.
 5. Return through that same station port. Once all crew are back, select **Undock automatically** at the ship's ship controller or port. It closes and checks the airlocks, backs away and releases the berth.
 
-Waypoint contains an arrival lounge, workshop/storage, habitation/observation and engineering. It has two opposing exterior berths, colored room borders, ceiling lights, finite room air, generators and batteries. Starter contents and resources initialize once; visiting never repairs or refills it. Public visitors may use its door controls and crafting table; protected storage and construction require builder access.
+Waypoint is a ring of four generated tiles (an entrance, a workshop, a bedroom and a power room, each two stories) joined by offset doors, two on each story of each shared edge; see the [station generator](ship-generator.md#stations). It has two opposing exterior berths, colored room borders, ceiling lights, finite room air, generators and batteries. Starter contents and resources initialize once; visiting never repairs or refills it. Public visitors may use its door controls and crafting table; protected storage and construction require builder access.
 
 The graphical integration test captures the [station interior](../images/waypoint-station-interior.png) and [dock controls](../images/station-dock-controls.png) during a complete boarding round trip. The verification receipt records test counts, coverage limits and the packaged artifact hash.
 

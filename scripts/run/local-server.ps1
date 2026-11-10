@@ -1,7 +1,7 @@
 param(
     [ValidatePattern('^[a-zA-Z0-9_-]+$')][string]$Instance='default',
     [ValidateRange(0,65535)][int]$Port=0,
-    [ValidatePattern('^[a-z_]+$')][string]$StartingShip='sparrow',
+    [ValidatePattern('^[a-z_]+$')][string]$StartingShip='rivet_bolt',
     [switch]$VanillaStart,
     [ValidateRange(60,1200)][int]$TimeoutSeconds=240,
     [switch]$SmokeTest

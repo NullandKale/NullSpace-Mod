@@ -1,6 +1,5 @@
 package com.nullandkale.nullspace.worldgen.blueprint;
 
-import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
@@ -31,13 +30,6 @@ public final class BlueprintOrientationGameTest
         for (int kind = 0; kind < JourneyPlan.KINDS; kind++)
             for (long seed = 0; seed < 6; seed++)
                 plans.put("encounter-" + kind + "-" + seed, EncounterSites.plan(kind, seed).blocks());
-        for (var preset : ShipBlueprints.PRESETS)
-        {
-            var raw = new LinkedHashMap<>(ShipBlueprints.rawBlocks(preset));
-            var fixed = BlueprintOrientation.fix(raw);
-            if (fixed.total() > 0)
-                NullSpace.LOGGER.info("Blueprint {} settled: {}", preset.id(), fixed);
-        }
         var unsettled = new ArrayList<String>();
         for (var plan : plans.entrySet())
         {

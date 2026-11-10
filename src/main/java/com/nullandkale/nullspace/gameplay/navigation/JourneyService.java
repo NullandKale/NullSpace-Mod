@@ -58,6 +58,9 @@ public final class JourneyService
         // Every journey rolls its own signal; tests may fix the next one with nextSignalNonce.
         long nonce = ship.contains("nextSignalNonce") ? ship.getLongOr("nextSignalNonce", 0) : java.util.concurrent.ThreadLocalRandom.current().nextLong();
         ship.remove("nextSignalNonce");
+        // Tests may also shorten the next journey, as they fix its signal, so that waiting through a real cruise stays cheap.
+        int seconds = ship.contains("nextJourneySeconds") ? Math.max(1, ship.getIntOr("nextJourneySeconds", 1)) : -1;
+        ship.remove("nextJourneySeconds");
         var plan = preview(server, ship, destination, nonce);
         var from = LocalSpaces.get(server, LocalSpaces.address(ship));
         // A signal is as dangerous as the more dangerous end of the trip.
@@ -73,8 +76,9 @@ public final class JourneyService
         j.putInt("danger", danger);
         j.putLong("seed", plan.seed());
         j.putInt("kind", plan.kind());
-        j.putInt("duration", plan.seconds() * 20);
-        j.putInt("contactAt", plan.contactSecond() * 20);
+        int length = seconds > 0 ? seconds : plan.seconds();
+        j.putInt("duration", length * 20);
+        j.putInt("contactAt", Math.min(plan.contactSecond(), length) * 20);
         j.putInt("elapsed", 0);
         j.putInt("paid", cost);
         j.putString("state", "CRUISE");

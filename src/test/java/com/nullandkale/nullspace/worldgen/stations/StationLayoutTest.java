@@ -16,6 +16,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class StationLayoutTest
 {
     @Test
+    void aStationHoldsAtMostOneClosedLoop()
+    {
+        assertEquals(1, StationLayout.loops(StationLayout.waypoint()), "Waypoint is a ring of four");
+        assertEquals(1, StationLayout.loops(StationLayout.harbor()), "The harbor is one perimeter ring");
+        for (long seed = 0; seed < 500; seed++)
+            assertTrue(StationLayout.loops(StationLayout.generate(seed)) <= 1, "Seed " + seed);
+    }
+
+    @Test
     void generatedLayoutsAreDeterministicConnectedAndBounded()
     {
         for (long seed = 0; seed < 500; seed++)

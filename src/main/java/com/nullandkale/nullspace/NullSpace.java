@@ -27,8 +27,11 @@ import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.scene.TerrainService;
 import com.nullandkale.nullspace.gameplay.ship.ShipDiagnostics;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.gameplay.shipyard.RandomYard;
+import com.nullandkale.nullspace.gameplay.shipyard.RoomGallery;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
+import com.nullandkale.nullspace.gameplay.shipyard.StationGallery;
 import com.nullandkale.nullspace.gameplay.start.SpaceStart;
 import com.nullandkale.nullspace.gameplay.station.StationService;
 import com.nullandkale.nullspace.gameplay.systems.AirEffects;
@@ -53,6 +56,7 @@ public final class NullSpace implements ModInitializer
     @Override
     public void onInitialize()
     {
+        LOGGER.info("Beginning NullSpace Initialization");
         ComputerTerminal.initialize();
         ShipControl.initialize();
         PadComputers.initialize();
@@ -90,8 +94,11 @@ public final class NullSpace implements ModInitializer
         WorldStore.initialize();
         ShipYardService.initialize();
         ShipYard.initialize();
+        RandomYard.initialize();
+        RoomGallery.initialize();
+        StationGallery.initialize();
         SpaceStart.initialize();
         ServerContext.initialize();
-        LOGGER.info("NullSpace initialized");
+        LOGGER.info("NullSpace Initialized");
     }
 }

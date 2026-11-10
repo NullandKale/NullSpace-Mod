@@ -113,7 +113,7 @@ public final class StationRegeneration
             var pieces = new CompoundTag();
             if (!showcase)
                 for (var room : layout.rooms())
-                    pieces.putString(room.x() + "_" + room.z(), room.role().name());
+                    pieces.putString(room.x() + "_" + room.z(), room.encode());
             s.put("roomPieces", pieces);
         }
         try

@@ -10,7 +10,7 @@ The launcher compiles once, opens a dedicated server in its own terminal, waits 
 
 The server binds to `127.0.0.1`, uses an available local port, and allows the two fixed offline players `NullSpace_One` and `NullSpace_Two`. Their identities, inventories and locations remain the same across launches. The launcher accepts the EULA for this local sandbox. Keep using `scripts/run/server.ps1` for the separate ordinary development server.
 
-By default, new players receive a Sparrow in orbit above a random planet. Options:
+By default, new players receive a Rivet Bolt in orbit above a random planet. Options:
 
 ```powershell
 .\scripts\run\local-server.ps1 -Instance mule-demo -StartingShip mule

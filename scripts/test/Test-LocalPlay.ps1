@@ -33,7 +33,7 @@ $properties=Join-Path $ArtifactRoot 'server.properties'
 Set-LocalPlayProperties -File $properties -Port 2345 -StartingShip 'mule'
 $text=[IO.File]::ReadAllText($properties)
 foreach($line in @('server-ip=127.0.0.1','server-port=2345','online-mode=false','white-list=false','enforce-whitelist=false','enable-rcon=false','enable-query=false','nullspace-space-start=true','nullspace-starting-ship=mule','gamemode=creative','# keep this')){Check ($text.Contains($line)) 'Server configuration lost a required or custom setting'}
-Set-LocalPlayProperties -File $properties -Port 2345 -StartingShip 'sparrow' -VanillaStart
+Set-LocalPlayProperties -File $properties -Port 2345 -StartingShip 'rivet_bolt' -VanillaStart
 Check (([IO.File]::ReadAllText($properties)).Contains('nullspace-space-start=false')) 'Vanilla start was ignored'
 $options=Join-Path $ArtifactRoot 'options.txt'
 [IO.File]::WriteAllLines($options,@('fullscreen:true','maxFps:90','guiScale:2'))

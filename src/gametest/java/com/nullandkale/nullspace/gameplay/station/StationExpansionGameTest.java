@@ -1,5 +1,6 @@
 package com.nullandkale.nullspace.gameplay.station;
 
+import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.combat.ShipCombat;
 import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
@@ -78,6 +79,12 @@ public final class StationExpansionGameTest
         return new net.minecraft.world.phys.AABB(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
+    /** One pump in each tile, and a second in each power room. */
+    private static int pumps(StationLayout.Layout layout)
+    {
+        return (int) StationBlueprint.build(layout).blocks().values().stream().filter(s -> s.is(ModBlocks.AIR_SUPPLY)).count();
+    }
+
     @GameTest(environment = "nullspace:station_expansion", maxTicks = 400)
     public void fullRingHasSuppliedRoomsFarPortsCompleteGeometryAndCollision(GameTestHelper ctx)
     {
@@ -85,7 +92,7 @@ public final class StationExpansionGameTest
         var base = new BlockPos(1700000, 80, 1700000);
         var station = harbor(level, base);
         ctx.assertTrue(DockingPorts.ports(level, station).size() == 8, "Eight usable outward-facing berths");
-        ctx.assertTrue(ShipSystems.power(level, station, PowerBus.System.AIR) == 28 * SpatialAir.SUPPLY_POWER, "All 28 pumps receive normal power: " + ShipSystems.power(level, station, PowerBus.System.AIR));
+        ctx.assertTrue(ShipSystems.power(level, station, PowerBus.System.AIR) == pumps(StationLayout.harbor()) * SpatialAir.SUPPLY_POWER, "Every pump receives normal power: " + ShipSystems.power(level, station, PowerBus.System.AIR));
         for (var room : StationLayout.harbor().rooms())
             ctx.assertTrue(ShipAir.breathable(level, station, base.offset(room.origin()).offset(8, 4, 8)), "Every room has finite breathable air");
         var ports = DockingPorts.ports(level, station);

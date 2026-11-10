@@ -113,7 +113,7 @@ public final class ConcurrentShipActionsGameTest
     private static net.minecraft.nbt.CompoundTag ground(Client client)
     {
         var f = client.fixture;
-        var preset = ShipBlueprints.get("sparrow");
+        var preset = ShipBlueprints.get("rivet_bolt");
         var origin = f.padBase.above();
         for (var e : ShipBlueprints.blocks(preset).entrySet())
         {

@@ -150,7 +150,7 @@ public final class SpaceStart
             store.save();
         }
         PlanetSurfaces.ensureLanding(server, record.getStringOr("planet", LocalSpaces.HOME));
-        var preset = ShipBlueprints.get(record.getStringOr("preset", "sparrow"));
+        var preset = ShipBlueprints.get(record.getStringOr("preset", "rivet_bolt"));
         var ship = store.repository().find(record.getStringOr("ship", ""));
         if (ship == null)
         {

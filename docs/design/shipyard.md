@@ -30,34 +30,30 @@ This is a shaped recipe (`GTG / CKC / SHS`), making one beacon. Rough stone acce
 
 ## Catalog
 
-| Ship | Width × height × depth | Decks | Role |
+| Ship | Shape | Pieces | Role |
 | --- | --- | --- | --- |
-| Sparrow | 9 × 5 × 11 | 1 | White starter, one engine, compact cabin and workshop |
-| Skylark | 11 × 5 × 15 | 1 | Cyan scout, twin engines and broad windows |
-| Mule | 13 × 5 × 17 | 1 | Orange freighter, separate cargo hold and empty barrels |
-| Wayfarer | 15 × 10 × 21 | 2 | Blue explorer, internal stairs, rooms and upper bridge |
-| Aegis | 17 × 10 × 23 | 2 | Red patrol ship, twin engines and a forward cannon |
-| Atlas | 23 × 15 × 29 | 3 | Green expedition ship, stairways, workshops and cargo rooms |
-| Rivet Bolt | 17 x 7 x 25 | 1 | Industrial scout with offset bridge, service spine and engine pods |
-| Halcyon Swift | 19 x 7 x 27 | 1 | Tapered survey scout with swept shoulders and observation bridge |
-| Bastion Ward | 19 x 7 x 25 | 1 | Angular scout with broad shoulders, protected bridge and bulkhead |
-| Rivet Hauler | 25 x 8 x 31 | 1 | Offset bridge and broad industrial cargo hold |
-| Rivet Ranger | 25 x 12 x 31 | 2 | Service pods, upper crew deck and lower workshop |
-| Halcyon Courier | 25 x 8 x 31 | 1 | Tapered freight hull with swept cargo shoulders |
-| Halcyon Horizon | 25 x 12 x 31 | 2 | Raised observation bridge and separate crew space |
-| Bastion Tender | 25 x 8 x 31 | 1 | Protected command section and compartmented stores |
-| Bastion Pioneer | 25 x 12 x 31 | 2 | Upper command deck and lower engineering |
+| Rivet Bolt | Spine, one deck | Small | Scout: bridge, bunk rooms, a store, engineering. The default starter |
+| Rivet Hauler | Spine, two decks | Medium | Freighter: cargo holds below, bunks and a viewing room above |
+| Rivet Ranger | Spine, three decks, stepped | Large | Explorer: workshops with every workbench, a lounge, bunks, a viewing room |
+| Halcyon Swift | Dome | Small | Scout: round commons under a glass dome, bunks, engineering |
+| Halcyon Courier | Twin hull | Medium | Freighter: two hulls joined by a forward bridge, cargo and storage in both |
+| Halcyon Horizon | Dome | Large | Explorer: a wide commons with workshops either side |
+| Bastion Ward | Twin hull | Small | Scout: armoured twin hull with bunks and stores |
+| Bastion Tender | Dome | Medium | Freighter: round hull with a cargo hold either side |
+| Bastion Pioneer | Twin hull | Large | Explorer: workshops, stores and mining bays in both hulls |
 
-All fifteen include one Ship Controller, generators, a battery, cabin air supply, programmable terminal, one Scanner, small mounted camera and thin monitor. Each has a framed compact docking door on a Docking Base. Each new generator receives one finite stack of coal; batteries start empty and charge from surplus generation. Normal delivery does not require a separate systems-upgrade step. The new manufacturer freighters start with six air-power units for three pumps; their explorers use eight for four pumps. Cargo storage starts empty. Doors and room air remain physical; airless surfaces require a suit until the relevant cabin has air.
+These nine are **generated**, not hand built: see [ship generator](ship-generator.md). Sizes come from the generator and are shown in the beacon's quote. The six original box ships (Sparrow, Skylark, Mule, Wayfarer, Aegis, Atlas) were removed; saves, settings and servers that still name them get the nearest replacement (Sparrow becomes Rivet Bolt, Mule Rivet Hauler, and so on).
+
+All nine include one Ship Controller, generators, batteries, air supply, a programmable terminal, a Scanner, a small mounted camera and monitors on the bridge. Each has a framed compact docking door on a Docking Base. Each new generator receives one finite stack of coal; batteries start empty and charge from surplus generation. Normal delivery does not require a separate systems-upgrade step. Cargo storage starts empty. Doors and room air remain physical; airless surfaces require a suit until the relevant cabin has air.
 
 Existing yards make new deliveries using the current blueprints. Already placed ships and showroom builds retain their construction and edits; retrofit them using the [short docking instructions](stations.md#add-a-port-to-your-ship). The native catalog test checks every design with the real docking and pressure validators.
 
 
-Blueprints are deterministic code in `shipyard/ShipBlueprints.java`; the showroom and delivery service build the same block-state maps. The current blueprint version is 1. New equipment and hull layouts should be added here, with launch/pressure/path tests, rather than maintaining a second showroom build.
+Designs are listed in `catalog/ships.json` with the generator settings that build them, and loaded by `worldgen/ships/ShipBlueprints.java`; the showroom and delivery service build the same block-state maps. To hand-edit one, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship. The ship tests check every design is launchable, sealed, powered and walkable.
 
 ## Visiting the shipyard
 
-Operators can run **`/nullspace shipyard`**. This creates a lit platform with three empty 32 × 32 delivery pads and fifteen registered showroom pads containing the catalog ships. Showroom ships can be entered, inspected and launched. The yard is generated only on request, in the overworld, above existing terrain and outside registered pad footprints. No survival save is modified by installing the feature.
+Operators can run **`/nullspace shipyard`**. This creates a lit platform with three empty 32 × 32 delivery pads and nine registered showroom pads containing the catalog ships. Showroom ships can be entered, inspected and launched. The yard is generated only on request, in the overworld, above existing terrain and outside registered pad footprints. No survival save is modified by installing the feature.
 
 Generation reserves its site in `nullspace-shipyard-v3.nbt` before writing blocks. Returning reads that marker and preserves edits, purchased ships and emptied display pads. The v3 fifteen-ship gallery reserves a fresh site and leaves the older galleries unchanged. An incomplete generation marker refuses automatic rebuilding; it never clears the site and starts over. The bounded search does not guarantee a site in every heavily built or height-limited world. A large opt-in construction and its save can briefly stall the server.
 

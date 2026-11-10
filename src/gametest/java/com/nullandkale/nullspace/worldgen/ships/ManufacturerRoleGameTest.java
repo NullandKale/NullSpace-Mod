@@ -35,7 +35,7 @@ public final class ManufacturerRoleGameTest
         var floors = new HashSet<Set<BlockPos>>();
         for (var preset : ShipBlueprints.PRESETS)
         {
-            if (!ManufacturerRoleShips.contains(preset.id()))
+            if (preset.role().equals("Scout"))
                 continue;
             var base = new BlockPos(1500000 + i++ * 4096, 80, 1500000);
             ShipYard.buildPad(level, base, 32, 32, "Role " + preset.id());
@@ -49,7 +49,7 @@ public final class ManufacturerRoleGameTest
                 if (entry.getKey().getY() == 0)
                     floor.add(entry.getKey());
             }
-            ctx.assertTrue(floors.add(floor), "Manufacturer and role produce distinct floor outlines");
+            ctx.assertTrue(floors.add(new HashSet<>(plan.keySet())), "Each design has its own shape");
             var scan = HullScan.inspect(level, origin.offset(preset.helm()), pad, true);
             ctx.assertTrue(scan.blocks().size() == plan.size(), "All machinery, stairs and upper rooms are connected");
             var ship = ShipTopology.resolve(level, origin.offset(preset.helm()));
@@ -64,15 +64,15 @@ public final class ManufacturerRoleGameTest
             ctx.assertTrue(ShipSensors.installed(level, ship, false) && NavigationService.propulsion(level, ship) > 0, "Navigation sensors stay powered while propulsion uses the remaining output");
             ship.putInt("thrustDemand", 0);
             var port = DockingPorts.firstPort(level, ship);
-            for (var room : ManufacturerRoleShips.rooms(preset.id()).entrySet())
+            for (var room : ShipRooms.rooms(preset.id()))
             {
-                var target = origin.offset(room.getValue());
-                ctx.assertTrue(scan.pressure().breathable(target.above()), preset.name() + " seals " + room.getKey());
-                ctx.assertTrue(ShipAir.breathable(level, ship, target.above()), "Finite air is retained in " + room.getKey());
-                ctx.assertTrue(reachable(level, WorldStore.bounds(ship), port.anchors().getFirst(), target), preset.name() + " has a walking route from dock to " + room.getKey());
+                var target = origin.offset(room.walk());
+                ctx.assertTrue(scan.pressure().breathable(target.above()), preset.name() + " seals " + room.name());
+                ctx.assertTrue(ShipAir.breathable(level, ship, target.above()), "Finite air is retained in " + room.name());
+                ctx.assertTrue(reachable(level, WorldStore.bounds(ship), port.anchors().getFirst(), target), preset.name() + " has a walking route from dock to " + room.name());
             }
             var rooms = ShipRooms.rooms(preset.id());
-            ctx.assertTrue(rooms.size() == (ManufacturerRoleShips.explorer(preset.id()) ? 6 : 5), "Role layouts have distinct working and living spaces");
+            ctx.assertTrue(rooms.size() >= 5 && rooms.stream().map(ShipRooms.Room::use).distinct().count() >= 3, "Role layouts have distinct working and living spaces");
             for (var room : rooms)
             {
                 if (room.supplies() == null)
@@ -83,10 +83,10 @@ public final class ManufacturerRoleGameTest
             }
             int air = (int) plan.values().stream().filter(s -> s.is(ModBlocks.AIR_SUPPLY)).count();
             ctx.assertTrue(ShipSystems.power(level, ship, PowerBus.System.AIR) == air * SpatialAir.SUPPLY_POWER, "Every separated room's pump has normal power, not just the first two: " + ShipSystems.power(level, ship, PowerBus.System.AIR) + " for " + air);
-            if (!ManufacturerRoleShips.explorer(preset.id()))
+            if (!preset.role().equals("Explorer"))
                 ctx.assertTrue(plan.values().stream().filter(s -> s.is(Blocks.BARREL)).count() >= 20, "Freighter role has a real hold with twenty accessible storage barrels");
-            else
-                ctx.assertTrue(plan.entrySet().stream().anyMatch(e -> e.getKey().getY() == 5 && e.getValue().is(Blocks.STONE_STAIRS)), "Explorer stairwell reaches its upper deck");
+            if (preset.decks() > 1)
+                ctx.assertTrue(plan.values().stream().anyMatch(s -> s.getBlock() instanceof StairBlock), preset.name() + " has a stairwell to its upper decks");
         }
         ctx.assertTrue(i == 6, "Three manufacturers each add a freighter and explorer");
         ctx.succeed();

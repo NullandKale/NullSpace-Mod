@@ -67,7 +67,7 @@ simulation-distance=6
 level-name=world
 motd=NullSpace public alpha
 nullspace-space-start=true
-nullspace-starting-ship=sparrow
+nullspace-starting-ship=rivet_bolt
 '@
 [IO.File]::WriteAllText((Join-Path $serverPath 'server.properties'),$serverProperties + "`n",$utf8)
 $windowsLauncher = @'

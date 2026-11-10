@@ -2,8 +2,14 @@ package com.nullandkale.nullspace.dev;
 
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.worldgen.blueprint.GenerationPalette;
+import com.nullandkale.nullspace.worldgen.condition.Condition;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.encounters.SiteLoot;
+import com.nullandkale.nullspace.worldgen.piece.Archetype;
+import com.nullandkale.nullspace.worldgen.piece.Assembler;
+import com.nullandkale.nullspace.worldgen.piece.Kit;
+import com.nullandkale.nullspace.worldgen.piece.PieceLibrary;
+import com.nullandkale.nullspace.worldgen.piece.TemplateCodec;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 
 import java.nio.file.*;
@@ -43,11 +49,15 @@ public final class Authoring
         return new Volume(pad, new BlockPos(b.minX(), b.y() + 1, b.minZ()), new Vec3i(b.width(), height, b.depth()));
     }
 
+    /**
+     * The template id for a kind and name. A dotted kind names nested folders: {@code kit.rivet} and
+     * {@code nose_a} give {@code nullspace:kit/rivet/nose_a}.
+     */
     public static Identifier id(String kind, String name)
     {
-        if (!kind.matches("[a-z0-9_]{1,32}") || !name.matches("[a-z0-9_]{1,48}"))
-            throw new IllegalArgumentException("Kind and name use lowercase letters, digits and _");
-        return Identifier.parse("nullspace:" + kind + "/" + name);
+        if (!kind.matches("[a-z0-9_]{1,32}([.][a-z0-9_]{1,32})*") || !name.matches("[a-z0-9_]{1,48}"))
+            throw new IllegalArgumentException("Kind and name use lowercase letters, digits and _ (a kind may use dots for folders)");
+        return Identifier.parse("nullspace:" + kind.replace('.', '/') + "/" + name);
     }
 
     /** Saves everything on the pad, trimmed to the blocks actually built, as a template. */
@@ -73,6 +83,14 @@ public final class Authoring
         }
         if (lo == null)
             throw new IllegalArgumentException("The pad is empty; build the piece first");
+        if (kind.equals("ship"))
+        {
+            // A shipyard design keeps the origin it was loaded at (the pad corner) and never
+            // shrinks, so its helm, rooms and pad placement keep their coordinates.
+            lo = volume.min();
+            var existing = PieceLibrary.template(id.getPath()).map(TemplateCodec.Template::size).orElse(Vec3i.ZERO);
+            hi = new BlockPos(Math.max(hi.getX(), lo.getX() + existing.getX() - 1), Math.max(hi.getY(), lo.getY() + existing.getY() - 1), Math.max(hi.getZ(), lo.getZ() + existing.getZ() - 1));
+        }
         var manager = level.getServer().getStructureTemplateManager();
         var template = manager.getOrCreate(id);
         template.fillFromWorld(level, lo, new Vec3i(hi.getX() - lo.getX() + 1, hi.getY() - lo.getY() + 1, hi.getZ() - lo.getZ() + 1), false, List.of(Blocks.STRUCTURE_VOID));
@@ -83,11 +101,13 @@ public final class Authoring
         String dir = System.getProperty("nullspace.authoringDir");
         if (dir != null && !dir.isBlank())
         {
-            var file = Path.of(dir, "data", "nullspace", "structure", kind, name + ".nbt");
+            var file = PieceLibrary.authoringFile(id.getPath()).orElseThrow();
             Files.createDirectories(file.getParent());
             StructureTemplateManager.save(file, template, false);
             copied = " Copied into the mod's resources.";
         }
+        PieceLibrary.invalidate();
+        ShipBlueprints.invalidate();
         var bad = GenerationPalette.violations(blocks);
         var size = template.getSize();
         return "Saved " + id + ": " + blocks.size() + " blocks in " + size.getX() + " x " + size.getY() + " x " + size.getZ() + ", " + markers + " markers." + copied + (bad.isEmpty() ? "" : " Warning: " + bad.size() + " valuable blocks (generated content must use cheap blocks), first at " + bad.getFirst().toShortString());
@@ -109,7 +129,19 @@ public final class Authoring
     {
         var id = id(kind, name);
         var volume = volume(player);
-        var template = player.level().getServer().getStructureTemplateManager().get(id).orElseThrow(() -> new IllegalArgumentException("No saved piece " + id));
+        var saved = player.level().getServer().getStructureTemplateManager().get(id);
+        if (saved.isEmpty() && kind.equals("ship"))
+        {
+            // A generated design has no template until someone saves an edit of it: build it on the pad.
+            var preset = com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS.stream().filter(p -> p.id().equals(name)).findFirst().orElseThrow(() -> new IllegalArgumentException("No saved piece " + id));
+            if (preset.width() > volume.size().getX() || preset.height() > volume.size().getY() || preset.depth() > volume.size().getZ())
+                throw new IllegalArgumentException("Piece " + id + " is larger than this pad");
+            clear(player.level(), volume);
+            for (var e : com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.blocks(preset).entrySet())
+                player.level().setBlock(volume.min().offset(e.getKey()), e.getValue(), Block.UPDATE_CLIENTS);
+            return "Loaded generated design " + id + " (" + preset.size() + "). Save it to replace the generated ship with your edit.";
+        }
+        var template = saved.orElseThrow(() -> new IllegalArgumentException("No saved piece " + id));
         var size = template.getSize();
         if (size.getX() > volume.size().getX() || size.getY() > volume.size().getY() || size.getZ() > volume.size().getZ())
             throw new IllegalArgumentException("Piece " + id + " is larger than this pad");
@@ -121,20 +153,79 @@ public final class Authoring
     /** The generated site archetypes that can be previewed today. */
     public static final List<String> ARCHETYPES = List.of("growing_station", "derelict_freighter", "derelict_survey");
 
+    /** Point names the generators understand; anything else is flagged by {@link #check}. */
+    public static final Set<String> POINT_NAMES = Set.of("loot", "mob", "core", "light", "breach_ok");
+
+    /** Lists a saved piece's connectors and points and the problems that would stop it joining. */
+    public static String check(String kind, String name)
+    {
+        var id = id(kind, name).getPath();
+        PieceLibrary.invalidate();
+        var piece = PieceLibrary.piece(id);
+        var size = piece.size();
+        var problems = new ArrayList<String>();
+        var text = new StringBuilder(id + ": " + size.getX() + " x " + size.getY() + " x " + size.getZ());
+        for (var c : piece.connectors())
+        {
+            text.append("\n  connector ").append(c.type()).append(c.target().equals(c.type()) ? "" : " -> " + c.target()).append(" facing ").append(c.facing().getSerializedName()).append(" at ").append(c.pos().toShortString());
+            var at = c.pos();
+            boolean edge = switch (c.facing())
+            {
+                case NORTH -> at.getZ() == 0;
+                case SOUTH -> at.getZ() == size.getZ() - 1;
+                case WEST -> at.getX() == 0;
+                case EAST -> at.getX() == size.getX() - 1;
+                case DOWN -> at.getY() == 0;
+                case UP -> at.getY() == size.getY() - 1;
+            };
+            if (!edge)
+                problems.add("connector at " + at.toShortString() + " faces " + c.facing().getSerializedName() + " but is not on that face of the piece");
+        }
+        for (var point : piece.points())
+        {
+            text.append("\n  point ").append(point.name()).append(point.argument().isEmpty() ? "" : ":" + point.argument()).append(" at ").append(point.pos().toShortString());
+            if (!POINT_NAMES.contains(point.name()))
+                problems.add("unknown point name " + point.name() + " (known: " + String.join(", ", new TreeSet<>(POINT_NAMES)) + ")");
+        }
+        var bad = GenerationPalette.violations(piece.blocks());
+        if (!bad.isEmpty())
+            problems.add(bad.size() + " valuable blocks, first at " + bad.getFirst().toShortString());
+        text.append(problems.isEmpty() ? "\nNo problems." : "\nProblems:");
+        problems.forEach(p -> text.append("\n  ").append(p));
+        return text.toString();
+    }
+
     /**
-     * Builds a generated site, or a shipyard design ({@code ship:<id>}), on the pad so its look and
-     * variation can be reviewed. Containers get the site loot for {@code danger}.
+     * Builds a generated site, a shipyard design ({@code ship:<id>}) or a kit assembly
+     * ({@code kit:<kit>:<archetype>}) on the pad so its look and variation can be reviewed.
+     * Containers get the site loot for {@code danger}.
      */
     public static String preview(ServerPlayer player, String archetype, int danger, long seed)
     {
         var volume = volume(player);
         Map<BlockPos, BlockState> blocks;
+        String problems = "";
         if (archetype.startsWith("ship:"))
         {
             var preset = ShipBlueprints.get(archetype.substring(5));
             if (preset == null)
                 throw new IllegalArgumentException("No shipyard design " + archetype);
             blocks = ShipBlueprints.blocks(preset);
+        }
+        else if (archetype.startsWith("kit:"))
+        {
+            var parts = archetype.split(":");
+            if (parts.length != 3)
+                throw new IllegalArgumentException("Use kit:<kit>:<archetype>");
+            PieceLibrary.invalidate();
+            var type = Archetype.load(parts[2]);
+            var build = Condition.omitSection(Assembler.assemble(Kit.load(parts[1]), type, seed), type, danger, seed);
+            var conditioned = Condition.apply(Assembler.plan(build), danger, seed);
+            blocks = conditioned.plan().blocks();
+            var report = conditioned.report();
+            problems = ". " + build.placed().size() + " pieces, " + report.breaches() + " breaches, " + report.scorched() + " scorched, " + report.darkened() + " lights out";
+            if (!build.problems().isEmpty())
+                problems += ". Problems: " + String.join("; ", build.problems());
         }
         else
         {
@@ -160,7 +251,7 @@ public final class Authoring
         for (var e : blocks.entrySet())
             if (SiteLoot.assign(level, volume.min().offset(e.getKey()), containers == 0 ? "treasure_" + Math.clamp(danger, 0, 3) : "cargo", seed + containers, "Preview supplies"))
                 containers++;
-        return "Previewed " + archetype + " (danger " + danger + ", seed " + seed + "): " + blocks.size() + " blocks, " + containers + " containers" + (GenerationPalette.violations(blocks).isEmpty() ? "" : ". Warning: uses valuable blocks");
+        return "Previewed " + archetype + " (danger " + danger + ", seed " + seed + "): " + blocks.size() + " blocks, " + containers + " containers" + (GenerationPalette.violations(blocks).isEmpty() ? "" : ". Warning: uses valuable blocks") + problems;
     }
 
     /** Origin of the authoring gallery: a grid of pads, one per saved piece. */
@@ -197,7 +288,10 @@ public final class Authoring
 
     public static void initialize()
     {
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("author").requires(s -> s.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("save").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> save(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("load").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> load(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("preview").then(Commands.argument("archetype", StringArgumentType.string()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), 0, c.getSource().getLevel().getGameTime()))).then(Commands.argument("danger", IntegerArgumentType.integer(0, 3)).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), c.getSource().getLevel().getGameTime()))).then(Commands.argument("seed", LongArgumentType.longArg()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), LongArgumentType.getLong(c, "seed")))))))).then(Commands.literal("gallery").executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), ""))).then(Commands.argument("kind", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind")))))))));
+        // Pieces saved in this world are visible to check, preview and kits without a rebuild.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> PieceLibrary.worldSource(id -> server.getStructureTemplateManager().get(Identifier.parse("nullspace:" + id)).map(template -> template.save(new net.minecraft.nbt.CompoundTag()))));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> PieceLibrary.worldSource(null));
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("author").requires(s -> s.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("save").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> save(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("load").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> load(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("preview").then(Commands.argument("archetype", StringArgumentType.string()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), 0, c.getSource().getLevel().getGameTime()))).then(Commands.argument("danger", IntegerArgumentType.integer(0, 3)).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), c.getSource().getLevel().getGameTime()))).then(Commands.argument("seed", LongArgumentType.longArg()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), LongArgumentType.getLong(c, "seed")))))))).then(Commands.literal("check").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> check(StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("gallery").executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), ""))).then(Commands.argument("kind", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind")))))))));
     }
 
     private interface Action

@@ -37,7 +37,7 @@ public final class ManufacturerClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            var presets = ShipBlueprints.PRESETS.stream().filter(p -> ManufacturerShips.contains(p.id()) && !ManufacturerRoleShips.contains(p.id())).toList();
+            var presets = ShipBlueprints.PRESETS.stream().filter(p -> p.role().equals("Scout")).toList();
             world.getServer().runOnServer(server ->
             {
                 var level = server.overworld();

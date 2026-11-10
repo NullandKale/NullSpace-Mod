@@ -17,11 +17,15 @@ class ShipBlueprintsTest
     @Test
     void lastCatalogPageKeepsPurchaseVisibleAndBlankRowsCannotBuy()
     {
-        var t = new ControllerTerminal("shipyard", "Ready", "sparrow");
-        for (int i = 0; i < 14; i++)
+        var t = new ControllerTerminal("shipyard", "Ready", "rivet_bolt");
+        for (int i = 1; i < ShipBlueprints.PRESETS.size(); i++)
             t.input(TerminalInput.Key.DOWN);
-        assertTrue(t.display().row(14).contains("Bastion Pioneer"));
-        t.input(new TerminalInput.Pointer(10, 15));
+        int last = -1;
+        for (int row = 0; row < 24; row++)
+            if (t.display().row(row).contains("Bastion Pioneer"))
+                last = row;
+        assertTrue(last > 0, "The last design is on screen once it is selected");
+        t.input(new TerminalInput.Pointer(10, last + 1));
         assertNull(t.pollAction(), "Blank catalog rows cannot trigger a purchase");
         t.input(TerminalInput.Key.ENTER);
         assertEquals(new ControllerTerminal.Action("ship_quote", "bastion_pioneer"), t.pollAction());
@@ -43,8 +47,11 @@ class ShipBlueprintsTest
             assertTrue(p.height() >= p.decks() * 5, "Declared height includes deck headroom and hull");
             assertSame(p, ShipBlueprints.get(p.id()));
         }
-        assertEquals(15, ids.size());
-        assertEquals(List.of("sparrow", "skylark", "mule", "wayfarer", "aegis", "atlas"), ShipBlueprints.PRESETS.subList(0, 6).stream().map(ShipBlueprints.Preset::id).toList());
+        assertEquals(9, ids.size());
+        assertEquals(List.of("rivet_bolt", "rivet_hauler", "rivet_ranger", "halcyon_swift", "halcyon_courier", "halcyon_horizon", "bastion_ward", "bastion_tender", "bastion_pioneer"), ShipBlueprints.PRESETS.stream().map(ShipBlueprints.Preset::id).toList());
+        // Designs retired when ships became generated still resolve, so old saves and settings keep working.
+        assertEquals("rivet_bolt", ShipBlueprints.get("sparrow").id());
+        assertEquals("rivet_hauler", ShipBlueprints.get("mule").id());
         assertThrows(IllegalArgumentException.class, () -> ShipBlueprints.get("forged"));
         assertThrows(IllegalArgumentException.class, () -> ShipBlueprints.get(null));
     }
@@ -85,20 +92,20 @@ class ShipBlueprintsTest
     @Test
     void quotesAndPurchasesAreSeparateKeyboardActionsWithNoNameEditor()
     {
-        var t = new ControllerTerminal("shipyard", "Pad ready", "sparrow");
+        var t = new ControllerTerminal("shipyard", "Pad ready", "rivet_bolt");
         assertEquals(-1, t.field());
         t.input(new TerminalInput.Text("forged"));
-        assertEquals("sparrow", t.fieldValue());
+        assertEquals("rivet_bolt", t.fieldValue());
         t.input(TerminalInput.Key.DOWN);
         t.input(TerminalInput.Key.ENTER);
-        assertEquals(new ControllerTerminal.Action("ship_quote", "skylark"), t.pollAction());
+        assertEquals(new ControllerTerminal.Action("ship_quote", "rivet_hauler"), t.pollAction());
         t.input(TerminalInput.Key.ENTER);
         assertNull(t.pollAction(), "A waiting terminal cannot enqueue duplicate purchases");
-        t.update("Skylark details");
+        t.update("Rivet Hauler details");
         int buyRow = 18;
         t.input(new TerminalInput.Pointer(10, buyRow));
-        assertEquals(new ControllerTerminal.Action("ship_buy", "skylark"), t.pollAction());
-        assertTrue(t.display().row(buyRow).contains("Skylark"));
+        assertEquals(new ControllerTerminal.Action("ship_buy", "rivet_hauler"), t.pollAction());
+        assertTrue(t.display().row(buyRow).contains("Rivet Hauler"));
         assertTrue(t.display().row(23).contains("ESC Close"));
         assertTrue(t.display().row(1).contains("SHIPYARD"));
     }

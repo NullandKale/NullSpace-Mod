@@ -55,7 +55,7 @@ public final class ShipYardCrashGameTest
         var beacon = base.offset(-1, 1, 1);
         var marker = base.offset(-2, 0, 0);
         var file = server.getWorldPath(LevelResource.ROOT).resolve("shipyard-crash-manifest.nbt");
-        var preset = ShipBlueprints.get("mule");
+        var preset = ShipBlueprints.get("rivet_hauler");
         var bounds = new PadScanner.Pad(base.getX(), base.getX() + 15, base.getY(), base.getZ(), base.getZ() + 19);
         var origin = ShipBlueprints.origin(preset, bounds, 32);
         var cargo = ShipBlueprints.blocks(preset).entrySet().stream().filter(entry -> entry.getValue().is(Blocks.BARREL)).findFirst().orElseThrow().getKey();

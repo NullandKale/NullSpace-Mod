@@ -75,7 +75,7 @@ public final class ShipYard
                 var at = yard.spawn();
                 player.teleportTo(player.level().getServer().overworld(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), 0, 0, true);
                 FieldGuide.supply(player);
-                player.sendSystemMessage(Component.literal("Shipyard: fifteen display ships behind the delivery" + " pads. Right-click a copper Ship Beacon, select" + " a design, then Deliver ship. Purchases are" + " FREE; keep delivery pads clear."));
+                player.sendSystemMessage(Component.literal("Shipyard: " + ShipBlueprints.PRESETS.size() + " display ships behind the delivery" + " pads. Right-click a copper Ship Beacon, select" + " a design, then Deliver ship. Purchases are" + " FREE; keep delivery pads clear."));
                 return 1;
             }
             catch (Exception error)

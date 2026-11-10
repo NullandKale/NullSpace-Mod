@@ -49,7 +49,7 @@ class StationExpansionTest
         var terminal = new StationCoreTerminal("Station", List.of(new TerminalPackets.Destination("station_area", "4", "STATION_AREA")));
         terminal.input(new TerminalInput.Pointer(25, 4));
         terminal.input(new TerminalInput.Pointer(4, 12));
-        assertEquals(new ControllerTerminal.Action("station_module", "ARRIVAL 2 0"), terminal.pollAction());
+        assertEquals(new ControllerTerminal.Action("station_module", "arrival 2 0"), terminal.pollAction());
         terminal.acknowledged();
         terminal.input(new TerminalInput.Pointer(43, 12));
         assertEquals(new ControllerTerminal.Action("station_generate", ""), terminal.pollAction());

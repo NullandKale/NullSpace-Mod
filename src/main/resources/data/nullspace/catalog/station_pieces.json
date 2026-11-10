@@ -1,0 +1,22 @@
+[
+  { "id": "arrival", "name": "Entrance", "role": "arrival", "kit": "ENTRANCE", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "arrival_bright", "name": "Entrance (many windows)", "role": "arrival", "kit": "ENTRANCE", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "workshop", "name": "Workshop", "role": "workshop", "kit": "WORKSHOP", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "workshop_bright", "name": "Workshop (many windows)", "role": "workshop", "kit": "WORKSHOP", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "habitation", "name": "Bedroom", "role": "habitation", "kit": "HABITATION", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "habitation_bright", "name": "Bedroom (many windows)", "role": "habitation", "kit": "HABITATION", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "engineering", "name": "Power room", "role": "engineering", "kit": "POWER", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "engineering_bright", "name": "Power room (many windows)", "role": "engineering", "kit": "POWER", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "tunnel_straight", "name": "Tunnel", "role": "corridor", "kit": "PROMENADE", "windows": 1, "doors": ["north", "south"]},
+  { "id": "tunnel_straight_bright", "name": "Tunnel (many windows)", "role": "corridor", "kit": "PROMENADE", "windows": 2, "doors": ["north", "south"]},
+  { "id": "tunnel_corner", "name": "Tunnel corner", "role": "corridor", "kit": "PROMENADE", "windows": 1, "doors": ["north", "east"]},
+  { "id": "tunnel_corner_bright", "name": "Tunnel corner (many windows)", "role": "corridor", "kit": "PROMENADE", "windows": 2, "doors": ["north", "east"]},
+  { "id": "tunnel_t", "name": "Tunnel junction", "role": "corridor", "kit": "PROMENADE", "windows": 1, "doors": ["north", "east", "south"]},
+  { "id": "tunnel_t_bright", "name": "Tunnel junction (many windows)", "role": "corridor", "kit": "PROMENADE", "windows": 2, "doors": ["north", "east", "south"]},
+  { "id": "tunnel_cross", "name": "Tunnel crossing", "role": "corridor", "kit": "PROMENADE", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "tunnel_cross_bright", "name": "Tunnel crossing (many windows)", "role": "corridor", "kit": "PROMENADE", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "dome_garden", "name": "Garden dome", "role": "garden", "kit": "GARDEN", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "dome_garden_bright", "name": "Garden dome (many windows)", "role": "garden", "kit": "GARDEN", "windows": 2, "doors": ["north", "east", "south", "west"]},
+  { "id": "dome_observation", "name": "Observation dome", "role": "observatory", "kit": "OBSERVATORY", "windows": 1, "doors": ["north", "east", "south", "west"]},
+  { "id": "dome_observation_bright", "name": "Observation dome (many windows)", "role": "observatory", "kit": "OBSERVATORY", "windows": 2, "doors": ["north", "east", "south", "west"]}
+]

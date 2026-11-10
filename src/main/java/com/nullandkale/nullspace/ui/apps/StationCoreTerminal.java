@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.ui.terminal.TerminalInput;
 import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
+import com.nullandkale.nullspace.worldgen.stations.StationPieces;
 
 import java.util.*;
 
@@ -24,6 +25,24 @@ public final class StationCoreTerminal implements ControllerApplication
     private final TerminalField name, player = new TerminalField("", 32), query = new TerminalField("", 32);
     private String status, notice = "", builderId = "", picker = "";
     private int selection, tile, role, section, scroll, pickerPage;
+
+    /** Turns asked for the next piece (0-3), or -1 to turn it to meet a neighbour's doorway. */
+    private int turn = -1;
+
+    /** A saved tile's piece name, falling back to the raw value. */
+    private static String pieceName(String tile, String saved)
+    {
+        try
+        {
+            var room = StationLayout.Room.decode(tile, saved);
+            return StationPieces.get(room.piece()).name() + (room.rotation() == 0 ? "" : " (" + room.rotation() * 90 + ")");
+        }
+        catch (RuntimeException unknown)
+        {
+            return saved;
+        }
+    }
+
     private boolean waiting;
 
     public StationCoreTerminal(String status, List<TerminalPackets.Destination> catalog)
@@ -202,30 +221,22 @@ public final class StationCoreTerminal implements ControllerApplication
             final int cell = i;
             String coords = (ox + i % 2) + "_" + (oz + i / 2);
             var room = catalog.stream().filter(d -> d.id().equals(coords)).findFirst();
-            control("tile", 2 + i % 2 * 36, 6 + i / 2 * 2, 34, (tile == i ? "> " : "  ") + "[ " + coords.replace('_', ',') + " " + room.map(r -> switch (r.name())
-            {
-                case "ARRIVAL" -> "Entrance";
-                case "HABITATION" -> "Bedroom";
-                case "ENGINEERING" -> "Power room";
-                case "WORKSHOP" -> "Workshop";
-                default -> r.name();
-            }).orElse("Empty") + " ]", () -> tile = cell);
+            control("tile", 2 + i % 2 * 36, 6 + i / 2 * 2, 34, (tile == i ? "> " : "  ") + "[ " + coords.replace('_', ',') + " " + room.map(r -> pieceName(r.id(), r.name())).orElse("Empty") + " ]", () -> tile = cell);
         }
-        String[] labels = {"Entrance", "Workshop", "Bedroom", "Power room"};
-        var roles = StationLayout.Role.values();
-        for (int i = 0; i < roles.length; i++)
-        {
-            final int r = i;
-            control("role", 2 + i * 19, 10, 18, (role == i ? ">" : " ") + "[" + labels[i] + "]", () -> role = r);
-        }
+        var pieces = StationPieces.ALL;
+        var piece = pieces.get(Math.floorMod(role, pieces.size()));
+        control("previous_piece", 2, 10, 5, "[ < ]", () -> role = Math.floorMod(role - 1, pieces.size()));
+        text(8, 10, "Piece: " + piece.name(), TerminalTheme.TEXT);
+        control("next_piece", 34, 10, 5, "[ > ]", () -> role = Math.floorMod(role + 1, pieces.size()));
+        control("turn", 41, 10, 22, "[ Turn: " + (turn < 0 ? "fit doorway" : turn * 90 + " degrees") + " ]", () -> turn = turn >= 3 ? -1 : turn + 1);
         String coords = (ox + tile % 2) + "_" + (oz + tile / 2);
         boolean occupied = catalog.stream().anyMatch(d -> d.id().equals(coords));
-        control("build", 2, 12, 35, occupied ? "[ Room already built ]" : "[ Build " + labels[role] + ": 1 kit ]", () ->
+        control("build", 2, 12, 35, occupied ? "[ Room already built ]" : "[ Build " + piece.name() + ": 1 kit ]", () ->
         {
             if (occupied)
                 notice = "Choose an empty room tile; existing construction is preserved.";
             else
-                send("station_module", roles[role].name() + " " + coords.replace('_', ' '));
+                send("station_module", piece.id() + " " + coords.replace('_', ' ') + (turn < 0 ? "" : " " + turn));
         });
         control("whole", 40, 12, 37, "[ Build whole station: " + (side == 1 ? 4 : 28) + " kits ]", () ->
         {

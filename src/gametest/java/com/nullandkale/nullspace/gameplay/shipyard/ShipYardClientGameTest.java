@@ -98,7 +98,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             context.waitFor(client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(beacon), 100);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
             context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen, 150);
-            choose(context, 14);
+            choose(context, ShipBlueprints.PRESETS.size() - 1);
             context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.selected().equals("bastion_pioneer") && t.ready(), 150);
             context.takeScreenshot("nullspace-ship-beacon-catalog");
             context.waitTicks(3);

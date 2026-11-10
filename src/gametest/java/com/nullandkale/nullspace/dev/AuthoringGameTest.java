@@ -3,9 +3,11 @@ package com.nullandkale.nullspace.dev;
 import java.util.*;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
-import net.minecraft.core.BlockPos;
+import net.minecraft.core.*;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.JigsawBlockEntity;
 import net.minecraft.world.level.block.state.properties.StructureMode;
 
 /** Pieces are built on a pad, saved as templates, loaded back, previewed and shown in a gallery. */
@@ -30,14 +32,26 @@ public final class AuthoringGameTest
         level.setBlock(base.offset(4, 2, 4), Blocks.CHEST.defaultBlockState(), 18);
         level.setBlock(base.offset(5, 2, 5), Blocks.STRUCTURE_BLOCK.defaultBlockState().setValue(StructureBlock.MODE, StructureMode.DATA), 18);
         level.setBlock(base.offset(6, 2, 6), Blocks.IRON_BLOCK.defaultBlockState(), 18);
+        // A spine connector on the north edge of the floor and one stranded inside the piece.
+        level.setBlock(base.offset(4, 1, 2), Blocks.JIGSAW.defaultBlockState().setValue(JigsawBlock.ORIENTATION, FrontAndTop.NORTH_UP), 18);
+        ((JigsawBlockEntity) level.getBlockEntity(base.offset(4, 1, 2))).setName(Identifier.parse("minecraft:spine"));
+        level.setBlock(base.offset(4, 1, 4), Blocks.JIGSAW.defaultBlockState().setValue(JigsawBlock.ORIENTATION, FrontAndTop.EAST_UP), 18);
+        ((JigsawBlockEntity) level.getBlockEntity(base.offset(4, 1, 4))).setName(Identifier.parse("minecraft:spine"));
 
         String kind = "testauthoring";
         String name = "piece_" + tag;
         String saved = Authoring.save(player, kind, name);
-        ctx.assertTrue(saved.startsWith("Saved nullspace:" + kind + "/" + name) && saved.contains("1 markers") && saved.contains("5 x 4 x 5") && saved.contains("Warning"), "Save trims to the build, counts markers and warns about valuable blocks: " + saved);
+        ctx.assertTrue(saved.startsWith("Saved nullspace:" + kind + "/" + name) && saved.contains("3 markers") && saved.contains("5 x 4 x 5") && saved.contains("Warning"), "Save trims to the build, counts markers and warns about valuable blocks: " + saved);
         var id = Authoring.id(kind, name);
         var manager = level.getServer().getStructureTemplateManager();
         ctx.assertTrue(manager.get(id).isPresent(), "The piece is a saved structure template");
+
+        String check = Authoring.check(kind, name);
+        ctx.assertTrue(check.contains("connector spine facing north at 2, 0, 0") && check.contains("point  at 3, 1, 3"), "Check lists connectors and points: " + check);
+        ctx.assertTrue(check.contains("connector at 2, 0, 2 faces east but is not on that face") && check.contains("unknown point name") && check.contains("valuable blocks"), "Check flags a stranded connector, an unnamed point and valuable blocks: " + check);
+        String nested = Authoring.save(player, "testnested.kit", name);
+        ctx.assertTrue(nested.startsWith("Saved nullspace:testnested/kit/" + name), "A dotted kind saves into nested folders: " + nested);
+        manager.remove(Authoring.id("testnested.kit", name));
 
         String loaded = Authoring.load(player, kind, name);
         var volume = Authoring.volume(player);
@@ -47,8 +61,8 @@ public final class AuthoringGameTest
 
         String preview = Authoring.preview(player, "derelict_survey", 2, 5);
         ctx.assertTrue(preview.startsWith("Previewed derelict_survey (danger 2, seed 5)") && !preview.contains("Warning") && !preview.contains(" 0 containers"), "A generated derelict previews on the pad with loot containers: " + preview);
-        String ship = Authoring.preview(player, "ship:sparrow", 0, 1);
-        ctx.assertTrue(ship.startsWith("Previewed ship:sparrow"), "Shipyard designs preview too: " + ship);
+        String ship = Authoring.preview(player, "ship:rivet_bolt", 0, 1);
+        ctx.assertTrue(ship.startsWith("Previewed ship:rivet_bolt"), "Shipyard designs preview too: " + ship);
         boolean refused = false;
         try
         {

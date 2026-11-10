@@ -1,0 +1,101 @@
+[
+  {
+    "id": "rivet_bolt",
+    "name": "Rivet Bolt",
+    "manufacturer": "Rivet Works",
+    "role": "Scout",
+    "description": "Compact spine scout: bridge, bunk rooms, a store and engineering.",
+    "color": "orange",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "RIVET", "shape": "SPINE", "tier": "SMALL", "role": "SCOUT", "seed": 1 }
+  },
+  {
+    "id": "rivet_hauler",
+    "name": "Rivet Hauler",
+    "manufacturer": "Rivet Works",
+    "role": "Freighter",
+    "description": "Two-deck freighter: cargo holds below, bunks and a viewing room above.",
+    "color": "orange",
+    "armed": false,
+    "cargo": true,
+    "generate": { "maker": "RIVET", "shape": "SPINE", "tier": "MEDIUM", "role": "FREIGHTER", "seed": 1 }
+  },
+  {
+    "id": "rivet_ranger",
+    "name": "Rivet Ranger",
+    "manufacturer": "Rivet Works",
+    "role": "Explorer",
+    "description": "Three-deck expedition ship: workshops, a lounge, bunks and a viewing room.",
+    "color": "orange",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "RIVET", "shape": "SPINE", "tier": "LARGE", "role": "EXPLORER", "seed": 1 }
+  },
+  {
+    "id": "halcyon_swift",
+    "name": "Halcyon Swift",
+    "manufacturer": "Halcyon Aerospace",
+    "role": "Scout",
+    "description": "Round commons under a glass dome, with bunk rooms and engineering.",
+    "color": "cyan",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "HALCYON", "shape": "DOME", "tier": "SMALL", "role": "SCOUT", "seed": 1 }
+  },
+  {
+    "id": "halcyon_courier",
+    "name": "Halcyon Courier",
+    "manufacturer": "Halcyon Aerospace",
+    "role": "Freighter",
+    "description": "Twin hulls joined by a forward bridge, with cargo and storage in both.",
+    "color": "cyan",
+    "armed": false,
+    "cargo": true,
+    "generate": { "maker": "HALCYON", "shape": "TWIN", "tier": "MEDIUM", "role": "FREIGHTER", "seed": 1 }
+  },
+  {
+    "id": "halcyon_horizon",
+    "name": "Halcyon Horizon",
+    "manufacturer": "Halcyon Aerospace",
+    "role": "Explorer",
+    "description": "Large dome ship: a wide commons with workshops either side.",
+    "color": "cyan",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "HALCYON", "shape": "DOME", "tier": "LARGE", "role": "EXPLORER", "seed": 1 }
+  },
+  {
+    "id": "bastion_ward",
+    "name": "Bastion Ward",
+    "manufacturer": "Bastion Shipbuilding",
+    "role": "Scout",
+    "description": "Armoured twin hull with bunk rooms and stores.",
+    "color": "red",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "BASTION", "shape": "TWIN", "tier": "SMALL", "role": "SCOUT", "seed": 1 }
+  },
+  {
+    "id": "bastion_tender",
+    "name": "Bastion Tender",
+    "manufacturer": "Bastion Shipbuilding",
+    "role": "Freighter",
+    "description": "Round hull with a commons and a cargo hold either side.",
+    "color": "red",
+    "armed": false,
+    "cargo": true,
+    "generate": { "maker": "BASTION", "shape": "DOME", "tier": "MEDIUM", "role": "FREIGHTER", "seed": 1 }
+  },
+  {
+    "id": "bastion_pioneer",
+    "name": "Bastion Pioneer",
+    "manufacturer": "Bastion Shipbuilding",
+    "role": "Explorer",
+    "description": "Twin-hull explorer with workshops, stores and a mining bay.",
+    "color": "red",
+    "armed": false,
+    "cargo": false,
+    "generate": { "maker": "BASTION", "shape": "TWIN", "tier": "LARGE", "role": "EXPLORER", "seed": 1 }
+  }
+]

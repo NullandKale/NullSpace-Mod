@@ -169,6 +169,8 @@ A crafted item for reaching new ground on a planet without walking there.
 | 6 | **Journey sites** (done): random signals that vanish afterward, including ambushes by lost crew and repair bots | Claude builds | Journeys have surprises |
 | Later | Friendly ship repair bot; hostile ships | | |
 
+**Infrastructure for steps 3 and 4 (built November 8).** Templates, kits, the assembler, the condition pass and station pieces (rooms, tunnels, domes) are described in [generation infrastructure](generation-infrastructure.md). The shipyard designs are now templates edited in game, so step 3's exterior pass needs no code.
+
 **Folded in from the original roadmap (November 7).** Two chunks from the [playtest plan](../development/playtest-chunks.md) now belong to these steps instead of being separate work:
 
 - **A useful ship and station** (old chunk 7) joins **step 3**: one redesigned workboat and a two-berth service outpost whose exterior, rooms, signs, supplies and workstations make a visit understandable and worthwhile, plus a better-centred ship preview in the delivery catalog.

@@ -215,6 +215,17 @@ public final class DockingRecoveryGameTest
             escape(dock, oldGoal, station, target.facing());
             level.setBlock(target.outer(), Blocks.AIR.defaultBlockState(), 18);
             level.setBlock(target.controller(), Blocks.AIR.defaultBlockState(), 18);
+            // The old platform's overlap was its own port, now demolished: open every cell the nose still covers.
+            var targetPose = SceneService.pose(station);
+            var targetBase = WorldStore.pos(station, "base");
+            for (var block : ShipSystems.connected(level, ship))
+            {
+                var box = DockingManeuver.hullBox(block.subtract(WorldStore.pos(ship, "base")), oldGoal, targetPose);
+                for (int x = Math.max(0, (int) Math.floor(box.minX + 1e-6)); x <= Math.min(31, (int) Math.floor(box.maxX - 1e-6)); x++)
+                    for (int y = Math.max(0, (int) Math.floor(box.minY + 1e-6)); y <= Math.min(31, (int) Math.floor(box.maxY - 1e-6)); y++)
+                        for (int z = Math.max(0, (int) Math.floor(box.minZ + 1e-6)); z <= Math.min(31, (int) Math.floor(box.maxZ - 1e-6)); z++)
+                            level.setBlock(targetBase.offset(x, y, z), Blocks.AIR.defaultBlockState(), 18);
+            }
             DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");
             DockingManeuver.tickMotion(server, ship);
             ctx.assertTrue(SceneService.pose(ship).position().distanceTo(oldGoal.position()) > .3, "The saved pre-fix overlap can shrink without requiring a rebuilt station port");

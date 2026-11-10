@@ -47,17 +47,17 @@ public final class SpaceStartGameTest
         java.nio.file.Files.writeString(backup, "existing player backup");
         ctx.assertTrue(!SpaceStart.firstArrival(existing), "Existing player backups never trigger a starting ship");
         var player = ctx.makeMockServerPlayerInLevel();
-        var settings = new WorldStartSettings(true, "sparrow");
+        var settings = new WorldStartSettings(true, "rivet_bolt");
         var ship = SpaceStart.start(player, settings);
         var record = WorldStore.get(server).section("spaceStarts").getCompoundOrEmpty(player.getUUID().toString());
         record.putBoolean("completed", false);
         ctx.assertTrue(SpaceStart.firstArrival(player), "A saved construction intent resumes even when player data already exists");
-        var floor = WorldStore.pos(ship, "base").offset(2, 0, 3);
+        var floor = WorldStore.pos(ship, "base").offset(9, 0, 12);
         ctx.assertTrue(!player.level().getBlockState(floor).isAir(), "Fixture removes an actual deck block");
         player.level().setBlock(floor, Blocks.AIR.defaultBlockState(), 18);
         int bread = player.getInventory().countItem(Items.BREAD);
-        var resumed = SpaceStart.start(player, new WorldStartSettings(true, "atlas"));
-        ctx.assertTrue(resumed == ship && resumed.getStringOr("blueprint", "").equals("sparrow"), "Recovery keeps the reserved ship and preset");
+        var resumed = SpaceStart.start(player, new WorldStartSettings(true, "rivet_ranger"));
+        ctx.assertTrue(resumed == ship && resumed.getStringOr("blueprint", "").equals("rivet_bolt"), "Recovery keeps the reserved ship and preset");
         ctx.assertTrue(!player.level().getBlockState(floor).isAir(), "Interrupted construction finishes missing hull blocks");
         ctx.assertTrue(player.getInventory().countItem(Items.BREAD) == bread, "Recovery never duplicates previously delivered food");
         ctx.assertTrue(!SpaceStart.firstArrival(player), "A finished start cannot be awarded again");
@@ -69,11 +69,11 @@ public final class SpaceStartGameTest
     {
         var player = ctx.makeMockServerPlayerInLevel();
         var server = ctx.getLevel().getServer();
-        var settings = new WorldStartSettings(true, "sparrow");
+        var settings = new WorldStartSettings(true, "rivet_bolt");
         var ship = SpaceStart.start(player, settings);
         ctx.assertTrue(player.level().dimension().equals(TravelService.SPACE), "New player boards space ship");
         ctx.assertTrue(ship.getStringOr("owner", "").equals(player.getUUID().toString()), "Ship belongs to the player");
-        ctx.assertTrue(ship.getStringOr("blueprint", "").equals("sparrow"), "Selected ship was built");
+        ctx.assertTrue(ship.getStringOr("blueprint", "").equals("rivet_bolt"), "Selected ship was built");
         ctx.assertTrue(ShipSystems.enabled(ship) && ShipAir.breathable(player.level(), ship, player.blockPosition().above()), "New cabin has functioning finite air");
         ctx.assertTrue(FuelSystem.available(player.level(), ship) > 0, "Generator contains real burnable fuel");
         ctx.assertTrue(!DockingPorts.ports(player.level(), ship).isEmpty(), "Ship has a usable normal-door dock");
@@ -86,11 +86,11 @@ public final class SpaceStartGameTest
         ctx.assertTrue(LocalSpaces.address(ship).equals(SpaceStart.planet(server, player.getUUID())), "Random starting planet is stable for the same player and world");
         String id = ship.getStringOr("id", "");
         int before = WorldStore.get(server).ships().size();
-        var hull = WorldStore.pos(ship, "base").offset(2, 0, 3);
+        var hull = WorldStore.pos(ship, "base").offset(9, 0, 12);
         ctx.assertTrue(!player.level().getBlockState(hull).isAir(), "Fixture removes an actual deck block");
         player.level().setBlock(hull, Blocks.AIR.defaultBlockState(), 18);
         player.getInventory().clearContent();
-        SpaceStart.start(player, new WorldStartSettings(true, "atlas"));
+        SpaceStart.start(player, new WorldStartSettings(true, "rivet_ranger"));
         ctx.assertTrue(WorldStore.get(server).ships().size() == before, "Rejoin or changed server preset never grants another ship");
         ctx.assertTrue(WorldStore.get(server).repository().find(id) == ship, "Existing ship identity is retained");
         ctx.assertTrue(player.level().getBlockState(hull).isAir(), "Rejoining never repairs or rebuilds player changes");
@@ -103,11 +103,11 @@ public final class SpaceStartGameTest
     {
         var first = ctx.makeMockServerPlayerInLevel();
         var second = ctx.makeMockServerPlayerInLevel();
-        var a = SpaceStart.start(first, new WorldStartSettings(true, "wayfarer"));
+        var a = SpaceStart.start(first, new WorldStartSettings(true, "rivet_ranger"));
         var b = SpaceStart.start(second, new WorldStartSettings(true, "halcyon_swift"));
         ctx.assertTrue(!a.getStringOr("id", "").equals(b.getStringOr("id", "")), "Each new player gets their own ship");
         ctx.assertTrue(!WorldStore.bounds(a).box().intersects(WorldStore.bounds(b).box()), "Ships never share physical storage");
-        ctx.assertTrue(a.getStringOr("blueprint", "").equals("wayfarer") && b.getStringOr("blueprint", "").equals("halcyon_swift"), "Multi-deck and manufacturer ship choices work");
+        ctx.assertTrue(a.getStringOr("blueprint", "").equals("rivet_ranger") && b.getStringOr("blueprint", "").equals("halcyon_swift"), "Multi-deck and manufacturer ship choices work");
         ctx.assertTrue(ShipAir.breathable(first.level(), a, first.blockPosition().above()) && ShipAir.breathable(second.level(), b, second.blockPosition().above()), "Both starting cabins are breathable");
         var planets = new HashSet<String>();
         for (int i = 0; i < 64; i++)

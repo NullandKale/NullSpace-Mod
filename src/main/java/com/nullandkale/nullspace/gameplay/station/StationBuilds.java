@@ -17,6 +17,7 @@ import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
+import com.nullandkale.nullspace.worldgen.stations.StationPieces;
 
 import java.util.*;
 
@@ -207,6 +208,39 @@ public final class StationBuilds
         p.level().getServer().getPlayerList().saveAll();
     }
 
+    /**
+     * Reads {@code <piece> [x z [turns]]} (a piece id from the station catalog, or an old role name)
+     * and places it by doorway next to the saved rooms.
+     */
+    static StationLayout.Room placement(CompoundTag pieces, String[] words)
+    {
+        String piece = words[0].toLowerCase(Locale.ROOT);
+        if (StationPieces.find(piece).isEmpty())
+            throw new IllegalArgumentException("Choose a station piece: " + String.join(", ", StationPieces.ALL.stream().map(StationPieces.Definition::id).toList()) + "; optional tile x z (0..7) and turns (0..3)");
+        if (words.length != 1 && words.length != 3 && words.length != 4)
+            throw new IllegalArgumentException("Use piece x z [turns], for example tunnel_straight 1 0");
+        int x = 0, z = 0;
+        Integer turns = null;
+        try
+        {
+            if (words.length >= 3)
+            {
+                x = Integer.parseInt(words[1]);
+                z = Integer.parseInt(words[2]);
+            }
+            if (words.length == 4)
+                turns = Integer.parseInt(words[3]);
+        }
+        catch (NumberFormatException e)
+        {
+            throw new IllegalArgumentException("Use piece x z [turns] with whole numbers");
+        }
+        var existing = new ArrayList<StationLayout.Room>();
+        for (var key : pieces.keySet())
+            existing.add(StationLayout.Room.decode(key, pieces.getStringOr(key, "")));
+        return StationLayout.place(existing, piece, x, z, turns);
+    }
+
     public static void buildRoom(ServerPlayer p, CompoundTag s, String argument, boolean generate)
     {
         StationAccess.requireBuilder(p, s);
@@ -214,8 +248,7 @@ public final class StationBuilds
             throw new IllegalArgumentException("Finish construction or travel before adding a module");
         var stack = kit(p, ModBlocks.STATION_MODULE);
         String token = receipt(p, stack);
-        var roles = StationLayout.Role.values();
-        String[] words = argument.strip().toUpperCase(Locale.ROOT).split(" +");
+        String[] words = argument.strip().split(" +");
         StationBlueprint.Plan plan;
         var pieces = s.getCompoundOrEmpty("roomPieces").copy();
         var additions = new ArrayList<StationLayout.Room>();
@@ -231,45 +264,9 @@ public final class StationBuilds
         }
         else
         {
-            StationLayout.Role role;
-            try
-            {
-                role = StationLayout.Role.valueOf(words[0]);
-            }
-            catch (Exception e)
-            {
-                throw new IllegalArgumentException("Enter arrival, workshop, habitation or engineering; optional tile x z (0..7)");
-            }
-            int x = 0, z = 0;
-            if (words.length == 3)
-            {
-                try
-                {
-                    x = Integer.parseInt(words[1]);
-                    z = Integer.parseInt(words[2]);
-                }
-                catch (NumberFormatException e)
-                {
-                    throw new IllegalArgumentException("Use room x z with x and z 0..7");
-                }
-            }
-            else if (words.length != 1)
-                throw new IllegalArgumentException("Use room x z, for example engineering 1 1");
-            // Every kit includes a registered core location, but an existing station retains its core.
-            var single = new StationLayout.Layout(List.of(new StationLayout.Room("piece", role, x, z)), List.of());
-            if (pieces.contains(x + "_" + z))
-                throw new IllegalArgumentException("That room tile is already occupied");
-            if (!pieces.isEmpty() && pieces.keySet().stream().noneMatch(key ->
-            {
-                var coords = key.split("_");
-                var room = single.rooms().getFirst();
-                return Math.abs(Integer.parseInt(coords[0]) - room.x()) + Math.abs(Integer.parseInt(coords[1]) - room.z()) == 1;
-            }))
-                throw new IllegalArgumentException("Choose a room tile adjoining an existing room");
-            if (pieces.isEmpty() && (x != 0 || z != 0))
-                throw new IllegalArgumentException("Build the arrival tile at 0,0 first, then expand through adjacent tiles");
-            additions.addAll(single.rooms());
-            plan = StationBlueprint.build(single);
+            var room = placement(pieces, words);
+            additions.add(room);
+            plan = StationBlueprint.build(new StationLayout.Layout(List.of(room), List.of()));
         }
         for (var room : additions)
             if ((room.x() + 1) * 16 > s.getIntOr("width", 32) || (room.z() + 1) * 16 > s.getIntOr("depth", 32))
@@ -277,20 +274,20 @@ public final class StationBuilds
         var out = new LinkedHashMap<>(plan.blocks());
         var base = WorldStore.pos(s, "base");
         var oldCore = WorldStore.pos(s, "controller").subtract(base);
-        out.remove(plan.core());
+        // A new arrival room brings its own core; the station keeps the core it already has.
+        if (out.getOrDefault(plan.core(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()).is(ModBlocks.STATION_CORE))
+            out.remove(plan.core());
         out.put(oldCore, ModBlocks.STATION_CORE.defaultBlockState());
         var seamExpected = new HashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
         for (var room : additions)
             for (var key : pieces.keySet())
             {
-                var coords = key.split("_");
-                var previous = new StationLayout.Room(key, StationLayout.Role.valueOf(pieces.getStringOr(key, "")), Integer.parseInt(coords[0]), Integer.parseInt(coords[1]));
-                if (Math.abs(room.x() - previous.x()) + Math.abs(room.z() - previous.z()) != 1)
+                var previous = StationLayout.Room.decode(key, pieces.getStringOr(key, ""));
+                if (!StationLayout.joined(previous, room))
                     continue;
-                var door = StationLayout.doorway(previous, StationLayout.direction(previous, room));
                 var expected = StationBlueprint.build(new StationLayout.Layout(List.of(previous), List.of())).blocks();
-                for (int y = -1; y <= 2; y++)
-                    seamExpected.put(door.above(y), expected.get(door.above(y)));
+                for (var cell : StationBlueprint.seam(previous, room))
+                    seamExpected.put(cell, expected.get(cell));
                 StationBlueprint.connect(out, previous, room);
             }
         var dockingProblem = StationConstruction.constructionProblem(p.level(), s, out);
@@ -313,7 +310,7 @@ public final class StationBuilds
         s.putString("buildReceipt", token);
         s.put("piecesBefore", pieces.copy());
         for (var room : additions)
-            pieces.putString(room.x() + "_" + room.z(), room.role().name());
+            pieces.putString(room.x() + "_" + room.z(), room.encode());
         s.put("roomPieces", pieces);
         s.putBoolean("buildPaid", false);
         s.putBoolean("foundation", false);

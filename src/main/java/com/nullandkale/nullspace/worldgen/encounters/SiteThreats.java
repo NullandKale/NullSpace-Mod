@@ -91,7 +91,10 @@ public final class SiteThreats
         if (counts[0] + counts[1] + counts[2] == 0)
             return spawned;
         var random = RandomSource.create(ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 31 + 7);
-        var spots = spots(level, ship, random);
+        // Sites built from kit pieces carry the author's mob spots; hand-built sites search for floor.
+        var spots = SitePoints.mobSpots(ship);
+        if (spots.isEmpty())
+            spots = spots(level, ship, random);
         if (spots.isEmpty())
             return spawned;
         int next = 0;

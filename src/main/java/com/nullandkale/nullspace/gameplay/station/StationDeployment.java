@@ -52,7 +52,7 @@ public final class StationDeployment
         var result = StationBuilds.queue(server, id, random ? "Survey Station" : "Waypoint Station", address, position, "", StationBlueprint.build(layout), false);
         var pieces = new CompoundTag();
         for (var room : layout.rooms())
-            pieces.putString(room.x() + "_" + room.z(), room.role().name());
+            pieces.putString(room.x() + "_" + room.z(), room.encode());
         result.put("roomPieces", pieces);
         WorldStore.get(server).save();
         return result;

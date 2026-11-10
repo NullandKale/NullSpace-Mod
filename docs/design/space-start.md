@@ -1,6 +1,6 @@
 # Starting in space
 
-In **Singleplayer → Create New World → Start**, change **Start: On a planet** to **Start: Aboard a ship**. Click **Starting ship** to choose a design, then create the world normally. Sparrow is the default; all ships in the Ship Beacon catalog are available. Game mode, difficulty, seed and world generation remain the ordinary Minecraft choices.
+In **Singleplayer → Create New World → Start**, change **Start: On a planet** to **Start: Aboard a ship**. Click **Starting ship** to choose a design, then create the world normally. Rivet Bolt is the default; all ships in the Ship Beacon catalog are available. Game mode, difficulty, seed and world generation remain the ordinary Minecraft choices.
 
 ![Space-start choices in the normal world creation menu](../images/world-start-options.png)
 
@@ -12,12 +12,12 @@ Stop the server and add these lines to its `server.properties`:
 
 ```properties
 nullspace-space-start=true
-nullspace-starting-ship=sparrow
+nullspace-starting-ship=rivet_bolt
 ```
 
 Restart the server. Each **new player** receives their own ship in a separate space allocation, in orbit above a randomly chosen planet. Different players can start above different planets; moons are excluded. Omit the options, or set `nullspace-space-start=false`, for ordinary Minecraft starts.
 
-The ship option accepts the catalog IDs: `sparrow`, `skylark`, `mule`, `wayfarer`, `aegis`, `atlas`, `rivet_bolt`, `halcyon_swift`, `bastion_ward`, `rivet_hauler`, `rivet_ranger`, `halcyon_courier`, `halcyon_horizon`, `bastion_tender`, and `bastion_pioneer`. An invalid ID is reported during startup.
+The ship option accepts the catalog IDs: `rivet_bolt`, `halcyon_swift`, `bastion_ward`, `rivet_hauler`, `rivet_ranger`, `halcyon_courier`, `halcyon_horizon`, `bastion_tender`, and `bastion_pioneer`. An invalid ID is reported during startup.
 
 Existing players keep their location and progress when the option is enabled. Rejoining, dying, or changing the server's starting ship does not grant another ship or refill supplies. Death follows the existing Minecraft respawn and ship-recovery rules.
 

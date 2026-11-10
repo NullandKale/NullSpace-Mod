@@ -49,10 +49,10 @@ simulation-distance=6
 level-name=world
 motd=NullSpace public alpha
 nullspace-space-start=true
-nullspace-starting-ship=sparrow
+nullspace-starting-ship=rivet_bolt
 ```
 
-The small Sparrow is the default public survival start. Players still choose their ship in single-player world creation; encounter variety must not override that choice. Change `nullspace-starting-ship` to a catalog preset if the server wants a different start. The server starts newcomers above a seeded planet, with a functioning ship, food, fuel, suit and guide. Terra's landing site is created at startup, independently of which planet a player starts above.
+The small Rivet Bolt is the default public survival start. Players still choose their ship in single-player world creation; encounter variety must not override that choice. Change `nullspace-starting-ship` to a catalog preset if the server wants a different start. The server starts newcomers above a seeded planet, with a functioning ship, food, fuel, suit and guide. Terra's landing site is created at startup, independently of which planet a player starts above.
 
 An open server still needs an operator able to moderate and restore backups. These settings do not add a claim or anti-grief system. Publicly accessible ships and salvage are not automatically protected property. Decide and publish the server's rules before launch.
 
