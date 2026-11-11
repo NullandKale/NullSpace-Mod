@@ -1,6 +1,6 @@
 # Ship generator
 
-Shipyard ships are generated, not hand built. A **spec** (maker, shape, tier, role, seed) always builds the same ship, so a catalog entry is a short recipe and a derelict or encounter can ask for a random one. The code is in `worldgen/shipgen`.
+Shipyard ships are generated, not hand built. A **spec** (maker, shape, tier, role, seed) always builds the same ship, so a catalog entry is a short recipe and a derelict or encounter can ask for a random one. The code is in [`worldgen/shipgen`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen).
 
 The nine shipyard designs are generated. The rules below are enforced by tests on every combination of shape, tier and role. Stations use the same machinery (see [Stations](#stations)).
 
@@ -63,19 +63,19 @@ Not built, left for later: armoury, trophy lounge, animal bay, redstone workshop
 
 ## Rules
 
-The generator is checked, on every shape, tier and role, against these (`ShipGeneratorTest`, which needs no game):
+The generator is checked, on every shape, tier and role, against these ([`ShipGeneratorTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/shipgen/ShipGeneratorTest.java), which needs no game):
 
 - **Symmetry.** The shell mirrors across the centre line: hull, walls, windows, doors, stairs and lights, with facings mirrored. So do the ship's systems (engines, generators, batteries, air supply). Furniture does not have to: a room has one scanner, one terminal, one of each workbench, not a copy on each side.
 - **Light.** Interiors are bright: every standing cell has block light of at least 7 (sea lanterns at 15 in the ceiling, or in the deck above's floor on lower decks, and lamps in the commons), and every crop has at least 9 and farmland within four blocks of water.
-- **One task.** A room holds only the machines and furniture of its one task, and nothing from another room's. A room that works with items keeps a little storage. `RoomKitTest` checks every kit.
+- **One task.** A room holds only the machines and furniture of its one task, and nothing from another room's. A room that works with items keeps a little storage. [`RoomKitTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/shipgen/RoomKitTest.java) checks every kit.
 - **Walking paths.** Every room can be walked to from the docking door, up and down stairs, and every machine can be reached from a standing spot. No standing cell is a single-block-wide corridor or a blind nook.
 - **High ceilings.** No room under three blocks.
 - **No hidden air.** Every pocket of air is either a room a person can enter or open to space. Hull fills from the rooms outward with cheap blocks, then any pocket sealed inside the hull is filled too.
 - **White space.** Furnishing leaves floor open. Nothing is put in only to fill a corner or a gap: no pillars, no dividers between beds, no walls closing off a lane. A dead-end corner beside a unit is normal floor. Only a passage that pinches to one block wide counts as a fault.
 - **Doors.** Every doorway between a room and a walkway holds a closed, framed door in the middle (trim fills the rest of the opening), built like the docking door so a hull inspection accepts it. Open them to walk through.
 - **Vents.** Every room has a pair of air vents, copper grates set high into the two side walls (waxed, so they never weather).
-- **Room tree.** Rooms joined by doors and stairs form a tree: one way between any two rooms, no loops, checked by `RoomTreeTest` (the mirrored stair lanes count as one connection). The twin hull is the one exception, on purpose: its two walkways meet at the bridge end and at engineering, so it has a single ring. Keep it.
-- **Stairs.** Each flight has a landing cell in front of its first step, so a person walks in line with it. A stair's tall half fills the far half of its cell, so stepping onto one from the side takes a jump. `StairWalkGameTest` walks a real player up a flight.
+- **Room tree.** Rooms joined by doors and stairs form a tree: one way between any two rooms, no loops, checked by [`RoomTreeTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/shipgen/RoomTreeTest.java) (the mirrored stair lanes count as one connection). The twin hull is the one exception, on purpose: its two walkways meet at the bridge end and at engineering, so it has a single ring. Keep it.
+- **Stairs.** Each flight has a landing cell in front of its first step, so a person walks in line with it. A stair's tall half fills the far half of its cell, so stepping onto one from the side takes a jump. [`StairWalkGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/StairWalkGameTest.java) walks a real player up a flight.
 - **Machines.** One helm, one docking base and door, a camera, generators, batteries, engines in pairs, air supply, a terminal, a scanner and a monitor.
 - **Fit.** At most 32 in each direction, and the same ship every time for the same spec.
 
@@ -94,7 +94,7 @@ The ship tests in the game then check what the unit tests cannot: sealed, powere
 
 ## Using it
 
-`catalog/ships.json` entries carry a `generate` block with the maker, shape, tier, role and seed. `ShipBlueprints` builds the ship at startup (it needs no block registries, so sizes and helm positions are known to the unit tests and the client).
+[`catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json) entries carry a `generate` block with the maker, shape, tier, role and seed. [`ShipBlueprints`](../../src/main/java/com/nullandkale/nullspace/worldgen/ships/ShipBlueprints.java) builds the ship at startup (it needs no block registries, so sizes and helm positions are known to the unit tests and the client).
 
 To change a design by hand, `/nullspace author load ship <id>` builds the generated ship on a pad, and `/nullspace author save ship <id>` saves your edit as a template. A saved template replaces the generated ship under that id; delete the template file to go back. Other uses (derelicts, encounters) can call `ShipGenerator.build(spec)` with a random seed.
 
@@ -104,7 +104,7 @@ A room is built first and then furnished with a few workstation units, not by fi
 
 ## The dock ramp
 
-The docking door sits two blocks above the ground, because the hull has a floor layer under it. The generator adds a three-wide flight of stairs up to the door as part of the ship (solid under each step), so it works on any pad. The ramp takes the front block of the 32-block depth, and `HullScan` ignores a pad's own computer and a delivery beacon even when the ramp's first step touches one.
+The docking door sits two blocks above the ground, because the hull has a floor layer under it. The generator adds a three-wide flight of stairs up to the door as part of the ship (solid under each step), so it works on any pad. The ramp takes the front block of the 32-block depth, and [`HullScan`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/HullScan.java) ignores a pad's own computer and a delivery beacon even when the ramp's first step touches one.
 
 ## Random gallery
 
@@ -112,7 +112,7 @@ The docking door sits two blocks above the ground, because the hull has a floor 
 
 ## Room kit gallery
 
-`/nullspace shipyard rooms` (operators) builds every destination room on its own, to audit the kits: one row per use going south, and columns going east for small, medium and large pieces, each with few and then many windows. Each room sits behind a short corridor with an open doorway on its north face and a sign by the door. `RoomKitTest` runs the walking rules on every kit and writes any breaks to `build/room-kit-audit.txt`.
+`/nullspace shipyard rooms` (operators) builds every destination room on its own, to audit the kits: one row per use going south, and columns going east for small, medium and large pieces, each with few and then many windows. Each room sits behind a short corridor with an open doorway on its north face and a sign by the door. [`RoomKitTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/shipgen/RoomKitTest.java) runs the walking rules on every kit and writes any breaks to `build/room-kit-audit.txt`.
 
 ## Not yet
 
@@ -122,11 +122,11 @@ The docking door sits two blocks above the ground, because the hull has a floor 
 
 ## Stations
 
-Station tiles are generated by the same machinery (`StationGenerator`, `StationFurnishings`), so every ship rule above applies. A station is a grid of 16 x 16 tiles, and each tile is one piece: an entrance, a workshop, a bedroom, a power room, a tunnel (promenade), a garden dome or an observation dome. Every piece comes in a few-windows and a many-windows version (`<id>_bright`); a dome is always roofed in glass, with mostly solid walls when it has few windows and glass all round when it has many.
+Station tiles are generated by the same machinery ([`StationGenerator`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/StationGenerator.java), [`StationFurnishings`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/StationFurnishings.java)), so every ship rule above applies. A station is a grid of 16 x 16 tiles, and each tile is one piece: an entrance, a workshop, a bedroom, a power room, a tunnel (promenade), a garden dome or an observation dome. Every piece comes in a few-windows and a many-windows version (`<id>_bright`); a dome is always roofed in glass, with mostly solid walls when it has few windows and glass all round when it has many.
 
-- **Two stories.** Each story is six blocks tall with a one-block slab between, over a solid two-block floor, so the tile is 16 high and has no basement void. A flight of stairs runs along the south wall and another along the north, each with its landing, and the space under each step is solid. The slab is open over the last steps, where a person's head would meet it. `StairWalkGameTest` walks a real player up every kit's flights.
+- **Two stories.** Each story is six blocks tall with a one-block slab between, over a solid two-block floor, so the tile is 16 high and has no basement void. A flight of stairs runs along the south wall and another along the north, each with its landing, and the space under each step is solid. The slab is open over the last steps, where a person's head would meet it. [`StairWalkGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/StairWalkGameTest.java) walks a real player up every kit's flights.
 - **Doors.** Each side of a tile has two doorway slots, three blocks in from either corner, on each story. A slot is solid wall until a neighbour is joined, when a closed iron door goes in the first tile's wall and the second tile's wall is cut open behind it: four doors on every shared edge. The door approaches stay clear of furniture.
 - **Furnishing.** Each hall is furnished in units against the west and east walls (the stairs hold the south and north), with open cells at the ends of each unit and a table to meet at in the middle. Every tile has an air supply (a power room has two, mirrored), the entrance holds the station core and its terminal at a reception counter, and a hall has at most one terminal and one scanner. Halls are lit by ceiling lanterns, wall lanterns at head height and flush floor lanterns, because the ceiling is six blocks up.
-- **Loops.** A station's tile graph holds at most one closed loop: the Waypoint is a ring of four, the harbor is one perimeter ring, and generated starters are rings or trees. `StationLayout.loops` counts them and `StationLayoutTest` enforces it.
+- **Loops.** A station's tile graph holds at most one closed loop: the Waypoint is a ring of four, the harbor is one perimeter ring, and generated starters are rings or trees. [`StationLayout.loops`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationLayout.java) counts them and [`StationLayoutTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/stations/StationLayoutTest.java) enforces it.
 - **Review.** `/nullspace shipyard stations` builds every piece (few windows on one row, many on the next, each with a walk-in opening and a sign), then the Waypoint and the Manufacturer Exchange.
 

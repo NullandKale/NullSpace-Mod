@@ -1,6 +1,6 @@
 # Ship ownership, storage and recall
 
-A ship is a world object that survives its pilot. Players die, log out and leave ships parked in odd places, and a server cannot ask them to come back. This document describes how a ship is claimed, how access is remembered, and how a ship is brought back to a landing pad (**Deploy**) or put away (**Store**) from a Pad Computer. The code is in `gameplay/ownership`.
+A ship is a world object that survives its pilot. Players die, log out and leave ships parked in odd places, and a server cannot ask them to come back. This document describes how a ship is claimed, how access is remembered, and how a ship is brought back to a landing pad (**Deploy**) or put away (**Store**) from a Pad Computer. The code is in [`gameplay/ownership`](../../src/main/java/com/nullandkale/nullspace/gameplay/ownership).
 
 ![Ship recall controls](../images/ship-recall.png)
 
@@ -14,8 +14,8 @@ Two things are real and are not "recovered" by recall: hull damage and missing b
 
 Each ship record stores an `owner` and a `recallUsers` set.
 
-- **Claiming a derelict** (`Claims`) makes the claimant the owner. Only an unclaimed salvage vessel from an encounter can be claimed, and public service stations never can. The vessel keeps its identity, blocks and depleted supplies, so claiming never refills fuel, hull or cargo and never produces a fresh copy from its generation site. A derelict whose controller was destroyed can be claimed by placing a Ship Controller aboard it and opening it.
-- **Flying or being delivered a ship** adds the player to `recallUsers` (`CrewRelease.authorize`). The right is saved on the ship, so it survives the player dying. Dying aboard a station or another vessel also remembers the ship you came from.
+- **Claiming a derelict** ([`Claims`](../../src/main/java/com/nullandkale/nullspace/gameplay/ownership/Claims.java)) makes the claimant the owner. Only an unclaimed salvage vessel from an encounter can be claimed, and public service stations never can. The vessel keeps its identity, blocks and depleted supplies, so claiming never refills fuel, hull or cargo and never produces a fresh copy from its generation site. A derelict whose controller was destroyed can be claimed by placing a Ship Controller aboard it and opening it.
+- **Flying or being delivered a ship** adds the player to `recallUsers` ([`CrewRelease.authorize`](../../src/main/java/com/nullandkale/nullspace/gameplay/ownership/CrewRelease.java)). The right is saved on the ship, so it survives the player dying. Dying aboard a station or another vessel also remembers the ship you came from.
 - **Ownership** is separate from crew access. Only the owner may store the ship, issue titles, or sign it over.
 
 The My ships list shows ships in space that the player owns or has recall rights to, plus ships standing on the pad that the player owns. Stations and debris never appear.
@@ -67,4 +67,4 @@ Saves from before recall rights existed have ships with no owner. For these, the
 
 ## Where this is tested
 
-`ShipStorageGameTest` covers deploying and storing, titles, abandonment and refusal cases; `ShipStorageClientGameTest` drives the terminal through the real UI. `ConcurrentShipActionsGameTest` checks that a recall does not block other players' actions and that rollback preserves ships that already moved.
+[`ShipStorageGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/ownership/ShipStorageGameTest.java) covers deploying and storing, titles, abandonment and refusal cases; [`ShipStorageClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/ownership/ShipStorageClientGameTest.java) drives the terminal through the real UI. [`ConcurrentShipActionsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/travel/ConcurrentShipActionsGameTest.java) checks that a recall does not block other players' actions and that rollback preserves ships that already moved.

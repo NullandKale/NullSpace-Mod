@@ -13,7 +13,7 @@ A player should always have a way forward, should understand what their controls
 | Storing a ship is the normal, reversible action. Scrapping is a separate, owner-only, confirmed action | Built |
 | Ship and station appearance, interiors and useful activities deserve equal attention | Agreed. Ongoing |
 | One excellent starter ship and one useful service station before expanding the generator | Ships are generated; the station is partly done (see below) |
-| Choose a place and press **Engage**: launch, undock, travel, dock and land are phases of one trip | Built (`CourseService`). The individual buttons remain under **Manual steps** ([ship navigation](ship-navigation.md)) |
+| Choose a place and press **Engage**: launch, undock, travel, dock and land are phases of one trip | Built ([`CourseService`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/CourseService.java)). The individual buttons remain under **Manual steps** ([ship navigation](ship-navigation.md)) |
 | The Scanner owns the full destination browser and the controller shows the chosen destination | Built as agreed: both share one destination selection |
 | A starter-dock flow for building a station (ghost preview, one first useful section) | Not built; station building uses room kits ([stations](stations.md#build-your-own-station)) |
 
@@ -45,11 +45,11 @@ On arrival the player is removed from every ship's crew list and any stale arriv
 
 ### Terra Harbor
 
-A small public arrival hall and ship pad beside it, on breathable Terra (`TerraHarbor`). It keeps clear of registered pads and surface ships, relocating or rebuilding an older layout, and offers ordinary surface resources and a place to recover by playing Minecraft, so a player with nothing can get going again. It is also the fallback for crew whose ship moved while they were offline.
+A small public arrival hall and ship pad beside it, on breathable Terra ([`TerraHarbor`](../../src/main/java/com/nullandkale/nullspace/worldgen/sites/TerraHarbor.java)). It keeps clear of registered pads and surface ships, relocating or rebuilding an older layout, and offers ordinary surface resources and a place to recover by playing Minecraft, so a player with nothing can get going again. It is also the fallback for crew whose ship moved while they were offline.
 
 ## Respawn aboard a ship
 
-Right-clicking a bed aboard a ship sets **Respawn aboard this ship** (`ShipRespawns`). Space does not need to skip the night for the bed to serve as a home. The binding is the vessel's stable id plus the bed's ship-local position and a *placement identity*, never an absolute position in the hidden space allocation, so a ship that launches, lands or moves keeps its bed, and a storage slot reused by another ship can never redirect someone's respawn. When a bed is placed again at the same spot it is a new placement, which an old binding does not match.
+Right-clicking a bed aboard a ship sets **Respawn aboard this ship** ([`ShipRespawns`](../../src/main/java/com/nullandkale/nullspace/gameplay/crew/ShipRespawns.java)). Space does not need to skip the night for the bed to serve as a home. The binding is the vessel's stable id plus the bed's ship-local position and a *placement identity*, never an absolute position in the hidden space allocation, so a ship that launches, lands or moves keeps its bed, and a storage slot reused by another ship can never redirect someone's respawn. When a bed is placed again at the same spot it is a new placement, which an old binding does not match.
 
 At respawn the binding is resolved against the current ship and its blocks:
 
@@ -78,7 +78,7 @@ The principles for the controller are in [ship systems](ship-systems-redesign.md
 - **Built-in travel within a system needs no Scanner** (planets, the home pad and saved places). A powered Scanner supplies the wider catalog and interstellar destinations, and upgrades improve range and detection but never gate ordinary local travel. A place the player has already charted stays visible when the Scanner is off, marked as cached. Knowing a place and being able to reach it are different states, and the screen explains both.
 - **Faults stay visible and name the first thing to do** (for example fuel pointing to the generator, not an unrelated screen).
 - **Dropping out of FTL to investigate a vessel** continues into docking unless the player cancels, and after an investigated encounter the controller presents the saved journey destination again, so resuming is one step ([FTL journeys](ftl-journeys.md)).
-- **Starting a station is an in-world action**: in space, hold a Station Core and Shift-right-click empty space or a non-interactive block at the intended site (`StationDeployment`).
+- **Starting a station is an in-world action**: in space, hold a Station Core and Shift-right-click empty space or a non-interactive block at the intended site ([`StationDeployment`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationDeployment.java)).
 
 ### The Station Core
 
@@ -94,4 +94,4 @@ One generated starter ship and one useful service station should be excellent be
 
 ## Where this is tested
 
-`PlayerRescueGameTest` covers rescue (the countdown, cancel, reconnect, arrival and protection). Storage, titles and abandonment are covered by `ShipStorageGameTest` and `ShipStorageClientGameTest`.
+[`PlayerRescueGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/crew/PlayerRescueGameTest.java) covers rescue (the countdown, cancel, reconnect, arrival and protection). Storage, titles and abandonment are covered by [`ShipStorageGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/ownership/ShipStorageGameTest.java) and [`ShipStorageClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/ownership/ShipStorageClientGameTest.java).

@@ -1,12 +1,12 @@
 # Orbital population
 
-Space is not empty. Each orbital region holds a few places a player can find: a Waypoint Station, a Manufacturer Exchange, and derelict ships to salvage. This document explains how those places are decided, saved, built and reset. The code is `worldgen/encounters` (`SpacePopulationPlan`, `SpacePopulation`, `EncounterSites`) and `GalaxyPlan.population`.
+Space is not empty. Each orbital region holds a few places a player can find: a Waypoint Station, a Manufacturer Exchange, and derelict ships to salvage. This document explains how those places are decided, saved, built and reset. The code is [`worldgen/encounters`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters) ([`SpacePopulationPlan`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlan.java), [`SpacePopulation`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulation.java), [`EncounterSites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java)) and [`GalaxyPlan.population`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlan.java).
 
 The guiding rule is that **a menu only ever discovers places; it never creates them.** Opening the destination list, the scanner or a station screen changes nothing in the world. Places appear because a player is in the region, and they are the same places whoever arrives first.
 
 ## Which regions have what
 
-The [galaxy chart](star-systems.md) decides, once per world, how many places each region starts with (`GalaxyPlan.population`). Generated places are sparse on purpose, because players build their own stations.
+The [galaxy chart](star-systems.md) decides, once per world, how many places each region starts with ([`GalaxyPlan.population`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlan.java)). Generated places are sparse on purpose, because players build their own stations.
 
 | Region | Starts with |
 | --- | --- |
@@ -29,7 +29,7 @@ Derelicts keep their controller as a station core until a player claims them (se
 
 ## One saved plan per region
 
-World seed and region address determine every site's identity and seed independently of the player. `SpacePopulationPlan.sites` derives:
+World seed and region address determine every site's identity and seed independently of the player. [`SpacePopulationPlan.sites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlan.java) derives:
 
 - a stable id for each role by hashing the world seed, region and role, so the same place has the same identity in every save of that world;
 - a position candidate in a ring around the arrival origin, at 640 blocks for a Waypoint, 1,100 for an Exchange and 1,600 for a derelict. Each retry rotates the angle by 45° and, every eight attempts, pushes the ring out by 384 blocks. Sites therefore sit outside the area where ships arrive.
@@ -44,8 +44,8 @@ For a `planned` site it:
 
 1. Adopts an existing ship with that identity if one is already there (older worlds, or a retry after a crash), and marks it `placed`.
 2. Builds a list of obstacles in the region: planets at their current orbital position, asteroid fields, and every registered vessel with a margin around it.
-3. Tries up to 32 candidate positions and takes the first one where `DockingMotion.clear` finds a clear volume. If none is clear it simply waits; occupied space is an ordinary condition, not an error.
-4. Generates the blocks for the role and queues them as an *ambient build* (`StationBuilds.queueAmbient`). Placement is budgeted across ticks, so building a station never stalls the server. Travel and active construction take priority over queuing another site.
+3. Tries up to 32 candidate positions and takes the first one where [`DockingMotion.clear`](../../src/main/java/com/nullandkale/nullspace/model/docking/DockingMotion.java) finds a clear volume. If none is clear it simply waits; occupied space is an ordinary condition, not an error.
+4. Generates the blocks for the role and queues them as an *ambient build* ([`StationBuilds.queueAmbient`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationBuilds.java)). Placement is budgeted across ticks, so building a station never stalls the server. Travel and active construction take priority over queuing another site.
 
 Physical storage for these places is separate from their simulated orbital position, and lives in a reserved high range so it does not disturb the ordinary launch allocator.
 
@@ -67,4 +67,4 @@ Legacy station creation commands remain as development tools, and do not appear 
 
 ## Where this is tested
 
-`SpacePopulationPlanTest` (unit) checks that the plan is deterministic, which roles each region gets, and that identities do not depend on which places were chosen. `SpacePopulationGameTest` and the station tests cover discovery without creating, placement, removal records and resets; the graphical suite includes automatic discovery and a complete docking round trip.
+[`SpacePopulationPlanTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlanTest.java) (unit) checks that the plan is deterministic, which roles each region gets, and that identities do not depend on which places were chosen. [`SpacePopulationGameTest`](../../src/gametest/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationGameTest.java) and the station tests cover discovery without creating, placement, removal records and resets; the graphical suite includes automatic discovery and a complete docking round trip.

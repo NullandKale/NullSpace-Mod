@@ -1,6 +1,6 @@
 # Ship transfers and independent ship actions
 
-Launching, landing, jumping, docking and recalling all move a ship, and several players do them at once. This document explains how a ship physically moves between places, how a crash in the middle is survived, and how the locks are arranged so that one player's loading screen never stops anyone else. The code is `gameplay/travel` (`TravelService`, `ShipTransfer`, `TransferLocks`, `TransferRecovery`, `TransferReplay`).
+Launching, landing, jumping, docking and recalling all move a ship, and several players do them at once. This document explains how a ship physically moves between places, how a crash in the middle is survived, and how the locks are arranged so that one player's loading screen never stops anyone else. The code is [`gameplay/travel`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel) ([`TravelService`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TravelService.java), [`ShipTransfer`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/ShipTransfer.java), [`TransferLocks`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferLocks.java), [`TransferRecovery`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferRecovery.java), [`TransferReplay`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferReplay.java)).
 
 ## Why ships are physically copied
 
@@ -10,7 +10,7 @@ A ship is real blocks. The surface is the Overworld or a planet dimension, and s
 
 A launch is a request followed by a transfer. They are deliberately separate.
 
-**Request** (`TravelService.request`) runs the cheap, reversible checks on the player's click and then reserves things:
+**Request** ([`TravelService.request`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TravelService.java)) runs the cheap, reversible checks on the player's click and then reserves things:
 
 - the ship is not cruising on an FTL journey, is not docked or building a station, and has working systems (when launching from the surface);
 - the pilot and crew are not already travelling or boarding, and every player inside the hull is in a sealed, breathable cabin. Players tethered outside on EVA must be recalled first;
@@ -18,7 +18,7 @@ A launch is a request followed by a transfer. They are deliberately separate.
 
 It then adds a `Pending` record and tells each crew client to show the loading screen.
 
-**Transfer** (`ShipTransfer.run`) happens on a later tick, after every crew client has acknowledged that it is ready (or after 200 ticks, when travel is cancelled instead). It re-inspects the ship, because the player may have changed it while the screen loaded, then runs the phases in order:
+**Transfer** ([`ShipTransfer.run`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/ShipTransfer.java)) happens on a later tick, after every crew client has acknowledged that it is ready (or after 200 ticks, when travel is cancelled instead). It re-inspects the ship, because the player may have changed it while the screen loaded, then runs the phases in order:
 
 1. Check the source, destination, passengers and fuel.
 2. Capture the hull's blocks into a template and save every non-player passenger.
@@ -36,7 +36,7 @@ After the move the clients report that they have arrived in the new dimension. A
 
 Before anything is cleared, the server writes a file under the world's `nullspace/transfers/` directory. It holds the template of the hull, the passengers, the ship metadata *before* the move, the metadata *after*, and a stage name. Every checkpoint rewrites the file.
 
-On server start, and after any failure during a move, `TransferRecovery.recover` reads every journal that is not `COMMITTED` or `ROLLED_BACK` and **rolls it back**: it restores the saved ship metadata, clears the destination copy, puts the template back at the source, restores each passenger and entity, and records where each player should reappear. The ship is therefore either fully at the destination (`COMMITTED`) or fully where it started. A crash in between cannot duplicate or lose it. Rolling back rather than forward is deliberate: it needs only the data saved in the journal and no judgement about a half-finished world.
+On server start, and after any failure during a move, [`TransferRecovery.recover`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferRecovery.java) reads every journal that is not `COMMITTED` or `ROLLED_BACK` and **rolls it back**: it restores the saved ship metadata, clears the destination copy, puts the template back at the source, restores each passenger and entity, and records where each player should reappear. The ship is therefore either fully at the destination (`COMMITTED`) or fully where it started. A crash in between cannot duplicate or lose it. Rolling back rather than forward is deliberate: it needs only the data saved in the journal and no judgement about a half-finished world.
 
 Players who were mid-move are recorded as arrival targets and teleported when they next join or when recovery finishes. Offline passengers are placed in a validated cabin position, never at an offset that has become empty space in the departing ship.
 
@@ -51,9 +51,9 @@ The locks follow the objects involved, not the server:
 | Ship and crew | A ship and its players do one travel action at a time | The pending request, boarding, or recall job |
 | Space slot | Launches reserve distinct allocations in space (4096 blocks apart) before either ship moves | The first free slot at request time, counting pending targets and existing ships |
 | Landing pad | Two ships cannot claim the same pad column | The pending request, or a recall job for that pad |
-| Docking berth | A berth is reserved for the docking ship; another ship can use a different berth | `DockingService` |
-| Boarding | A vessel cannot move until its passenger transfer finishes | `Boarding` |
-| Area | A hull's volume cannot be built into or moved while a transfer holds it | `TransferLocks.areaBusy` |
+| Docking berth | A berth is reserved for the docking ship; another ship can use a different berth | [`DockingService`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingService.java) |
+| Boarding | A vessel cannot move until its passenger transfer finishes | [`Boarding`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/Boarding.java) |
+| Area | A hull's volume cannot be built into or moved while a transfer holds it | [`TransferLocks.areaBusy`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferLocks.java) |
 
 `TransferLocks` is the single place that answers "is this ship, player or area busy". It combines the physical transfers, recall jobs, navigation requests and boarding. World edits made by the transfer itself bypass the area lock.
 

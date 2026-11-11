@@ -4,7 +4,7 @@ This document covers five systems that grew together around the question "what c
 
 ## Planet surfaces
 
-Every landable body on the [galaxy chart](star-systems.md) has a **surface dimension** drawn from a fixed pool (`surface_<type>_<slot>`), plus the Overworld for Terra. `PlanetSurfaces` links a zone to its surface and back: `address(level)` says which zone a level is the surface of, `dimension(server, zone)` finds a zone's surface, and `surfaceOf` says whether a pad belongs to a zone. End pads belong to Terra's orbit, because ships reach the End only from Sol / Terra.
+Every landable body on the [galaxy chart](star-systems.md) has a **surface dimension** drawn from a fixed pool (`surface_<type>_<slot>`), plus the Overworld for Terra. [`PlanetSurfaces`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetSurfaces.java) links a zone to its surface and back: `address(level)` says which zone a level is the surface of, `dimension(server, zone)` finds a zone's surface, and `surfaceOf` says whether a pad belongs to a zone. End pads belong to Terra's orbit, because ships reach the End only from Sol / Terra.
 
 - **Landing needs the right planet.** A ship must jump to the body's region before it can land on one of its pads, and landing on a pad of another planet is refused before preparation. Launching from a surface restores that body's region.
 - **Starter pads.** The first time a ship visits a surface's region, a 32 × 32 starter pad is levelled on the least uneven dry candidate near the origin, and registered (`ensureLanding`). The step is idempotent: it searches for a clear spot, never repairs over player construction, never respawns a pad a player deliberately removed, and rejects a name already used on another world before building anything.
@@ -48,7 +48,7 @@ Stability is a default, not an option. Four spatial samples smooth celestial sil
 
 ## Air
 
-A ship's air is a finite-volume model over its 32 × 32 × 32 grid (`SpatialAir`), not a room-average:
+A ship's air is a finite-volume model over its 32 × 32 × 32 grid ([`SpatialAir`](../../src/main/java/com/nullandkale/nullspace/model/air/SpatialAir.java)), not a room-average:
 
 - Pumps add gas at their outlet cells, crew consume it locally, and pressure differences move it across cell faces. Open edges exchange gas with the planet's atmosphere or with vacuum. Gas is conserved between cells, and supply, use, escape and entry are accounted separately.
 - A breach keeps the history of the air already stored, and construction displaces or compresses it.

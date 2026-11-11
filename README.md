@@ -26,7 +26,7 @@ New to it? Read the [first ship walkthrough](docs/player/first-ship-walkthrough.
 
 ## Develop
 
-You need a 64-bit **JDK 25**. Either set `JAVA_HOME`, or extract a JDK under `.tools/jdk-25*`, which the scripts prefer. On Windows the scripts in `scripts/` wrap Gradle; elsewhere, use `./gradlew`.
+You need a 64-bit **JDK 25**. Either set `JAVA_HOME`, or extract a JDK under `.tools/jdk-25*`, which the scripts prefer. On Windows the scripts in [`scripts/`](scripts) wrap Gradle; elsewhere, use `./gradlew`.
 
 | Task | Command |
 | --- | --- |
@@ -39,7 +39,7 @@ You need a 64-bit **JDK 25**. Either set `JAVA_HOME`, or extract a JDK under `.t
 | Build the JAR | `.\scripts\build\build.ps1` (output in `build/libs/`) |
 | Format Java | `.\scripts\build\format.ps1 -Write` |
 
-Dependency versions are in `gradle.properties`. Minecraft 26.3 is unobfuscated, so the code uses the game's own names.
+Dependency versions are in [`gradle.properties`](gradle.properties). Minecraft 26.3 is unobfuscated, so the code uses the game's own names.
 
 ### Where things are
 

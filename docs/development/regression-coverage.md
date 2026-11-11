@@ -49,7 +49,7 @@ The local JDK wrapper supplies Java 25. Use `./scripts/test/parallel-test.ps1 -G
 
 ## Limits
 
-Test counts describe scenarios, not a percentage of code coverage. These checks do not prove the absence of bugs. GPU results apply to the local driver/device; alternative GPUs, resource packs and arbitrary data packs need their own runs. The separate physical process-halt crash matrix remains available through `scripts/test/crash-test.ps1`. Docking, boarding, finite fuel/power, journeys, procedural systems, encounter resources and world starts now have native coverage; graphical and two-client checks exercise their actual interfaces. A scenario inventory still does not prove every branch, hostile-client behavior or public-server operation is covered.
+Test counts describe scenarios, not a percentage of code coverage. These checks do not prove the absence of bugs. GPU results apply to the local driver/device; alternative GPUs, resource packs and arbitrary data packs need their own runs. The separate physical process-halt crash matrix remains available through [`scripts/test/crash-test.ps1`](../../scripts/test/crash-test.ps1). Docking, boarding, finite fuel/power, journeys, procedural systems, encounter resources and world starts now have native coverage; graphical and two-client checks exercise their actual interfaces. A scenario inventory still does not prove every branch, hostile-client behavior or public-server operation is covered.
 
 
 ## Previous coverage-pass result
@@ -79,15 +79,15 @@ Run on 2026-10-26 against the working tree (no commits yet). `gradlew test runGa
 
 | Class | Tier | Covers |
 | --- | --- | --- |
-| `ScriptLanguageRegressionTest` | unit | Python/bash compilation, block and size limits, error line numbers, sleep clamping, unavailable-device retry, budget enforcement, `expand`/`words`/`checkValue` |
-| `CompiledExpressionTest` | unit | Precedence, floor division/modulo, string coercion, lists, calls, overflow, nesting and token limits, malformed input, short-circuiting |
-| `VirtualFilesTest` | unit | Path normalization and traversal, writable roots, size limits, revisions, `mkdir`/`remove` rules, listing, `replaceWith`/`clear` |
-| `VirtualShellTest` | unit | Every shell command, pipes and redirects, quoting, variable cap, process table, Ctrl-C, image validation and round trips |
-| `ComputerImageCodecTest` | unit | Checksum, legacy strings, invalid UTF-8/Unicode, byte budget both ways, compressed-NBT round trip |
-| `ShipRepositoryTest` | unit | Edit semantics, field-level change events, no-op edits, identity protection, replace boundaries, bounds, targets |
-| `ShipStoreDurabilityTest` | unit | Write/read round trip, no leftover temp file, previous snapshot survives a failed or mid-stream write, garbage input, `AtomicFiles.promote` |
-| `LocalSpacesTest` | unit | Destination lookup, uniqueness, defaults, labels |
-| `ComputerServiceBoundaryGameTest` | server | 256-computer limit, 8192-characters-per-second input budget, range, forged and cross-player sessions |
+| [`ScriptLanguageRegressionTest`](../../src/test/java/com/nullandkale/nullspace/model/computer/ScriptLanguageRegressionTest.java) | unit | Python/bash compilation, block and size limits, error line numbers, sleep clamping, unavailable-device retry, budget enforcement, `expand`/`words`/`checkValue` |
+| [`CompiledExpressionTest`](../../src/test/java/com/nullandkale/nullspace/model/computer/CompiledExpressionTest.java) | unit | Precedence, floor division/modulo, string coercion, lists, calls, overflow, nesting and token limits, malformed input, short-circuiting |
+| [`VirtualFilesTest`](../../src/test/java/com/nullandkale/nullspace/model/computer/VirtualFilesTest.java) | unit | Path normalization and traversal, writable roots, size limits, revisions, `mkdir`/`remove` rules, listing, `replaceWith`/`clear` |
+| [`VirtualShellTest`](../../src/test/java/com/nullandkale/nullspace/model/computer/VirtualShellTest.java) | unit | Every shell command, pipes and redirects, quoting, variable cap, process table, Ctrl-C, image validation and round trips |
+| [`ComputerImageCodecTest`](../../src/test/java/com/nullandkale/nullspace/model/computer/ComputerImageCodecTest.java) | unit | Checksum, legacy strings, invalid UTF-8/Unicode, byte budget both ways, compressed-NBT round trip |
+| [`ShipRepositoryTest`](../../src/test/java/com/nullandkale/nullspace/core/save/ShipRepositoryTest.java) | unit | Edit semantics, field-level change events, no-op edits, identity protection, replace boundaries, bounds, targets |
+| `ShipStoreDurabilityTest` | unit | Write/read round trip, no leftover temp file, previous snapshot survives a failed or mid-stream write, garbage input, [`AtomicFiles.promote`](../../src/main/java/com/nullandkale/nullspace/core/save/AtomicFiles.java) |
+| [`LocalSpacesTest`](../../src/test/java/com/nullandkale/nullspace/model/galaxy/LocalSpacesTest.java) | unit | Destination lookup, uniqueness, defaults, labels |
+| [`ComputerServiceBoundaryGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/computer/ComputerServiceBoundaryGameTest.java) | server | 256-computer limit, 8192-characters-per-second input budget, range, forged and cross-player sessions |
 
 ### Known-bug register
 
@@ -95,16 +95,16 @@ Each is a test that states the correct behavior. Unit tests carry `@Disabled("KN
 
 | Test | Defect | Location |
 | --- | --- | --- |
-| `ScriptLanguageRegressionTest.elseAfterANestedIfBelongsToTheOuterIf`, `elseAfterANestedLoopBelongsToTheOuterIf`, `innerAndOuterElseBranchesBothResolve` | In Python mode an `else:` after a nested block is rejected with "Unexpected else" because the `else` guard stops inner blocks closing | `ScriptLanguage.compile`, dedent loop |
-| `longStringLiteralsNeverThrowAnError`, `longStringLiteralsInExpressionsNeverThrowAnError` | Quoted strings of about 4,000 characters or more throw `StackOverflowError`, which no guest-error handler catches and which is expected to reach the server loop | `CompiledExpression.Parser.TOKEN` |
-| `VirtualShellTest.movingAFileOntoItselfKeepsIt` | `mv a a` writes then removes the same path, deleting the file | `VirtualComputer.command` (`cp`/`mv`) |
+| `ScriptLanguageRegressionTest.elseAfterANestedIfBelongsToTheOuterIf`, `elseAfterANestedLoopBelongsToTheOuterIf`, `innerAndOuterElseBranchesBothResolve` | In Python mode an `else:` after a nested block is rejected with "Unexpected else" because the `else` guard stops inner blocks closing | [`ScriptLanguage.compile`](../../src/main/java/com/nullandkale/nullspace/model/computer/ScriptLanguage.java), dedent loop |
+| `longStringLiteralsNeverThrowAnError`, `longStringLiteralsInExpressionsNeverThrowAnError` | Quoted strings of about 4,000 characters or more throw `StackOverflowError`, which no guest-error handler catches and which is expected to reach the server loop | [`CompiledExpression.Parser.TOKEN`](../../src/main/java/com/nullandkale/nullspace/model/computer/CompiledExpression.java) |
+| `VirtualShellTest.movingAFileOntoItselfKeepsIt` | `mv a a` writes then removes the same path, deleting the file | [`VirtualComputer.command`](../../src/main/java/com/nullandkale/nullspace/model/computer/VirtualComputer.java) (`cp`/`mv`) |
 | `headWithAnUnsupportedFlagExplainsUsage` | `head -n 2` reports "For input string" | `VirtualComputer.command` (`head`) |
 | `imagesMissingRequiredFieldsAreRejectedAsInvalid` | A missing JSON field gives a message-less `NullPointerException` | `VirtualComputer.restoreImage` |
 | `CompiledExpressionTest.notAppliesToTheWholeComparison` | `not 1 == 2` parses as `(not 1) == 2`, unlike Python | `CompiledExpression.Parser.atom` |
-| `VirtualFilesTest.theDefaultWorkingDirectoryCannotBeRemoved` | Empty `/home/crew` can be removed, leaving the shell in a missing directory | `VirtualFiles.remove` |
+| `VirtualFilesTest.theDefaultWorkingDirectoryCannotBeRemoved` | Empty `/home/crew` can be removed, leaving the shell in a missing directory | [`VirtualFiles.remove`](../../src/main/java/com/nullandkale/nullspace/model/computer/VirtualFiles.java) |
 | `listingAMissingPathIsAnError` | `ls` of a nonexistent path prints the path instead of failing | `VirtualFiles.list` |
 | `mkdirHonoursTheSameWritableRootsAsWrite` | `mkdir /proc/x` succeeds although nothing can be written there | `VirtualFiles.mkdir` |
-| `ComputerServiceBoundaryGameTest.brokenTerminalsReleaseTheirComputerSlots` | Machines are never removed from the registry, so after 256 distinct terminals every new terminal is refused for the life of the server | `ComputerService` (`open`, `machines`) |
+| `ComputerServiceBoundaryGameTest.brokenTerminalsReleaseTheirComputerSlots` | Machines are never removed from the registry, so after 256 distinct terminals every new terminal is refused for the life of the server | [`ComputerService`](../../src/main/java/com/nullandkale/nullspace/gameplay/computer/ComputerService.java) (`open`, `machines`) |
 
 ### Recommended further tests
 
@@ -120,11 +120,11 @@ The long-string crash shows that example-based tests miss host-level failures. U
 - **Mutated images.** Take valid saved images, flip or delete random JSON fields and values, and assert `restore` either succeeds or throws and leaves the live disk byte-identical.
 - **Interpreter versus reference.** Evaluate random arithmetic and comparison expressions in `CompiledExpression` against a small independent evaluator.
 - **`words` and `expand`.** Quoting then splitting random strings returns the original; expansion output length never exceeds 32,768.
-- **Terminal buffer.** Random byte streams through `TerminalBuffer` keep the cursor in range and the history bounded (the existing test covers only malformed parameters).
+- **Terminal buffer.** Random byte streams through [`TerminalBuffer`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/TerminalBuffer.java) keep the cursor in range and the history bounded (the existing test covers only malformed parameters).
 
 #### 2. Computer service (server tier)
 
-Needs a powered ship fixture; reuse `ShipTestFixture.build` as in `manyComputersShareGlobalBudgetsWithoutStarvation`.
+Needs a powered ship fixture; reuse [`ShipTestFixture.build`](../../src/gametest/java/com/nullandkale/nullspace/testing/ShipTestFixture.java) as in `manyComputersShareGlobalBudgetsWithoutStarvation`.
 
 - **`ship.camera(n)` persists.** Select a channel from a script, save, reload, and assert the monitor channel survives. The current code edits the ship tag without `requestSave()` or `mutate(...)`. Also assert `ship.camera()` with no argument gives a readable error.
 - **Owner and actor semantics (needs a product decision first).** Today `owner` is stored but never enforced, any nearby player can open another's computer, and `launch`/`land`/`jump` act as the first nearby player. Write the tests for whichever policy is chosen: non-owner cannot run or edit; the acting player for travel is the session's player; detached scripts stop or pause when the owner is offline.
@@ -142,50 +142,50 @@ Needs a powered ship fixture; reuse `ShipTestFixture.build` as in `manyComputers
 - **Constructor.** Unsupported `version` throws; a corrupt `ships.nbt` fails loudly instead of starting an empty world.
 - **`ShipStore.at`.** Overlapping bounds choose the ship with the highest base Y; dimension filtering; positions on the boundary.
 - **`ShipStore.bounds`.** Width and depth are not clamped while height is; decide whether that is intended and pin it.
-- **Rollback in the `NavigationService` jump commit.** Use `ShipStore.writeObserver` to fail the save mid-jump and assert the ship record returns to its prior value and the jump is cancelled with a message.
-- **`ShipRepository` listeners.** A listener that calls `mutate` during `onChange`; listener exceptions do not leave a half-applied edit.
+- **Rollback in the [`NavigationService`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/NavigationService.java) jump commit.** Use `ShipStore.writeObserver` to fail the save mid-jump and assert the ship record returns to its prior value and the jump is cancelled with a message.
+- **[`ShipRepository`](../../src/main/java/com/nullandkale/nullspace/core/save/ShipRepository.java) listeners.** A listener that calls `mutate` during `onChange`; listener exceptions do not leave a half-applied edit.
 
 #### 4. Terminal and protocol (unit and server)
 
-- **Catalog-to-action mapping.** Every `EquipmentMenus` verb in the catalog maps to a real `Action` (`Action.valueOf` throws otherwise). Pure unit test over `equipment.json`.
-- **`ComputerTerminal.authorize` matrix.** For each mode (pad, ship, systems, navigation, each equipment mode) and each `Action`, assert exactly the allowed set passes; argument regex and 32-character cap; `FAST_TRAVEL` and `LAND` must come from the session catalog; revision mismatch on edits; two-tick action spacing; session lifetime renewal.
-- **`ComputerClient` queue.** The 32,768-character cap, 256-character batching, session-id filtering when a new screen opens mid-queue, and clearing on close.
-- **`SceneService` keepalive.** Selection bounds of plus or minus 10,000, wrong lease id ignored, close removes the lease, expiry at 100 ticks; `/nullspace viewport` and `/nullspace scene pose` require game-master permission and reject non-finite poses.
+- **Catalog-to-action mapping.** Every [`EquipmentMenus`](../../src/main/java/com/nullandkale/nullspace/ui/menu/EquipmentMenus.java) verb in the catalog maps to a real `Action` (`Action.valueOf` throws otherwise). Pure unit test over [`equipment.json`](../../src/main/resources/data/nullspace/catalog/equipment.json).
+- **[`ComputerTerminal.authorize`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/ComputerTerminal.java) matrix.** For each mode (pad, ship, systems, navigation, each equipment mode) and each `Action`, assert exactly the allowed set passes; argument regex and 32-character cap; `FAST_TRAVEL` and `LAND` must come from the session catalog; revision mismatch on edits; two-tick action spacing; session lifetime renewal.
+- **[`ComputerClient`](../../src/client/java/com/nullandkale/nullspace/ui/screen/ComputerClient.java) queue.** The 32,768-character cap, 256-character batching, session-id filtering when a new screen opens mid-queue, and clearing on close.
+- **[`SceneService`](../../src/main/java/com/nullandkale/nullspace/gameplay/scene/SceneService.java) keepalive.** Selection bounds of plus or minus 10,000, wrong lease id ignored, close removes the lease, expiry at 100 ticks; `/nullspace viewport` and `/nullspace scene pose` require game-master permission and reject non-finite poses.
 - **`cycleMonitor`** wraps at 10,000 and persists.
 
 #### 5. Ship geometry and systems (server tier)
 
 These are the largest untested files by size.
 
-- **`CabinPaths`.** Build small cabins: flat floor, half-slab step, full-block rise needing jump headroom, stairs between decks, ladders, closed and open doors, floor and roof trapdoor hatches, low ceiling, an unbreathable cell on the route. Assert `reaches` and `reachesDoor` for each, including that swimming is not a route.
+- **[`CabinPaths`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/CabinPaths.java).** Build small cabins: flat floor, half-slab step, full-block rise needing jump headroom, stairs between decks, ladders, closed and open doors, floor and roof trapdoor hatches, low ceiling, an unbreathable cell on the route. Assert `reaches` and `reachesDoor` for each, including that swimming is not a route.
 - **`ShipScan` and `ShipBlockSupport`.** Portable and non-portable block entities (`PORTABLE_ENTITIES` against the registry), bounds clipping, pressure sealing with each door state, a hull with a one-block gap.
-- **`ShipTopology`, `ShipDoors`, `DoorSystem`, `AirSystem`, `PowerSystem`.** Resolution of overlapping or adjacent ships, door sealing with trapdoors, and the pure parts of the systems classes where a world is not required.
-- **`ShipSensors`, `ShipCombat`, `SpaceSurvival`.** Target selection range and ordering, weapon cooldown and power gating, oxygen and decompression damage timing.
-- **`ShipService` and `TravelService`.** Preflight rejection reasons, readiness timeout at 200 ticks, pilot disconnect cancels, crew that never arrives is disconnected with the documented message, `locked` and `busy` interplay.
+- **[`ShipTopology`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/ShipTopology.java), [`ShipDoors`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/ShipDoors.java), [`DoorSystem`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/DoorSystem.java), [`AirSystem`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/AirSystem.java), [`PowerSystem`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/PowerSystem.java).** Resolution of overlapping or adjacent ships, door sealing with trapdoors, and the pure parts of the systems classes where a world is not required.
+- **[`ShipSensors`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/ShipSensors.java), [`ShipCombat`](../../src/main/java/com/nullandkale/nullspace/gameplay/combat/ShipCombat.java), `SpaceSurvival`.** Target selection range and ordering, weapon cooldown and power gating, oxygen and decompression damage timing.
+- **[`ShipService`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/ShipService.java) and [`TravelService`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TravelService.java).** Preflight rejection reasons, readiness timeout at 200 ticks, pilot disconnect cancels, crew that never arrives is disconnected with the documented message, `locked` and `busy` interplay.
 
 #### 6. Pads and labs (server tier)
 
-- `PadRegistry`, `PadRepository`, `PadStatusService`, `PadRefreshService`: duplicate pad names, case-insensitive lookup, removal of a broken pad, the 128-pad inspection queue under load, restart persistence.
+- [`PadRegistry`](../../src/main/java/com/nullandkale/nullspace/gameplay/pads/PadRegistry.java), [`PadRepository`](../../src/main/java/com/nullandkale/nullspace/core/save/PadRepository.java), `PadStatusService`, `PadRefreshService`: duplicate pad names, case-insensitive lookup, removal of a broken pad, the 128-pad inspection queue under load, restart persistence.
 - `PreviewService`: lifetime expiry and one active preview per player.
-- `ShipGallery`, `ShipLab`, `SphereLab`, `SystemsLab`, `RecipeLab`, `PlaytestWorld`: smoke tests that building each lab is idempotent and never touches player data.
+- [`ShipGallery`](../../src/main/java/com/nullandkale/nullspace/dev/ShipGallery.java), [`ShipLab`](../../src/main/java/com/nullandkale/nullspace/dev/ShipLab.java), [`SphereLab`](../../src/main/java/com/nullandkale/nullspace/dev/SphereLab.java), [`SystemsLab`](../../src/main/java/com/nullandkale/nullspace/dev/SystemsLab.java), [`RecipeLab`](../../src/main/java/com/nullandkale/nullspace/dev/RecipeLab.java), [`PlaytestWorld`](../../src/main/java/com/nullandkale/nullspace/dev/PlaytestWorld.java): smoke tests that building each lab is idempotent and never touches player data.
 
 #### 7. Mixins (server tier)
 
-`TransitBlocksMixin`, `TransitBlockEntityMixin`, `TransitPlayerMixin`, `TransitDamageMixin`, `ShipExplosionMixin`, `CreeperStateMixin`, `SceneLightMixin`: one test each that the mixin changes behavior only while a ship is in transit or in a scene, and is inert otherwise (vanilla damage, explosions, lighting and block updates unchanged).
+[`TransitBlocksMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/TransitBlocksMixin.java), [`TransitBlockEntityMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/TransitBlockEntityMixin.java), [`TransitPlayerMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/TransitPlayerMixin.java), [`TransitDamageMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/TransitDamageMixin.java), [`ShipExplosionMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/ShipExplosionMixin.java), [`CreeperStateMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/CreeperStateMixin.java), [`SceneLightMixin`](../../src/main/java/com/nullandkale/nullspace/core/mixin/SceneLightMixin.java): one test each that the mixin changes behavior only while a ship is in transit or in a scene, and is inert otherwise (vanilla damage, explosions, lighting and block updates unchanged).
 
 #### 8. Client and rendering (client tier)
 
-- `SceneViewport`, `MonitorRenderer`, `ScenePlayers`, `SpaceSceneRenderer`, `SpaceComputeRenderer`: resource lifetime under repeated open and close, resize, and failed allocation (extend the existing 23-allocation fault-injection scenario to the compute renderer).
-- `TerminalScreen`: Shift-Esc closes and sends the close packet exactly once; paste larger than the queue cap is dropped.
-- **GLSL parity.** Extend `NativeVolumeShaderTest` to compile `space.glsl` with `glslang` if available and compare CPU `SpaceRay` results with GPU output on a fixed set of rays.
+- [`SceneViewport`](../../src/client/java/com/nullandkale/nullspace/render/scene/SceneViewport.java), [`MonitorRenderer`](../../src/client/java/com/nullandkale/nullspace/render/scene/MonitorRenderer.java), [`ScenePlayers`](../../src/client/java/com/nullandkale/nullspace/render/scene/ScenePlayers.java), [`SpaceSceneRenderer`](../../src/client/java/com/nullandkale/nullspace/render/scene/SpaceSceneRenderer.java), [`SpaceComputeRenderer`](../../src/client/java/com/nullandkale/nullspace/render/compute/SpaceComputeRenderer.java): resource lifetime under repeated open and close, resize, and failed allocation (extend the existing 23-allocation fault-injection scenario to the compute renderer).
+- [`TerminalScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/TerminalScreen.java): Shift-Esc closes and sends the close packet exactly once; paste larger than the queue cap is dropped.
+- **GLSL parity.** Extend [`NativeVolumeShaderTest`](../../src/test/java/com/nullandkale/nullspace/model/optics/NativeVolumeShaderTest.java) to compile [`space.glsl`](../../src/client/resources/assets/nullspace/shaders/compute/space.glsl) with `glslang` if available and compare CPU [`SpaceRay`](../../src/main/java/com/nullandkale/nullspace/model/space/SpaceRay.java) results with GPU output on a fixed set of rays.
 
 #### 9. Build and tooling
 
-- **CI does not run server tests.** `.github/workflows/build.yml` runs `./gradlew build`, which covers unit tests only. Add a second job running `runGameTest` (headless) so server tests are visible on pull requests.
+- **CI does not run server tests.** [`.github/workflows/build.yml`](../../.github/workflows/build.yml) runs `./gradlew build`, which covers unit tests only. Add a second job running `runGameTest` (headless) so server tests are visible on pull requests.
 - **Coverage measurement.** Add JaCoCo to the `test` task and publish the report as an artifact; the Limits section notes that counts are scenarios, not coverage, and the untested classes above were found by name search.
-- **Repository hygiene check.** A script test asserting `.gitignore` covers `logs/`, `mods/`, `*.log.gz` and the local JDK.
-- **Pin workflow actions by commit SHA** and add a check in `Test-LocalVerification.ps1` that fails on unpinned `uses:` lines.
-- **`Remove-OldGameTestWorlds.ps1`.** Add cases to `Test-GameTestRetention.ps1` for a junction inside a candidate world and for a locked `session.lock`.
+- **Repository hygiene check.** A script test asserting [`.gitignore`](../../.gitignore) covers `logs/`, `mods/`, `*.log.gz` and the local JDK.
+- **Pin workflow actions by commit SHA** and add a check in [`Test-LocalVerification.ps1`](../../scripts/test/Test-LocalVerification.ps1) that fails on unpinned `uses:` lines.
+- **[`Remove-OldGameTestWorlds.ps1`](../../scripts/test/Remove-OldGameTestWorlds.ps1).** Add cases to [`Test-GameTestRetention.ps1`](../../scripts/test/Test-GameTestRetention.ps1) for a junction inside a candidate world and for a locked `session.lock`.
 
 ### Suggested order
 
@@ -207,7 +207,7 @@ This run passed 450 unit tests, all 100 discovered server tests and all 15 graph
 
 The [shipyard implementation](../design/shipyard.md) adds four unit cases, eleven native cases, an opt-in fresh-process entrypoint and a graphical entrypoint. Checks cover centered placements, fit failures, separate quote/purchase actions, all six complete blueprints, multi-deck preflight, exact-size pads with controllers on every side, free persistent delivery, occupied/obstructed/wet pads, entity readiness and collision, forged and cross-player sessions, saved partial orders, conflict-preserving resume and showroom revisit preservation. Storage failures before construction and during final order removal must leave retryable state and preserve committed ship identity. The client really right-clicks a beacon, purchases through typed packets, rejects a duplicate purchase, launches, lands and captures the showroom after its meshes become visible. The shared recipe/guide checks now include all 24 recipes.
 
-`scripts/test/shipyard-crash-test.ps1` terminates a real JVM at seven delivery checkpoints and starts a second JVM on each disposable save. Recovery must complete automatically without clicking the beacon, preserve committed ship/device identities and saved cargo, leave outside blocks unchanged, and produce one complete launchable ship. `scripts/test/multiplayer-test.ps1` now ends with two authenticated graphical clients racing to purchase onto the same empty pad: one delivery, one occupied-pad response, one persisted ship, no leftover order and no charge to either player.
+[`scripts/test/shipyard-crash-test.ps1`](../../scripts/test/shipyard-crash-test.ps1) terminates a real JVM at seven delivery checkpoints and starts a second JVM on each disposable save. Recovery must complete automatically without clicking the beacon, preserve committed ship/device identities and saved cargo, leave outside blocks unchanged, and produce one complete launchable ship. [`scripts/test/multiplayer-test.ps1`](../../scripts/test/multiplayer-test.ps1) now ends with two authenticated graphical clients racing to purchase onto the same empty pad: one delivery, one occupied-pad response, one persisted ship, no leftover order and no charge to either player.
 
 Final frozen-source result: 454 unit tests passed with the same 12 known-bug skips; all 112 discovered server tests, all 16 graphical entrypoints, all seven physical delivery crash/restart checkpoints and the two-client multiplayer scenario passed, plus assembly, assets and formatting. Receipt, hashes and retained evidence. All evidence uses fingerprint `35cdfa7fafbfcb7973cfe2ddbf563cf2abcc74cb0da8aea05a1950c49c7c0e66`. The separate fourteen-case launch/landing crash matrix was not rerun. The strict no-skipped-tests gate remains unsatisfied.
 

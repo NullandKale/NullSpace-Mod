@@ -65,7 +65,7 @@ Status: audit record (see the block reference for the current screen).
 
 Purpose: burn furnace fuels to generate electricity; its shared fuel inventory also supplies the ship's engines.
 
-Screenshot reviewed: `docs/images/ui-generator-fuel.png`.
+Screenshot reviewed: [`docs/images/ui-generator-fuel.png`](../images/ui-generator-fuel.png).
 
 ### Player feedback
 

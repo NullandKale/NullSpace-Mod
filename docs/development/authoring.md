@@ -22,7 +22,7 @@ Stand on a registered pad (its 32-block build volume is the workspace).
 | `kit.<maker>` | A manufacturer's kit pieces (nose, hull, engine, wing, room, cap) |
 | `surface.<planet type>` | Planet site pieces (step 5) |
 
-In a development run (`scripts/run/dev.ps1`, `scripts/run/playtest.ps1`, `scripts/run/lab.ps1`), saved pieces are also written into `src/main/resources/data/nullspace/structure/` and used straight away, so they ship with the mod; commit them like any other resource. On a normal server they are saved in the world, and check, preview and kits still see them.
+In a development run ([`scripts/run/dev.ps1`](../../scripts/run/dev.ps1), [`scripts/run/playtest.ps1`](../../scripts/run/playtest.ps1), [`scripts/run/lab.ps1`](../../scripts/run/lab.ps1)), saved pieces are also written into [`src/main/resources/data/nullspace/structure/`](../../src/main/resources/data/nullspace/structure) and used straight away, so they ship with the mod; commit them like any other resource. On a normal server they are saved in the world, and check, preview and kits still see them.
 
 ## Editing a shipyard design
 

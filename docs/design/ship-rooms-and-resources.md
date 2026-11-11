@@ -1,12 +1,12 @@
 # Ship rooms and resources
 
-Rooms should tell the player where to go and what to look for. A ship needs recognizable places to live and work, with different sizes, furniture and walking routes, and finding a useful room should help the next expedition. This document explains how rooms define a ship's interior, and how the same rooms decide what a derelict contains. The layout rules are in [the ship generator](ship-generator.md); the code is `worldgen/blueprint/ShipRooms`, `worldgen/shipgen/RoomUse`, and `worldgen/encounters` (`EncounterSites.stock`, `SiteLoot`, `SitePoints`) with the loot tables under `data/nullspace/loot_table/site/`.
+Rooms should tell the player where to go and what to look for. A ship needs recognizable places to live and work, with different sizes, furniture and walking routes, and finding a useful room should help the next expedition. This document explains how rooms define a ship's interior, and how the same rooms decide what a derelict contains. The layout rules are in [the ship generator](ship-generator.md); the code is `worldgen/blueprint/ShipRooms`, `worldgen/shipgen/RoomUse`, and [`worldgen/encounters`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters) ([`EncounterSites.stock`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java), [`SiteLoot`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SiteLoot.java), [`SitePoints`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SitePoints.java)) with the loot tables under [`data/nullspace/loot_table/site/`](../../src/main/resources/data/nullspace/loot_table/site).
 
 ## Rooms are the unit of a ship
 
-Every ship in the catalog is generated from a recipe and is made of rooms, each with one purpose (bridge, engineering, cargo hold, galley and so on, listed in `RoomUse`). A room holds everything its task needs and nothing from another task. That is deliberate: a player who walks into a room should be able to tell what it is for and what is in it, and the game can say the same thing to its own systems.
+Every ship in the catalog is generated from a recipe and is made of rooms, each with one purpose (bridge, engineering, cargo hold, galley and so on, listed in [`RoomUse`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/RoomUse.java)). A room holds everything its task needs and nothing from another task. That is deliberate: a player who walks into a room should be able to tell what it is for and what is in it, and the game can say the same thing to its own systems.
 
-Each design has a list of room *landmarks*: a name, a use, a standing spot inside the room (`walk`) and the container that holds its supplies, if any (`supplies`). A generated ship reports these from its own layout, and a hand-edited design lists them in `catalog/ships.json`. Landmarks serve two systems:
+Each design has a list of room *landmarks*: a name, a use, a standing spot inside the room (`walk`) and the container that holds its supplies, if any (`supplies`). A generated ship reports these from its own layout, and a hand-edited design lists them in [`catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json). Landmarks serve two systems:
 
 - **Walking checks.** Tests use the standing spot to confirm a real walking route from the dock to every room.
 - **Supplies.** The container position is where a derelict's loot goes.
@@ -54,7 +54,7 @@ These are ordinary Minecraft loot tables, which means a pack author can change t
 
 Supplies are real items to carry home: feed coal to the generator, plant the carrots, or install the upgrades. Normal delivered ships get ordinary starting provisions instead, never encounter loot.
 
-Sites built from kit pieces (see [generation infrastructure](generation-infrastructure.md)) mark their containers with named `loot` points. `SitePoints` saves these with the site, and the first container gets the treasure while the others take the table named in their point.
+Sites built from kit pieces (see [generation infrastructure](generation-infrastructure.md)) mark their containers with named `loot` points. [`SitePoints`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SitePoints.java) saves these with the site, and the first container gets the treasure while the others take the table named in their point.
 
 ## The freighter's blocked door
 
@@ -79,4 +79,4 @@ Newly delivered ships and newly constructed sites use the current interiors. Shi
 
 ## Where this is tested
 
-`RoomKitTest` (unit) runs the walking, light and one-task rules on every room kit and writes breaks to `build/room-kit-audit.txt`. `JourneyGameTest` and the station tests check that stocked containers are reachable and that a site is not stocked twice.
+[`RoomKitTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/shipgen/RoomKitTest.java) (unit) runs the walking, light and one-task rules on every room kit and writes breaks to `build/room-kit-audit.txt`. [`JourneyGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/JourneyGameTest.java) and the station tests check that stocked containers are reachable and that a site is not stocked twice.

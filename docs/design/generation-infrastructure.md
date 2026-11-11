@@ -1,6 +1,6 @@
 # Generation infrastructure: pieces, kits, assembly and condition
 
-NullSpace has two ways to make a build: **generate** it from rules (ships and station tiles, see [the ship generator](ship-generator.md)), or **assemble** it from hand-made pieces. This document describes the second path: the code that reads authored pieces, joins them into a whole build, and wears the result down for a dangerous place. It is the foundation for content authors, and the way to override a generated design by hand. The code is in `worldgen/piece` and `worldgen/condition`, with the authoring commands in `dev/Authoring`. The commands themselves are in [authoring](../development/authoring.md).
+NullSpace has two ways to make a build: **generate** it from rules (ships and station tiles, see [the ship generator](ship-generator.md)), or **assemble** it from hand-made pieces. This document describes the second path: the code that reads authored pieces, joins them into a whole build, and wears the result down for a dangerous place. It is the foundation for content authors, and the way to override a generated design by hand. The code is in [`worldgen/piece`](../../src/main/java/com/nullandkale/nullspace/worldgen/piece) and [`worldgen/condition`](../../src/main/java/com/nullandkale/nullspace/worldgen/condition), with the authoring commands in `dev/Authoring`. The commands themselves are in [authoring](../development/authoring.md).
 
 ## What exists, and what does not
 
@@ -16,7 +16,7 @@ Today's shipyard ships and station tiles come from the generator, which replaced
 
 ## Template codec
 
-Vanilla's `StructureTemplate` needs a running server and cannot be built from a block map. `TemplateCodec` reads and writes the same NBT format directly (palette, blocks, block entities), and works wherever `Bootstrap` has run: the client (the shipyard screen draws ship previews with no server), the server, and unit tests. Templates stay editable with vanilla structure blocks.
+Vanilla's `StructureTemplate` needs a running server and cannot be built from a block map. [`TemplateCodec`](../../src/main/java/com/nullandkale/nullspace/worldgen/piece/TemplateCodec.java) reads and writes the same NBT format directly (palette, blocks, block entities), and works wherever `Bootstrap` has run: the client (the shipyard screen draws ship previews with no server), the server, and unit tests. Templates stay editable with vanilla structure blocks.
 
 ## Pieces and markers
 
@@ -29,7 +29,7 @@ A **piece** is a template together with what its markers say. Authors place two 
 
 Pieces rotate in quarter turns, turning block states and markers with them. Mirroring is left out until a kit needs it.
 
-`PieceLibrary` looks for a piece in the authoring folder of a development run (`-Dnullspace.authoringDir`), then in templates saved in the running world, then in the copy bundled in the JAR, so a piece saved in game is used at once without a rebuild.
+[`PieceLibrary`](../../src/main/java/com/nullandkale/nullspace/worldgen/piece/PieceLibrary.java) looks for a piece in the authoring folder of a development run (`-Dnullspace.authoringDir`), then in templates saved in the running world, then in the copy bundled in the JAR, so a piece saved in game is used at once without a rebuild.
 
 ## Kits and archetypes
 
@@ -48,15 +48,15 @@ Roles are in priority order: an open connector takes the first role that is stil
 
 ## Assembly
 
-`Assembler` builds deterministically from a seed, within bounds, and never overlaps pieces.
+[`Assembler`](../../src/main/java/com/nullandkale/nullspace/worldgen/piece/Assembler.java) builds deterministically from a seed, within bounds, and never overlaps pieces.
 
 1. Place the start piece.
 2. Take an open connector. Pick a piece with an accepting connector whose role the archetype still wants, in weighted seeded order, rotate it to face the connector, and offset it so the two meet. Walls take one rotation, floors all four.
 3. Reject it if any block overlaps or the size limit is passed, and try the next candidate.
 4. When every role's minimum is met, close each remaining open connector with a cap piece or its final state.
-5. Settle orientation (`BlueprintOrientation`) and return the build.
+5. Settle orientation ([`BlueprintOrientation`](../../src/main/java/com/nullandkale/nullspace/worldgen/blueprint/BlueprintOrientation.java)) and return the build.
 
-The whole assembly is tried up to eight times (`Assembler.ATTEMPTS`) with derived seeds, and after the last the final try is returned with its problems listed, so a bad kit is visible in review and never an infinite loop. The result is a `StationBlueprint.Plan(blocks, core, docks, points)`: points carry loot and mob spots through to `SitePoints`, so stocking and threats use the author's spots.
+The whole assembly is tried up to eight times (`Assembler.ATTEMPTS`) with derived seeds, and after the last the final try is returned with its problems listed, so a bad kit is visible in review and never an infinite loop. The result is a `StationBlueprint.Plan(blocks, core, docks, points)`: points carry loot and mob spots through to [`SitePoints`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SitePoints.java), so stocking and threats use the author's spots.
 
 ## Condition pass
 
@@ -83,4 +83,4 @@ Station tiles are 16 × 16 pieces on a grid, with doorway slots where the genera
 
 ## Where this is tested
 
-These need registries, so they are game tests. `PieceGameTest` covers the codec round trip, markers becoming the right connectors and points and leaving the blocks, and four quarter turns returning the original. `AssemblerGameTest` uses a small test kit and checks the same build for the same seed, no overlaps, in bounds, every minimum met and no open connector left. `ConditionGameTest` covers the condition pass. `author check` flags a connector that is not on the piece's edge, an unknown point name or a palette violation.
+These need registries, so they are game tests. [`PieceGameTest`](../../src/gametest/java/com/nullandkale/nullspace/worldgen/piece/PieceGameTest.java) covers the codec round trip, markers becoming the right connectors and points and leaving the blocks, and four quarter turns returning the original. [`AssemblerGameTest`](../../src/gametest/java/com/nullandkale/nullspace/worldgen/piece/AssemblerGameTest.java) uses a small test kit and checks the same build for the same seed, no overlaps, in bounds, every minimum met and no open connector left. [`ConditionGameTest`](../../src/gametest/java/com/nullandkale/nullspace/worldgen/condition/ConditionGameTest.java) covers the condition pass. `author check` flags a connector that is not on the piece's edge, an unknown point name or a palette violation.

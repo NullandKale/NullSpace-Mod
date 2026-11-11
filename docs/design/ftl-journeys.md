@@ -1,6 +1,6 @@
 # FTL journeys and signals
 
-A jump between places in space is not a loading screen. It is a **journey**: a timed trip during which the crew keep playing aboard their ship, and partway through which a *signal* may appear that can be investigated. This document explains how a journey works and why it is built this way. The code is `gameplay/navigation` (`Jumps`, `JourneyService`), `model/galaxy/JourneyPlan`, and `worldgen/encounters` (`EncounterSites`, `SiteThreats`). How the map and ranges work is in [the galaxy](star-systems.md); how the ship looks and steers while cruising is in [flight motion](flight-motion-and-transitions.md).
+A jump between places in space is not a loading screen. It is a **journey**: a timed trip during which the crew keep playing aboard their ship, and partway through which a *signal* may appear that can be investigated. This document explains how a journey works and why it is built this way. The code is [`gameplay/navigation`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation) ([`Jumps`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/Jumps.java), [`JourneyService`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/JourneyService.java)), `model/galaxy/JourneyPlan`, and [`worldgen/encounters`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters) ([`EncounterSites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java), [`SiteThreats`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SiteThreats.java)). How the map and ranges work is in [the galaxy](star-systems.md); how the ship looks and steers while cruising is in [flight motion](flight-motion-and-transitions.md).
 
 ![Investigate a signal at the Ship Controller](../images/ftl-investigate.png) ![Resume the journey](../images/ftl-resume.png)
 
@@ -21,16 +21,16 @@ Space travel should take time that the player can use. A short loading screen wo
 
 Each ship saves a `journey` record: the destination, the region it left, the original destination selection, a private *corridor* region (the FTL space it travels through), the signal's site id, the encounter kind and seed, the total duration, ticks elapsed, the fuel paid and whether the signal was visited. The state is `CRUISE` while travelling and paused otherwise. Because it is part of the ship's saved record, a restart changes nothing.
 
-`JourneyService.tick` runs once a second. For every ship with a journey and crew in space it adds a second to `elapsed`, announces the signal when its time comes, and arrives the ship when the duration is up. Two rules keep it fair:
+[`JourneyService.tick`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/JourneyService.java) runs once a second. For every ship with a journey and crew in space it adds a second to `elapsed`, announces the signal when its time comes, and arrives the ship when the duration is up. Two rules keep it fair:
 
 - **An empty ship does not travel.** Progress pauses while the crew are offline; another crew member can keep it going.
 - **Arrival is already paid.** It does not need the pilot at the helm or engine power, so a ship that loses power mid-journey still arrives. If crew are outside a safe cabin, arrival waits until they return ("Arrival ready: return crew to safe cabins").
 
-Cruising also cancels any thrust or autopilot (`Piloting.stop`); manual piloting, landing and docking become available again after investigating or arriving.
+Cruising also cancels any thrust or autopilot ([`Piloting.stop`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/Piloting.java)); manual piloting, landing and docking become available again after investigating or arriving.
 
 ## Time and fuel
 
-Duration comes from the route (`JourneyPlan`):
+Duration comes from the route ([`JourneyPlan`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/JourneyPlan.java)):
 
 - within a system, 45 to 90 seconds;
 - between systems, 60 seconds plus 4 per light-year, plus 0 to 20 seconds that depend on the route;
@@ -55,7 +55,7 @@ These are real vessels built from the ship catalog (see [the ship generator](shi
 
 ### Danger
 
-Places have a danger level from 0 to 3 (`StarSystems.danger`); a signal is as dangerous as the more dangerous end of the trip, and trips of danger 2 or more announce freighters and salvage ships as "Distress call". When a player first reaches a salvage site (once, and persistently), `SiteThreats` places defenders in the ship's own floor spots:
+Places have a danger level from 0 to 3 ([`StarSystems.danger`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/StarSystems.java)); a signal is as dangerous as the more dangerous end of the trip, and trips of danger 2 or more announce freighters and salvage ships as "Distress call". When a player first reaches a salvage site (once, and persistently), [`SiteThreats`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SiteThreats.java) places defenders in the ship's own floor spots:
 
 | Danger | Lost crew (zombies) | Skeletons | Repair bots |
 | --- | --- | --- | --- |
@@ -70,7 +70,7 @@ Lost crew wear spacesuits, and repair bots are a custom hostile entity. Threats 
 
 A signal is a vessel built on demand by the same machinery as [orbital population](space-world-generation.md): the plan is saved first, the blocks are queued as an ambient build, and the signal says "resolving" until the vessel is complete. Two crews with the same signal reach the same object.
 
-Signals **fade**. Once no ship's journey refers to a signal and no other ship is in its region, its vessel is disposed of and the region forgotten (`EncounterSites.vanish`). A site a player has claimed is their ship and stays. Old FTL corridors left by finished journeys are forgotten the same way. This keeps a long-lived world from collecting wrecks.
+Signals **fade**. Once no ship's journey refers to a signal and no other ship is in its region, its vessel is disposed of and the region forgotten ([`EncounterSites.vanish`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java)). A site a player has claimed is their ship and stays. Old FTL corridors left by finished journeys are forgotten the same way. This keeps a long-lived world from collecting wrecks.
 
 Ordinary orbital population is excluded from corridors and encounter regions, and encounters do not create extra dimensions or planetary terrain.
 
@@ -83,6 +83,6 @@ Ordinary orbital population is excluded from corridors and encounter regions, an
 
 ## Where this is tested
 
-`JourneyPlanTest` covers duration, contact timing and distinct nonces. `JourneyGameTest` exercises all four signal types with their real templates, safe entrances, reachable rewards, offline progress, shared signals, disk reload, docking, boarding, return, undocking, resume and arrival. `NavigationClientGameTest` uses the real controller clicks for Jump, Investigate and Resume.
+[`JourneyPlanTest`](../../src/test/java/com/nullandkale/nullspace/model/galaxy/JourneyPlanTest.java) covers duration, contact timing and distinct nonces. [`JourneyGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/JourneyGameTest.java) exercises all four signal types with their real templates, safe entrances, reachable rewards, offline progress, shared signals, disk reload, docking, boarding, return, undocking, resume and arrival. [`NavigationClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/NavigationClientGameTest.java) uses the real controller clicks for Jump, Investigate and Resume.
 
 Tests shorten a journey by setting `nextJourneySeconds` on the ship's saved record before the jump (and fix the signal with `nextSignalNonce`), so waiting through a real cruise stays cheap. Production has no way to set these.

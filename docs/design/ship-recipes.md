@@ -1,6 +1,6 @@
 ﻿# Ship recipes
 
-This is the crafting reference. Every recipe is native shaped crafting with recipe-book unlocks, and `data/nullspace/recipe/` is the source of truth (this page is checked against it when it changes). There are 32 recipes: three shared components, the equipment blocks, the three upgrade grades, the station parts, the space suit and its armored version, the air canister and the field guide.
+This is the crafting reference. Every recipe is native shaped crafting with recipe-book unlocks, and [`data/nullspace/recipe/`](../../src/main/resources/data/nullspace/recipe) is the source of truth (this page is checked against it when it changes). There are 32 recipes: three shared components, the equipment blocks, the three upgrade grades, the station parts, the space suit and its armored version, the air canister and the field guide.
 
 The [in-game field guide](../player/in-game-guide.md) contains these patterns and feature instructions. Obtain it with `/nullspace guide`, or craft a normal book above a copper ingot in a vertical two-slot pattern.
 
@@ -118,7 +118,7 @@ All four pieces are still required for suit protection (plain and armored pieces
 
 ### Air Canister
 
-`.I. / IGI / III`: iron and glass. A canister gives two minutes of full suit air outside a breathable room (`LifeSupport.CANISTER_TICKS`), drawn from the emptiest canister first, and is shown as a percentage of one canister. Refill it by using it on a powered Air Supply. An Air Supply with no power refuses. Canisters make short EVA possible away from the tether (the tether range is 72 blocks, and a station measures it from its build area).
+`.I. / IGI / III`: iron and glass. A canister gives two minutes of full suit air outside a breathable room ([`LifeSupport.CANISTER_TICKS`](../../src/main/java/com/nullandkale/nullspace/gameplay/crew/LifeSupport.java)), drawn from the emptiest canister first, and is shown as a percentage of one canister. Refill it by using it on a powered Air Supply. An Air Supply with no power refuses. Canisters make short EVA possible away from the tether (the tether range is 72 blocks, and a station measures it from its build area).
 
 ## Building materials
 

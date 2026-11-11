@@ -16,7 +16,7 @@ Colors reinforce an identity, and changing paint alone does not make a different
 
 ### What the generator does today
 
-In the generator (`Spec.Maker`) the maker chooses **materials and accent colour** and nothing else. The shape, size and rooms come from the other choices, so the manufacturer personality shows up through which shapes the catalog gives each maker and through the interior and palette:
+In the generator ([`Spec.Maker`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/Spec.java)) the maker chooses **materials and accent colour** and nothing else. The shape, size and rooms come from the other choices, so the manufacturer personality shows up through which shapes the catalog gives each maker and through the interior and palette:
 
 | Maker | Scout | Freighter | Explorer |
 | --- | --- | --- | --- |

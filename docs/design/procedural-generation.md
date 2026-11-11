@@ -33,7 +33,7 @@ Today ships and station tiles stand in for steps 2 and 3 by being *generated* (s
 
 A good exterior has a clear silhouette from 30 blocks (a distinct nose, body and engine section, not a plain box), two or three exterior materials per manufacturer plus one accent colour, visible function (engine bells, cargo doors, antennae, docking collars, rows of lit windows) and damage that shows outside (torn plating, missing sections, scorch marks). Generated hulls are bevelled with engine pods and an accent stripe; swept wings, fins and landing gear are not built (see [the ship generator](ship-generator.md#not-yet)).
 
-Generated builds use a **cheap vanilla palette**: stone bricks, smooth stone, deepslate, terracotta and concrete colours, glass and lamps. No metal or gem blocks (iron, gold, copper, diamond, emerald, netherite), so tearing a wreck apart yields only cheap blocks. `GenerationPalette` enforces this, and a test checks it for every template and generated ship.
+Generated builds use a **cheap vanilla palette**: stone bricks, smooth stone, deepslate, terracotta and concrete colours, glass and lamps. No metal or gem blocks (iron, gold, copper, diamond, emerald, netherite), so tearing a wreck apart yields only cheap blocks. [`GenerationPalette`](../../src/main/java/com/nullandkale/nullspace/worldgen/blueprint/GenerationPalette.java) enforces this, and a test checks it for every template and generated ship.
 
 ## Threats and danger
 
@@ -58,7 +58,7 @@ Fuel is the main reward everywhere. Everything else is vanilla, made rare by whe
 
 ## The Nether and the End
 
-Both stay reachable by portal exactly as in vanilla. **The End by ship:** once someone builds and registers a pad in the End, it appears as a landing destination for ships in Sol / Terra orbit, and only there (`PlanetSurfaces.surfaceOf`). A ship launched from an End pad returns to Terra orbit. Until a pad exists, there is no ship route to the End.
+Both stay reachable by portal exactly as in vanilla. **The End by ship:** once someone builds and registers a pad in the End, it appears as a landing destination for ships in Sol / Terra orbit, and only there ([`PlanetSurfaces.surfaceOf`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetSurfaces.java)). A ship launched from an End pad returns to Terra orbit. Until a pad exists, there is no ship route to the End.
 
 ## Site catalog
 

@@ -1,10 +1,10 @@
 # Station construction and docking reference
 
-The [station guide](stations.md) covers everyday play and the [station pieces document](station-modules-and-systems.md) covers the design. This reference lists the rules, limits and failure behavior of the current implementation, for builders, server operators and anyone changing the code. It covers `gameplay/station` and the parts of `gameplay/docking` that stations rely on.
+The [station guide](stations.md) covers everyday play and the [station pieces document](station-modules-and-systems.md) covers the design. This reference lists the rules, limits and failure behavior of the current implementation, for builders, server operators and anyone changing the code. It covers [`gameplay/station`](../../src/main/java/com/nullandkale/nullspace/gameplay/station) and the parts of [`gameplay/docking`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking) that stations rely on.
 
 ## Access
 
-Access is decided in `StationAccess`. Three roles apply to a station:
+Access is decided in [`StationAccess`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationAccess.java). Three roles apply to a station:
 
 | Role | Who | May |
 | --- | --- | --- |
@@ -49,7 +49,7 @@ Station building is a saved, replayable block plan, never a live paste:
 
 1. **Reserve and pay.** The build reserves a clear region, then takes the kit from the player's inventory with a *receipt*: a token stored together with the saved inventory. A redeemed kit cannot create a second station, and if the server stops between taking the kit and the save, startup settles the receipt (a build that was not paid for is removed or rolled back).
 2. **Queue.** The plan is saved on the station as `stationBuild`. The station is unavailable to docking and editing while it exists.
-3. **Place.** `StationBuilds.tickBuilds` places up to 384 blocks per tick for the first station with work, and player work goes first, ahead of world-generated places. It keeps the plan's chunks loaded, and restarting an interrupted job replays the same plan.
+3. **Place.** [`StationBuilds.tickBuilds`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationBuilds.java) places up to 384 blocks per tick for the first station with work, and player work goes first, ahead of world-generated places. It keeps the plan's chunks loaded, and restarting an interrupted job replays the same plan.
 4. **Commission.** When placement is complete, fuel is provisioned in each generator, battery charge is set once, supplies are stocked once, air and power requests are set, and the world is saved *before* the station is published as ready, so a crash cannot expose a half-built station.
 
 Existing blocks, containers and occupants stop a placement. A piece never overwrites a player's construction: the message names the obstructing block and coordinates, and the player is asked to move any occupant first.
@@ -85,7 +85,7 @@ Normal visits never rebuild a station. A regeneration is requested by writing a 
 - the metadata hash of each station as it was when the request was made, so a station that changed since is refused;
 - a verified backup.
 
-On the next server start (`StationRegeneration.applyPending`), the request is validated and turned into ordinary saved construction jobs, and the request is archived. Replaying a completed request does not rebuild anything again. If the request is invalid, the server logs it and keeps both the request and the backup.
+On the next server start ([`StationRegeneration.applyPending`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationRegeneration.java)), the request is validated and turned into ordinary saved construction jobs, and the request is archived. Replaying a completed request does not rebuild anything again. If the request is invalid, the server logs it and keeps both the request and the backup.
 
 Regeneration replaces the selected stations' blocks, containers and equipment with the *current* template. It keeps the station's identity, name, access, ownership, region and position, and keeps every other ship record. Crew and visiting ships must be returned before it is queued. A player who enters the rebuild area pauses the clearing until they leave, and an interrupted rebuild resumes through the same build journal.
 
@@ -93,4 +93,4 @@ Compact Waypoints regenerate with two current Docking Bases under ordinary doors
 
 ## Where this is tested
 
-`StationGameTest`, `StationExpansionGameTest`, `StationRegenerationGameTest` and `DockingRecoveryGameTest` cover building, receipts, expansion, regeneration and complete docking round trips (both on a live server and in the graphical suite, which captures the station interior and dock controls during a full boarding round trip). `StationExpansionTest` checks the envelope arithmetic.
+[`StationGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/station/StationGameTest.java), [`StationExpansionGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/station/StationExpansionGameTest.java), [`StationRegenerationGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/station/StationRegenerationGameTest.java) and [`DockingRecoveryGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/docking/DockingRecoveryGameTest.java) cover building, receipts, expansion, regeneration and complete docking round trips (both on a live server and in the graphical suite, which captures the station interior and dock controls during a full boarding round trip). [`StationExpansionTest`](../../src/test/java/com/nullandkale/nullspace/worldgen/stations/StationExpansionTest.java) checks the envelope arithmetic.

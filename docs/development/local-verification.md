@@ -42,7 +42,7 @@ The review adds stair elevation and headroom, shared sensor/cargo validation and
 
 ## Two-client multiplayer
 
-`scripts/test/multiplayer-test.ps1` exports Loom's client launch specification, then starts two independent graphical JVMs with separate game directories, identities, logs, and a fresh world under `build/local-multiplayer/<run>/`. It allocates a loopback port, sets offline authentication only on that loopback-only server, and disables query/RCON. Nothing listens on an external interface.
+[`scripts/test/multiplayer-test.ps1`](../../scripts/test/multiplayer-test.ps1) exports Loom's client launch specification, then starts two independent graphical JVMs with separate game directories, identities, logs, and a fresh world under `build/local-multiplayer/<run>/`. It allocates a loopback port, sets offline authentication only on that loopback-only server, and disables query/RCON. Nothing listens on an external interface.
 
 The pilot process hosts a real `DedicatedServer` through Fabric's test harness. The server runs on its own thread inside that JVM; this is two client processes, not three standalone processes. Both clients communicate through actual TCP networking, not integrated-server shortcuts or embedded mock connections.
 
@@ -66,7 +66,7 @@ The script has a six-minute default deadline and terminates only the child proce
 
 ## Real crash/restart
 
-`scripts/test/crash-test.ps1` creates a new save for each launch/landing stage under `build/local-crash/<run>/<direction>/<stage>/`. A preparation JVM builds a ship, player inventory, chest cargo, creeper, and dropped item. It saves baseline state, starts a transfer, and terminates with `Runtime.halt(86)` at the selected point. No shutdown hook or graceful server save follows the halt.
+[`scripts/test/crash-test.ps1`](../../scripts/test/crash-test.ps1) creates a new save for each launch/landing stage under `build/local-crash/<run>/<direction>/<stage>/`. A preparation JVM builds a ship, player inventory, chest cargo, creeper, and dropped item. It saves baseline state, starts a transfer, and terminates with `Runtime.halt(86)` at the selected point. No shutdown hook or graceful server save follows the halt.
 
 A second JVM opens that same save, runs automatic recovery, invokes recovery twice more, and checks exactly one authoritative ship, one copy of each cargo entity UUID, chest contents, battery energy, allocations, device IDs, finite room air, a large Unicode computer disk, a sleeping detached program counter, and the player's inventory/dimension/facing after loading native player data and resolving pending arrival.
 
@@ -88,7 +88,7 @@ This covers abrupt process death and torn/unpromoted temporary files. It does no
 
 ### Ship delivery crash/restart
 
-`scripts/test/shipyard-crash-test.ps1` uses its own disposable saves under `build/shipyard-crash/`, with the same prepare-exit-86 / verify-exit-0 contract. `-Stages WORLD_SAVED` selects one checkpoint. The full default matrix is:
+[`scripts/test/shipyard-crash-test.ps1`](../../scripts/test/shipyard-crash-test.ps1) uses its own disposable saves under `build/shipyard-crash/`, with the same prepare-exit-86 / verify-exit-0 contract. `-Stages WORLD_SAVED` selects one checkpoint. The full default matrix is:
 
 | Checkpoint | State at termination |
 | --- | --- |

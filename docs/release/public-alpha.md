@@ -22,7 +22,7 @@ Licensing remains pending. The requested policy allows monetized servers and vid
 
 ## Hosted server
 
-Use a normal Fabric dedicated server, **not** `scripts/run/server.ps1`, `scripts/run/dev.ps1` or `scripts/run/local-server.ps1`. Those are development tools. The local multiplayer test uses offline identities on loopback and is not a production configuration.
+Use a normal Fabric dedicated server, **not** [`scripts/run/server.ps1`](../../scripts/run/server.ps1), [`scripts/run/dev.ps1`](../../scripts/run/dev.ps1) or [`scripts/run/local-server.ps1`](../../scripts/run/local-server.ps1). Those are development tools. The local multiplayer test uses offline identities on loopback and is not a production configuration.
 
 1. Install Java 25 and the pinned Fabric server launcher. Let Fabric obtain Minecraft and its libraries through the official installer; do not redistribute Minecraft binaries in our server pack.
 2. Copy the release's non-sources NullSpace JAR and pinned Fabric API JAR into `mods/`. Do not include the `nullspace-test` mod, developer launch arguments, Gradle caches, saves or test worlds.

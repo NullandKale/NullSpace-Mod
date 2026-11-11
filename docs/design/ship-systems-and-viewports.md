@@ -1,6 +1,6 @@
 # Ship systems, power and remote viewports
 
-This is the architecture document for how a ship works as a system and how it is seen. It covers ship identity and devices, the shared power bus, life support, doors, how cameras and monitors show other places, how other ships and celestial bodies are drawn, and how ship-to-ship damage works. Each section says what is built and why, and what is still open. The narrower documents are [ship systems](ship-systems-redesign.md) (the hardware), [fuel and power](ship-fuel-and-power-design.md) (the numbers), [the block UI reference](ship-block-ui-design.md) (each screen), [ship navigation](ship-navigation.md) (flight) and the [compute renderer plan](space-compute-renderer-plan.md) (how space is drawn). The code is `gameplay/systems`, `gameplay/scene`, `gameplay/combat` and `model/power`, `model/air`, `model/space`.
+This is the architecture document for how a ship works as a system and how it is seen. It covers ship identity and devices, the shared power bus, life support, doors, how cameras and monitors show other places, how other ships and celestial bodies are drawn, and how ship-to-ship damage works. Each section says what is built and why, and what is still open. The narrower documents are [ship systems](ship-systems-redesign.md) (the hardware), [fuel and power](ship-fuel-and-power-design.md) (the numbers), [the block UI reference](ship-block-ui-design.md) (each screen), [ship navigation](ship-navigation.md) (flight) and the [compute renderer plan](space-compute-renderer-plan.md) (how space is drawn). The code is [`gameplay/systems`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems), [`gameplay/scene`](../../src/main/java/com/nullandkale/nullspace/gameplay/scene), [`gameplay/combat`](../../src/main/java/com/nullandkale/nullspace/gameplay/combat) and [`model/power`](../../src/main/java/com/nullandkale/nullspace/model/power), [`model/air`](../../src/main/java/com/nullandkale/nullspace/model/air), [`model/space`](../../src/main/java/com/nullandkale/nullspace/model/space).
 
 ## 1. Ship identity and devices
 
@@ -16,7 +16,7 @@ After a controller is destroyed, validated surviving equipment inside that ship'
 
 ## 2. Power
 
-`PowerBus` is the integer allocator, and the server owns it. Its terms:
+[`PowerBus`](../../src/main/java/com/nullandkale/nullspace/model/power/PowerBus.java) is the integer allocator, and the server owns it. Its terms:
 
 | Term | Meaning |
 | --- | --- |

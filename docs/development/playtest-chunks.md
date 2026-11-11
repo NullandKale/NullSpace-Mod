@@ -119,7 +119,7 @@ Ready for playtesting (focused checks). Salvage encounters are generated from re
 
 Public service stations (exchanges, waypoints) are never claimable, even though they have no owner. Claiming requires being physically aboard; a claimed ship cannot be claimed again, and player-owned vessels keep their owner whatever happens to their controller.
 
-Verification, November 5: focused native `EncounterClaimGameTest` (claimable only when unclaimed salvage; refused from outside; same record becomes the claimant's ship with a working controller and title; container contents unchanged; no second claim) plus `JourneyGameTest` and `StationGameTest`.
+Verification, November 5: focused native `EncounterClaimGameTest` (claimable only when unclaimed salvage; refused from outside; same record becomes the claimant's ship with a working controller and title; container contents unchanged; no second claim) plus [`JourneyGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/JourneyGameTest.java) and [`StationGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/station/StationGameTest.java).
 
 Follow-ups done November 7:
 - **Damaged derelicts:** if a derelict's Station Core is destroyed, claiming says it is damaged. Place a Ship Controller aboard and open it to **claim the wreck**; that controller becomes the ship's.
@@ -143,7 +143,7 @@ Ready for playtesting (focused checks only; the batch integration sweep is still
 
 Decision taken while the player was away (reversible): a found or stolen title that the owner has **not** signed over transfers nothing. The design doc's alternative, where any holder may take ownership, remains possible by removing the signing step.
 
-Verification, November 5: focused native `ShipTitleGameTest` (store from a pad clears it and keeps every block; deploy without the title is refused, with it returns the same ship and cargo; replacement invalidates the old paper; owner-only storage in space; signed handover, refused unsigned handover, retired copies) plus `ShipRecallGameTest` and `RecoveryGameTest`; client `ShipRecallClientGameTest` and `PadPreviewClientGameTest`.
+Verification, November 5: focused native [`ShipTitleGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/ownership/ShipTitleGameTest.java) (store from a pad clears it and keeps every block; deploy without the title is refused, with it returns the same ship and cargo; replacement invalidates the old paper; owner-only storage in space; signed handover, refused unsigned handover, retired copies) plus `ShipRecallGameTest` and `RecoveryGameTest`; client `ShipRecallClientGameTest` and [`PadPreviewClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/pads/PadPreviewClientGameTest.java).
 
 Follow-ups done November 7:
 - **Show blocks** outlines, for you only, every block Store will take.
@@ -178,7 +178,7 @@ Proposed wording awaiting approval: respawn fallback reasons ("Your ship is in s
 
 ## Chunk 1: navigation
 
-Ready for playtesting. Focused verification records the build and walkthroughs. Restart with ordinary `scripts/run/dev.ps1` to keep the current world; `--restart` is the explicit world-reset path.
+Ready for playtesting. Focused verification records the build and walkthroughs. Restart with ordinary [`scripts/run/dev.ps1`](../../scripts/run/dev.ps1) to keep the current world; `--restart` is the explicit world-reset path.
 
 Latest build: Controller pass 1 verification records automatic encounter docking, the approved Controller labels/layout pass and the Station Core gesture. This is a small UI checkpoint; the remaining audit changes are still planned.
 

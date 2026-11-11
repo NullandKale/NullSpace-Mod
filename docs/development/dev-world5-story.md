@@ -36,7 +36,7 @@ Choose **Home** as the destination, Jump to Terra, then Land. If you die, respaw
 
 ## Reset and persistence
 
-`scripts/run/dev.ps1` reopens the active dev world as Player451. An explicit `scripts/run/dev.ps1 -ResetWorld` prepares this seeded space-start profile, validates a save/reopen, backs up the closed previous World 5 under `run/backups`, then installs the new world. `-StartingShip <preset>` changes the ship for that explicit reset. Use `scripts/run/dev.ps1 --restart` instead to back up the active world and choose your own generation settings in the native creation UI. Missing saves also open that UI. A world created there has its own chosen seed and settings rather than this prepared profile.
+[`scripts/run/dev.ps1`](../../scripts/run/dev.ps1) reopens the active dev world as Player451. An explicit `scripts/run/dev.ps1 -ResetWorld` prepares this seeded space-start profile, validates a save/reopen, backs up the closed previous World 5 under `run/backups`, then installs the new world. `-StartingShip <preset>` changes the ship for that explicit reset. Use `scripts/run/dev.ps1 --restart` instead to back up the active world and choose your own generation settings in the native creation UI. Missing saves also open that UI. A world created there has its own chosen seed and settings rather than this prepared profile.
 
 Preparation uses an isolated test client under `build/dev-world-preparation`. Installed worlds need only the ordinary mod. Test helpers are excluded from the release JAR. The old World 5 and its previous character-recovery backups remain separate from disposable test worlds.
 

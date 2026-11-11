@@ -4,12 +4,12 @@ The display is an actual **80-column by 25-row cell buffer**. Pixel size and Min
 
 ## Components
 
-- `TerminalBuffer`: character memory, cursor, wrapping, erase, bounded 200-line immutable scrollback snapshots, and incremental ANSI parsing. Direct `put` writes clip to the display without changing the stream cursor.
-- `TerminalInput`: separate committed text, physical keys, control codes, and cell-coordinate mouse events. Text is never inferred from keyboard key codes.
-- `TerminalDevice`: a display/input port implemented by applications or computer adapters.
-- `ControllerTerminal`: the pad/ship application. Owns its menu, name editor, pending actions, feedback, and timeout. It contains no Minecraft screen or networking code.
-- `StreamTerminal`: a reusable stream endpoint. `write(String)` feeds output into its persistent display; an input callback receives UTF-8 text and ANSI key bytes. Output does not disappear between frames. There is no automatic local echo: the connected program controls what is displayed.
-- `TerminalScreen`: Minecraft rendering and native input adapter. It accepts any `TerminalDevice`, draws cells at fixed spacing, scales wider bold glyphs into a cell, shows the cursor, and forwards input. Pad/ship actions use typed session-bound packets; developer commands remain separately validated.
+- [`TerminalBuffer`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/TerminalBuffer.java): character memory, cursor, wrapping, erase, bounded 200-line immutable scrollback snapshots, and incremental ANSI parsing. Direct `put` writes clip to the display without changing the stream cursor.
+- [`TerminalInput`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/TerminalInput.java): separate committed text, physical keys, control codes, and cell-coordinate mouse events. Text is never inferred from keyboard key codes.
+- [`TerminalDevice`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/TerminalDevice.java): a display/input port implemented by applications or computer adapters.
+- [`ControllerTerminal`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/ControllerTerminal.java): the pad/ship application. Owns its menu, name editor, pending actions, feedback, and timeout. It contains no Minecraft screen or networking code.
+- [`StreamTerminal`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/StreamTerminal.java): a reusable stream endpoint. `write(String)` feeds output into its persistent display; an input callback receives UTF-8 text and ANSI key bytes. Output does not disappear between frames. There is no automatic local echo: the connected program controls what is displayed.
+- [`TerminalScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/TerminalScreen.java): Minecraft rendering and native input adapter. It accepts any `TerminalDevice`, draws cells at fixed spacing, scales wider bold glyphs into a cell, shows the cursor, and forwards input. Pad/ship actions use typed session-bound packets; developer commands remain separately validated.
 
 Minecraft 26.3 requires explicit native text-input activation. The screen starts it during initialization, stops it on removal, and updates the input rectangle at the terminal cursor. Previously the screen only implemented `charTyped`, so synthetic character calls passed while actual typing was disabled. The graphical regression now checks SDL text-input state and routes text through Minecraft's keyboard handler.
 
@@ -34,7 +34,7 @@ Unknown sequences are ignored. Parameter length and numbers are bounded. This is
 
 Controller terminals support arrow keys, Enter, Tab, Home/End, Backspace/Delete, Ctrl+A, and Ctrl+V. Typing focuses the name/destination field automatically. The pad-name character policy and 32-character limit belong to the controller application, not the underlying terminal.
 
-For a computer, construct `StreamTerminal` with a callback that consumes keyboard bytes, feed its output with `write`, and open `TerminalScreen(device)` on the client thread. Arrows and navigation produce ANSI sequences; Enter produces CR, Backspace DEL, and Ctrl+A..Z produce control bytes (Ctrl+V pastes). Escape is delivered to the computer; Shift+Escape closes its screen using either Shift key. Closing releases native text input and the computer session. Ordinary controller screens retain Escape-to-close. The previous Ctrl+Escape binding conflicted with the Windows Start shortcut.
+For a computer, construct [`StreamTerminal`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/StreamTerminal.java) with a callback that consumes keyboard bytes, feed its output with `write`, and open `TerminalScreen(device)` on the client thread. Arrows and navigation produce ANSI sequences; Enter produces CR, Backspace DEL, and Ctrl+A..Z produce control bytes (Ctrl+V pastes). Escape is delivered to the computer; Shift+Escape closes its screen using either Shift key. Closing releases native text input and the computer session. Ordinary controller screens retain Escape-to-close. The previous Ctrl+Escape binding conflicted with the Windows Start shortcut.
 
 The graphical regression sends both SDL Shift modifier flags through Minecraft's keyboard handler, checks one close callback with no guest input, and checks native text-input shutdown. The real-computer scenario also checks server-session removal. Fabric 26.3's `TestInputImpl.pressOrReleaseKey` hard-codes event modifiers to zero, so these chord tests supply modifier-bearing `KeyEvent`s to the keyboard callback rather than relying on simulated held Shift keys.
 
@@ -42,13 +42,13 @@ Client display/input calls run on their owning UI thread. The implemented [NullO
 
 ## Controller network sessions
 
-`ComputerTerminal.Open` supplies a server-owned session UUID, controller mode/location, feedback, default field value, and up to 128 destination aliases (ID/name/state). `Request` carries that UUID, a typed action, a bounded argument, the selected destination ID, and the current engineering configuration revision (-1 for pad/ship controller actions). `Close` closes only the sender's matching session; `Rejected` reports an error only to its matching screen. Opening and response updates reuse a valid session; closing/reopening issues a new one.
+[`ComputerTerminal.Open`](../../src/main/java/com/nullandkale/nullspace/ui/terminal/ComputerTerminal.java) supplies a server-owned session UUID, controller mode/location, feedback, default field value, and up to 128 destination aliases (ID/name/state). `Request` carries that UUID, a typed action, a bounded argument, the selected destination ID, and the current engineering configuration revision (-1 for pad/ship controller actions). `Close` closes only the sender's matching session; `Rejected` reports an error only to its matching screen. Opening and response updates reuse a valid session; closing/reopening issues a new one.
 
 The server binds each session to player UUID, controller block position/type, and dimension. It validates life, interaction permission, loaded controller, eight-block range, action compatibility, and travel state. Sessions expire after 1,200 server ticks without a valid action; disconnect, invalidation, and server shutdown clean them up. A stale request cannot revive a session. Packet actions have a two-tick minimum interval; controller operations also retain their existing 500 ms throttle.
 
 Names are at most 32 characters using the controller character policy; destination IDs are at most 36 characters, feedback at most 2,048, and rejected feedback at most 256. Catalog aliases preserve issued IDs through renaming. Reopening refreshes the catalog; pad states are advisory snapshots and the Destinations action performs a fresh state query. Landing always revalidates the chosen ID against the live registry/build.
 
-The GUI submits typed controller packets with bounded arguments; engineering parses its small command vocabulary behind the same session/revision checks. NullOS uses separate `ComputerService.Screen` and `Input` payloads. A delayed update is applied only to the matching open computer session; it cannot reopen a closed screen.
+The GUI submits typed controller packets with bounded arguments; engineering parses its small command vocabulary behind the same session/revision checks. NullOS uses separate [`ComputerService.Screen`](../../src/main/java/com/nullandkale/nullspace/gameplay/computer/ComputerService.java) and `Input` payloads. A delayed update is applied only to the matching open computer session; it cannot reopen a closed screen.
 
 ## Verification
 

@@ -1,6 +1,6 @@
 # Ship beacons and the shipyard
 
-A **Ship Beacon** calls a catalog ship onto a registered landing pad. This document explains how delivery works and why it is built to survive interruption and abuse. The code is `gameplay/shipyard` (`ShipYardService`, `ShipYard`), `worldgen/ships/ShipBlueprints`, and the beacon's screen. The ships themselves are generated, see [the ship generator](ship-generator.md).
+A **Ship Beacon** calls a catalog ship onto a registered landing pad. This document explains how delivery works and why it is built to survive interruption and abuse. The code is [`gameplay/shipyard`](../../src/main/java/com/nullandkale/nullspace/gameplay/shipyard) ([`ShipYardService`](../../src/main/java/com/nullandkale/nullspace/gameplay/shipyard/ShipYardService.java), [`ShipYard`](../../src/main/java/com/nullandkale/nullspace/gameplay/shipyard/ShipYard.java)), `worldgen/ships/ShipBlueprints`, and the beacon's screen. The ships themselves are generated, see [the ship generator](ship-generator.md).
 
 Deliveries are free for now: no money, XP, items or materials are required, and there is no economy or delivery animation. The beacon is a way to get a ship onto a pad, not a shop.
 
@@ -44,7 +44,7 @@ The beacon cannot clear a damaged ship or merge two ships. Once a ship is comple
 | Bastion Tender | Dome | Medium | Freighter: round hull with a cargo hold either side |
 | Bastion Pioneer | Twin hull | Large | Explorer: workshops, stores and mining bays in both hulls |
 
-Designs are entries in `catalog/ships.json` with the generator settings that build them. `ShipBlueprints` loads them, and the showroom and the delivery service build the same block-state maps. To hand-edit a design, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship.
+Designs are entries in [`catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json) with the generator settings that build them. [`ShipBlueprints`](../../src/main/java/com/nullandkale/nullspace/worldgen/ships/ShipBlueprints.java) loads them, and the showroom and the delivery service build the same block-state maps. To hand-edit a design, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship.
 
 The six box-shaped ships from earlier versions (Sparrow, Skylark, Mule, Wayfarer, Aegis, Atlas) were removed when ships became generated. `ShipBlueprints.get` maps each to its nearest replacement, so an old reference to a preset resolves (Sparrow to Rivet Bolt, Mule to Rivet Hauler, and so on). The space-start setting validates against the current catalog directly and does not apply this mapping (see [starting in space](space-start.md)).
 
@@ -54,7 +54,7 @@ Existing ships and showroom builds keep their construction and edits. Retrofit t
 
 ## The ramp
 
-The docking door sits two blocks above the ground, because the hull has a floor layer under it. The generator adds a three-wide flight of stairs up to the door as part of the ship, with solid under each step, so a delivery works on any pad. It takes the front block of the 32-block depth, and `HullScan` ignores the pad's own computer and a delivery beacon even when the ramp's first step touches one.
+The docking door sits two blocks above the ground, because the hull has a floor layer under it. The generator adds a three-wide flight of stairs up to the door as part of the ship, with solid under each step, so a delivery works on any pad. It takes the front block of the 32-block depth, and [`HullScan`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/HullScan.java) ignores the pad's own computer and a delivery beacon even when the ramp's first step touches one.
 
 ## Why delivery is journaled
 
@@ -76,9 +76,9 @@ Three more operator commands build review galleries: `shipyard random [seed]`, `
 
 ## Where this is tested
 
-`ShipYardGameTest` covers every blueprint's full launch scan, pressure and bridge-to-exit path, equipment, persistent free delivery, rejected obstructions, fluids and entities, session authorization, interrupted construction and conflict-preserving recovery, and showroom revisits. `ShipYardClientGameTest` purchases a ship through real block use and typed packets, rejects a duplicate purchase, then launches and returns it.
+[`ShipYardGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/ShipYardGameTest.java) covers every blueprint's full launch scan, pressure and bridge-to-exit path, equipment, persistent free delivery, rejected obstructions, fluids and entities, session authorization, interrupted construction and conflict-preserving recovery, and showroom revisits. [`ShipYardClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/ShipYardClientGameTest.java) purchases a ship through real block use and typed packets, rejects a duplicate purchase, then launches and returns it.
 
-Two scripts test what only a real process can. `scripts/test/shipyard-crash-test.ps1` kills the JVM at each of seven checkpoints (saved intent, partial unsaved and saved hulls, full hull, ship metadata, flushed terrain, cleared order) and has another JVM open the same save. It requires automatic recovery, exactly one ship, preserved committed identities, a complete launchable hull, saved cargo and untouched blocks outside the pad, and repeated recovery must be harmless. `scripts/test/multiplayer-test.ps1` includes two real clients buying the same preset onto the same pad: exactly one gets the ship and the other an occupied-pad error.
+Two scripts test what only a real process can. [`scripts/test/shipyard-crash-test.ps1`](../../scripts/test/shipyard-crash-test.ps1) kills the JVM at each of seven checkpoints (saved intent, partial unsaved and saved hulls, full hull, ship metadata, flushed terrain, cleared order) and has another JVM open the same save. It requires automatic recovery, exactly one ship, preserved committed identities, a complete launchable hull, saved cargo and untouched blocks outside the pad, and repeated recovery must be harmless. [`scripts/test/multiplayer-test.ps1`](../../scripts/test/multiplayer-test.ps1) includes two real clients buying the same preset onto the same pad: exactly one gets the ship and the other an occupied-pad error.
 
 ```powershell
 .\scripts\test\shipyard-crash-test.ps1                      # full crash matrix
