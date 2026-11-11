@@ -29,6 +29,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class ScenePanels
 {
+    private static final int MONITOR_VIEW_RANGE = 32;
 
     public static void machineView(ServerPlayer player, BlockPos console)
     {
@@ -66,7 +67,7 @@ public final class ScenePanels
         data.putDouble("viewDistance", Math.clamp(extent * 2.2, 28, 300));
         data.putFloat("helmYaw", ShipHeading.forward(p.level(), ship).toYRot());
         var subjects = new ListTag();
-        WorldStore.get(p.level().getServer()).ships().stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("dimension", "").equals(data.getStringOr("dimension", "")) && LocalSpaces.together(ship, t)).sorted(Comparator.comparingDouble(t -> DockingManeuver.sceneDistance(ship, t))).limit(SceneService.MAX_SUBJECTS).forEach(t -> SceneService.addSubject(subjects, p.level(), t));
+        SceneService.neighbours(p.level().getServer(), data.getStringOr("dimension", ""), ship).forEach(t -> SceneService.addSubject(subjects, p.level(), t));
         data.put("subjects", subjects);
         SceneService.deliver(p, new Frame(lease, revision, data));
     }
@@ -85,7 +86,7 @@ public final class ScenePanels
         {
             var blocks = ShipSystems.connected(level, ship);
             var cameras = blocks.stream().filter(p -> level.getBlockState(p).is(ModBlocks.CAMERA) && (!ShipSystems.enabled(ship) || ShipSystems.active(ship, p))).sorted(Comparator.comparingLong(BlockPos::asLong)).toList();
-            blocks.stream().filter(p -> level.getBlockState(p).is(ModBlocks.MONITOR) && player.distanceToSqr(Vec3.atCenterOf(p)) <= 144).filter(p -> MonitorWall.tiles(level, p).getFirst().equals(p)).sorted(Comparator.comparingDouble(p -> player.distanceToSqr(Vec3.atCenterOf(p)))).limit(2).forEach(p ->
+            blocks.stream().filter(p -> level.getBlockState(p).is(ModBlocks.MONITOR) && player.distanceToSqr(Vec3.atCenterOf(p)) <= MONITOR_VIEW_RANGE * MONITOR_VIEW_RANGE).filter(p -> MonitorWall.tiles(level, p).getFirst().equals(p)).sorted(Comparator.comparingDouble(p -> player.distanceToSqr(Vec3.atCenterOf(p)))).limit(2).forEach(p ->
             {
                 var display = new CompoundTag();
                 display.putLong("position", p.asLong());
@@ -145,7 +146,7 @@ public final class ScenePanels
                 data.putString("observer", ship.getStringOr("id", ""));
                 var subjects = new ListTag();
                 if (space)
-                    WorldStore.get(level.getServer()).ships().stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && LocalSpaces.together(ship, t)).sorted(Comparator.comparingDouble(t -> DockingManeuver.sceneDistance(ship, t))).limit(SceneService.MAX_SUBJECTS).forEach(t -> SceneService.addSubject(subjects, level, t));
+                    SceneService.neighbours(level.getServer(), level.dimension().identifier().toString(), ship).forEach(t -> SceneService.addSubject(subjects, level, t));
                 else
                 {
                     var source = SceneService.subject(level, ship);

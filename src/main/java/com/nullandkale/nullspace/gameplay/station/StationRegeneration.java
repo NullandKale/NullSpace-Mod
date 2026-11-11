@@ -65,8 +65,9 @@ public final class StationRegeneration
             return 0;
         }
         String expected = request.get("sourceSha256").getAsString();
-        var source = file.resolveSibling("ships.nbt");
-        var backup = Path.of(request.get("backup").getAsString()).resolve("nullspace/ships.nbt");
+        // The backup holds the same store copy the request was made against, under the same file name.
+        var source = store.storeFile();
+        var backup = Path.of(request.get("backup").getAsString()).resolve("nullspace").resolve(source.getFileName().toString());
         if (!expected.matches("[a-f0-9]{64}") || !sha(source).equals(expected) || !Files.exists(backup) || !sha(backup).equals(expected))
             throw new IllegalArgumentException("World or backup changed since regeneration was requested; no rebuild was queued");
         if (TransferLocks.active(server) || NavigationService.pending(server))
@@ -84,46 +85,61 @@ public final class StationRegeneration
         }
         var before = store.snapshot();
         var next = before.copy();
-        for (var original : stations)
-        {
-            var s = next.getListOrEmpty("ships").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(original.getStringOr("id", ""))).findFirst().orElseThrow();
-            var level = WorldStore.level(server, s.getStringOr("dimension", ""));
-            StationSpace.chunks(level, s);
-            var base = WorldStore.pos(s, "base");
-            var bounds = WorldStore.bounds(s);
-            if (s.getIntOr("width", 32) < 32 || s.getIntOr("depth", 32) < 32)
-                throw new IllegalArgumentException("Station build area is smaller than the current starter template");
-            boolean showcase = s.getStringOr("template", "").equals("manufacturer_showcase_v1");
-            var layout = s.getIntOr("width", 32) >= 128 && s.getIntOr("depth", 32) >= 128 ? StationLayout.harbor() : StationLayout.waypoint();
-            var plan = showcase ? ManufacturerStation.build() : StationBlueprint.build(layout);
-            var clear = new LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
-            for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
-                if (!level.getBlockState(at).isAir())
-                    clear.put(at.subtract(base), Blocks.AIR.defaultBlockState());
-            var blocks = StationBuilds.encode(new StationBlueprint.Plan(clear, plan.core(), List.of()));
-            blocks.addAll(StationBuilds.encode(plan));
-            for (String key : List.of("systems", "doorNodes", "dockLinks", "piecesBefore", "constructionShip", "constructionSourcePort", "stationInitialized", "flightStatus"))
-                s.remove(key);
-            s.putLong("controller", base.offset(plan.core()).asLong());
-            s.putBoolean("foundation", false);
-            s.putBoolean("buildPaid", true);
-            s.putBoolean("stationRegeneration", true);
-            s.putString("stationRegenerationRequest", job);
-            s.put("stationBuild", blocks);
-            var pieces = new CompoundTag();
-            if (!showcase)
-                for (var room : layout.rooms())
-                    pieces.putString(room.x() + "_" + room.z(), room.encode());
-            s.put("roomPieces", pieces);
-        }
+        var builds = new LinkedHashMap<String, com.nullandkale.nullspace.gameplay.travel.BuildJournal.Job>();
         try
         {
-            store.replace(next, ShipRepository.Mutation.RECOVERY);
+            for (var original : stations)
+            {
+                var s = next.getListOrEmpty("ships").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(original.getStringOr("id", ""))).findFirst().orElseThrow();
+                var level = WorldStore.level(server, s.getStringOr("dimension", ""));
+                StationSpace.chunks(level, s);
+                var base = WorldStore.pos(s, "base");
+                var bounds = WorldStore.bounds(s);
+                if (s.getIntOr("width", 32) < 32 || s.getIntOr("depth", 32) < 32)
+                    throw new IllegalArgumentException("Station build area is smaller than the current starter template");
+                boolean showcase = s.getStringOr("template", "").equals("manufacturer_showcase_v1");
+                var layout = s.getIntOr("width", 32) >= 128 && s.getIntOr("depth", 32) >= 128 ? StationLayout.harbor() : StationLayout.waypoint();
+                var plan = showcase ? ManufacturerStation.build() : StationBlueprint.build(layout);
+                var clear = new LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
+                for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
+                    if (!level.getBlockState(at).isAir())
+                        clear.put(at.subtract(base), Blocks.AIR.defaultBlockState());
+                var blocks = StationBuilds.encode(new StationBlueprint.Plan(clear, plan.core(), List.of()));
+                blocks.addAll(StationBuilds.encode(plan));
+                for (String key : List.of("systems", "doorNodes", "dockLinks", "piecesBefore", "constructionShip", "constructionSourcePort", "stationInitialized", "flightStatus"))
+                    s.remove(key);
+                s.putLong("controller", base.offset(plan.core()).asLong());
+                s.putBoolean("foundation", false);
+                s.putBoolean("buildPaid", true);
+                s.putBoolean("stationRegeneration", true);
+                s.putString("stationRegenerationRequest", job);
+                s.put("stationBuild", blocks);
+                var pieces = new CompoundTag();
+                if (!showcase)
+                    for (var room : layout.rooms())
+                        pieces.putString(room.x() + "_" + room.z(), room.encode());
+                s.put("roomPieces", pieces);
+                var footprint = blocks.stream().map(t -> base.offset(WorldStore.pos((CompoundTag) t, "pos"))).toList();
+                var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "station-regeneration", List.of(s.getStringOr("id", "")), footprint);
+                s.putString("buildJournal", build.fileName());
+                builds.put(s.getStringOr("id", ""), build);
+            }
+            for (var original : stations)
+            {
+                String id = original.getStringOr("id", "");
+                var replacement = next.getListOrEmpty("ships").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(id)).findFirst().orElseThrow();
+                builds.get(id).step(() ->
+                {
+                    store.repository().apply(List.of(new com.nullandkale.nullspace.core.save.StoreRecords.Entry("ships", com.nullandkale.nullspace.core.save.StoreRecords.Kind.KEYED, id, original.copy(), replacement)), true, ShipRepository.Mutation.RECOVERY);
+                    return null;
+                });
+            }
             store.save();
         }
         catch (RuntimeException error)
         {
-            store.replace(before, ShipRepository.Mutation.RECOVERY);
+            for (var build : builds.values())
+                build.abort();
             throw error;
         }
         Files.move(file, archive, StandardCopyOption.REPLACE_EXISTING);

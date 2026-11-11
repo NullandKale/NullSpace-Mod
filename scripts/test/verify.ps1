@@ -7,8 +7,8 @@ $artifacts = Join-Path $RepoRoot "build/verification/$runId"
 $null = New-Item -ItemType Directory -Path $artifacts
 $manifest = [ordered]@{ version=1; runId=$runId; startedUtc=[DateTime]::UtcNow.ToString('o'); status='running'; suites=[ordered]@{}; jar=$null }
 $manifest.inputsSha256=Get-VerificationFingerprint $RepoRoot
-foreach ($suite in @('unit','server','assets','graphics','multiplayer','crash')) {
-    $selected = $suite -in @('unit','server','assets') -or ($suite -eq 'graphics' -and $Graphics) -or ($suite -eq 'multiplayer' -and $Multiplayer) -or ($suite -eq 'crash' -and $Crash)
+foreach ($suite in @('unit','server','assets','graphics','multiplayer','crash','build-crash')) {
+    $selected = $suite -in @('unit','server','assets') -or ($suite -eq 'graphics' -and $Graphics) -or ($suite -eq 'multiplayer' -and $Multiplayer) -or ($suite -in @('crash','build-crash') -and $Crash)
     $manifest.suites[$suite] = [ordered]@{ selected=[bool]$selected; status=$(if($selected){'pending'}else{'not-selected'}) }
 }
 function Save-Manifest { Write-VerificationJson (Join-Path $artifacts 'manifest.json') $manifest }
@@ -83,9 +83,15 @@ try {
         & "$PSScriptRoot/crash-test.ps1" -ArtifactRoot (Join-Path $artifacts 'crash') *> (Join-Path $artifacts 'crash.log')
         $result=Get-Content -LiteralPath (Join-Path $artifacts 'crash/result.json') -Raw | ConvertFrom-Json
         Assert-VerificationFingerprint $RepoRoot $manifest.inputsSha256
-        $expectedCases=@(foreach($direction in @('launch','landing')){foreach($stage in @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')){"$direction/$stage"}})
-        if($result.status -ne 'passed' -or @($result.cases).Count -ne 14 -or @(Compare-Object $expectedCases @($result.cases)).Count -ne 0){throw 'Crash suite did not complete all fourteen launch/landing cases'}
+        $expectedCases=@(foreach($direction in @('launch','landing')){foreach($stage in @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','CORRUPT_COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')){"$direction/$stage"}})
+        if($result.status -ne 'passed' -or @($result.cases).Count -ne $expectedCases.Count -or @(Compare-Object $expectedCases @($result.cases)).Count -ne 0){throw 'Crash suite did not complete every launch/landing case'}
         $manifest.suites.crash.status='passed';$manifest.suites.crash.result='crash/result.json';Save-Manifest
+        & "$PSScriptRoot/shipyard-crash-test.ps1" -ArtifactRoot (Join-Path $artifacts 'build-crash') *> (Join-Path $artifacts 'build-crash.log')
+        $result=Get-Content -LiteralPath (Join-Path $artifacts 'build-crash/result.json') -Raw | ConvertFrom-Json
+        Assert-VerificationFingerprint $RepoRoot $manifest.inputsSha256
+        Assert-VerificationInventory @('INTENT_SAVED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','WORLD_SAVED','ORDER_CLEARED','COMMITTED','CORRUPT_COMMITTED') @($result.stages)
+        if($result.status -ne 'passed'){throw 'BUILD crash suite did not finish'}
+        $manifest.suites['build-crash'].status='passed';$manifest.suites['build-crash'].result='build-crash/result.json';Save-Manifest
     }
     $properties=Get-Content -LiteralPath "$RepoRoot/gradle.properties" -Raw
     $archive=[regex]::Match($properties,'(?m)^archives_base_name=(.+)$').Groups[1].Value.Trim()

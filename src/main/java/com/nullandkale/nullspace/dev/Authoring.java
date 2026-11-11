@@ -291,7 +291,42 @@ public final class Authoring
         // Pieces saved in this world are visible to check, preview and kits without a rebuild.
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> PieceLibrary.worldSource(id -> server.getStructureTemplateManager().get(Identifier.parse("nullspace:" + id)).map(template -> template.save(new net.minecraft.nbt.CompoundTag()))));
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> PieceLibrary.worldSource(null));
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("author").requires(s -> s.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("save").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> save(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("load").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> load(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("preview").then(Commands.argument("archetype", StringArgumentType.string()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), 0, c.getSource().getLevel().getGameTime()))).then(Commands.argument("danger", IntegerArgumentType.integer(0, 3)).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), c.getSource().getLevel().getGameTime()))).then(Commands.argument("seed", LongArgumentType.longArg()).executes(c -> reply(c.getSource(), () -> preview(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), LongArgumentType.getLong(c, "seed")))))))).then(Commands.literal("check").then(Commands.argument("kind", StringArgumentType.word()).then(Commands.argument("name", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> check(StringArgumentType.getString(c, "kind"), StringArgumentType.getString(c, "name"))))))).then(Commands.literal("gallery").executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), ""))).then(Commands.argument("kind", StringArgumentType.word()).executes(c -> reply(c.getSource(), () -> gallery(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "kind")))))))));
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(authorCommand())));
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, String> kind()
+    {
+        return Commands.argument("kind", StringArgumentType.word());
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, String> name()
+    {
+        return Commands.argument("name", StringArgumentType.word());
+    }
+
+    private static String text(com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context, String argument)
+    {
+        return StringArgumentType.getString(context, argument);
+    }
+
+    private static ServerPlayer player(com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context) throws com.mojang.brigadier.exceptions.CommandSyntaxException
+    {
+        return context.getSource().getPlayerOrException();
+    }
+
+    /** /nullspace author: save, load, preview, check and gallery, each built on its own. Operators only. */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> authorCommand()
+    {
+        var saveCommand = Commands.literal("save").then(kind().then(name().executes(c -> reply(c.getSource(), () -> save(player(c), text(c, "kind"), text(c, "name"))))));
+        var loadCommand = Commands.literal("load").then(kind().then(name().executes(c -> reply(c.getSource(), () -> load(player(c), text(c, "kind"), text(c, "name"))))));
+        var checkCommand = Commands.literal("check").then(kind().then(name().executes(c -> reply(c.getSource(), () -> check(text(c, "kind"), text(c, "name"))))));
+        var galleryCommand = Commands.literal("gallery").executes(c -> reply(c.getSource(), () -> gallery(player(c), ""))).then(kind().executes(c -> reply(c.getSource(), () -> gallery(player(c), text(c, "kind")))));
+        // preview <archetype> [danger [seed]]: a danger level and then a seed narrow it.
+        var withSeed = Commands.argument("seed", LongArgumentType.longArg()).executes(c -> reply(c.getSource(), () -> preview(player(c), text(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), LongArgumentType.getLong(c, "seed"))));
+        var withDanger = Commands.argument("danger", IntegerArgumentType.integer(0, 3)).executes(c -> reply(c.getSource(), () -> preview(player(c), text(c, "archetype"), IntegerArgumentType.getInteger(c, "danger"), c.getSource().getLevel().getGameTime()))).then(withSeed);
+        var previewCommand = Commands.literal("preview").then(Commands.argument("archetype", StringArgumentType.string()).executes(c -> reply(c.getSource(), () -> preview(player(c), text(c, "archetype"), 0, c.getSource().getLevel().getGameTime()))).then(withDanger));
+        var operatorsOnly = Commands.literal("author").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER));
+        return operatorsOnly.then(saveCommand).then(loadCommand).then(previewCommand).then(checkCommand).then(galleryCommand);
     }
 
     private interface Action

@@ -32,7 +32,7 @@ JAR SHA-256: `e365171d971a302019a266d369ec6429822ec8942bffc2ec34ea34730796389a`.
 
 ## Lag investigation
 
-`scripts/test/multiplayer-test.ps1 -Profile` records bounded Java Flight Recorder files in each disposable client's work directory. Logs and recordings survive world cleanup. Use the server-thread samples and long I/O/wait events to distinguish simulation, synchronous saves, chunk loading and client rendering. A test profile is not evidence of a fix for the remote player's connection or every large public server.
+`scripts/test/multiplayer-test.ps1 -Profile` records bounded Java Flight Recorder files in each disposable client's work directory. Logs and recordings survive world cleanup. Use the server-thread samples and long I/O/wait events to distinguish simulation, synchronous saves, chunk loading and client rendering. These disposable fixtures do not establish network performance in every multiplayer world.
 
 The profiled two-client run passes in `build/local-multiplayer/20261105-101154-4b01fa/result.json`. Its JAR SHA-256 is `07686fc0a95e21b816e46af26d222d9179dca19bb14acc1af60ec9a117f9c21b`, before the final older-link compatibility addition. The production release launchers do not enable profiling.
 
@@ -48,10 +48,6 @@ The recording includes startup, development fixtures and a client in the same JV
 
 The next performance pass should stage and coalesce durable saves while retaining the journal's required completion boundaries. Capture immutable metadata on the server thread, keep world access there, and await any background serialization or flush before advancing destructive travel stages. Validate that change with process-halt recovery tests and a standalone-server recording. Removing a save barrier without that ordering proof would risk ships or inventories.
 
-## Server and paste follow-ups
-
-The remote session establishes real public-IP connectivity, a packaged remote client, reconnects and a two-hour session ending in a graceful save. It used a development server with offline identities, so authenticated public joins and a standalone hosted installation remain release gates.
-
-The playtest's `ops.json` still lists `ls` and `Zero_sum`. The notes identify `ls` as a typo; the other grant needs the host's judgment. No live permission file has been edited. Use the running server's `deop` command to remove unintended grants, and use authenticated accounts for a public server.
+## Paste follow-up
 
 No schematic importer or item-frame paste implementation was found in the shipped main/client sources or scripts. The recorded errors came from command-based pastes. Check supporting blocks, spawn order and the attachment NBT expected by Minecraft 26.3 in that producer. The existing pasted builds remain available for checking whether frames are missing.

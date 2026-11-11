@@ -302,7 +302,7 @@ public final class ComputerService
     public static void open(ServerPlayer player, BlockPos position)
     {
         var level = player.level();
-        if (!level.hasChunkAt(position) || !level.getBlockState(position).is(ModBlocks.TERMINAL) || player.distanceToSqr(position.getX() + .5, position.getY() + .5, position.getZ() + .5) > 64 || !player.mayInteract(level, position) || TransferLocks.busy(player) || TransferLocks.locked(level, position))
+        if (!canUseTerminal(player, level, position))
             return;
         var server = level.getServer();
         hydrate(server);
@@ -514,7 +514,7 @@ public final class ComputerService
             case "inspect" -> ShipDiagnostics.summary(l.level, ShipService.preflight(l.level, helm).scan());
             case "launch", "land", "jump" ->
             {
-                var actor = m.server.getPlayerList().getPlayers().stream().filter(p -> p.level() == l.level && p.distanceToSqr(helm.getX() + .5, helm.getY() + .5, helm.getZ() + .5) <= 64 && p.mayInteract(l.level, helm)).findFirst().orElseThrow(() -> new ScriptLanguage.Unavailable("A crew member must board the helm before travel"));
+                var actor = crewAtHelm(m.server, l.level, helm);
                 if (name.equals("jump"))
                     Jumps.jump(actor, helm, argument);
                 else
@@ -549,6 +549,25 @@ public final class ComputerService
                 adopt(m);
                 save(m);
             }
+    }
+
+    /** The terminal is loaded and still a terminal, within reach, and neither it nor the player is held by a move. */
+    private static boolean canUseTerminal(ServerPlayer player, ServerLevel level, BlockPos position)
+    {
+        if (!level.hasChunkAt(position) || !level.getBlockState(position).is(ModBlocks.TERMINAL))
+            return false;
+        if (player.distanceToSqr(position.getX() + .5, position.getY() + .5, position.getZ() + .5) > 64 || !player.mayInteract(level, position))
+            return false;
+        return !TransferLocks.busy(player) && !TransferLocks.locked(level, position);
+    }
+
+    /** A crew member standing at the helm, who travel is done on behalf of. */
+    private static ServerPlayer crewAtHelm(MinecraftServer server, ServerLevel level, BlockPos helm)
+    {
+        for (var player : server.getPlayerList().getPlayers())
+            if (player.level() == level && player.distanceToSqr(helm.getX() + .5, helm.getY() + .5, helm.getZ() + .5) <= 64 && player.mayInteract(level, helm))
+                return player;
+        throw new ScriptLanguage.Unavailable("A crew member must board the helm before travel");
     }
 
     public static void initialize()
@@ -608,7 +627,7 @@ public final class ComputerService
         ServerLifecycleEvents.SERVER_STOPPING.register(server ->
         {
             flush(server);
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerContext.get(server).remove(KEY));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->

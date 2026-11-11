@@ -151,7 +151,7 @@ public final class DockingManeuver
         reportFlight(server, own, d.getStringOr("state", ""), false);
         NavigationService.closeShip(server, DockingService.id(own));
         Piloting.stop(own);
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         return new Readiness(true, "Docking requested");
     }
 
@@ -409,7 +409,7 @@ public final class DockingManeuver
         own.remove("dock");
         Piloting.stop(own);
         ServerContext.get(server).service(ROUTES, HashMap::new).remove(DockingService.id(own));
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
     }
 
     static void tickMotion(MinecraftServer server, CompoundTag own)
@@ -540,7 +540,7 @@ public final class DockingManeuver
                     pose(own, next);
                     d.putString("state", "CLAMPED");
                     saveEscape(d, standOff.position());
-                    WorldStore.get(server).save();
+                    WorldStore.get(server).requestSave();
                 }
             }
             else

@@ -91,11 +91,24 @@ class ShipControlTerminalTest
             buttons.add(new ControllerPackets.Button(action, ""));
             var view = new ControllerPackets.View(original.session(), original.position(), false, true, original.ship(), original.summary(), original.selected(), original.destination(), original.location(), "FTL journey", original.entries(), buttons);
             var panel = new ShipControlTerminal(view);
-            assertTrue(panel.display().row(13).contains(action == ShipControl.Action.RESUME ? "Resume journey" : "Investigate signal"));
-            panel.input(new TerminalInput.Pointer(3, 13));
+            int row = action == ShipControl.Action.RESUME ? 10 : 11;
+            assertTrue(panel.display().row(row).contains(action == ShipControl.Action.RESUME ? "Continue journey" : "Visit signal"));
+            panel.input(new TerminalInput.Pointer(3, row));
             assertEquals(action, panel.pollAction().action());
             assertFalse(panel.picker());
         }
+    }
+
+    @Test
+    void quietFtlShowsAutomaticArrivalWithoutAskingForAnotherEngageOrStop()
+    {
+        var original = state(false, "port");
+        var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), original.position(), false, true, original.ship(), original.summary(), original.selected(), original.destination(), original.location(), "FTL 0:32 to Luna", original.entries(), original.buttons()));
+        assertTrue(panel.display().row(8).contains("FTL 0:32 to Luna"));
+        assertTrue(panel.display().row(10).contains("arrival is automatic"));
+        assertFalse(shows(panel, "[ Engage ]"));
+        assertFalse(shows(panel, "Stop course"));
+        assertFalse(shows(panel, "Visit signal"));
     }
 
     @Test
@@ -187,7 +200,7 @@ class ShipControlTerminalTest
     private static ControllerPackets.View state(boolean scanner, String selected)
     {
         var entries = List.of(new ControllerPackets.Entry("region", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"), new ControllerPackets.Entry("pad", ShipDestination.Kind.PAD, "My yard", "sol_terra", "READY"), new ControllerPackets.Entry("port", ShipDestination.Kind.PORT, "Waypoint berth", "sol_luna", "Available"));
-        var buttons = Arrays.stream(ShipControl.Action.values()).filter(a -> a != ShipControl.Action.CONFIRM_LEAVE_BLOCKS && a != ShipControl.Action.MARK && a != ShipControl.Action.RETURN_TO_CONTROLLER).map(a -> new ControllerPackets.Button(a, a == ShipControl.Action.LAND ? "Jump to the destination's region first" : "")).toList();
+        var buttons = Arrays.stream(ShipControl.Action.values()).filter(a -> a != ShipControl.Action.CONFIRM_LEAVE_BLOCKS && a != ShipControl.Action.MARK && a != ShipControl.Action.RETURN_TO_CONTROLLER && a != ShipControl.Action.RESUME && a != ShipControl.Action.INVESTIGATE).map(a -> new ControllerPackets.Button(a, a == ShipControl.Action.LAND ? "Jump to the destination's region first" : "")).toList();
         return new ControllerPackets.View(SESSION, BlockPos.ZERO, scanner, true, "Ship", "Power: online", selected, "Waypoint berth", "Sol / Luna | port", "Ready", entries, buttons);
     }
 

@@ -74,7 +74,7 @@ Next: Launch | Movement still runs full checks
 
 Here is the ship's current location; the destination is a separate value. Choose a landing pad, station/ship or planet's orbit, then Engage. The course performs the required phases automatically. A planet-only choice ends in orbit; it does not promise a landing pad. Station destinations choose a free berth on arrival.
 
-Travel between regions starts a [timed FTL journey](ftl-journeys.md). The loading screen closes during cruise; the HUD and controller show the destination and remaining time. **Investigate signal** pauses the paid journey, selects the encountered vessel and automatically begins docking after arrival. Disengage cancels the approach. **Resume journey** restores the original paid journey and remaining progress without another jump charge; a selected vessel destination continues into docking automatically. Individual Land and Dock controls remain available under Manual steps.
+Travel between regions starts a [timed FTL journey](ftl-journeys.md). The loading screen closes during cruise; the HUD and controller show the destination and remaining time. The Trip panel's **Visit signal (optional)** action pauses the paid journey, selects the encountered vessel and automatically begins docking after arrival. Disengage cancels the approach. **Continue journey**, in the same Trip panel, undocks if needed and restores the original paid journey and remaining progress without another jump charge; a selected vessel destination continues into docking automatically. Individual Land and Dock controls remain available under Manual steps.
 
 The paid destination stays fixed during cruise. Encounter ports appear in the picker after reaching their region, so they do not become unreachable jump choices elsewhere in the chart. Resume explains when fuel or propulsion power is missing.
 
@@ -126,7 +126,7 @@ Shows the vent's room air, actual pumping/power status and distinct opening/leak
 
 Right-click the Scanner to open the destination browser, organized by star system and planet/moon. Select a station/ship, landing site or orbit and press **Set destination**. It updates the ship's destination without moving it; Engage remains at the controller.
 
-**Settings / upgrades** opens the inventory screen with upgrade slots, device power and sensing details. Its compact Nearby / Destinations list can also set a destination. Results refresh automatically; no Scan step is required.
+**Settings / upgrades** opens the inventory screen with upgrade slots, device power and sensing details. **Open scanner** returns to the shared destination browser. Results refresh automatically; no Scan step is required.
 
 Selection uses stable destination IDs. Paging or filtering clears an off-page candidate; a removed target never leaves a different place selected. Empty/unpowered selection is unavailable, with the actual scanner problem visible. Set destination names the accepted place in the result line and does not move the ship.
 

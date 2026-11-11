@@ -121,6 +121,24 @@ public final class CourseService
         return StarSystems.sameSystem(player.level().getServer(), LocalSpaces.address(ship), region) || ShipSensors.installed(player.level(), ship, false) ? "" : "Interstellar travel needs an enabled, powered Scanner. Local travel does not.";
     }
 
+    private static ShipDestination paidDestination(MinecraftServer server, CompoundTag ship)
+    {
+        var journey = ship.getCompoundOrEmpty("journey");
+        var saved = ShipDestination.read(journey.getCompoundOrEmpty("selection"));
+        return saved != null ? saved : ShipDestination.region(server, journey.getStringOr("destination", ""));
+    }
+
+    public static String resumeReason(ServerPlayer player, CompoundTag ship)
+    {
+        return JourneyService.active(ship) && !JourneyService.cruising(ship) ? reason(player, ship, paidDestination(player.level().getServer(), ship)) : "No paused journey";
+    }
+
+    /** Continue the original paid course, including a safe automatic departure from the encounter berth. */
+    public static String resumeJourney(ServerPlayer player, CompoundTag ship)
+    {
+        return engage(player, ship, paidDestination(player.level().getServer(), ship));
+    }
+
     public static int minimumFuel(ServerPlayer player, CompoundTag ship, ShipDestination target)
     {
         target = departureTarget(player.level().getServer(), ship, target);
@@ -196,7 +214,7 @@ public final class CourseService
         course.put("destination", target.save());
         course.putString("message", preview(player, ship, target));
         ship.put(KEY, course);
-        WorldStore.get(player.level().getServer()).save();
+        WorldStore.get(player.level().getServer()).requestSave();
         return "Course engaged: " + target.name();
     }
 
@@ -207,7 +225,7 @@ public final class CourseService
         var course = ship.getCompoundOrEmpty(KEY);
         course.putString("state", "STOPPING");
         course.putString("message", "Disengaging: finishing the current safe transfer or departure");
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         return course.getStringOr("message", "");
     }
 
@@ -221,7 +239,7 @@ public final class CourseService
         course.putBoolean("awaitingEncounter", true);
         course.putString("step", "INVESTIGATE");
         ship.put(KEY, course);
-        WorldStore.get(player.level().getServer()).save();
+        WorldStore.get(player.level().getServer()).requestSave();
     }
 
     /** Retain automatic arrival for an explicit manual jump to a vessel as well. */
@@ -236,7 +254,7 @@ public final class CourseService
         course.putString("step", "JUMP");
         course.put("destination", target.save());
         ship.put(KEY, course);
-        WorldStore.get(player.level().getServer()).save();
+        WorldStore.get(player.level().getServer()).requestSave();
     }
 
     private static void finish(MinecraftServer server, CompoundTag ship, String state, String message)
@@ -244,7 +262,7 @@ public final class CourseService
         var course = ship.getCompoundOrEmpty(KEY);
         course.putString("state", state);
         course.putString("message", message);
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         server.getPlayerList().getPlayers().stream().filter(p -> SceneObserver.aboard(p, ship)).forEach(p -> p.sendSystemMessage(Component.literal(message)));
         NullSpace.LOGGER.info("Course {}: {} | ship={}", state, message, ship.getStringOr("id", ""));
     }
@@ -332,7 +350,7 @@ public final class CourseService
         }
         course.putString("step", action);
         course.putString("message", "Course: " + action.toLowerCase(Locale.ROOT) + " -> " + target.name());
-        WorldStore.get(server).save(); // The next service's journal snapshots this course checkpoint too.
+        WorldStore.get(server).requestSave(); // The next service's journal snapshots this course checkpoint too.
         switch (action)
         {
             case "UNDOCK" -> DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");

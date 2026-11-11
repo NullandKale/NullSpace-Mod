@@ -1,0 +1,28 @@
+{
+    "status":  "passed",
+    "label":  "build-100-berths-ready",
+    "commit":  "c9c086e",
+    "uncommittedChanges":  true,
+    "cpu":  "AMD Ryzen 9 5900HS with Radeon Graphics        ",
+    "disk":  "HFM001TD3JX013N SSD",
+    "ships":  [
+                  100
+              ],
+    "scenarios":  [
+                      "build"
+                  ],
+    "repeat":  1,
+    "cases":  [
+                  "build-100-run1"
+              ],
+    "inputsSha256":  "1da4e9acf131426a4f63b03b390ed85b030cb30abcd4b87e0cfbb5ee22b77cc2",
+    "startupJournals":  [
+                            0,
+                            100,
+                            1000
+                        ],
+    "warmupSeconds":  60,
+    "stepSeconds":  30,
+    "flatSeconds":  30,
+    "idleSeconds":  120
+}

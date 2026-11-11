@@ -48,7 +48,7 @@ public final class ComputerServiceBoundaryGameTest
         var store = WorldStore.get(server);
         ComputerService.flush(server);
         store.save();
-        var record = WorldStore.read(store.directory.resolve("ships.nbt")).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
+        var record = WorldStore.read(store.storeFile()).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
         var computer = new VirtualComputer((n, a) -> 0);
         computer.restore(ComputerImageCodec.decode(record.get("image")));
         return computer;

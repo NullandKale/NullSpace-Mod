@@ -82,7 +82,8 @@ public final class DockingPorts
         }
         if (anchors.isEmpty())
             throw new IllegalArgumentException("Clear two-block-high walking space behind the docking door");
-        if (powered && (!ShipSystems.enabled(ship) || ShipSystems.power(level, ship, PowerBus.System.CONTROLS) == 0 || ShipSystems.power(level, ship, PowerBus.System.DOORS) == 0 || !ShipSystems.active(ship, base)))
+        boolean passiveSalvage = ship.getBooleanOr("worldGenerated", false) && ship.getBooleanOr("salvage", false) && ship.getStringOr("owner", "").isEmpty();
+        if (powered && !passiveSalvage && (!ShipSystems.enabled(ship) || ShipSystems.power(level, ship, PowerBus.System.CONTROLS) == 0 || ShipSystems.power(level, ship, PowerBus.System.DOORS) == 0 || !ShipSystems.active(ship, base)))
             throw new IllegalArgumentException("Docking Base needs controller and door power");
         var identities = ship.getCompoundOrEmpty("doorNodes");
         if (!ship.contains("doorNodes"))

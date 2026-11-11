@@ -71,10 +71,6 @@ final class ControllerPanels
         else
             drawMore(o);
         o.button(2, 14, 20, "Fly manually", ShipControl.Action.PILOT);
-        if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.INVESTIGATE))
-            o.button(2, 13, 30, "Investigate signal", ShipControl.Action.INVESTIGATE);
-        if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME))
-            o.button(2, 13, 30, "Resume journey", ShipControl.Action.RESUME);
         o.button(24, 14, 22, "View ship", ShipControl.Action.CAMERA);
         o.button(48, 14, 28, "Close all doors", ShipControl.Action.CLOSE_DOORS);
         for (var a : List.of(ShipControl.Action.ACCEPT, ShipControl.Action.DECLINE, ShipControl.Action.CANCEL))
@@ -88,12 +84,25 @@ final class ControllerPanels
         var fuel = java.util.regex.Pattern.compile("Minimum fuel: ([0-9.]+)").matcher(o.view.details());
         if (fuel.find() && !fuel.group(1).equals("0.00"))
             trip += " - needs " + fuel.group(1) + " fuel";
-        o.text(2, 8, trip, TerminalTheme.TEXT);
-        o.button(2, 10, 20, "Engage", ShipControl.Action.ENGAGE);
-        String blocker = o.view.buttons().stream().filter(b -> b.action() == ShipControl.Action.ENGAGE).map(ControllerPackets.Button::reason).findFirst().orElse("Choose a destination");
-        if (!blocker.isEmpty())
+        String journey = o.view.message().lines().filter(l -> l.startsWith("FTL ") || l.startsWith("Journey paused")).findFirst().orElse("");
+        o.text(2, 8, journey.isBlank() ? trip : journey, TerminalTheme.TEXT);
+        boolean paused = o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME);
+        boolean cruising = !paused && journey.startsWith("FTL ");
+        var primary = paused ? ShipControl.Action.RESUME : ShipControl.Action.ENGAGE;
+        if (cruising)
+            o.text(2, 10, "Travelling; arrival is automatic", TerminalTheme.GREEN);
+        else
+            o.button(2, 10, 22, paused ? "Continue journey" : "Engage", primary);
+        String blocker = o.view.buttons().stream().filter(b -> b.action() == primary).map(ControllerPackets.Button::reason).findFirst().orElse("Choose a destination");
+        if (!cruising && !blocker.isEmpty())
             o.text(24, 10, blocker, TerminalTheme.AMBER);
-        o.button(2, 11, 20, "Stop", ShipControl.Action.DISENGAGE);
+        if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.INVESTIGATE && b.enabled()))
+        {
+            o.button(2, 11, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
+            o.text(2, 12, "Ignore it to keep travelling. Arrival is automatic.", TerminalTheme.MUTED);
+        }
+        else if (!cruising)
+            o.button(2, 11, 22, "Stop course", ShipControl.Action.DISENGAGE);
     }
 
     static void drawManual(ShipControlTerminal o)

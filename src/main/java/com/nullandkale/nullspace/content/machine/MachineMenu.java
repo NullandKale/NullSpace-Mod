@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.docking.DockingService;
 import com.nullandkale.nullspace.gameplay.docking.DockingTargets;
 import com.nullandkale.nullspace.gameplay.navigation.CourseService;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
+import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.gameplay.scene.ScenePanels;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
@@ -131,7 +132,11 @@ public final class MachineMenu extends AbstractContainerMenu
     {
         if (!(p instanceof ServerPlayer))
             return true;
-        return p.isAlive() && p.level().hasChunkAt(at) && p.distanceToSqr(at.getX() + .5, at.getY() + .5, at.getZ() + .5) <= 64 && p.level().getBlockEntity(at) == machine && (!(p instanceof ServerPlayer sp) || sp.mayInteract(sp.level(), at) && StationAccess.mayUse(sp, at) && !TransferLocks.busy(sp) && !TransferLocks.locked(sp.level(), at));
+        if (!p.isAlive() || !p.level().hasChunkAt(at) || p.distanceToSqr(at.getX() + .5, at.getY() + .5, at.getZ() + .5) > 64 || p.level().getBlockEntity(at) != machine)
+            return false;
+        if (!(p instanceof ServerPlayer sp))
+            return true;
+        return sp.mayInteract(sp.level(), at) && StationAccess.mayUse(sp, at) && !TransferLocks.busy(sp) && !TransferLocks.locked(sp.level(), at);
     }
 
     @Override
@@ -210,7 +215,12 @@ public final class MachineMenu extends AbstractContainerMenu
             var block = entity.getBlockState();
             String state = !ShipSystems.connected(p.level(), ship).contains(at) ? "Disconnected: join this block to the hull at " + at.toShortString() : !ShipSystems.active(ship, at) ? "Disabled" : "Ready";
             if (state.equals("Ready") && block.is(ModBlocks.GENERATOR))
-                state = ship.getCompoundOrEmpty("systems").getBooleanOr("supplyDisabled", false) ? "Ship supply is off. Use Restart ship supply below." : entity.available() == 0 ? entity.blockedReturn() ? "Empty the return slot before burning container fuel" : "Load any furnace fuel in these slots" : power[0] == 0 ? "Idle: no electrical demand or charging" : "Supplying ship; surplus charges batteries";
+                if (ship.getCompoundOrEmpty("systems").getBooleanOr("supplyDisabled", false))
+                    state = "Ship supply is off. Use Restart ship supply below.";
+                else if (entity.available() == 0)
+                    state = entity.blockedReturn() ? "Empty the return slot before burning container fuel" : "Load any furnace fuel in these slots";
+                else
+                    state = power[0] == 0 ? "Idle: no electrical demand or charging" : "Supplying ship; surplus charges batteries";
             if (block.is(ModBlocks.ENGINE))
             {
                 var exhaust = at.relative(block.getValue(HorizontalDirectionalBlock.FACING));
@@ -270,27 +280,18 @@ public final class MachineMenu extends AbstractContainerMenu
             data.putString("status", state);
             if (entity.getBlockState().is(ModBlocks.LOCAL_SCANNER))
             {
-                var list = new ListTag();
-                boolean far = entity.tier() > 0;
                 boolean powered = ShipSensors.powered(p.level(), ship, at);
-                data.putBoolean("selectable", powered);
-                data.putBoolean("far", far);
                 data.putInt("range", 1024 << entity.tier());
+                String scannerStatus;
                 if (powered)
-                    for (var d : ShipDestination.navigationCatalog(p, ship).stream().filter(d -> d.kind() != ShipDestination.Kind.PORT).limit(512).toList())
-                    {
-                        var row = new CompoundTag();
-                        row.putString("id", d.id());
-                        row.putString("name", d.name());
-                        row.putString("region", d.region());
-                        row.putString("kind", d.kind().name());
-                        row.putString("state", d.state());
-                        list.add(row);
-                    }
-                data.put("destinations", list);
-                var selected = ShipDestination.selected(ship);
-                data.putString("destination", selected == null ? "None" : selected.name());
-                data.putString("status", powered ? "Destination catalog online" + " | Range " + (1024 << entity.tier()) : !ShipSystems.connected(p.level(), ship).contains(at) ? "Scanner disconnected: join it to the hull" : !ShipSystems.active(ship, at) ? "Scanner is Off. Turn Device On above." : "No sensor power. Load a generator or restart ship supply.");
+                    scannerStatus = "Scanner online";
+                else if (!ShipSystems.connected(p.level(), ship).contains(at))
+                    scannerStatus = "Scanner disconnected: join it to the hull";
+                else if (!ShipSystems.active(ship, at))
+                    scannerStatus = "Scanner is Off. Turn Device On above.";
+                else
+                    scannerStatus = "No sensor power. Load a generator or restart ship supply.";
+                data.putString("status", scannerStatus);
             }
             if (entity.getBlockState().is(ModBlocks.CAMERA) || entity.getBlockState().is(ModBlocks.MONITOR))
             {
@@ -474,27 +475,9 @@ public final class MachineMenu extends AbstractContainerMenu
                 }
                 case 8 ->
                 {
-                    if (ship == null)
-                        notice = "Scanner disconnected: join it to the ship hull";
-                    else if (!ShipSensors.powered(p.level(), ship, at))
-                        notice = "Scanner needs to be On with sensor power from a generator";
-                    else
-                    {
-                        var chosen = ShipDestination.navigationCatalog(p, ship).stream().filter(d -> d.id().equals(value)).findFirst();
-                        if (chosen.isEmpty())
-                            notice = "Destination changed or is out of scanner range. Choose a visible place.";
-                        else
-                        {
-                            if (CourseService.active(ship))
-                                notice = "Disengage the current course before changing destination";
-                            else
-                            {
-                                ShipDestination.select(p, ship, chosen.get());
-                                ship.remove("markedDestination");
-                                notice = "Destination set: " + chosen.get().name();
-                            }
-                        }
-                    }
+                    p.closeContainer();
+                    ShipControl.open(p, at, "");
+                    return;
                 }
                 case 9 -> SceneService.preview(p, at);
                 case 14 ->

@@ -20,7 +20,31 @@ public final class TransferReplay
         return WORLD_MUTATION.get();
     }
 
+    /** The absolute positions of the blocks a saved template holds, given where its minimum corner is. */
+    public static java.util.Set<BlockPos> positions(CompoundTag template, BlockPos min)
+    {
+        var positions = new java.util.HashSet<BlockPos>();
+        for (var entry : template.getListOrEmpty("blocks"))
+        {
+            var coords = ((CompoundTag) entry).getListOrEmpty("pos");
+            positions.add(min.offset(coords.getIntOr(0, 0), coords.getIntOr(1, 0), coords.getIntOr(2, 0)));
+        }
+        return positions;
+    }
+
+    /** Places a template. Only the positions the template holds are cleared first; the rest of its box is not touched. */
     public static void place(ServerLevel level, StructureTemplate template, BlockPos min)
+    {
+        place(level, template, min, false);
+    }
+
+    /** Places a version 1 journal's template, which holds the whole box: the box is cleared first. */
+    static void placeInBox(ServerLevel level, StructureTemplate template, BlockPos min)
+    {
+        place(level, template, min, true);
+    }
+
+    private static void place(ServerLevel level, StructureTemplate template, BlockPos min, boolean wholeBox)
     {
         boolean previous = WORLD_MUTATION.get();
         WORLD_MUTATION.set(true);
@@ -28,9 +52,12 @@ public final class TransferReplay
         {
             var snapshot = template.save(new CompoundTag()).copy();
             var size = template.getSize();
-            clear(level, min, min.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1));
+            if (wholeBox)
+                clear(level, min, min.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1));
+            else
+                clear(level, positions(snapshot, min));
             if (!template.placeInWorld(level, min, min, new StructurePlaceSettings().setIgnoreEntities(true).setKnownShape(true), level.getRandom(), BlockSupport.TRANSFER_FLAGS))
-                throw new IllegalStateException("Could not place ship snapshot");
+                throw new IllegalStateException("Could not place ship snapshot: the template holds " + snapshot.getListOrEmpty("blocks").size() + " blocks, size " + size.toShortString() + ", at " + min.toShortString());
             // Vanilla structure placement randomizes loot-table seeds. Reload the exact saved
             // data after placement so unopened loot, inventories, books, and machine state agree
             // with the journal. Relocated hive memories are already in this snapshot.

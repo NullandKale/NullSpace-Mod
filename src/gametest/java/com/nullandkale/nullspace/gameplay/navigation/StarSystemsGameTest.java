@@ -20,6 +20,40 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class StarSystemsGameTest
 {
+    @GameTest(environment = "nullspace:star_chart_repair")
+    public void loadingASavedChartRepairsMissingLandingsWithoutChangingItsPlaces(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var store = WorldStore.get(server);
+        var original = store.section("galaxy").copy();
+        var originalZones = StarSystems.galaxy(server).zones();
+        var legacy = original.copy();
+        for (var tag : legacy.getListOrEmpty("systems"))
+        {
+            var system = (CompoundTag) tag;
+            if (!system.getStringOr("id", "").equals(GalaxyPlan.HOME))
+                system.getListOrEmpty("bodies").forEach(b -> ((CompoundTag) b).remove("surface"));
+        }
+        try
+        {
+            store.document("galaxy", legacy);
+            var repaired = StarSystems.galaxy(server);
+            ctx.assertTrue(repaired.zones().equals(originalZones), "Saved destinations retain their identities");
+            for (var system : repaired.systems())
+            {
+                var landing = system.bodies().stream().filter(GalaxyPlan.Body::landable).findFirst().orElseThrow();
+                var dimension = PlanetSurfaces.dimension(server, landing.id());
+                ctx.assertTrue(dimension != null && server.getLevel(dimension) != null, "The repaired landing points at a real loaded dimension: " + system.name());
+            }
+            ctx.assertTrue(store.section("galaxy").getListOrEmpty("systems").stream().allMatch(t -> ((CompoundTag) t).getListOrEmpty("bodies").stream().anyMatch(b -> ((CompoundTag) b).contains("surface"))), "The repair updates the saved chart too");
+            ctx.succeed();
+        }
+        finally
+        {
+            store.document("galaxy", original);
+        }
+    }
+
     @GameTest(environment = "nullspace:star_chart", maxTicks = 200)
     public void startupCreatesAWorldChartAndAllScenesBeforeAnyNavigationMenu(GameTestHelper ctx)
     {

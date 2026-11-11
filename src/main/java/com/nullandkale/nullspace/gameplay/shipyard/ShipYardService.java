@@ -192,28 +192,20 @@ public final class ShipYardService
         // Preview is read-only. Retire empty allocations only together with a durable delivery intent,
         // so the new hull receives fresh identity/resources and interrupted delivery remains resumable.
         var retired = emptyAssignments(level, origin, preset);
-        var previousShips = retired.isEmpty() ? null : store.ships().copy();
-        if (!retired.isEmpty())
+        var footprint = ShipBlueprints.blocks(preset).keySet().stream().map(origin::offset).toList();
+        var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "shipyard-delivery", retired, footprint);
+        order.putString("journal", build.fileName());
+        var delivered = build.step(() ->
         {
-            var remaining = store.ships().copy();
-            remaining.removeIf(tag -> retired.contains(((CompoundTag) tag).getStringOr("id", "")));
-            store.document("ships", remaining);
-        }
-        store.list(ORDERS).add(order);
-        try
-        {
+            if (!retired.isEmpty())
+                store.ships().removeIf(tag -> retired.contains(((CompoundTag) tag).getStringOr("id", "")));
+            store.list(ORDERS).add(order);
             store.save();
-        }
-        catch (RuntimeException failure)
-        {
-            store.list(ORDERS).remove(order);
-            if (previousShips != null)
-                store.document("ships", previousShips);
-            store.requestSave();
-            throw failure;
-        }
-        deliveryObserver.accept(DeliveryStage.INTENT_SAVED);
-        return complete(level.getServer(), order);
+            deliveryObserver.accept(DeliveryStage.INTENT_SAVED);
+            return complete(level.getServer(), order);
+        });
+        build.commit();
+        return delivered;
     }
 
     private static void checkSpace(ServerLevel level, PadRegistry.Pad pad, ShipBlueprints.Preset preset, BlockPos origin, boolean resume, ServerPlayer buyer)
@@ -401,6 +393,10 @@ public final class ShipYardService
         var orders = new ArrayList<Tag>(WorldStore.get(server).list(ORDERS));
         for (var tag : orders)
         {
+            // New deliveries belong to BUILD recovery, including quarantine and its locks.
+            // Only deliveries from versions before BUILD journals use intent resumption.
+            if (((CompoundTag) tag).contains("journal"))
+                continue;
             try
             {
                 complete(server, (CompoundTag) tag);

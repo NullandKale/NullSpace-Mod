@@ -1,0 +1,1073 @@
+{
+  "schemaVersion": 2,
+  "fixtureVersion": 2,
+  "accounting": "completed operations / monotonic elapsed seconds; paced 50 ms ticks",
+  "operationUnit": "operation",
+  "scenario": "build",
+  "ships": 100,
+  "seconds": 244.710673,
+  "steps": [
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "ramp 0.1/s",
+      "rate": 0.1,
+      "seconds": 30.0284255,
+      "simulatedSeconds": 26.35,
+      "attempts": 2,
+      "backlog": 1,
+      "fellBehind": true,
+      "bytesWritten": 3247410,
+      "operations": 2,
+      "operationsPerSecond": 0.06660355868475355,
+      "operationMs": {
+        "count": 2,
+        "median": 2094.8947,
+        "p95": 2094.8947,
+        "max": 2094.8947
+      },
+      "tickMs": {
+        "count": 527,
+        "median": 17.6121,
+        "p95": 20.9724,
+        "max": 1426.9773
+      },
+      "ticksOver50ms": 9,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 162.6306,
+        "PLACED": 2615.296,
+        "COMMITTED": 720.8867
+      }
+    },
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "ramp 0.25/s",
+      "rate": 0.25,
+      "seconds": 30.0157801,
+      "simulatedSeconds": 18.2,
+      "attempts": 7,
+      "backlog": 0,
+      "fellBehind": false,
+      "bytesWritten": 9612142,
+      "operations": 7,
+      "operationsPerSecond": 0.2332106637468336,
+      "operationMs": {
+        "count": 7,
+        "median": 1881.9251,
+        "p95": 2085.5901,
+        "max": 2085.5901
+      },
+      "tickMs": {
+        "count": 364,
+        "median": 18.758,
+        "p95": 28.3661,
+        "max": 1913.9865
+      },
+      "ticksOver50ms": 18,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 551.9889,
+        "PLACED": 5351.8238,
+        "COMMITTED": 5016.1668
+      }
+    },
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "ramp 0.5/s",
+      "rate": 0.5,
+      "seconds": 30.1023852,
+      "simulatedSeconds": 6.7,
+      "attempts": 14,
+      "backlog": 1,
+      "fellBehind": true,
+      "bytesWritten": 19568737,
+      "operations": 14,
+      "operationsPerSecond": 0.46507942500184335,
+      "operationMs": {
+        "count": 14,
+        "median": 1910.1906,
+        "p95": 2503.552,
+        "max": 2503.552
+      },
+      "tickMs": {
+        "count": 134,
+        "median": 19.6354,
+        "p95": 1031.7579,
+        "max": 2682.4383
+      },
+      "ticksOver50ms": 35,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 1294.866,
+        "PLACED": 12964.7826,
+        "COMMITTED": 9523.804
+      }
+    },
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "ramp 1.0/s",
+      "rate": 1.0,
+      "seconds": 30.8533001,
+      "simulatedSeconds": 3.35,
+      "attempts": 17,
+      "backlog": 13,
+      "fellBehind": true,
+      "bytesWritten": 22840277,
+      "operations": 17,
+      "operationsPerSecond": 0.5509945433681501,
+      "operationMs": {
+        "count": 17,
+        "median": 1851.6303,
+        "p95": 2157.9176,
+        "max": 2157.9176
+      },
+      "tickMs": {
+        "count": 67,
+        "median": 120.6748,
+        "p95": 1870.0921,
+        "max": 2016.5606
+      },
+      "ticksOver50ms": 42,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 1440.37,
+        "PLACED": 14685.0354,
+        "COMMITTED": 11126.8498
+      }
+    },
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "ramp 2.0/s",
+      "rate": 2.0,
+      "seconds": 31.6386141,
+      "simulatedSeconds": 2.95,
+      "attempts": 18,
+      "backlog": 45,
+      "fellBehind": true,
+      "bytesWritten": 24523097,
+      "operations": 18,
+      "operationsPerSecond": 0.568925046562011,
+      "operationMs": {
+        "count": 18,
+        "median": 1843.213,
+        "p95": 2037.2843,
+        "max": 2037.2843
+      },
+      "tickMs": {
+        "count": 59,
+        "median": 116.7437,
+        "p95": 1907.7772,
+        "max": 2040.2105
+      },
+      "ticksOver50ms": 42,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 1572.391,
+        "PLACED": 15578.7542,
+        "COMMITTED": 11427.6767
+      }
+    },
+    {
+      "scenario": "build",
+      "ships": 100,
+      "step": "flat out",
+      "rate": -1.0,
+      "seconds": 32.0449297,
+      "simulatedSeconds": 2.4,
+      "attempts": 18,
+      "backlog": 0,
+      "fellBehind": false,
+      "bytesWritten": 24536286,
+      "operations": 18,
+      "operationsPerSecond": 0.5617113274553385,
+      "operationMs": {
+        "count": 18,
+        "median": 1849.9537,
+        "p95": 2411.4996,
+        "max": 2411.4996
+      },
+      "tickMs": {
+        "count": 48,
+        "median": 650.4812,
+        "p95": 1868.642,
+        "max": 1872.2503
+      },
+      "ticksOver50ms": 42,
+      "refused": 0,
+      "stageMsTotal": {
+        "PREPARED": 2906.3867,
+        "PLACED": 15459.3828,
+        "COMMITTED": 11404.119
+      }
+    }
+  ],
+  "fixture": [
+    {
+      "ship": 0,
+      "padX": 4096,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 4096,
+      "z": 0
+    },
+    {
+      "ship": 1,
+      "padX": 4160,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 8192,
+      "z": 0
+    },
+    {
+      "ship": 2,
+      "padX": 4224,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 12288,
+      "z": 0
+    },
+    {
+      "ship": 3,
+      "padX": 4288,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 16384,
+      "z": 0
+    },
+    {
+      "ship": 4,
+      "padX": 4352,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 20480,
+      "z": 0
+    },
+    {
+      "ship": 5,
+      "padX": 4416,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 24576,
+      "z": 0
+    },
+    {
+      "ship": 6,
+      "padX": 4480,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 28672,
+      "z": 0
+    },
+    {
+      "ship": 7,
+      "padX": 4544,
+      "padZ": 4096,
+      "inSpace": true,
+      "x": 32768,
+      "z": 0
+    },
+    {
+      "ship": 8,
+      "padX": 4096,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 36864,
+      "z": 0
+    },
+    {
+      "ship": 9,
+      "padX": 4160,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 40960,
+      "z": 0
+    },
+    {
+      "ship": 10,
+      "padX": 4224,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 45056,
+      "z": 0
+    },
+    {
+      "ship": 11,
+      "padX": 4288,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 49152,
+      "z": 0
+    },
+    {
+      "ship": 12,
+      "padX": 4352,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 53248,
+      "z": 0
+    },
+    {
+      "ship": 13,
+      "padX": 4416,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 57344,
+      "z": 0
+    },
+    {
+      "ship": 14,
+      "padX": 4480,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 61440,
+      "z": 0
+    },
+    {
+      "ship": 15,
+      "padX": 4544,
+      "padZ": 4160,
+      "inSpace": true,
+      "x": 65536,
+      "z": 0
+    },
+    {
+      "ship": 16,
+      "padX": 4096,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 69632,
+      "z": 0
+    },
+    {
+      "ship": 17,
+      "padX": 4160,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 73728,
+      "z": 0
+    },
+    {
+      "ship": 18,
+      "padX": 4224,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 77824,
+      "z": 0
+    },
+    {
+      "ship": 19,
+      "padX": 4288,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 81920,
+      "z": 0
+    },
+    {
+      "ship": 20,
+      "padX": 4352,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 86016,
+      "z": 0
+    },
+    {
+      "ship": 21,
+      "padX": 4416,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 90112,
+      "z": 0
+    },
+    {
+      "ship": 22,
+      "padX": 4480,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 94208,
+      "z": 0
+    },
+    {
+      "ship": 23,
+      "padX": 4544,
+      "padZ": 4224,
+      "inSpace": true,
+      "x": 98304,
+      "z": 0
+    },
+    {
+      "ship": 24,
+      "padX": 4096,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 102400,
+      "z": 0
+    },
+    {
+      "ship": 25,
+      "padX": 4160,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 106496,
+      "z": 0
+    },
+    {
+      "ship": 26,
+      "padX": 4224,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 110592,
+      "z": 0
+    },
+    {
+      "ship": 27,
+      "padX": 4288,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 114688,
+      "z": 0
+    },
+    {
+      "ship": 28,
+      "padX": 4352,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 118784,
+      "z": 0
+    },
+    {
+      "ship": 29,
+      "padX": 4416,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 122880,
+      "z": 0
+    },
+    {
+      "ship": 30,
+      "padX": 4480,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 126976,
+      "z": 0
+    },
+    {
+      "ship": 31,
+      "padX": 4544,
+      "padZ": 4288,
+      "inSpace": true,
+      "x": 131072,
+      "z": 0
+    },
+    {
+      "ship": 32,
+      "padX": 4096,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 135168,
+      "z": 0
+    },
+    {
+      "ship": 33,
+      "padX": 4160,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 139264,
+      "z": 0
+    },
+    {
+      "ship": 34,
+      "padX": 4224,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 143360,
+      "z": 0
+    },
+    {
+      "ship": 35,
+      "padX": 4288,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 147456,
+      "z": 0
+    },
+    {
+      "ship": 36,
+      "padX": 4352,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 151552,
+      "z": 0
+    },
+    {
+      "ship": 37,
+      "padX": 4416,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 155648,
+      "z": 0
+    },
+    {
+      "ship": 38,
+      "padX": 4480,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 159744,
+      "z": 0
+    },
+    {
+      "ship": 39,
+      "padX": 4544,
+      "padZ": 4352,
+      "inSpace": true,
+      "x": 163840,
+      "z": 0
+    },
+    {
+      "ship": 40,
+      "padX": 4096,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 167936,
+      "z": 0
+    },
+    {
+      "ship": 41,
+      "padX": 4160,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 172032,
+      "z": 0
+    },
+    {
+      "ship": 42,
+      "padX": 4224,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 176128,
+      "z": 0
+    },
+    {
+      "ship": 43,
+      "padX": 4288,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 180224,
+      "z": 0
+    },
+    {
+      "ship": 44,
+      "padX": 4352,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 184320,
+      "z": 0
+    },
+    {
+      "ship": 45,
+      "padX": 4416,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 188416,
+      "z": 0
+    },
+    {
+      "ship": 46,
+      "padX": 4480,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 192512,
+      "z": 0
+    },
+    {
+      "ship": 47,
+      "padX": 4544,
+      "padZ": 4416,
+      "inSpace": true,
+      "x": 196608,
+      "z": 0
+    },
+    {
+      "ship": 48,
+      "padX": 4096,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 200704,
+      "z": 0
+    },
+    {
+      "ship": 49,
+      "padX": 4160,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 204800,
+      "z": 0
+    },
+    {
+      "ship": 50,
+      "padX": 4224,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 208896,
+      "z": 0
+    },
+    {
+      "ship": 51,
+      "padX": 4288,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 212992,
+      "z": 0
+    },
+    {
+      "ship": 52,
+      "padX": 4352,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 217088,
+      "z": 0
+    },
+    {
+      "ship": 53,
+      "padX": 4416,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 221184,
+      "z": 0
+    },
+    {
+      "ship": 54,
+      "padX": 4480,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 225280,
+      "z": 0
+    },
+    {
+      "ship": 55,
+      "padX": 4544,
+      "padZ": 4480,
+      "inSpace": true,
+      "x": 229376,
+      "z": 0
+    },
+    {
+      "ship": 56,
+      "padX": 4096,
+      "padZ": 4544,
+      "inSpace": true,
+      "x": 233472,
+      "z": 0
+    },
+    {
+      "ship": 57,
+      "padX": 4160,
+      "padZ": 4544,
+      "inSpace": true,
+      "x": 237568,
+      "z": 0
+    },
+    {
+      "ship": 58,
+      "padX": 4224,
+      "padZ": 4544,
+      "inSpace": true,
+      "x": 241664,
+      "z": 0
+    },
+    {
+      "ship": 59,
+      "padX": 4288,
+      "padZ": 4544,
+      "inSpace": true,
+      "x": 245760,
+      "z": 0
+    },
+    {
+      "ship": 60,
+      "padX": 4352,
+      "padZ": 4544,
+      "inSpace": false,
+      "x": 4352,
+      "z": 4544
+    },
+    {
+      "ship": 61,
+      "padX": 4416,
+      "padZ": 4544,
+      "inSpace": false,
+      "x": 4416,
+      "z": 4544
+    },
+    {
+      "ship": 62,
+      "padX": 4480,
+      "padZ": 4544,
+      "inSpace": false,
+      "x": 4480,
+      "z": 4544
+    },
+    {
+      "ship": 63,
+      "padX": 4544,
+      "padZ": 4544,
+      "inSpace": false,
+      "x": 4544,
+      "z": 4544
+    },
+    {
+      "ship": 64,
+      "padX": 4096,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4096,
+      "z": 4608
+    },
+    {
+      "ship": 65,
+      "padX": 4160,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4160,
+      "z": 4608
+    },
+    {
+      "ship": 66,
+      "padX": 4224,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4224,
+      "z": 4608
+    },
+    {
+      "ship": 67,
+      "padX": 4288,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4288,
+      "z": 4608
+    },
+    {
+      "ship": 68,
+      "padX": 4352,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4352,
+      "z": 4608
+    },
+    {
+      "ship": 69,
+      "padX": 4416,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4416,
+      "z": 4608
+    },
+    {
+      "ship": 70,
+      "padX": 4480,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4480,
+      "z": 4608
+    },
+    {
+      "ship": 71,
+      "padX": 4544,
+      "padZ": 4608,
+      "inSpace": false,
+      "x": 4544,
+      "z": 4608
+    },
+    {
+      "ship": 72,
+      "padX": 4096,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4096,
+      "z": 4672
+    },
+    {
+      "ship": 73,
+      "padX": 4160,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4160,
+      "z": 4672
+    },
+    {
+      "ship": 74,
+      "padX": 4224,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4224,
+      "z": 4672
+    },
+    {
+      "ship": 75,
+      "padX": 4288,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4288,
+      "z": 4672
+    },
+    {
+      "ship": 76,
+      "padX": 4352,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4352,
+      "z": 4672
+    },
+    {
+      "ship": 77,
+      "padX": 4416,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4416,
+      "z": 4672
+    },
+    {
+      "ship": 78,
+      "padX": 4480,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4480,
+      "z": 4672
+    },
+    {
+      "ship": 79,
+      "padX": 4544,
+      "padZ": 4672,
+      "inSpace": false,
+      "x": 4544,
+      "z": 4672
+    },
+    {
+      "ship": 80,
+      "padX": 4096,
+      "padZ": 4736,
+      "inSpace": false,
+      "x": 4096,
+      "z": 4736
+    },
+    {
+      "ship": 81,
+      "padX": 4160,
+      "padZ": 4736,
+      "inSpace": false,
+      "x": 4160,
+      "z": 4736
+    },
+    {
+      "ship": 82,
+      "padX": 4224,
+      "padZ": 4736,
+      "inSpace": false,
+      "x": 4224,
+      "z": 4736
+    },
+    {
+      "ship": 83,
+      "padX": 4288,
+      "padZ": 4736,
+      "inSpace": false,
+      "x": 4288,
+      "z": 4736
+    },
+    {
+      "ship": 84,
+      "padX": 4352,
+      "padZ": 4736,
+      "inSpace": false,
+      "x": 4352,
+      "z": 4736
+    }
+  ],
+  "moves": [
+    {
+      "tick": 452,
+      "phase": "warm-up",
+      "ship": 0,
+      "kind": "land",
+      "ok": true,
+      "ms": 1065.0962,
+      "dimension": "minecraft:overworld",
+      "x": 4096,
+      "z": 4096
+    },
+    {
+      "tick": 819,
+      "phase": "warm-up",
+      "ship": 1,
+      "kind": "land",
+      "ok": true,
+      "ms": 1077.4503,
+      "dimension": "minecraft:overworld",
+      "x": 4160,
+      "z": 4096
+    },
+    {
+      "tick": 1155,
+      "phase": "warm-up",
+      "ship": 2,
+      "kind": "land",
+      "ok": true,
+      "ms": 950.933,
+      "dimension": "minecraft:overworld",
+      "x": 4224,
+      "z": 4096
+    },
+    {
+      "tick": 1474,
+      "phase": "ramp 0.1/s",
+      "ship": 3,
+      "kind": "land",
+      "ok": true,
+      "ms": 661.8847,
+      "dimension": "minecraft:overworld",
+      "x": 4288,
+      "z": 4096
+    },
+    {
+      "tick": 1738,
+      "phase": "ramp 0.1/s",
+      "ship": 4,
+      "kind": "land",
+      "ok": true,
+      "ms": 762.6129,
+      "dimension": "minecraft:overworld",
+      "x": 4352,
+      "z": 4096
+    },
+    {
+      "tick": 2001,
+      "phase": "ramp 0.25/s",
+      "ship": 5,
+      "kind": "land",
+      "ok": true,
+      "ms": 944.6216,
+      "dimension": "minecraft:overworld",
+      "x": 4416,
+      "z": 4096
+    },
+    {
+      "tick": 2202,
+      "phase": "ramp 0.25/s",
+      "ship": 6,
+      "kind": "land",
+      "ok": true,
+      "ms": 932.8961,
+      "dimension": "minecraft:overworld",
+      "x": 4480,
+      "z": 4096
+    },
+    {
+      "tick": 2365,
+      "phase": "ramp 0.5/s",
+      "ship": 7,
+      "kind": "land",
+      "ok": true,
+      "ms": 912.0517,
+      "dimension": "minecraft:overworld",
+      "x": 4544,
+      "z": 4096
+    },
+    {
+      "tick": 2443,
+      "phase": "ramp 0.5/s",
+      "ship": 0,
+      "kind": "launch",
+      "ok": true,
+      "ms": 774.8699,
+      "dimension": "nullspace:space",
+      "x": 4096,
+      "z": 0
+    },
+    {
+      "tick": 2516,
+      "phase": "ramp 1.0/s",
+      "ship": 1,
+      "kind": "launch",
+      "ok": true,
+      "ms": 1059.349,
+      "dimension": "nullspace:space",
+      "x": 8192,
+      "z": 0
+    },
+    {
+      "tick": 2541,
+      "phase": "ramp 1.0/s",
+      "ship": 2,
+      "kind": "launch",
+      "ok": true,
+      "ms": 1050.7625,
+      "dimension": "nullspace:space",
+      "x": 12288,
+      "z": 0
+    },
+    {
+      "tick": 2576,
+      "phase": "ramp 2.0/s",
+      "ship": 3,
+      "kind": "launch",
+      "ok": true,
+      "ms": 876.8777,
+      "dimension": "nullspace:space",
+      "x": 16384,
+      "z": 0
+    },
+    {
+      "tick": 2600,
+      "phase": "ramp 2.0/s",
+      "ship": 4,
+      "kind": "launch",
+      "ok": true,
+      "ms": 1121.6377,
+      "dimension": "nullspace:space",
+      "x": 20480,
+      "z": 0
+    },
+    {
+      "tick": 2624,
+      "phase": "flat out",
+      "ship": 5,
+      "kind": "launch",
+      "ok": true,
+      "ms": 861.0981,
+      "dimension": "nullspace:space",
+      "x": 24576,
+      "z": 0
+    },
+    {
+      "tick": 2648,
+      "phase": "flat out",
+      "ship": 6,
+      "kind": "launch",
+      "ok": true,
+      "ms": 904.4514,
+      "dimension": "nullspace:space",
+      "x": 28672,
+      "z": 0
+    }
+  ],
+  "world": {
+    "storeBytesOnDisk": 347390,
+    "storeBytesRaw": 16934231,
+    "rawBytesPerShip": 161278,
+    "journals": 1,
+    "shipRecords": 105,
+    "fixtureShips": 85,
+    "fixtureStations": 15,
+    "mockCrew": 8,
+    "cargoAnimals": 170,
+    "loadedChunks": 18231,
+    "heapUsedMb": 2939,
+    "javaVersion": "25.0.2",
+    "processors": 16
+  }
+}

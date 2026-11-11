@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
+import com.nullandkale.nullspace.gameplay.travel.BuildJournal;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.SpatialAir;
@@ -138,16 +139,14 @@ public final class StationBuilds
         s.putBoolean("foundation", foundation);
         s.putInt("stationVersion", 1);
         s.putBoolean("buildPaid", owner.isEmpty());
-        store.ships().add(s);
-        try
+        var build = BuildJournal.begin(level, "station-core", List.of(id), plan.blocks().keySet().stream().map(base::offset).toList());
+        build.step(() ->
         {
-            store.save();
-        }
-        catch (RuntimeException failure)
-        {
-            store.ships().remove(s);
-            throw failure;
-        }
+            s.putString("buildJournal", build.fileName());
+            store.ships().add(s);
+            store.requestSave();
+            return null;
+        });
         return s;
     }
 
@@ -306,16 +305,22 @@ public final class StationBuilds
             if (!e.getValue().isAir() && !before.equals(e.getValue()) && !p.level().getEntities(null, new AABB(base.offset(e.getKey()))).isEmpty())
                 throw new IllegalArgumentException("Move occupants out of the module footprint first");
         }
-        s.put("stationBuild", encode(new StationBlueprint.Plan(out, oldCore, plan.docks())));
-        s.putString("buildReceipt", token);
-        s.put("piecesBefore", pieces.copy());
-        for (var room : additions)
-            pieces.putString(room.x() + "_" + room.z(), room.encode());
-        s.put("roomPieces", pieces);
-        s.putBoolean("buildPaid", false);
-        s.putBoolean("foundation", false);
-        WorldStore.get(p.level().getServer()).save();
-        redeem(p, stack, token, generate ? additions.size() : 1);
+        var build = BuildJournal.begin(p.level(), "station-room", List.of(s.getStringOr("id", "")), out.keySet().stream().map(base::offset).toList());
+        build.step(() ->
+        {
+            s.putString("buildJournal", build.fileName());
+            s.put("stationBuild", encode(new StationBlueprint.Plan(out, oldCore, plan.docks())));
+            s.putString("buildReceipt", token);
+            s.put("piecesBefore", pieces.copy());
+            for (var room : additions)
+                pieces.putString(room.x() + "_" + room.z(), room.encode());
+            s.put("roomPieces", pieces);
+            s.putBoolean("buildPaid", false);
+            s.putBoolean("foundation", false);
+            WorldStore.get(p.level().getServer()).save();
+            redeem(p, stack, token, generate ? additions.size() : 1);
+            return null;
+        });
     }
 
     public static void expand(ServerPlayer player, CompoundTag station)
@@ -343,8 +348,11 @@ public final class StationBuilds
                 throw new IllegalArgumentException("Expansion is obstructed at " + at.toShortString() + "; existing blocks are preserved");
         if (level.getEntities(null, bounds.box()).stream().anyMatch(e -> !oldBounds.box().contains(e.position())))
             throw new IllegalArgumentException("Move occupants out of the new station build area before expanding");
-        SystemsUpgrade.resizeStation(level, station, 128, 128);
-        WorldStore.get(level.getServer()).save();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(level.getServer(), "expand-station", () ->
+        {
+            SystemsUpgrade.resizeStation(level, station, 128, 128);
+            return null;
+        });
     }
 
     public static void tickBuilds(MinecraftServer server)
@@ -358,98 +366,108 @@ public final class StationBuilds
             if (!s.contains("stationBuild") || !s.getBooleanOr("buildPaid", true))
                 continue;
             var level = WorldStore.level(server, s.getStringOr("dimension", ""));
-            var base = WorldStore.pos(s, "base");
             StationSpace.chunks(level, s);
-            var blocks = s.getListOrEmpty("stationBuild");
-            String id = s.getStringOr("id", "");
-            int index = progress.getOrDefault(id, 0);
-            if (s.getBooleanOr("stationRegeneration", false))
+            if (!s.contains("buildJournal"))
             {
-                var occupants = level.getEntities(null, WorldStore.bounds(s).box());
-                if (occupants.stream().anyMatch(e -> e instanceof ServerPlayer))
-                    return;
-                if (index == 0)
-                    for (var entity : occupants)
-                        entity.discard();
+                if (TransferLocks.busy(server, s))
+                    continue;
+                var base = WorldStore.pos(s, "base");
+                var positions = s.getListOrEmpty("stationBuild").stream().map(t -> base.offset(WorldStore.pos((CompoundTag) t, "pos"))).toList();
+                var migrated = BuildJournal.begin(level, "station-legacy-build", List.of(s.getStringOr("id", "")), positions);
+                migrated.step(() ->
+                {
+                    s.putString("buildJournal", migrated.fileName());
+                    return null;
+                });
             }
+            var build = BuildJournal.resume(level, s.getStringOr("buildJournal", ""));
+            build.step(() ->
+            {
+                var base = WorldStore.pos(s, "base");
+                var blocks = s.getListOrEmpty("stationBuild");
+                String id = s.getStringOr("id", "");
+                int index = progress.getOrDefault(id, 0);
+                if (s.getBooleanOr("stationRegeneration", false))
+                {
+                    var occupants = level.getEntities(null, WorldStore.bounds(s).box());
+                    if (occupants.stream().anyMatch(e -> e instanceof ServerPlayer))
+                        return null;
+                    if (index == 0)
+                        for (var entity : occupants)
+                            entity.discard();
+                }
 
-            StationService.PLACING.set(true);
-            try
-            {
-                int end = Math.min(blocks.size(), index + 384);
-                for (; index < end; index++)
+                StationService.PLACING.set(true);
+                try
                 {
-                    var e = blocks.getCompound(index).orElseThrow();
-                    var at = base.offset(WorldStore.pos(e, "pos"));
-                    var state = NbtUtils.readBlockState(level.registryAccess().lookupOrThrow(Registries.BLOCK), e.getCompoundOrEmpty("state"));
-                    if (s.getBooleanOr("stationRegeneration", false) && state.isAir() && level.getBlockEntity(at) instanceof net.minecraft.world.Container container)
-                        container.clearContent();
-                    level.setBlock(at, state, 18);
-                }
-                if (index == blocks.size() && !s.getBooleanOr("stationInitialized", false) && s.getStringOr("template", "").equals("manufacturer_showcase_v1"))
-                    ManufacturerStation.label(level, base);
-            }
-            finally
-            {
-                StationService.PLACING.set(false);
-            }
-            progress.put(id, index);
-            if (index < blocks.size())
-                return;
-            for (var entry : blocks)
-            {
-                var block = (CompoundTag) entry;
-                var position = base.offset(WorldStore.pos(block, "pos"));
-                FuelSystem.provision(level, position, 64);
-            }
-            if (!ShipSystems.enabled(s))
-                SystemsUpgrade.upgrade(level, s);
-            if (!s.getBooleanOr("stationInitialized", false))
-            {
-                for (var device : s.getCompoundOrEmpty("systems").getListOrEmpty("devices"))
-                {
-                    var d = (CompoundTag) device;
-                    if (d.getStringOr("type", "").equals("nullspace:battery"))
-                        d.putInt("energy", 1200);
-                }
-                if (s.contains("encounterKind"))
-                    EncounterSites.stock(level, s);
-                else if (s.getStringOr("owner", "").isEmpty())
-                {
-                    for (var at : BlockPos.betweenClosed(WorldStore.bounds(s).min(), WorldStore.bounds(s).max()))
-                        if ((level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.BarrelBlockEntity || level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity) && level.getBlockEntity(at) instanceof net.minecraft.world.Container container)
-                        {
+                    int end = Math.min(blocks.size(), index + 384);
+                    for (; index < end; index++)
+                    {
+                        var e = blocks.getCompound(index).orElseThrow();
+                        var at = base.offset(WorldStore.pos(e, "pos"));
+                        var state = NbtUtils.readBlockState(level.registryAccess().lookupOrThrow(Registries.BLOCK), e.getCompoundOrEmpty("state"));
+                        if (s.getBooleanOr("stationRegeneration", false) && state.isAir() && level.getBlockEntity(at) instanceof net.minecraft.world.Container container)
                             container.clearContent();
-                            container.setItem(0, new ItemStack(Items.QUARTZ_BLOCK, 32));
-                            container.setItem(1, new ItemStack(Items.IRON_INGOT, 16));
-                            container.setChanged();
-                            break;
-                        }
+                        level.setBlock(at, state, 18);
+                    }
+                    if (index == blocks.size() && !s.getBooleanOr("stationInitialized", false) && s.getStringOr("template", "").equals("manufacturer_showcase_v1"))
+                        ManufacturerStation.label(level, base);
                 }
-                s.putBoolean("stationInitialized", true);
-            }
-            s.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, SpatialAir.SUPPLY_POWER, 1, 0, 2, 0});
-            ShipSystems.changed(level, base, false);
-            s.remove("stationBuild");
-            s.remove("piecesBefore");
-            s.remove("stationRegeneration");
-            // Persist blocks before publishing a ready station. Replay is safe while construction is
-            // inaccessible.
-            try
-            {
-                server.saveEverything(false, true, true);
-                store.save();
-            }
-            catch (RuntimeException e)
-            {
-                s.put("stationBuild", blocks);
-                throw e;
-            }
-            progress.remove(id);
-            if (s.getBooleanOr("foundation", false))
-                StationConstruction.connectConstruction(server, s);
-            else
-                StationConstruction.commissionConstruction(server, s);
+                finally
+                {
+                    StationService.PLACING.set(false);
+                }
+                progress.put(id, index);
+                if (index < blocks.size())
+                    return null;
+                for (var entry : blocks)
+                {
+                    var block = (CompoundTag) entry;
+                    var position = base.offset(WorldStore.pos(block, "pos"));
+                    FuelSystem.provision(level, position, 64);
+                }
+                if (!ShipSystems.enabled(s))
+                    SystemsUpgrade.upgrade(level, s);
+                if (!s.getBooleanOr("stationInitialized", false))
+                {
+                    for (var device : s.getCompoundOrEmpty("systems").getListOrEmpty("devices"))
+                    {
+                        var d = (CompoundTag) device;
+                        if (d.getStringOr("type", "").equals("nullspace:battery"))
+                            d.putInt("energy", 1200);
+                    }
+                    if (s.contains("encounterKind"))
+                        EncounterSites.stock(level, s);
+                    else if (s.getStringOr("owner", "").isEmpty())
+                    {
+                        for (var at : BlockPos.betweenClosed(WorldStore.bounds(s).min(), WorldStore.bounds(s).max()))
+                            if ((level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.BarrelBlockEntity || level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity) && level.getBlockEntity(at) instanceof net.minecraft.world.Container container)
+                            {
+                                container.clearContent();
+                                container.setItem(0, new ItemStack(Items.QUARTZ_BLOCK, 32));
+                                container.setItem(1, new ItemStack(Items.IRON_INGOT, 16));
+                                container.setChanged();
+                                break;
+                            }
+                    }
+                    s.putBoolean("stationInitialized", true);
+                }
+                s.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, SpatialAir.SUPPLY_POWER, 1, 0, 2, 0});
+                ShipSystems.changed(level, base, false);
+                s.remove("stationBuild");
+                s.remove("buildJournal");
+                s.remove("piecesBefore");
+                s.remove("stationRegeneration");
+                com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, WorldStore.pos(s, "controller"), id);
+                progress.remove(id);
+                if (s.getBooleanOr("foundation", false))
+                    StationConstruction.connectConstruction(server, s);
+                else
+                    StationConstruction.commissionConstruction(server, s);
+                return null;
+            });
+            if (!s.contains("stationBuild"))
+                build.commit();
             return;
         }
     }

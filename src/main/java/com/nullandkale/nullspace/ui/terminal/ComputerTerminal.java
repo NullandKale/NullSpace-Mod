@@ -53,7 +53,19 @@ public final class ComputerTerminal
 
     public enum Action
     {
-        INSPECT, REGISTER, LAUNCH, DESTINATIONS, LAND, SYSTEMS, UPGRADE, CLOSE_DOORS, OPEN_DOORS, POWER_AIR, POWER_ENGINES, PRIORITY, POWER_WEAPONS, FIRE, CONFIGURE, DEVICE_REFRESH, DEVICE_ENABLE, DEVICE_DISABLE, DEVICE_RESET, DEVICE_ALLOCATE, DEVICE_CHANNEL, DEVICE_VIEW, PILOT, CHASE, NAVIGATION, FAST_TRAVEL, HELM, PREVIEW_PAD, PREVIEW_SHIP, SHIP_QUOTE, SHIP_BUY, DOCKS, STATION_ARGUMENT, STATION_REFRESH, STATION_SYSTEMS, STATION_WAYPOINT, STATION_START, STATION_MODULE, STATION_GENERATE, STATION_RENAME, STATION_INVITE, STATION_ACCESS, STATION_DOOR, DOCK_NEXT, DOCK_REQUEST, DOCK_ACCEPT, DOCK_CANCEL, DOCK_INNER, DOCK_OUTER, DOCK_BOARD, DOCK_CONSTRUCTION, DOCK_RETURN, DOCK_UNDOCK, DOCK_EMERGENCY, MACHINE_BACK, STATION_REMOVE, STATION_EXPAND, PAD_PROBLEM, PAD_ADVANCED, RECALL_LIST, RECALL_SHIP, RECALL_CANCEL, RECALL_BACK, CONTROLLER_BACK, SHIP_STORE, SHIP_TITLE, STATION_CLAIM, SHIP_SHOW, SHIP_SCRAP
+        INSPECT, REGISTER, LAUNCH, DESTINATIONS, LAND, // pad ship: check, register, depart, land
+        SYSTEMS, UPGRADE, CLOSE_DOORS, OPEN_DOORS, POWER_AIR, POWER_ENGINES, PRIORITY, POWER_WEAPONS, FIRE, CONFIGURE, // engineering
+        DEVICE_REFRESH, DEVICE_ENABLE, DEVICE_DISABLE, DEVICE_RESET, DEVICE_ALLOCATE, DEVICE_CHANNEL, DEVICE_VIEW, // one device
+        PILOT, CHASE, NAVIGATION, FAST_TRAVEL, HELM, // flying and navigation
+        PREVIEW_PAD, PREVIEW_SHIP, SHIP_QUOTE, SHIP_BUY, DOCKS, // previews, shipyard purchase, docks list
+        STATION_ARGUMENT, STATION_REFRESH, STATION_SYSTEMS, STATION_WAYPOINT, STATION_START, STATION_MODULE, STATION_GENERATE, STATION_RENAME, STATION_INVITE, STATION_ACCESS, STATION_DOOR, // station core
+        DOCK_NEXT, DOCK_REQUEST, DOCK_ACCEPT, DOCK_CANCEL, DOCK_INNER, DOCK_OUTER, DOCK_BOARD, DOCK_CONSTRUCTION, DOCK_RETURN, DOCK_UNDOCK, DOCK_EMERGENCY, // docking
+        MACHINE_BACK, // back to the machine screen
+        STATION_REMOVE, STATION_EXPAND, // station builders and build area
+        PAD_PROBLEM, PAD_ADVANCED, // pad diagnostics
+        RECALL_LIST, RECALL_SHIP, RECALL_CANCEL, RECALL_BACK, // recall
+        CONTROLLER_BACK, // back to the controller screen
+        SHIP_STORE, SHIP_TITLE, STATION_CLAIM, SHIP_SHOW, SHIP_SCRAP // storage, titles, claims, scrapping
     }
 
     static final class Session
@@ -88,7 +100,27 @@ public final class ComputerTerminal
 
     static boolean valid(ServerPlayer p, Session s)
     {
-        return p.isAlive() && s.expires >= p.level().getServer().getTickCount() && s.dimension.equals(p.level().dimension().identifier().toString()) && p.distanceToSqr(s.position.getX() + .5, s.position.getY() + .5, s.position.getZ() + .5) <= 64 && p.level().hasChunkAt(s.position) && (StationMenus.supports(s.mode) ? s.mode.equals(StationService.mode(p.level(), s.position)) : s.mode.equals("shipyard") ? p.level().getBlockState(s.position).is(ModBlocks.SHIP_BEACON) : (s.mode.equals("pad") || s.mode.equals("recall")) ? p.level().getBlockState(s.position).is(PadComputers.BLOCK) : EquipmentMenus.supports(s.mode) ? s.mode.equals(ModBlocks.equipmentMode(p.level().getBlockState(s.position))) : ModBlocks.navigation(p.level().getBlockState(s.position)) || s.mode.equals("systems") && p.level().getBlockState(s.position).is(ModBlocks.STATION_CORE)) && p.mayInteract(p.level(), s.position) && StationAccess.mayUse(p, s.position) && !TransferLocks.busy(p) && !TransferLocks.locked(p.level(), s.position);
+        var level = p.level();
+        if (!p.isAlive() || s.expires < level.getServer().getTickCount() || !s.dimension.equals(level.dimension().identifier().toString()))
+            return false;
+        if (p.distanceToSqr(s.position.getX() + .5, s.position.getY() + .5, s.position.getZ() + .5) > 64 || !level.hasChunkAt(s.position))
+            return false;
+        return blockServes(level, s) && p.mayInteract(level, s.position) && StationAccess.mayUse(p, s.position) && !TransferLocks.busy(p) && !TransferLocks.locked(level, s.position);
+    }
+
+    /** The block at the session's position is still the kind of block this session's mode belongs to. */
+    private static boolean blockServes(net.minecraft.server.level.ServerLevel level, Session s)
+    {
+        var state = level.getBlockState(s.position);
+        if (StationMenus.supports(s.mode))
+            return s.mode.equals(StationService.mode(level, s.position));
+        if (s.mode.equals("shipyard"))
+            return state.is(ModBlocks.SHIP_BEACON);
+        if (s.mode.equals("pad") || s.mode.equals("recall"))
+            return state.is(PadComputers.BLOCK);
+        if (EquipmentMenus.supports(s.mode))
+            return s.mode.equals(ModBlocks.equipmentMode(state));
+        return ModBlocks.navigation(state) || s.mode.equals("systems") && state.is(ModBlocks.STATION_CORE);
     }
 
     public static Open issue(ServerPlayer player, BlockPos pos, String message, String mode, String value)
@@ -196,6 +228,39 @@ public final class ComputerTerminal
         return new Open(pos, message.length() > 2048 ? message.substring(0, 2048) : message, mode, value, session.id, List.copyOf(session.destinations.values()));
     }
 
+    /** Engineering requests that can change a ship need the revision the player last saw. Reads and navigation do not. */
+    private static boolean changesEngineering(String mode, Request request)
+    {
+        if (!mode.equals("systems") && !EquipmentMenus.supports(mode))
+            return false;
+        var action = request.action();
+        boolean reading = action == Action.SYSTEMS || action == Action.DEVICE_REFRESH || action == Action.DEVICE_VIEW;
+        boolean leaving = action == Action.MACHINE_BACK || action == Action.CONTROLLER_BACK;
+        boolean readOnlyCommand = action == Action.CONFIGURE && EngineeringCommands.readOnly(request.argument());
+        return !reading && !leaving && !readOnlyCommand;
+    }
+
+    /** What a session in this mode may ask for. Menus list their own verbs; the other modes have fixed sets. */
+    private static EnumSet<Action> allowedActions(String mode)
+    {
+        var allowed = EnumSet.noneOf(Action.class);
+        if (StationMenus.supports(mode))
+            StationMenus.entries(mode).stream().filter(e -> !e.verb().equals("station_argument")).forEach(e -> allowed.add(Action.valueOf(e.verb().toUpperCase(Locale.ROOT))));
+        else if (EquipmentMenus.supports(mode))
+            EquipmentMenus.entries(mode).forEach(e -> allowed.add(Action.valueOf(e.verb().toUpperCase(Locale.ROOT))));
+        else
+            allowed.addAll(switch (mode)
+            {
+                case "shipyard" -> EnumSet.of(Action.SHIP_QUOTE, Action.SHIP_BUY);
+                case "recall" -> EnumSet.of(Action.RECALL_LIST, Action.RECALL_SHIP, Action.RECALL_CANCEL, Action.RECALL_BACK, Action.SHIP_STORE, Action.SHIP_TITLE, Action.SHIP_SHOW, Action.SHIP_SCRAP);
+                case "pad" -> EnumSet.of(Action.RECALL_LIST, Action.INSPECT, Action.REGISTER, Action.PREVIEW_PAD, Action.PAD_PROBLEM, Action.PAD_ADVANCED, Action.PREVIEW_SHIP);
+                case "ship" -> EnumSet.of(Action.INSPECT, Action.LAUNCH, Action.LAND, Action.DESTINATIONS, Action.SYSTEMS, Action.FIRE, Action.PILOT, Action.CHASE, Action.NAVIGATION);
+                case "navigation" -> EnumSet.of(Action.FAST_TRAVEL, Action.HELM);
+                default -> EnumSet.of(Action.SYSTEMS, Action.UPGRADE, Action.CLOSE_DOORS, Action.OPEN_DOORS, Action.POWER_AIR, Action.POWER_ENGINES, Action.POWER_WEAPONS, Action.PRIORITY, Action.CONFIGURE);
+            });
+        return allowed;
+    }
+
     /**
      * Validation is also exercised by local server tests; rejects never consume another player's
      * session.
@@ -210,22 +275,17 @@ public final class ComputerTerminal
             sessions(player.level().getServer()).remove(player.getUUID());
             throw new IllegalArgumentException("Computer moved, changed, is out of range, or session expired. Reopen it.");
         }
-        var allowed = StationMenus.supports(s.mode) ? StationMenus.entries(s.mode).stream().filter(e -> !e.verb().equals("station_argument")).map(e -> Action.valueOf(e.verb().toUpperCase(Locale.ROOT))).collect(java.util.stream.Collectors.toSet()) : EquipmentMenus.supports(s.mode) ? EquipmentMenus.entries(s.mode).stream().map(e -> Action.valueOf(e.verb().toUpperCase(Locale.ROOT))).collect(java.util.stream.Collectors.toSet()) : s.mode.equals("shipyard") ? Set.of(Action.SHIP_QUOTE, Action.SHIP_BUY) : s.mode.equals("recall") ? Set.of(Action.RECALL_LIST, Action.RECALL_SHIP, Action.RECALL_CANCEL, Action.RECALL_BACK, Action.SHIP_STORE, Action.SHIP_TITLE, Action.SHIP_SHOW, Action.SHIP_SCRAP) : s.mode.equals("pad") ? Set.of(Action.RECALL_LIST, Action.INSPECT, Action.REGISTER, Action.PREVIEW_PAD, Action.PAD_PROBLEM, Action.PAD_ADVANCED, Action.PREVIEW_SHIP) : s.mode.equals("ship") ? Set.of(Action.INSPECT, Action.LAUNCH, Action.LAND, Action.DESTINATIONS, Action.SYSTEMS, Action.FIRE, Action.PILOT, Action.CHASE, Action.NAVIGATION).stream().collect(java.util.stream.Collectors.toSet()) : s.mode.equals("navigation") ? Set.of(Action.FAST_TRAVEL, Action.HELM) : Set.of(Action.SYSTEMS, Action.UPGRADE, Action.CLOSE_DOORS, Action.OPEN_DOORS, Action.POWER_AIR, Action.POWER_ENGINES, Action.POWER_WEAPONS, Action.PRIORITY, Action.CONFIGURE);
+        var allowed = allowedActions(s.mode);
+        var at = player.level().getBlockState(s.position);
         if (s.mode.equals("ship"))
             allowed.add(Action.DOCKS);
         if (player.level().getBlockEntity(s.position) instanceof MachineBlockEntity)
-        {
-            allowed = new HashSet<>(allowed);
             allowed.add(Action.MACHINE_BACK);
-        }
-        if (ModBlocks.navigation(player.level().getBlockState(s.position)) || player.level().getBlockState(s.position).is(ModBlocks.STATION_CORE))
-        {
-            allowed = new HashSet<>(allowed);
+        if (ModBlocks.navigation(at) || at.is(ModBlocks.STATION_CORE))
             allowed.add(Action.CONTROLLER_BACK);
-        }
         if (!allowed.contains(request.action()))
             throw new IllegalArgumentException("Action does not belong to this controller");
-        if ((s.mode.equals("systems") || EquipmentMenus.supports(s.mode)) && request.action() != Action.SYSTEMS && request.action() != Action.DEVICE_REFRESH && request.action() != Action.DEVICE_VIEW && request.action() != Action.MACHINE_BACK && request.action() != Action.CONTROLLER_BACK && !(request.action() == Action.CONFIGURE && EngineeringCommands.readOnly(request.argument())))
+        if (changesEngineering(s.mode, request))
         {
             var vessel = ShipTopology.resolve(player.level(), s.position);
             if (request.revision() != ShipSystems.revision(player.level(), vessel))
@@ -311,7 +371,16 @@ public final class ComputerTerminal
                         PadComputers.action(player, a.position(), null);
                     else
                     {
-                        String notice = packet.action() == Action.RECALL_SHIP ? ShipStorage.request(player, a.position(), a.argument(), packet.session()) : packet.action() == Action.RECALL_CANCEL ? ShipStorage.cancel(player) : packet.action() == Action.SHIP_STORE ? ShipStorage.store(player, a.position(), a.argument(), packet.session()) : packet.action() == Action.SHIP_TITLE ? ShipStorage.title(player, a.position(), a.argument()) : packet.action() == Action.SHIP_SHOW ? ShipScrap.show(player, a.position(), a.argument()) : packet.action() == Action.SHIP_SCRAP ? ShipScrap.scrap(player, a.position(), a.argument()) : "";
+                        String notice = switch (packet.action())
+                        {
+                            case RECALL_SHIP -> ShipStorage.request(player, a.position(), a.argument(), packet.session());
+                            case RECALL_CANCEL -> ShipStorage.cancel(player);
+                            case SHIP_STORE -> ShipStorage.store(player, a.position(), a.argument(), packet.session());
+                            case SHIP_TITLE -> ShipStorage.title(player, a.position(), a.argument());
+                            case SHIP_SHOW -> ShipScrap.show(player, a.position(), a.argument());
+                            case SHIP_SCRAP -> ShipScrap.scrap(player, a.position(), a.argument());
+                            default -> "";
+                        };
                         ShipStorage.open(player, a.position(), notice);
                     }
                 }

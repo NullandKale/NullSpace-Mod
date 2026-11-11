@@ -6,6 +6,7 @@
   "environment": "*",
   "entrypoints": {
     "fabric-gametest": [
+      "com.nullandkale.nullspace.gameplay.ship.structure.HullCarveGameTest",
       "com.nullandkale.nullspace.gameplay.ship.structure.LooseBlocksGameTest",
       "com.nullandkale.nullspace.worldgen.sites.TerraLandingGameTest",
       "com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest",
@@ -74,7 +75,11 @@
       "com.nullandkale.nullspace.gameplay.shipyard.RoomGalleryGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StationGalleryGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StairWalkGameTest",
-      "com.nullandkale.nullspace.gameplay.shipyard.ShipYardCrashGameTest"
+      "com.nullandkale.nullspace.gameplay.shipyard.ShipYardCrashGameTest",
+      "com.nullandkale.nullspace.perf.PerformanceGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.JournalGameTest",
+      "com.nullandkale.nullspace.gameplay.ship.ShipIntegrityGameTest",
+      "com.nullandkale.nullspace.core.save.PadRegistryRecoveryGameTest"
     ],
     "fabric-client-gametest": [
       "com.nullandkale.nullspace.ui.screen.EquipmentUiClientGameTest",
@@ -107,7 +112,8 @@
       "com.nullandkale.nullspace.gameplay.scene.ExpansionClientGameTest",
       "com.nullandkale.nullspace.content.guide.GuideClientGameTest",
       "com.nullandkale.nullspace.gameplay.ship.FirstTripClientGameTest",
-      "com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest"
+      "com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest",
+      "com.nullandkale.nullspace.perf.SpaceGridClientGameTest"
     ]
   },
   "depends": {

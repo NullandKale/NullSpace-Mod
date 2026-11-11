@@ -20,7 +20,7 @@ Fabric marks this loader version as not stable. It is the version used by this r
 
 Licensing remains pending. The requested policy allows monetized servers and videos, while selling the mod or a fork needs approval. Review [the license proposal](release-license-proposal.md) before adding a root `LICENSE` and license metadata. Do not label this policy MIT, GPL or an unmodified noncommercial license.
 
-## Hosted server
+## Multiplayer requirements
 
 Use a normal Fabric dedicated server, **not** [`scripts/run/server.ps1`](../../scripts/run/server.ps1), [`scripts/run/dev.ps1`](../../scripts/run/dev.ps1) or [`scripts/run/local-server.ps1`](../../scripts/run/local-server.ps1). Those are development tools. The local multiplayer test uses offline identities on loopback and is not a production configuration.
 
@@ -58,9 +58,28 @@ An open server still needs an operator able to moderate and restore backups. The
 
 ## Backups and updates
 
-Back up the **whole world directory**, including all dimensions, `players`, and `nullspace`. Ship metadata and transfer journals must remain consistent with the physical world. Copying only the overworld or only `ships.nbt` is not a valid backup. Stop cleanly for the first backup/restore rehearsal and restore into a separate directory to verify it boots and preserves ships and inventories.
+Back up the **whole world directory**, including all dimensions, `players`, and `nullspace`. The ship store (`ships-a.nbt` and `ships-b.nbt`) and the transfer journals must stay consistent with the physical world. Copying only the overworld or only the store files is not a valid backup. The store is saved with the world, so `/save-off` before a live copy keeps it consistent with the chunks, and `/save-on` afterwards. Stop cleanly for the first backup/restore rehearsal and restore into a separate directory to verify it boots and preserves ships and inventories.
 
-Keep versioned server/mod files, properties and the approved license alongside that backup. Test updates on a restored copy first. Never delete live transfer journals to work around a travel error, run development world-reset scripts on the server, or regenerate players' builds to refresh encounters.
+Keep versioned server/mod files, properties and the approved license alongside that backup. Test updates on a restored copy first. Run no development world-reset scripts on the server, and do not regenerate players' builds to refresh encounters.
+
+### When something is stuck
+
+Do not delete files from `nullspace/transfers/` by hand. Journals are deleted by the server once both store copies include them, so a few recent ones are normal. Use the commands instead (operators only):
+
+| Command | What it does |
+| --- | --- |
+| `/nullspace recovery list` | Journals that could not be recovered, ships whose controller disagrees with the store, and store copies that were damaged at start |
+| `/nullspace recovery show <id>` | The operation, its ships, owner and crew, and what the journal holds |
+| `/nullspace recovery retry <id>` | Run the rollback again, for example after a missing mod is installed again |
+| `/nullspace recovery restore <id> <pad or space>` | Rescue a readable MOVE to a clear registered pad or free space slot, protected by a BUILD journal |
+| `/nullspace recovery export <id>` | Write the hull as a structure file with the ship's records as text under `nullspace/rescue/<id>/`, to rebuild it by hand |
+| `/nullspace recovery discard <id>` | Accept the world as it is and release the locks. For a controller check it clears the stale stamp |
+
+Anything listed stays locked: its area cannot be built into, and its ships cannot travel, be recalled or be stored. Operators see a notice when they join. A journal set aside lives in `nullspace/transfers/quarantine/` with a `.reason.txt` file.
+
+If a store copy was damaged, the server keeps the damaged file (`ships-a.nbt.damaged-<time>`), starts from the other copy, replays committed journals onto it and tells operators. Changes since the last world save can be missing, the same as chunks. If **both** copies are unreadable the server refuses to start and names the files: restore `ships-a.nbt` or `ships-b.nbt` from the world backup.
+
+The pad registry `nullspace-pads.json` works the same way on a smaller scale: the registry it replaced is kept as `nullspace-pads.previous.json`, and an unreadable registry is kept as `nullspace-pads.json.damaged-<time>` while the previous copy is loaded. If you edit it by hand, a mistake that makes it unreadable on `/nullspace reload-pads` is handled the same way.
 
 ## Release checks
 

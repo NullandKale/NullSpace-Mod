@@ -34,7 +34,23 @@ import org.lwjgl.system.MemoryStack;
  */
 public final class SpaceSceneRenderer
 {
-    private static final RenderPipeline COMPOSE = RenderPipelines.register(RenderPipeline.builder().withLocation(Identifier.parse("nullspace:scene_compose")).withVertexShader(Identifier.parse("nullspace:core/scene_compose")).withFragmentShader(Identifier.parse("nullspace:core/scene_compose")).withBindGroupLayout(BindGroupLayouts.PROJECTION).withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1).withPrimitiveTopology(PrimitiveTopology.TRIANGLES).withCull(false).withDepthStencilState(DepthStencilState.DEFAULT).withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15)).build());
+    private static final RenderPipeline COMPOSE = composePipeline();
+
+    private static RenderPipeline composePipeline()
+    {
+        var pipeline = RenderPipeline.builder();
+        pipeline.withLocation(Identifier.parse("nullspace:scene_compose"));
+        pipeline.withVertexShader(Identifier.parse("nullspace:core/scene_compose"));
+        pipeline.withFragmentShader(Identifier.parse("nullspace:core/scene_compose"));
+        pipeline.withBindGroupLayout(BindGroupLayouts.PROJECTION);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1);
+        pipeline.withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
+        pipeline.withCull(false);
+        pipeline.withDepthStencilState(DepthStencilState.DEFAULT);
+        pipeline.withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15));
+        return RenderPipelines.register(pipeline.build());
+    }
+
     private static ScenePackets.Frame frame;
     private static CompoundTag cameraScene;
     private static SceneViewport viewport;
@@ -72,7 +88,7 @@ public final class SpaceSceneRenderer
         if (!scene.getBooleanOr("planetSky", false) && mc.player != null && !observerBounds(observer).contains(mc.player.position()))
             return;
         var offset = camera.pos.subtract(Vec3.atLowerCornerOf(origin));
-        var pose = new ScenePose(new Vec3(observer.getDoubleOr("x", 0), observer.getDoubleOr("y", 0), observer.getDoubleOr("z", 0)), new Quaterniond().rotationYXZ(Math.toRadians(observer.getDoubleOr("yaw", 0)), Math.toRadians(observer.getDoubleOr("pitch", 0)), Math.toRadians(observer.getDoubleOr("roll", 0))));
+        var pose = ScenePose.read(observer);
         if (viewport != null && viewport.target.width != SpaceSettings.width())
         {
             viewport.close();

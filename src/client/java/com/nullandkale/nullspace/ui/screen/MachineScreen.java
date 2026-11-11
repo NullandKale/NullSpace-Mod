@@ -171,50 +171,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         lessPower = button("-", videoMode() ? 220 : 8, 220, 24, () -> send(15, "-1"));
         morePower = button("+", videoMode() ? 288 : 80, 220, 24, () -> send(15, "1"));
         if (mode.contains("scanner"))
-        {
-            button("Nearby", 8, 40, 53, () ->
-            {
-                page = 0;
-                selected = "";
-                nearby = true;
-                updateControls();
-            });
-            button("Destinations", 65, 40, 66, () ->
-            {
-                page = 0;
-                selected = "";
-                nearby = false;
-                updateControls();
-            });
-            for (int i = 0; i < 4; i++)
-            {
-                final int row = i;
-                resultButtons.add(button("Select result " + (i + 1), 8, 61 + i * 15, 120, () ->
-                {
-                    var entries = rows();
-                    if (page * 4 + row < entries.size())
-                        selected = entries.get(page * 4 + row).getStringOr("id", "");
-                    updateControls();
-                }));
-            }
-            setDestination = button("Set destination", 8, 126, 96, () ->
-            {
-                if (!selected.isBlank() && rows().stream().skip(page * 4L).limit(4).anyMatch(r -> selected.equals(r.getStringOr("id", ""))))
-                    send(8, selected);
-            });
-            previous = button("<", 108, 126, 20, () ->
-            {
-                page = Math.max(0, page - 1);
-                selected = "";
-                updateControls();
-            });
-            next = button(">", 132, 126, 20, () ->
-            {
-                page++;
-                selected = "";
-                updateControls();
-            });
-        }
+            button("Open scanner", 8, 44, 120, () -> send(8, ""));
         else if (mode.equals("monitor"))
         {
             previous = button("Previous camera", 64, 160, 90, () -> changeMonitorCamera(-1));
@@ -498,19 +455,12 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         }
         if (mode.contains("scanner"))
         {
-            // Beside the page arrows, clear of the fourth result row.
-            text(g, (page + 1) + "/" + Math.max(1, (rows().size() + 3) / 4), 156, 131, 40);
-            var candidate = rows().stream().filter(r -> selected.equals(r.getStringOr("id", ""))).findFirst();
-            int nameY = 44;
-            for (var line : font.split(Component.literal(candidate.map(r -> r.getStringOr("name", "")).orElse("Choose a place")), 104))
+            int y = 108;
+            for (var line : font.split(Component.literal("Browse destinations with Open scanner."), 176))
             {
-                if (nameY > 62)
-                    break;
-                g.text(font, line, 140, nameY, 0xffdddddd, false);
-                nameY += 9;
+                g.text(font, line, 140, y, 0xffdddddd, false);
+                y += 9;
             }
-            candidate.ifPresent(r -> text(g, r.getStringOr("kind", "").toLowerCase(java.util.Locale.ROOT) + " | " + r.getStringOr("state", ""), 140, 99, 176));
-            text(g, "Destination: " + data.getStringOr("destination", "None"), 140, 108, 176);
         }
         if (details && !mode.contains("scanner"))
         {

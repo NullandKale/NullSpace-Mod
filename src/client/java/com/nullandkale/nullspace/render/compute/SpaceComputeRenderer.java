@@ -42,7 +42,18 @@ public final class SpaceComputeRenderer implements AutoCloseable
 
     private static RenderPipeline pipeline(String name, String fragment, boolean depth)
     {
-        return RenderPipelines.register(RenderPipeline.builder().withLocation(Identifier.parse("nullspace:" + name)).withVertexShader(Identifier.parse("nullspace:core/scene_compose")).withFragmentShader(Identifier.parse("nullspace:core/" + fragment)).withBindGroupLayout(VIEW).withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1).withBindGroupLayout(BindGroupLayouts.SAMPLER2).withPrimitiveTopology(PrimitiveTopology.TRIANGLES).withCull(false).withDepthStencilState(depth ? new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true) : new DepthStencilState(CompareOp.ALWAYS_PASS, false)).withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15)).build());
+        var pipeline = RenderPipeline.builder();
+        pipeline.withLocation(Identifier.parse("nullspace:" + name));
+        pipeline.withVertexShader(Identifier.parse("nullspace:core/scene_compose"));
+        pipeline.withFragmentShader(Identifier.parse("nullspace:core/" + fragment));
+        pipeline.withBindGroupLayout(VIEW);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER2);
+        pipeline.withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
+        pipeline.withCull(false);
+        pipeline.withDepthStencilState(depth ? new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true) : new DepthStencilState(CompareOp.ALWAYS_PASS, false));
+        pipeline.withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15));
+        return RenderPipelines.register(pipeline.build());
     }
 
     private static final RenderPipeline SURFACE = pipeline("compute_surface", "compute_surface", true), VOLUME = pipeline("compute_volume", "compute_volume", false);
@@ -140,7 +151,12 @@ public final class SpaceComputeRenderer implements AutoCloseable
 
     public Stats stats()
     {
-        return new Stats(frames, uploadedBytes, surfaceMs, volumeMs, resolveMs, cpuMs, width * (long) height * 64 + SKY_WIDTH * (long) SKY_HEIGHT * 16 + volumeWidth * (long) volumeHeight * (SLICES * 24 + 32) + (depthCopy == null ? 0 : depthCopy.texture().getWidth(0) * (long) depthCopy.texture().getHeight(0) * depthCopy.texture().getFormat().blockSize()) + 2L * (bodyBytes.capacity() + nodeBytes.capacity() + sceneBytes.capacity()) + 224, bodyCount, nodeCount, volumeCount, volumeIntegrationMs, volumeReconstructionMs, atmosphereMs);
+        long targets = width * (long) height * 64 + SKY_WIDTH * (long) SKY_HEIGHT * 16;
+        long volume = volumeWidth * (long) volumeHeight * (SLICES * 24 + 32);
+        long depth = depthCopy == null ? 0 : depthCopy.texture().getWidth(0) * (long) depthCopy.texture().getHeight(0) * depthCopy.texture().getFormat().blockSize();
+        long uploads = 2L * (bodyBytes.capacity() + nodeBytes.capacity() + sceneBytes.capacity());
+        long gpuBytes = targets + volume + depth + uploads + 224;
+        return new Stats(frames, uploadedBytes, surfaceMs, volumeMs, resolveMs, cpuMs, gpuBytes, bodyCount, nodeCount, volumeCount, volumeIntegrationMs, volumeReconstructionMs, atmosphereMs);
     }
 
     public GpuTextureView prefix()

@@ -76,6 +76,11 @@ public final class ShipTitles
     /** Gives the player a valid title unless they already carry one. */
     public static boolean ensureHeld(ServerPlayer player, CompoundTag ship)
     {
+        return com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(player.level().getServer(), "issue-title", () -> ensureHeldRecord(player, ship));
+    }
+
+    private static boolean ensureHeldRecord(ServerPlayer player, CompoundTag ship)
+    {
         if (holds(player, ship))
             return false;
         var stack = issue(ship);
@@ -96,6 +101,11 @@ public final class ShipTitles
      */
     public static String use(ServerPlayer player, ItemStack stack)
     {
+        return com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(player.level().getServer(), "transfer-title", () -> useRecord(player, stack));
+    }
+
+    private static String useRecord(ServerPlayer player, ItemStack stack)
+    {
         var server = player.level().getServer();
         var ship = shipFor(server, stack);
         if (ship == null || !valid(stack, ship))
@@ -112,7 +122,7 @@ public final class ShipTitles
                 ship.remove("titleSigned");
             else
                 ship.putInt("titleSigned", auth);
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
             return signed ? "Signature cancelled. You still own " + name : "Title signed over. Whoever holds it can now take ownership of " + name + ". Right-click again to cancel";
         }
         if (!signed)
@@ -128,7 +138,7 @@ public final class ShipTitles
         // The same paper now belongs to the new owner; every older copy stops working.
         var fresh = issue(ship);
         stack.set(DataComponents.CUSTOM_DATA, fresh.get(DataComponents.CUSTOM_DATA));
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         if (!previous.isEmpty())
         {
             var old = server.getPlayerList().getPlayer(java.util.UUID.fromString(previous));

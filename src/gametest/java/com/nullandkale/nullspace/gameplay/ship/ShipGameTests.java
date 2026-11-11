@@ -523,7 +523,11 @@ public final class ShipGameTests
         });
     }
 
-    @GameTest
+    /**
+     * Picks the first free orbit slot, holds its chunk and launches ten ticks later, so it runs in its own environment, alone:
+     * another test launching at the same time would take the slot, and the next one has not loaded its entities.
+     */
+    @GameTest(environment = "nullspace:ship_round_trip")
     public void transferRoundTripAndInterruptedTransfers(GameTestHelper ctx)
     {
         var level = ctx.getLevel();
@@ -620,9 +624,11 @@ public final class ShipGameTests
                         throw new TravelService.SimulatedCrash();
                 };
                 boolean interrupted = false;
+                String outcome = "";
                 try
                 {
-                    TravelService.transfer(player, controller, "", ShipService.inspect(level, controller));
+                    var result = TravelService.transfer(player, controller, "", ShipService.inspect(level, controller));
+                    outcome = result.outcome() + " " + result.message();
                 }
                 catch (TravelService.SimulatedCrash expected)
                 {
@@ -633,7 +639,7 @@ public final class ShipGameTests
                     TravelService.failureInjector = point ->
                     {};
                 }
-                ctx.assertTrue(interrupted, "Failure hook must interrupt " + stage);
+                ctx.assertTrue(interrupted, "Failure hook must interrupt " + stage + ", but the transfer returned: " + outcome);
                 TransferRecovery.recover(server);
                 TransferRecovery.recover(server);
                 ctx.assertTrue(player.level() == level && passenger.level() == level, "Recovery must restore both passengers");

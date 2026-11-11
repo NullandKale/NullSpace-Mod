@@ -113,6 +113,44 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             context.getInput().lookAt(base.offset(19, 6, 21));
             context.waitTicks(10);
             context.takeScreenshot("nullspace-placed-monitor");
+            var rangeWindow = new java.util.LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
+            world.getServer().runOnServer(server ->
+            {
+                // A viewing window through the entrance wall makes the range check visible as well.
+                for (var at : BlockPos.betweenClosed(base.offset(16, 6, 9), base.offset(18, 8, 9)))
+                {
+                    rangeWindow.put(at.immutable(), server.overworld().getBlockState(at));
+                    server.overworld().setBlock(at, net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState(), 18);
+                }
+                var p = world.getConnection().getServerPlayer();
+                p.getAbilities().mayfly = true;
+                p.getAbilities().flying = true;
+                p.onUpdateAbilities();
+                p.teleportTo(server.overworld(), base.getX() + 16.5, base.getY() + 6, base.getZ() + 3.5, java.util.Set.of(), 0, 0, true);
+            });
+            context.waitTicks(80);
+            world.getServer().runOnServer(server ->
+            {
+                double distance = world.getConnection().getServerPlayer().position().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(base.offset(19, 6, 21)));
+                if (distance <= 12 || distance > 32)
+                    throw new AssertionError("Range check must remain beyond twelve blocks and within thirty-two: " + distance);
+            });
+            context.runOnClient(c ->
+            {
+                if (MonitorRenderer.preparedCount() != 2)
+                    throw new AssertionError("Mounted displays stay active beyond the old twelve-block radius");
+            });
+            context.getInput().lookAt(base.offset(19, 6, 21));
+            context.takeScreenshot("nullspace-placed-monitor-at-distance");
+            world.getServer().runOnServer(server ->
+            {
+                rangeWindow.forEach((at, state) -> server.overworld().setBlock(at, state, 18));
+                var p = world.getConnection().getServerPlayer();
+                p.teleportTo(server.overworld(), base.getX() + 18.5, base.getY() + 6, base.getZ() + 19.5, java.util.Set.of(), 0, 0, true);
+                p.getAbilities().flying = false;
+                p.onUpdateAbilities();
+            });
+            context.waitTicks(10);
             var monitorFrames = new long[2];
             context.runOnClient(c ->
             {

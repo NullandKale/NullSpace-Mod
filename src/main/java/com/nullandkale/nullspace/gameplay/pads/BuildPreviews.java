@@ -145,9 +145,25 @@ public final class BuildPreviews
         ServerPlayNetworking.send(p, new Preview(a.id, a.controller, a.dimension, a.ship, remaining, remaining == 0 ? new long[0] : a.points.stream().mapToLong(BlockPos::asLong).toArray()));
     }
 
+    /** The player is alive and free, and the pad computer is loaded, still there, in reach and theirs to use. */
+    private static boolean canReach(ServerPlayer p, BlockPos controller)
+    {
+        if (!p.isAlive() || TransferLocks.busy(p) || TransferLocks.locked(p.level(), controller) || !p.level().hasChunkAt(controller))
+            return false;
+        return p.level().getBlockState(controller).is(PadComputers.BLOCK) && p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(controller)) <= 64 && p.mayInteract(p.level(), controller);
+    }
+
+    /** The pad computer is loaded, still there, and within the distance a preview stays on. */
+    private static boolean computerInView(ServerPlayer p, BlockPos controller)
+    {
+        if (p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(controller)) > 160 * 160 || !p.level().hasChunkAt(controller))
+            return false;
+        return p.level().getBlockState(controller).is(PadComputers.BLOCK);
+    }
+
     public static String toggle(ServerPlayer p, BlockPos controller, boolean ship)
     {
-        if (!p.isAlive() || TransferLocks.busy(p) || TransferLocks.locked(p.level(), controller) || !p.level().hasChunkAt(controller) || !p.level().getBlockState(controller).is(PadComputers.BLOCK) || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(controller)) > 64 || !p.mayInteract(p.level(), controller))
+        if (!canReach(p, controller))
             throw new IllegalArgumentException("Move within 8 blocks of the pad computer to change its preview.");
         var previews = state(p.level().getServer()).computeIfAbsent(p.getUUID(), id -> new HashMap<>());
         var previous = previews.get(ship);
@@ -207,7 +223,7 @@ public final class BuildPreviews
             for (var entry : List.copyOf(viewer.getValue().entrySet()))
             {
                 var a = entry.getValue();
-                boolean stop = server.getTickCount() >= a.expires || !p.isAlive() || !a.dimension.equals(p.level().dimension().identifier().toString()) || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(a.controller)) > 160 * 160 || !p.level().hasChunkAt(a.controller) || !p.level().getBlockState(a.controller).is(PadComputers.BLOCK);
+                boolean stop = server.getTickCount() >= a.expires || !p.isAlive() || !a.dimension.equals(p.level().dimension().identifier().toString()) || !computerInView(p, a.controller);
                 if (!stop && a.dirty && server.getTickCount() % 10 == 0)
                 {
                     try

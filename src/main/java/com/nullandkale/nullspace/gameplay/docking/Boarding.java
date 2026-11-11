@@ -114,8 +114,11 @@ public final class Boarding
         t.putLong("targetPort", other == null ? 0 : other.controller().subtract(WorldStore.pos(target, "base")).asLong());
         if (port != null)
             t.putLong("sourceStanding", port.anchors().getFirst().asLong());
-        WorldStore.get(p.level().getServer()).list("stationBoarding").add(t);
-        WorldStore.get(p.level().getServer()).save();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "request-boarding", () ->
+        {
+            WorldStore.get(p.level().getServer()).list("stationBoarding").add(t);
+            return null;
+        });
         p.closeContainer();
         progress(p, t, "Cycling airlocks", false);
     }
@@ -134,6 +137,15 @@ public final class Boarding
     }
 
     static void crew(ServerPlayer p, CompoundTag source, CompoundTag target, boolean construction)
+    {
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "board-crew", () ->
+        {
+            crewRecord(p, source, target, construction);
+            return null;
+        });
+    }
+
+    private static void crewRecord(ServerPlayer p, CompoundTag source, CompoundTag target, boolean construction)
     {
         var store = WorldStore.get(p.level().getServer());
         String home = DockingService.id(source);
@@ -235,13 +247,16 @@ public final class Boarding
                         if (!other.inner().equals(other.outer()))
                             DockingPorts.close(p.level(), other);
                     }
-                    crew(p, source, target, construction);
                     var view = BoardingView.between(SceneService.pose(source), SceneService.pose(target), p.getYRot(), p.getXRot());
-                    t.putBoolean("committed", true);
-                    var root = store.snapshot();
-                    WorldStore.target(root, p.getUUID(), TravelService.SPACE.identifier().toString(), at.getX() + .5, at.getY(), at.getZ() + .5, view.yaw(), view.pitch());
-                    store.document("targets", root.getListOrEmpty("targets"));
-                    store.save();
+                    com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "board-passenger", () ->
+                    {
+                        crew(p, source, target, construction);
+                        t.putBoolean("committed", true);
+                        var root = store.snapshot();
+                        WorldStore.target(root, p.getUUID(), TravelService.SPACE.identifier().toString(), at.getX() + .5, at.getY(), at.getZ() + .5, view.yaw(), view.pitch());
+                        store.document("targets", root.getListOrEmpty("targets"));
+                        return null;
+                    });
                     p.teleportTo(p.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), view.yaw(), view.pitch(), true);
                     p.setDeltaMovement(Vec3.ZERO);
                     if (construction && t.getLongOr("sourcePort", 0) != 0)
@@ -269,7 +284,7 @@ public final class Boarding
                         }
                     }
                     store.list("stationBoarding").remove(t);
-                    store.save();
+                    store.requestSave();
                     wait.remove(token);
                     ready.remove(token);
                     arrived.remove(token);

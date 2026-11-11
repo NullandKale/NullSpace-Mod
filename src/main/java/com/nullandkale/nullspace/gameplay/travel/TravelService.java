@@ -120,9 +120,12 @@ public final class TravelService
     public static void initialize()
     {
         TravelPackets.initialize();
+        TransferRecovery.initialize();
+        JournalCommands.initialize();
         ServerLifecycleEvents.SERVER_STARTED.register(server ->
         {
             WorldStore.get(server);
+            TransferRecovery.registerQuarantined(server);
             TransferRecovery.recover(server);
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server ->

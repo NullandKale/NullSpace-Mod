@@ -420,19 +420,92 @@ public final class StationGameTest
     @GameTest(environment = "nullspace:stations", maxTicks = 2200)
     public void automaticDockBoardReturnAndUndock(GameTestHelper ctx)
     {
+        automaticDockBoardReturnAndUndock(ctx, false);
+    }
+
+    @GameTest(environment = "nullspace:stations_passive_salvage", maxTicks = 2200)
+    public void unpoweredCargoPodSupportsDockingBoardingReturnAndDeparture(GameTestHelper ctx)
+    {
+        automaticDockBoardReturnAndUndock(ctx, true);
+    }
+
+    private static CompoundTag encounterFixture(ServerLevel level, BlockPos base, int kind)
+    {
+        var plan = com.nullandkale.nullspace.worldgen.encounters.EncounterSites.plan(kind, 77);
+        var station = new CompoundTag();
+        station.putString("id", UUID.randomUUID().toString());
+        station.putString("dimension", level.dimension().identifier().toString());
+        station.putLong("base", base.asLong());
+        station.putLong("controller", base.offset(plan.core()).asLong());
+        station.putString("home", "Encounter fixture");
+        station.putString("kind", "station");
+        station.putString("localSpace", "sol_terra");
+        station.putString("access", "public");
+        station.putBoolean("worldGenerated", true);
+        station.putBoolean("salvage", true);
+        station.putDouble("simX", -3000);
+        station.putDouble("simZ", -2800);
+        WorldStore.get(level.getServer()).ships().add(station);
+        for (var entry : plan.blocks().entrySet())
+            level.setBlock(base.offset(entry.getKey()), entry.getValue(), 18);
+        SystemsUpgrade.upgrade(level, station);
+        ShipSystems.tick(level, station);
+        return station;
+    }
+
+    @GameTest(environment = "nullspace:stations_encounter_ports")
+    public void everyGeneratedEncounterHasAClearWalkableDock(GameTestHelper ctx)
+    {
+        var level = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
+        for (int kind = 0; kind < 4; kind++)
+        {
+            var station = encounterFixture(level, new BlockPos(8500000 + kind * 256, 96, 8500000), kind);
+            try
+            {
+                var ports = DockingPorts.ports(level, station);
+                ctx.assertTrue(!ports.isEmpty(), "Every encounter has a usable berth: kind " + kind);
+                for (var port : ports)
+                    ctx.assertTrue(StationConstruction.doorwayObstruction(level, station, port).isEmpty(), "The generated docking passage is clear: kind " + kind);
+            }
+            finally
+            {
+                cleanup(level, station);
+            }
+        }
+        ctx.succeed();
+    }
+
+    private void automaticDockBoardReturnAndUndock(GameTestHelper ctx, boolean passive)
+    {
         var server = ctx.getLevel().getServer();
         var level = server.getLevel(TravelService.SPACE);
         var origin = ctx.absolutePos(new BlockPos(71000, 96, 71000));
         var a = new BlockPos(origin.getX(), 96, origin.getZ());
         var b = a.offset(512, 0, 0);
         var ship = fixture(level, a, true);
-        var station = fixture(level, b, false);
+        var station = passive ? encounterFixture(level, b, 3) : fixture(level, b, false);
         var p = ctx.makeMockServerPlayerInLevel();
         var start = boardingPoint(level, ship);
         p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
         p.getInventory().add(new ItemStack(Items.DIAMOND, 7));
         var source = DockingPorts.firstPort(level, ship);
-        var target = DockingPorts.ports(level, station).stream().filter(port -> port.facing() == Direction.EAST).findFirst().orElseThrow();
+        var target = DockingPorts.ports(level, station).stream().filter(port -> passive || port.facing() == Direction.EAST).findFirst().orElseThrow();
+        if (passive)
+        {
+            ctx.assertTrue(ShipSystems.power(level, station, PowerBus.System.CONTROLS) == 0, "The drifting pod really has no controller power");
+            station.putString("owner", UUID.randomUUID().toString());
+            boolean rejected = false;
+            try
+            {
+                DockingPorts.readPort(level, station, target.controller(), true);
+            }
+            catch (IllegalArgumentException expected)
+            {
+                rejected = true;
+            }
+            station.remove("owner");
+            ctx.assertTrue(rejected, "Claimed ships still require power at their docking hardware");
+        }
         DockingManeuver.request(p, ship, station.getStringOr("id", ""), target.controller().subtract(b));
         ctx.assertTrue(DockingService.motionLocked(ship), "Autopilot immediately owns all movement");
         ctx.runAfterDelay(1000, () ->

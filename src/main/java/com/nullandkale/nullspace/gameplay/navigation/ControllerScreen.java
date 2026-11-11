@@ -59,10 +59,40 @@ public final class ControllerScreen
         session.catalog = catalog(p, session, ship);
     }
 
+    /** What the scanner screen offers. */
+    private static final List<Action> SCANNER_ACTIONS = List.of(Action.SELECT, Action.REFRESH, Action.ADVANCED);
+
+    /** What the ship screen offers, in the order of its buttons. */
+    private static final List<Action> SHIP_ACTIONS = shipActions();
+
+    private static List<Action> shipActions()
+    {
+        var actions = new ArrayList<Action>();
+        actions.add(Action.SELECT);
+        actions.add(Action.LAUNCH);
+        actions.add(Action.JUMP);
+        actions.add(Action.LAND);
+        actions.add(Action.DOCK);
+        actions.add(Action.UNDOCK);
+        actions.add(Action.PILOT);
+        actions.add(Action.CAMERA);
+        actions.add(Action.CLOSE_DOORS);
+        actions.add(Action.AIRLOCK);
+        actions.add(Action.ADVANCED);
+        actions.add(Action.REFRESH);
+        actions.add(Action.INSPECT);
+        actions.add(Action.REVIEW_LOOSE_BLOCKS);
+        actions.add(Action.SHOW_PROBLEM);
+        actions.add(Action.ACCEPT);
+        actions.add(Action.DECLINE);
+        actions.add(Action.CANCEL);
+        return List.copyOf(actions);
+    }
+
     static View view(ServerPlayer p, Session s, CompoundTag ship, boolean opening)
     {
         var target = selected(p, s, ship);
-        var actions = s.scanner ? List.of(Action.SELECT, Action.REFRESH, Action.ADVANCED) : List.of(Action.SELECT, Action.LAUNCH, Action.JUMP, Action.LAND, Action.DOCK, Action.UNDOCK, Action.PILOT, Action.CAMERA, Action.CLOSE_DOORS, Action.AIRLOCK, Action.ADVANCED, Action.REFRESH, Action.INSPECT, Action.REVIEW_LOOSE_BLOCKS, Action.SHOW_PROBLEM, Action.ACCEPT, Action.DECLINE, Action.CANCEL);
+        var actions = s.scanner ? SCANNER_ACTIONS : SHIP_ACTIONS;
         var visibleActions = new ArrayList<>(actions);
         if (!s.scanner)
         {
@@ -74,7 +104,21 @@ public final class ControllerScreen
             visibleActions.add(JourneyService.cruising(ship) ? Action.INVESTIGATE : Action.RESUME);
         var buttons = visibleActions.stream().map(a -> new Button(a, limit(ControllerChecks.reason(p, ship, target, a), 256))).toList();
         String system = LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship)).system();
-        var entries = s.catalog.stream().filter(d -> s.scanner || (d.kind() == ShipDestination.Kind.REGION || d.kind() == ShipDestination.Kind.PAD) && LocalSpaces.get(p.level().getServer(), d.region()).system().equals(system) || target != null && d.id().equals(target.id())).limit(512).map(d -> new Entry(d.id(), d.kind(), limit(d.name(), 160), d.region(), limit(d.state(), 32))).toList();
+        var listed = new ArrayList<Entry>();
+        for (var d : s.catalog)
+        {
+            if (listed.size() >= 512)
+                break;
+            if (!s.scanner)
+            {
+                boolean local = (d.kind() == ShipDestination.Kind.REGION || d.kind() == ShipDestination.Kind.PAD) && LocalSpaces.get(p.level().getServer(), d.region()).system().equals(system);
+                boolean chosen = target != null && d.id().equals(target.id());
+                if (!local && !chosen)
+                    continue;
+            }
+            listed.add(new Entry(d.id(), d.kind(), limit(d.name(), 160), d.region(), limit(d.state(), 32)));
+        }
+        var entries = List.copyOf(listed);
         String location = target == null ? "No destination selected" : LocalSpaces.get(p.level().getServer(), target.region()).systemName() + " / " + LocalSpaces.get(p.level().getServer(), target.region()).name() + " | " + switch (target.kind())
         {
             case REGION -> "Planet/moon";
@@ -82,7 +126,17 @@ public final class ControllerScreen
             case PORT -> "Docking port";
             case VESSEL -> "Station/ship";
         } + " | " + target.state();
-        String summary = ShipSystems.enabled(ship) ? "Fuel: " + (FuelSystem.available(p.level(), ship) > 0 ? "loaded" : "empty") + " | Controls: " + (ShipSystems.power(p.level(), ship, PowerBus.System.CONTROLS) > 0 ? "online" : "no controls power") + " | Engines: " + (NavigationService.propulsion(p.level(), ship) > 0 ? "ready" : "unavailable") + " | Air here: " + (ShipAir.breathable(p.level(), ship, BlockPos.containing(p.getEyePosition())) ? "safe here" : "unsafe here") : "Setup incomplete: connect a generator and an Air Supply";
+        String summary;
+        if (ShipSystems.enabled(ship))
+        {
+            String fuel = FuelSystem.available(p.level(), ship) > 0 ? "loaded" : "empty";
+            String controls = ShipSystems.power(p.level(), ship, PowerBus.System.CONTROLS) > 0 ? "online" : "no controls power";
+            String engines = NavigationService.propulsion(p.level(), ship) > 0 ? "ready" : "unavailable";
+            String air = ShipAir.breathable(p.level(), ship, BlockPos.containing(p.getEyePosition())) ? "safe here" : "unsafe here";
+            summary = "Fuel: " + fuel + " | Controls: " + controls + " | Engines: " + engines + " | Air here: " + air;
+        }
+        else
+            summary = "Setup incomplete: connect a generator and an Air Supply";
         int transferCost = FuelSystem.travelCost(p.level(), ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
         String costs = "Fuel costs: Launch/Land " + FuelSystem.display(transferCost);
         if (JourneyService.active(ship))
@@ -94,7 +148,16 @@ public final class ControllerScreen
             costs += "\nJourney: " + JourneyService.preview(p.level().getServer(), ship, target.region()).seconds() + " seconds; optional signals appear en route";
         var power = ShipSystems.powerStats(p.level(), ship);
         String resources = "Power " + power[0] + " / " + power[1] + " demand | Battery " + power[3] + " | Charging " + power[2] + "\nBow: " + ShipHeading.forward(p.level(), ship).getName() + " (opposite main engine exhaust)";
-        return new View(s.id, s.position, s.scanner, opening, limit(ship.getStringOr("home", "Ship"), 160), summary, target == null ? "" : target.id(), target == null ? "Choose destination" : limit(target.name(), 160), limit(location, 160), limit(java.util.stream.Stream.of(s.message, CourseService.summary(ship), JourneyService.summary(p.level().getServer(), ship), ship.getStringOr("flightStatus", ""), ship.contains("dock") ? "Docking: " + ship.getCompoundOrEmpty("dock").getStringOr("state", "") : "").filter(text -> !text.isBlank()).collect(java.util.stream.Collectors.joining("\n")), 2048), entries, buttons, s.response, locationHere(p, ship), CourseService.active(ship) ? CourseService.summary(ship) : connection(p, ship), CourseService.preview(p, ship, target) + "\nMinimum fuel: " + FuelSystem.display(CourseService.minimumFuel(p, ship, target)) + " + docking reserve\nFuel aboard: " + FuelSystem.display(FuelSystem.available(p.level(), ship)) + "\n" + costs + "\n" + resources, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0);
+        var docking = ship.contains("dock") ? "Docking: " + ship.getCompoundOrEmpty("dock").getStringOr("state", "") : "";
+        String flight = java.util.stream.Stream.of(s.message, CourseService.summary(ship), JourneyService.summary(p.level().getServer(), ship), ship.getStringOr("flightStatus", ""), docking).filter(text -> !text.isBlank()).collect(java.util.stream.Collectors.joining("\n"));
+        String course = CourseService.active(ship) ? CourseService.summary(ship) : connection(p, ship);
+        String minimumFuel = "\nMinimum fuel: " + FuelSystem.display(CourseService.minimumFuel(p, ship, target)) + " + docking reserve";
+        String fuelAboard = "\nFuel aboard: " + FuelSystem.display(FuelSystem.available(p.level(), ship));
+        String plan = CourseService.preview(p, ship, target) + minimumFuel + fuelAboard + "\n" + costs + "\n" + resources;
+        String name = limit(ship.getStringOr("home", "Ship"), 160);
+        String destinationId = target == null ? "" : target.id();
+        String destinationName = target == null ? "Choose destination" : limit(target.name(), 160);
+        return new View(s.id, s.position, s.scanner, opening, name, summary, destinationId, destinationName, limit(location, 160), limit(flight, 2048), entries, buttons, s.response, locationHere(p, ship), course, plan, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0);
     }
 
     /** The star map from this ship's place: every system and feature, with jump fuel and range. */

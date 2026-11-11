@@ -77,7 +77,12 @@ public final class DockingTargets
             else
                 DockingService.chunks(level, s);
             for (var port : DockingPorts.ports(level, s))
-                out.add(new Choice(DockingService.id(s), port.controller().subtract(WorldStore.pos(s, "base")), level.getBlockEntity(port.controller()) instanceof MachineBlockEntity machine && !machine.label.isBlank() ? s.getStringOr("home", "Ship") + " / " + machine.label : portLabel(s, port.controller().subtract(WorldStore.pos(s, "base"))), s.getCompoundOrEmpty("dockLinks").contains(port.id()) ? "Occupied" : "Available"));
+            {
+                var offset = port.controller().subtract(WorldStore.pos(s, "base"));
+                String label = level.getBlockEntity(port.controller()) instanceof MachineBlockEntity machine && !machine.label.isBlank() ? s.getStringOr("home", "Ship") + " / " + machine.label : portLabel(s, offset);
+                String status = s.getCompoundOrEmpty("dockLinks").contains(port.id()) ? "Occupied" : "Available";
+                out.add(new Choice(DockingService.id(s), offset, label, status));
+            }
         }
         out.sort(Comparator.comparing(Choice::label));
         return out.subList(0, Math.min(remoteStations ? 384 : 64, out.size()));
@@ -141,7 +146,11 @@ public final class DockingTargets
     {
         var port = DockingPorts.readPort(p.level(), s, at, false);
         var d = DockingService.link(p.level().getServer(), s, at);
-        return "Door + docking base ready\n" + (d == null ? "No connection" : d.getStringOr("state", "")) + "\nPower controls/doors/air: " + ShipSystems.power(p.level(), s, PowerBus.System.CONTROLS) + "/" + ShipSystems.power(p.level(), s, PowerBus.System.DOORS) + "/" + ShipSystems.power(p.level(), s, PowerBus.System.AIR);
+        String connection = d == null ? "No connection" : d.getStringOr("state", "");
+        int controls = ShipSystems.power(p.level(), s, PowerBus.System.CONTROLS);
+        int doors = ShipSystems.power(p.level(), s, PowerBus.System.DOORS);
+        int air = ShipSystems.power(p.level(), s, PowerBus.System.AIR);
+        return "Door + docking base ready\n" + connection + "\nPower controls/doors/air: " + controls + "/" + doors + "/" + air;
     }
 
     private DockingTargets()

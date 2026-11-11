@@ -19,7 +19,6 @@ import net.minecraft.world.level.gameevent.vibrations.VibrationSystem;
 public final class BlockSupport
 {
     public static final int TRANSFER_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_SKIP_ALL_SIDEEFFECTS;
-    public static final Set<String> PORTABLE_ENTITIES = Set.of("furnace", "chest", "trapped_chest", "ender_chest", "jukebox", "dispenser", "dropper", "sign", "hanging_sign", "brewing_stand", "enchanting_table", "beacon", "skull", "daylight_detector", "hopper", "comparator", "banner", "shulker_box", "conduit", "barrel", "smoker", "blast_furnace", "lectern", "bell", "campfire", "beehive", "sculk_sensor", "calibrated_sculk_sensor", "sculk_catalyst", "sculk_shrieker", "chiseled_bookshelf", "shelf", "brushable_block", "decorated_pot", "crafter", "copper_golem_statue");
 
     /** Every block entity travels with its saved data, except a piston that is mid-move. */
     public static boolean portable(BlockEntityType<?> type)

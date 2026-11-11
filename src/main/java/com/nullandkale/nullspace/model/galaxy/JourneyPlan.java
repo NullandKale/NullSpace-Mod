@@ -13,6 +13,15 @@ public record JourneyPlan(long seed, String site, int seconds, int contactSecond
     /** Signal kinds: growing station, damaged freighter, salvage ship, drifting cargo. */
     public static final int KINDS = 4;
 
+    /** Most trips stay quiet; mix the nonce independently of encounter kind and arrival timing. */
+    public boolean hasSignal()
+    {
+        long roll = seed ^ (seed >>> 33);
+        roll *= 0xff51afd7ed558ccdL;
+        roll ^= roll >>> 33;
+        return (roll & 3) == 0;
+    }
+
     /** The route's own plan, with a signal fixed by the route (used for quotes and tests). */
     public static JourneyPlan between(long worldSeed, String from, String to, double lightYears, int tier)
     {

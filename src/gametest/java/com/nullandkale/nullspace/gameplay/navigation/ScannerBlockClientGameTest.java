@@ -78,6 +78,17 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 32, 22));
             c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 100);
             c.takeScreenshot("nullspace-scanner-upgrades");
+            c.runOnClient(mc ->
+            {
+                var screen = (MachineScreen) mc.gui.screen();
+                var buttons = screen.children().stream().filter(net.minecraft.client.gui.components.AbstractButton.class::isInstance).map(net.minecraft.client.gui.components.AbstractButton.class::cast).toList();
+                if (buttons.stream().anyMatch(b -> Set.of("Nearby", "Destinations", "Set destination").contains(b.getMessage().getString())))
+                    throw new AssertionError("Upgrades must not expose a second scanner destination browser");
+                var open = buttons.stream().filter(b -> b.getMessage().getString().equals("Open scanner")).findFirst().orElseThrow();
+                screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(open.getX() + open.getWidth() / 2.0, open.getY() + open.getHeight() / 2.0, new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
+            });
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+            c.takeScreenshot("nullspace-scanner-return-from-upgrades");
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();

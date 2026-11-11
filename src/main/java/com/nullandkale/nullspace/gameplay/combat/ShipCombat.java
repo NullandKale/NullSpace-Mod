@@ -223,7 +223,7 @@ public final class ShipCombat
                 if (attacker != null)
                     event.putString("attacker", attacker.getUUID().toString());
                 pending.add(event);
-                store.save();
+                store.requestSave();
                 continue;
             }
             apply(space, ship, physical, power, attacker, id);
@@ -300,7 +300,7 @@ public final class ShipCombat
                 changed = true;
             }
             if (changed)
-                store.save();
+                store.requestSave();
         });
     }
 

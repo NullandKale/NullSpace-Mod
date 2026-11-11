@@ -10,8 +10,8 @@
 param(
     [Parameter(Mandatory)][ValidatePattern('^v[0-9A-Za-z][0-9A-Za-z.+-]*$')][string]$Tag,
     [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')][string]$Repository='NullandKale/NullSpace-Mod',
-    [ValidatePattern('^[A-Za-z0-9.-]+$')][string]$Server='129.121.160.249',
-    [string]$SshKey=(Join-Path $env:USERPROFILE '.ssh/nullspace_host'),
+    [Parameter(Mandatory)] [ValidatePattern('^[A-Za-z0-9.-]+$')][string]$Server,
+    [Parameter(Mandatory)] [string]$SshKey,
     [switch]$CheckOnly
 )
 $ErrorActionPreference='Stop'

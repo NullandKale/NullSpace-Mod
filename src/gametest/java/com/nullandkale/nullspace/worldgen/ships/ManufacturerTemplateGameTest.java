@@ -52,7 +52,7 @@ public final class ManufacturerTemplateGameTest
         {
             WorldStore.writeObserver = progress ->
             {
-                if (!changed[0] && progress.file().getFileName().toString().equals("ships.nbt"))
+                if (!changed[0] && progress.file().getFileName().toString().startsWith("ships-"))
                 {
                     changed[0] = true;
                     store.document("manufacturerSaveProbe", net.minecraft.nbt.IntTag.valueOf(2));
@@ -64,12 +64,13 @@ public final class ManufacturerTemplateGameTest
         {
             WorldStore.writeObserver = observer;
         }
-        ctx.assertTrue(changed[0] && WorldStore.read(store.directory.resolve("ships.nbt")).getIntOr("manufacturerSaveProbe", -1) == 1, "The committed file is the complete original snapshot, not changing live metadata");
+        ctx.assertTrue(changed[0] && WorldStore.read(store.storeFile()).getIntOr("manufacturerSaveProbe", -1) == 1, "The committed file is the complete original snapshot, not changing live metadata");
         ctx.runAfterDelay(25, () ->
         {
             try
             {
-                ctx.assertTrue(WorldStore.read(store.directory.resolve("ships.nbt")).getIntOr("manufacturerSaveProbe", -1) == 2, "A change during IO retains its request and reaches the next automatic save");
+                WorldStore.worldSaved(ctx.getLevel().getServer(), false);
+                ctx.assertTrue(WorldStore.read(store.storeFile()).getIntOr("manufacturerSaveProbe", -1) == 2, "A change during IO retains its request and reaches the next world save");
                 store.document("manufacturerSaveProbe", null);
                 ctx.succeed();
             }

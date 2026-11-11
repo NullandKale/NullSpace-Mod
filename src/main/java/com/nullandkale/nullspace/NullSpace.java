@@ -2,6 +2,7 @@ package com.nullandkale.nullspace;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.guide.FieldGuide;
+import com.nullandkale.nullspace.content.machine.ControllerBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.WorldStore;
@@ -26,6 +27,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadComputers;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.scene.TerrainService;
 import com.nullandkale.nullspace.gameplay.ship.ShipDiagnostics;
+import com.nullandkale.nullspace.gameplay.ship.ShipIntegrity;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.shipyard.RandomYard;
 import com.nullandkale.nullspace.gameplay.shipyard.RoomGallery;
@@ -62,6 +64,7 @@ public final class NullSpace implements ModInitializer
         PadComputers.initialize();
         BuildPreviews.initialize();
         ModBlocks.initialize();
+        ControllerBlockEntity.initialize();
         SiteThreats.initialize();
         VillagePorts.initialize();
         MachineMenus.initialize();
@@ -69,6 +72,7 @@ public final class NullSpace implements ModInitializer
         ComputerService.initialize();
         ShipService.initialize();
         ShipDiagnostics.initialize();
+        ShipIntegrity.initialize();
         TravelService.initialize();
         ShipStorage.initialize();
         PlayerRescue.initialize();
@@ -91,7 +95,6 @@ public final class NullSpace implements ModInitializer
         LifeSupport.initialize();
         PlaytestWorld.initialize();
         ShipLab.initialize();
-        WorldStore.initialize();
         ShipYardService.initialize();
         ShipYard.initialize();
         RandomYard.initialize();

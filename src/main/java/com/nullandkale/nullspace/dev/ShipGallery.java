@@ -44,7 +44,28 @@ public final class ShipGallery
         }
     }
 
-    public static final List<Plot> PLOTS = List.of(new Plot(1, "Scout", "Basic round trip", ""), new Plot(2, "Glass cabin", "See the cabin", ""), new Plot(3, "Cargo", "Check containers", ""), new Plot(4, "Airlock", "One door at a time", ""), new Plot(5, "Upper deck", "Walk upstairs", ""), new Plot(6, "Half steps", "Slabs are fittings", ""), new Plot(7, "Twin engines", "Two clear exhausts", ""), new Plot(8, "Iron door", "Use the buttons", ""), new Plot(9, "Roof leak", "Patch missing roof", "sealed"), new Plot(10, "No engine", "Install an engine", "engine"), new Plot(11, "Blocked engine", "Clear the exhaust", "exhaust"), new Plot(12, "Sky obstruction", "Remove high glass", "obstruction"), new Plot(13, "Blank 01", "Your test build", ""), new Plot(14, "Blank 02", "Your test build", ""), new Plot(15, "Blank 03", "Your test build", ""), new Plot(16, "Blank 04", "Your test build", ""), new Plot(17, "Blank 05", "Your test build", ""), new Plot(18, "Blank 06", "Your test build", ""), new Plot(19, "Blank 07", "Your test build", ""), new Plot(20, "Blank 08", "Your test build", ""));
+    public static final List<Plot> PLOTS = plots();
+
+    private static List<Plot> plots()
+    {
+        var plots = new ArrayList<Plot>();
+        plots.add(new Plot(1, "Scout", "Basic round trip", ""));
+        plots.add(new Plot(2, "Glass cabin", "See the cabin", ""));
+        plots.add(new Plot(3, "Cargo", "Check containers", ""));
+        plots.add(new Plot(4, "Airlock", "One door at a time", ""));
+        plots.add(new Plot(5, "Upper deck", "Walk upstairs", ""));
+        plots.add(new Plot(6, "Half steps", "Slabs are fittings", ""));
+        plots.add(new Plot(7, "Twin engines", "Two clear exhausts", ""));
+        plots.add(new Plot(8, "Iron door", "Use the buttons", ""));
+        plots.add(new Plot(9, "Roof leak", "Patch missing roof", "sealed"));
+        plots.add(new Plot(10, "No engine", "Install an engine", "engine"));
+        plots.add(new Plot(11, "Blocked engine", "Clear the exhaust", "exhaust"));
+        plots.add(new Plot(12, "Sky obstruction", "Remove high glass", "obstruction"));
+        // The rest are blank pads for your own test builds.
+        for (int number = 13; number <= 20; number++)
+            plots.add(new Plot(number, String.format("Blank %02d", number - 12), "Your test build", ""));
+        return List.copyOf(plots);
+    }
 
     public record Gallery(BlockPos origin, String prefix)
     {

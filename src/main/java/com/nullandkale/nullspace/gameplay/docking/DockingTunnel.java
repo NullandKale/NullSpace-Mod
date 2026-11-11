@@ -63,31 +63,31 @@ public final class DockingTunnel
         if (dock.getBooleanOr("construction", false) || target == null || !source.inner().equals(source.outer()) || !target.inner().equals(target.outer()))
             return;
         var level = server.getLevel(TravelService.SPACE);
-        if (!dock.contains("tunnel"))
+        var tunnel = dock.getCompoundOrEmpty("tunnel");
+        if (tunnel.isEmpty())
         {
             int length = Math.max(1, (int) Math.ceil(Math.clamp(dock.getDoubleOr("gap", .05), .05, 4.05) / 2));
-            var tunnel = new CompoundTag();
             tunnel.put("source", plan(level, source, length));
             tunnel.put("target", plan(level, target, length));
-            dock.put("tunnel", tunnel);
-            try
-            {
-                WorldStore.get(server).save();
-            }
-            catch (RuntimeException failed)
-            {
-                dock.remove("tunnel");
-                throw failed;
-            }
         }
-        for (String side : List.of("source", "target"))
-            for (var tag : dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty(side).getListOrEmpty("blocks"))
-            {
-                var block = (CompoundTag) tag;
-                var at = WorldStore.pos(block, "at");
-                if (level.getBlockState(at).isAir())
-                    level.setBlock(at, state(block.getStringOr("kind", "floor")), 18);
-            }
+        var planned = tunnel;
+        boolean missing = List.of("source", "target").stream().flatMap(side -> planned.getCompoundOrEmpty(side).getListOrEmpty("blocks").stream()).anyMatch(t -> level.getBlockState(WorldStore.pos((CompoundTag) t, "at")).isAir());
+        if (!missing)
+            return;
+        collarBuild(server, dock, planned, "docking-tunnel", () ->
+        {
+            dock.put("tunnel", planned);
+            dock.remove("tunnelRetracted");
+            for (String side : List.of("source", "target"))
+                for (var tag : dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty(side).getListOrEmpty("blocks"))
+                {
+                    var block = (CompoundTag) tag;
+                    var at = WorldStore.pos(block, "at");
+                    if (level.getBlockState(at).isAir())
+                        level.setBlock(at, state(block.getStringOr("kind", "floor")), 18);
+                }
+            return null;
+        });
     }
 
     public static boolean occupied(MinecraftServer server, CompoundTag dock)
@@ -128,14 +128,36 @@ public final class DockingTunnel
     public static void retract(MinecraftServer server, CompoundTag dock)
     {
         var level = server.getLevel(TravelService.SPACE);
+        if (dock.getBooleanOr("tunnelRetracted", false) || !dock.contains("tunnel"))
+            return;
+        collarBuild(server, dock, dock.getCompoundOrEmpty("tunnel"), "retract-tunnel", () ->
+        {
+            for (String side : List.of("source", "target"))
+                for (var tag : dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty(side).getListOrEmpty("blocks"))
+                {
+                    var block = (CompoundTag) tag;
+                    var at = WorldStore.pos(block, "at");
+                    if (level.getBlockState(at).equals(state(block.getStringOr("kind", "floor"))))
+                        level.setBlock(at, Blocks.AIR.defaultBlockState(), 18);
+                }
+            dock.putBoolean("tunnelRetracted", true);
+            return null;
+        });
+    }
+
+    private static void collarBuild(MinecraftServer server, CompoundTag dock, CompoundTag tunnel, String operation, java.util.function.Supplier<Void> edit)
+    {
+        var level = server.getLevel(TravelService.SPACE);
+        var footprints = new ArrayList<List<BlockPos>>();
         for (String side : List.of("source", "target"))
-            for (var tag : dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty(side).getListOrEmpty("blocks"))
-            {
-                var block = (CompoundTag) tag;
-                var at = WorldStore.pos(block, "at");
-                if (level.getBlockState(at).equals(state(block.getStringOr("kind", "floor"))))
-                    level.setBlock(at, Blocks.AIR.defaultBlockState(), 18);
-            }
+        {
+            var positions = tunnel.getCompoundOrEmpty(side).getListOrEmpty("blocks").stream().map(t -> WorldStore.pos((CompoundTag) t, "at")).toList();
+            if (!positions.isEmpty())
+                footprints.add(positions);
+        }
+        if (footprints.isEmpty())
+            return;
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.runRegions(level, operation, List.of(dock.getStringOr("source", ""), dock.getStringOr("target", "")), footprints, edit);
     }
 
     private record Collar(CompoundTag dock, CompoundTag plan)

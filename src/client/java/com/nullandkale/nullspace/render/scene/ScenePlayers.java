@@ -78,7 +78,7 @@ final class ScenePlayers
             if (background && subject.getStringOr("id", "").equals(scene.getStringOr("observer", "")))
                 continue;
             var base = BlockPos.of(subject.getLongOr("base", 0));
-            var pose = new ScenePose(new Vec3(subject.getDoubleOr("x", 0), subject.getDoubleOr("y", 0), subject.getDoubleOr("z", 0)), new Quaterniond().rotationYXZ(Math.toRadians(subject.getDoubleOr("yaw", 0)), Math.toRadians(subject.getDoubleOr("pitch", 0)), Math.toRadians(subject.getDoubleOr("roll", 0))));
+            var pose = ScenePose.read(subject);
             for (var playerTag : subject.getListOrEmpty("players"))
             {
                 if (seen.size() >= 32)
@@ -145,7 +145,7 @@ final class ScenePlayers
         if (!background)
         {
             var observer = scene.getListOrEmpty("subjects").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(scene.getStringOr("observer", ""))).findFirst().orElse(new CompoundTag());
-            var parent = new ScenePose(new Vec3(observer.getDoubleOr("x", 0), observer.getDoubleOr("y", 0), observer.getDoubleOr("z", 0)), new Quaterniond().rotationYXZ(Math.toRadians(observer.getDoubleOr("yaw", 0)), Math.toRadians(observer.getDoubleOr("pitch", 0)), Math.toRadians(observer.getDoubleOr("roll", 0))));
+            var parent = ScenePose.read(observer);
             var origin = BlockPos.of(observer.getLongOr("base", 0));
             var seenEntities = new HashSet<String>();
             for (var t : scene.getListOrEmpty("entities"))
@@ -195,7 +195,7 @@ final class ScenePlayers
                 var subject = (CompoundTag) t;
                 if (!scene.getListOrEmpty("terrain").isEmpty() && subject == observer)
                     continue;
-                var subjectPose = new ScenePose(new Vec3(subject.getDoubleOr("x", 0), subject.getDoubleOr("y", 0), subject.getDoubleOr("z", 0)), new Quaterniond().rotationYXZ(Math.toRadians(subject.getDoubleOr("yaw", 0)), Math.toRadians(subject.getDoubleOr("pitch", 0)), Math.toRadians(subject.getDoubleOr("roll", 0))));
+                var subjectPose = ScenePose.read(subject);
                 submitVisuals(mc, subject, subject, 32, subjectPose, BlockPos.of(subject.getLongOr("base", 0)), eye, camera, nodes, visibleBlocks);
             }
             for (var t : scene.getListOrEmpty("terrain"))

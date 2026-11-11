@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.ui.menu.StationMenus;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -398,6 +399,51 @@ public final class ControllerTerminal implements ControllerApplication
         pendingTicks = 100;
     }
 
+    /** One line under each button of the controller screen in this mode. An empty line is a button with nothing to add. */
+    private static List<String> describeButtons(boolean systems, boolean ship)
+    {
+        var descriptions = new ArrayList<String>();
+        if (systems)
+        {
+            descriptions.add("Read power and rooms");
+            descriptions.add("Enable finite air/power");
+            descriptions.add("Queue powered closure");
+            descriptions.add("Queue powered opening");
+            descriptions.add("Cycle requested power");
+            descriptions.add("Cycle requested power");
+            descriptions.add("Cycle requested power");
+            descriptions.add("Toggle air/controls first");
+            descriptions.add("");
+            descriptions.add("Run engineering command");
+        }
+        else if (ship)
+        {
+            descriptions.add("Validate ship and cabin");
+            descriptions.add("Depart for space");
+            descriptions.add("");
+            descriptions.add("Land at named pad");
+            descriptions.add("List registered pads");
+            descriptions.add("Power, air and door controls");
+            descriptions.add("Fire mounted cannon");
+            descriptions.add("Thrust and steer in local space");
+            descriptions.add("Orbit third-person view");
+            descriptions.add("Jump to a planet or solar system");
+            descriptions.add("Stations and automatic docking");
+        }
+        else
+        {
+            descriptions.add("Scan surface and border");
+            descriptions.add("");
+            descriptions.add("Register or rename pad");
+            descriptions.add("Toggle cyan pad highlights");
+            descriptions.add("Toggle amber ship highlights");
+            descriptions.add("Highlight the diagnosed block");
+            descriptions.add("Registration and footprint details");
+            descriptions.add("Recover your empty ship from space");
+        }
+        return descriptions;
+    }
+
     @Override
     public TerminalBuffer display()
     {
@@ -485,7 +531,7 @@ public final class ControllerTerminal implements ControllerApplication
             return display;
         }
         List<String> labels = systems ? List.of("refresh", "upgrade systems", "close all doors", "open all doors", "air power", "engine power", "weapon power", "priority", "command", "execute") : ship ? List.of("inspect ship", "launch", "destination", "land", "destinations", "systems", "fire weapon", "pilot ship", "ship camera", "navigation", "docking") : List.of("inspect pad", "pad name", "register / save name", "pad preview", "ship preview", "show problem", "advanced", "recall ships");
-        List<String> descriptions = systems ? List.of("Read power and rooms", "Enable finite air/power", "Queue powered closure", "Queue powered opening", "Cycle requested power", "Cycle requested power", "Cycle requested power", "Toggle air/controls first", "", "Run engineering command") : ship ? List.of("Validate ship and cabin", "Depart for space", "", "Land at named pad", "List registered pads", "Power, air and door controls", "Fire mounted cannon", "Thrust and steer in local space", "Orbit third-person view", "Jump to a planet or solar system", "Stations and automatic docking") : List.of("Scan surface and border", "", "Register or rename pad", "Toggle cyan pad highlights", "Toggle amber ship highlights", "Highlight the diagnosed block", "Registration and footprint details", "Recover your empty ship from space");
+        List<String> descriptions = describeButtons(systems, ship);
         for (int i = 0; i < count(); i++)
             menu(12 + i, i, labels.get(i), i == field() ? "[" + name + "]" : descriptions.get(i), labels.get(i).replace(' ', '_'));
         drawAllocations();

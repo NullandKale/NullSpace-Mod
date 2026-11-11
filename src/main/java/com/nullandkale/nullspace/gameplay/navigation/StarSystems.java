@@ -38,7 +38,7 @@ public final class StarSystems
             // Resolve only metadata. This does not load surface chunks or construct every station.
             for (var region : destinations(server))
                 SceneCatalog.region(server, region.id());
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
         });
     }
 
@@ -60,7 +60,7 @@ public final class StarSystems
         {
             var galaxy = GalaxyPlan.generate(server.overworld().getSeed());
             document.merge(encode(galaxy));
-            store.save();
+            store.requestSave();
         }
         var context = ServerContext.get(server);
         var cached = context.existing(CACHE);
@@ -68,7 +68,13 @@ public final class StarSystems
             return cached;
         if (document.getIntOr("version", 0) != GalaxyPlan.VERSION)
             throw new IllegalStateException("Unsupported saved galaxy chart version");
-        var galaxy = decode(document);
+        var decoded = decode(document);
+        var galaxy = GalaxyPlan.repairMissingLandings(decoded);
+        if (galaxy != decoded)
+        {
+            document.merge(encode(galaxy));
+            store.requestSave();
+        }
         cached = new Catalog(document, galaxy, destinations(galaxy));
         context.put(CACHE, cached);
         return cached;

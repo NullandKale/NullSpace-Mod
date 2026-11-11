@@ -107,6 +107,6 @@ public record ShipDestination(Kind kind, String reference, BlockPos port, String
         if (JourneyService.cruising(ship))
             throw new IllegalArgumentException("Journey underway: investigate a signal or arrive before changing destination");
         WorldStore.get(p.level().getServer()).repository().mutate(new ShipRepository.ShipId(ship.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate -> candidate.put("destination", destination.save()));
-        WorldStore.get(p.level().getServer()).save();
+        WorldStore.get(p.level().getServer()).requestSave();
     }
 }

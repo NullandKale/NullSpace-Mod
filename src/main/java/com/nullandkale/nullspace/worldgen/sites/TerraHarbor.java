@@ -168,21 +168,25 @@ public final class TerraHarbor
                 level.getChunk(base.offset(x, 0, z));
         if (!site.getBooleanOr("built", false))
         {
-            for (var e : plan().entrySet())
-                level.setBlock(base.offset(e.getKey()), e.getValue(), 3);
-            var computer = base.offset(COMPUTER);
-            try
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.run(level, "terra-harbor", List.of(), plan().keySet().stream().map(base::offset).toList(), () ->
             {
-                PadComputers.register(level, computer, new PadScanner.Pad(base.getX() + 15, base.getX() + 46, base.getY(), base.getZ() + 4, base.getZ() + 35), "Terra Harbor", false);
-            }
-            catch (java.io.IOException error)
-            {
-                throw new IllegalStateException("Cannot register Terra Harbor", error);
-            }
-            server.saveEverything(false, true, true);
-            site.putBoolean("built", true);
-            site.putInt("version", VERSION);
-            store.save();
+                for (var e : plan().entrySet())
+                    level.setBlock(base.offset(e.getKey()), e.getValue(), 3);
+                var computer = base.offset(COMPUTER);
+                try
+                {
+                    PadComputers.register(level, computer, new PadScanner.Pad(base.getX() + 15, base.getX() + 46, base.getY(), base.getZ() + 4, base.getZ() + 35), "Terra Harbor", false);
+                }
+                catch (java.io.IOException error)
+                {
+                    throw new IllegalStateException("Cannot register Terra Harbor", error);
+                }
+                server.saveEverything(false, true, true);
+                site.putBoolean("built", true);
+                site.putInt("version", VERSION);
+                store.save();
+                return null;
+            });
         }
         return base;
     }

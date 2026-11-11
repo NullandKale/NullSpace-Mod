@@ -6,7 +6,7 @@
       "pages": [
         "This ship is your home. Food is in your inventory. Furnace fuel goes in the generator and feeds both power and engines. Open the Ship Controller to choose where to go. Keep some supplies for getting back.",
         "Choose a planet, landing pad or docking port, then press Jump. You can walk around while travelling. The countdown shows how long is left. Each trip may pick up a new signal: salvage, a garden or cargo.",
-        "To explore a signal, press Investigate signal, choose its port, then Dock. Undock and Resume journey to go on; progress is kept. Far from Sol, wrecks fight back. Signals fade once you arrive.",
+        "Signals are optional. In Trip, choose Visit signal to pause and dock automatically. Return aboard and choose Continue journey to undock and resume; paid progress is kept. Far from Sol, wrecks fight back. Signals fade once you arrive.",
         "Search by room: food in the galley, fuel beside engineering, tools and parts at workbenches, building materials in cargo. Scouts share small spaces. Larger ships have separate rooms. Supplies do not refill when you come back."
       ]
     },

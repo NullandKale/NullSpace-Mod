@@ -24,6 +24,24 @@ import net.minecraft.world.level.block.Blocks;
 /** Step 6: journey signals are random, fade afterwards, and derelicts fight back by danger. */
 public final class JourneySignalGameTest
 {
+    @GameTest
+    public void signalsAreOptionalAndARecentlyAnnouncedSignalStartsACooldown(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var ship = record(TravelService.SPACE.identifier().toString(), "sol_terra");
+        ship.putLong("nextSignalNonce", 0);
+        ctx.assertTrue(JourneyService.plan(server, ship, "sol_luna", 2000).getIntOr("contactAt", 0) < Integer.MAX_VALUE, "A signal-bearing trip can announce a contact");
+        ship.putLong("lastSignalAt", server.overworld().getGameTime());
+        ship.putLong("nextSignalNonce", 0);
+        ctx.assertTrue(JourneyService.plan(server, ship, "sol_luna", 2000).getIntOr("contactAt", 0) == Integer.MAX_VALUE, "A fresh trip does not bypass the vessel's five-minute cooldown");
+        ship.putLong("lastSignalAt", server.overworld().getGameTime() - 6000);
+        ship.putLong("nextSignalNonce", 0);
+        ctx.assertTrue(JourneyService.plan(server, ship, "sol_luna", 2000).getIntOr("contactAt", 0) < Integer.MAX_VALUE, "Signals return when the cooldown expires");
+        ship.putLong("nextSignalNonce", 1);
+        ctx.assertTrue(JourneyService.plan(server, ship, "sol_luna", 2000).getIntOr("contactAt", 0) == Integer.MAX_VALUE, "A quiet roll has no contact even after the cooldown");
+        ctx.succeed();
+    }
+
     private static final String SPACE = TravelService.SPACE.identifier().toString();
 
     /** A small sealed stone-brick room registered as a ready salvage site. */

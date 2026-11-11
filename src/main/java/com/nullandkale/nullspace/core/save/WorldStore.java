@@ -32,24 +32,49 @@ public final class WorldStore
     private final ShipRepository repository;
     private CompoundTag lastSaved;
     private boolean requested;
+    private StoreSlots.Slot slot;
+    private long newest, older;
+    private final List<StoreSlots.Damaged> damaged;
+    private final Set<Path> failedReplays;
+    private boolean migrated;
+    private java.util.function.Consumer<CompoundTag> saveCapture = snapshot ->
+    {};
     public final Path directory;
 
     private WorldStore(MinecraftServer server)
     {
         directory = server.getWorldPath(LevelResource.ROOT).resolve("nullspace");
+        StoreSlots.Loaded loaded;
+        boolean staleOnDisk = false;
         try
         {
-            Files.createDirectories(directory.resolve("transfers"));
-            repository = new ShipRepository(read(directory.resolve("ships.nbt")));
+            Files.createDirectories(Journals.directory(directory));
+            loaded = StoreSlots.load(directory);
+            // A copy older than the world is brought up to date from the journals committed since it was saved.
+            var replay = JournalReplay.replay(directory, loaded.root(), loaded.saveNumber());
+            int replayed = replay.applied();
+            failedReplays = replay.failed();
+            repository = new ShipRepository(loaded.root());
+            slot = loaded.slot();
+            newest = loaded.saveNumber();
+            older = loaded.olderNumber();
+            damaged = loaded.damaged();
+            migrated = loaded.migrated();
+            for (var bad : damaged)
+                NullSpace.LOGGER.error("Ship store copy {} was damaged ({}); it was kept as {} and copy {} was loaded with {} journals replayed", bad.slot(), bad.reason(), bad.keptAs().getFileName(), loaded.saveNumber(), replayed);
+            // The newest copy on disk is behind the store in memory after a replay or a damaged copy, so it must be written.
+            staleOnDisk = replayed > 0 || !damaged.isEmpty();
+            if (replayed > 0)
+                requested = true;
         }
         catch (Exception e)
         {
-            throw new IllegalStateException("Cannot open ship metadata", e);
+            throw new IllegalStateException("Cannot open ship metadata: " + e.getMessage(), e);
         }
         if (repository.encoded().getIntOr("version", 1) != 1)
             throw new IllegalStateException("Unsupported NullSpace save version");
         repository.encoded().putInt("version", 1);
-        lastSaved = repository.snapshot();
+        lastSaved = staleOnDisk ? null : repository.snapshot();
         repository.onChange(change ->
         {
             ShipSystems.edited(server, change);
@@ -61,11 +86,37 @@ public final class WorldStore
             ComputerService.replaced(server, kind);
             requestSave();
         });
+        // A damaged copy is replaced at once, so the world is never left with a single good copy for long.
+        if (!damaged.isEmpty())
+            save();
+    }
+
+    /** The file holding the newest saved copy of the store. */
+    public synchronized Path storeFile()
+    {
+        return StoreSlots.file(directory, slot == null ? StoreSlots.Slot.A : slot);
+    }
+
+    /** The store copies that were damaged when this server started, for operators. */
+    public List<StoreSlots.Damaged> damagedCopies()
+    {
+        return damaged;
+    }
+
+    public boolean replayFailed(Path file)
+    {
+        return failedReplays.contains(file);
     }
 
     public static WorldStore get(MinecraftServer server)
     {
         return ServerContext.get(server).service(KEY, () -> new WorldStore(server));
+    }
+
+    /** The store of a running server, or null before it has been opened. */
+    public static WorldStore existing(MinecraftServer server)
+    {
+        return ServerContext.isActive(server) ? ServerContext.get(server).existing(KEY) : null;
     }
 
     public static void forget(MinecraftServer server)
@@ -104,47 +155,123 @@ public final class WorldStore
         requestSave();
     }
 
+    /** Marks the store changed. It is written with the next world save, so it matches the chunks written with it. */
     public void requestSave()
     {
         requested = true;
     }
 
-    public static void initialize()
+    /**
+     * Called at the end of every world save (autosave, save-all, shutdown and the forced saves of transfers). The store is
+     * written with the world, so after a crash both come from the same moment. Honours save-off like the world does.
+     */
+    public static void worldSaved(MinecraftServer server, boolean force)
     {
-        ServerContext.tick(ServerContext.Phase.SAVE, server ->
-        {
-            get(server).saveIfRequested(server.getTickCount());
-        });
+        var store = existing(server);
+        if (store == null)
+            return;
+        if (!force && server.getAllLevels() != null && allSavingOff(server))
+            return;
+        if (force)
+            store.save();
+        else
+            try
+            {
+                store.save();
+            }
+            catch (RuntimeException error)
+            {
+                NullSpace.LOGGER.error("Ordinary ship store save failed; it stays pending and retries with the next world save", error);
+            }
     }
 
-    public void saveIfRequested(int tick)
+    private static boolean allSavingOff(MinecraftServer server)
     {
-        if (tick % 20 != 0 || !requested)
-            return;
-        try
+        boolean any = false;
+        for (var level : server.getAllLevels())
         {
-            save();
+            any = true;
+            if (!level.noSave)
+                return false;
         }
-        catch (RuntimeException error)
+        return any;
+    }
+
+    /** The save number of the first store save that will include a change made now. */
+    public synchronized long saveNumberCovering()
+    {
+        return requested ? newest + 1 : newest;
+    }
+
+    public synchronized long saveNumber()
+    {
+        return newest;
+    }
+
+    public synchronized long olderSaveNumber()
+    {
+        return older;
+    }
+
+    /** Captures an operation's rollback records before an intermediate metadata save can reach disk. */
+    public SaveCapture captureSaves(java.util.function.Consumer<CompoundTag> capture)
+    {
+        return new SaveCapture(capture);
+    }
+
+    public final class SaveCapture implements AutoCloseable
+    {
+        private final java.util.function.Consumer<CompoundTag> previous;
+
+        private SaveCapture(java.util.function.Consumer<CompoundTag> capture)
         {
-            NullSpace.LOGGER.error("Ordinary ship save failed; pending changes will retry", error);
+            previous = saveCapture;
+            saveCapture = snapshot ->
+            {
+                previous.accept(snapshot);
+                capture.accept(snapshot);
+            };
+        }
+
+        @Override
+        public void close()
+        {
+            saveCapture = previous;
         }
     }
 
     public synchronized void save()
     {
-        // Disconnect and shutdown callbacks can overlap. One store owns one temporary file.
+        // Disconnect and shutdown callbacks can overlap. One store owns one temporary file per slot.
         // Write and validate one frozen document. Live metadata can change through callbacks or an
         // integrated client's shared payloads while IO is in progress.
         var encoded = repository.snapshot();
-        if (lastSaved != null && lastSaved.equals(encoded) && Files.exists(directory.resolve("ships.nbt")))
+        saveCapture.accept(encoded);
+        if (lastSaved != null && lastSaved.equals(encoded) && slot != null && !Journals.needsRotation(directory, older, newest))
         {
             requested = false;
             return;
         }
-        write(directory.resolve("ships.nbt"), encoded);
+        long number = newest + 1;
+        var written = StoreSlots.write(directory, slot, encoded, number);
+        older = newest;
+        newest = number;
+        slot = written;
         lastSaved = encoded;
         requested = !repository.encoded().equals(encoded);
+        if (migrated)
+        {
+            try
+            {
+                StoreSlots.retireLegacy(directory);
+                migrated = false;
+            }
+            catch (java.io.IOException error)
+            {
+                NullSpace.LOGGER.warn("Could not rename the old ships.nbt; the new store copies take precedence", error);
+            }
+        }
+        Journals.prune(directory, older);
     }
 
     public static CompoundTag read(Path file) throws java.io.IOException
@@ -223,9 +350,31 @@ public final class WorldStore
         return path + " (" + (expected == null ? "missing" : expected.getClass().getSimpleName()) + "/" + (actual == null ? "missing" : actual.getClass().getSimpleName()) + ")";
     }
 
+    /**
+     * The ship whose region holds the position, the highest base winning. Most code edits ship records directly, so no
+     * cached index can be trusted here; this is a loop over the records that allocates nothing.
+     */
     public CompoundTag at(ServerLevel level, BlockPos pos)
     {
-        return ships().stream().map(t -> (CompoundTag) t).filter(ship -> ship.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && bounds(ship).contains(pos)).max(java.util.Comparator.comparingInt(ship -> pos(ship, "base").getY())).orElse(null);
+        String dimension = level.dimension().identifier().toString();
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        CompoundTag best = null;
+        int bestY = Integer.MIN_VALUE;
+        var list = ships();
+        for (int i = 0; i < list.size(); i++)
+        {
+            if (!(list.get(i) instanceof CompoundTag ship) || !ship.getStringOr("dimension", "").equals(dimension))
+                continue;
+            long base = ship.getLongOr("base", 0);
+            int baseX = BlockPos.getX(base), baseY = BlockPos.getY(base), baseZ = BlockPos.getZ(base);
+            int height = Math.clamp(ship.getIntOr("height", 32), 0, 32);
+            if (x >= baseX && x <= baseX + ship.getIntOr("width", 32) - 1 && y >= baseY && y <= baseY + height - 1 && z >= baseZ && z <= baseZ + ship.getIntOr("depth", 32) - 1 && baseY > bestY)
+            {
+                best = ship;
+                bestY = baseY;
+            }
+        }
+        return best;
     }
 
     public static BlockPos pos(CompoundTag tag, String key)

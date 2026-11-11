@@ -91,7 +91,9 @@ public final class PlaytestWorld
             var sphere = SphereLab.ensure(server, gallery);
             SystemsLab.ensure(server);
             RecipeLab.ensure(server);
-            player.sendSystemMessage(Component.literal("Ship gallery at " + gallery.origin().toShortString() + "; 32-cube sphere at " + sphere.base().toShortString() + ". Use /nullspace lab, /nullspace lab sphere, or /nullspace lab recipes." + " Original reference at x=" + lab.getX() + " and existing edits are preserved."));
+            player.sendSystemMessage(Component.literal("""
+                Ship gallery at %s; 32-cube sphere at %s. Use /nullspace lab, /nullspace lab sphere, or \
+                /nullspace lab recipes. Original reference at x=%d and existing edits are preserved.""".formatted(gallery.origin().toShortString(), sphere.base().toShortString(), lab.getX())));
         }
         catch (Exception error)
         {

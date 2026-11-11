@@ -51,6 +51,15 @@ public final class CrewRelease
      */
     static void releaseOfflineCrew(MinecraftServer server, CompoundTag ship, UUID requester)
     {
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "release-crew", () ->
+        {
+            releaseOfflineCrewRecord(server, ship, requester);
+            return null;
+        });
+    }
+
+    private static void releaseOfflineCrewRecord(MinecraftServer server, CompoundTag ship, UUID requester)
+    {
         var online = server.getPlayerList().getPlayers().stream().map(p -> p.getUUID().toString()).collect(java.util.stream.Collectors.toSet());
         var crew = ship.getListOrEmpty("crew");
         var store = WorldStore.get(server);
@@ -79,11 +88,21 @@ public final class CrewRelease
             targets.add(target);
             crew.remove(item);
         }
-        store.save();
+        store.requestSave();
     }
 
     /** Crew death must remove respawn targets without erasing the right to recover their ship. */
     public static void authorize(CompoundTag ship, ServerPlayer p)
+    {
+        if (ship.getStringOr("owner", "").isEmpty() || !ship.getCompoundOrEmpty("recallUsers").getBooleanOr(p.getUUID().toString(), false))
+            com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "authorize-crew", () ->
+            {
+                authorizeRecord(ship, p);
+                return null;
+            });
+    }
+
+    private static void authorizeRecord(CompoundTag ship, ServerPlayer p)
     {
         if (Set.of("station", "debris").contains(ship.getStringOr("kind", "")))
             return;

@@ -1,4 +1,4 @@
-param([string[]] $Stages = @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED'), [string] $ArtifactRoot = '', [ValidateSet('launch','landing')][string[]] $Directions = @('launch','landing'), [switch] $KeepWorlds)
+param([string[]] $Stages = @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','CORRUPT_COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED'), [string] $ArtifactRoot = '', [ValidateSet('launch','landing')][string[]] $Directions = @('launch','landing'), [switch] $KeepWorlds)
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $RepoRoot 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
@@ -14,7 +14,7 @@ if (@($Stages | Select-Object -Unique).Count -ne $Stages.Count -or @($Directions
 $cases = @()
 foreach ($direction in $Directions) {
 foreach ($stage in $Stages) {
-    if ($stage -notin @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')) { throw "Unknown crash stage: $stage" }
+    if ($stage -notin @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','CORRUPT_COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')) { throw "Unknown crash stage: $stage" }
     $case = "$direction/$stage"
     $work = Join-Path $runRoot $case
     $null = New-Item -ItemType Directory -Force -Path $work

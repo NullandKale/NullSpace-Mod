@@ -37,8 +37,13 @@ public final class Claims
         if (!state.is(ModBlocks.STATION_CORE))
             return name + " is damaged: its controller is destroyed. Place a Ship Controller aboard and open it" + " to claim the wreck";
         // Take command: the derelict's core becomes an ordinary ship controller facing the same way.
-        level.setBlock(controller, ModBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)), 3);
-        return take(p, s, name);
+        return com.nullandkale.nullspace.gameplay.travel.BuildJournal.run(level, "claim-derelict", java.util.List.of(s.getStringOr("id", "")), java.util.List.of(controller), () ->
+        {
+            level.setBlock(controller, ModBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)), 3);
+            var result = take(p, s, name);
+            com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, controller, s.getStringOr("id", ""));
+            return result;
+        });
     }
 
     /** An unclaimed derelict whose controller has been destroyed. */
@@ -62,8 +67,11 @@ public final class Claims
             return "";
         if (!WorldStore.bounds(s).box().inflate(1).contains(p.position()))
             return "Step aboard " + name + " to claim the wreck";
-        s.putLong("controller", at.asLong());
-        return take(p, s, name);
+        return com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "claim-wreck", () ->
+        {
+            s.putLong("controller", at.asLong());
+            return take(p, s, name);
+        });
     }
 
     private static String take(ServerPlayer p, CompoundTag s, String name)
@@ -77,7 +85,7 @@ public final class Claims
         s.putString("access", "private");
         s.putBoolean("claimed", true);
         ShipTitles.ensureHeld(p, s);
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         return "You claimed " + name + ". Its fuel, supplies and damage are as you found them; its title is in your inventory";
     }
 

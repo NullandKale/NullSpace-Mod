@@ -33,6 +33,11 @@ public final class ShipRespawns
 
     public static boolean bind(ServerPlayer player, BlockPos at)
     {
+        return com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(player.level().getServer(), "bind-bed", () -> bindRecord(player, at));
+    }
+
+    private static boolean bindRecord(ServerPlayer player, BlockPos at)
+    {
         var level = player.level();
         var store = WorldStore.get(level.getServer());
         var ship = store.at(level, at);
@@ -58,7 +63,7 @@ public final class ShipRespawns
         binding.putString("placement", placements.getStringOr(identity, ""));
         binding.putFloat("yaw", player.getYRot());
         store.section("vesselBeds").put(player.getUUID().toString(), binding);
-        store.save();
+        store.requestSave();
         player.sendSystemMessage(Component.literal("Respawn aboard this ship"));
         return true;
     }
@@ -72,8 +77,15 @@ public final class ShipRespawns
         if (ship == null)
             return;
         // Either half changing invalidates the placement, including break-and-replace in one tick.
-        for (var p : List.of(at, at.north(), at.south(), at.east(), at.west()))
-            store.section("bedPlacements").remove(key(ship.getStringOr("id", ""), p.subtract(WorldStore.pos(ship, "base"))));
+        var placements = store.section("bedPlacements");
+        var identities = List.of(at, at.north(), at.south(), at.east(), at.west()).stream().map(p -> key(ship.getStringOr("id", ""), p.subtract(WorldStore.pos(ship, "base")))).filter(placements::contains).toList();
+        if (identities.isEmpty())
+            return;
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(level.getServer(), "remove-bed", () ->
+        {
+            identities.forEach(placements::remove);
+            return null;
+        });
         store.requestSave();
     }
 
@@ -84,7 +96,11 @@ public final class ShipRespawns
         var level = player.level().getServer().getLevel(config.respawnData().dimension());
         if (level != null && WorldStore.get(level.getServer()).at(level, config.respawnData().pos()) == null)
         {
-            WorldStore.get(level.getServer()).section("vesselBeds").remove(player.getUUID().toString());
+            com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(level.getServer(), "surface-respawn", () ->
+            {
+                WorldStore.get(level.getServer()).section("vesselBeds").remove(player.getUUID().toString());
+                return null;
+            });
             WorldStore.get(level.getServer()).requestSave();
         }
     }
@@ -150,9 +166,13 @@ public final class ShipRespawns
                     member.putDouble("y", spot.get().y - base.getY());
                     member.putDouble("z", spot.get().z - base.getZ());
                     var crew = ship.getListOrEmpty("crew");
-                    crew.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
-                    crew.add(member);
-                    ship.put("crew", crew);
+                    com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "respawn-crew", () ->
+                    {
+                        crew.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
+                        crew.add(member);
+                        ship.put("crew", crew);
+                        return null;
+                    });
                     store.requestSave();
                     return new TeleportTransition(level, spot.get(), Vec3.ZERO, binding.getFloatOr("yaw", 0), 0, post);
                 }

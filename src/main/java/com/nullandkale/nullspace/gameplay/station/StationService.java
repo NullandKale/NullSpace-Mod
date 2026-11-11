@@ -104,7 +104,10 @@ public final class StationService
                 if (!pressure.breathable(outlet))
                     leaks++;
             }
-        text.append("\nPower: ").append(power[0]).append(" / ").append(power[1]).append(" demand | Charging: ").append(power[2]).append("\nFuel: ").append(FuelSystem.display(FuelSystem.available(p.level(), s))).append(" | Battery: ").append(power[3]).append("\nAir: ").append(supplies == 0 ? "No active supply" : oxygen + "% at outlets").append(" | Leaks: ").append(leaks).append(" | Ports: ").append(graph.nodes().stream().filter(StationGraph.Node::dock).count()).append("\nAccess: ").append(s.getStringOr("access", "private")).append(" | Door nodes: ").append(graph.nodes().size());
+        text.append("\nPower: ").append(power[0]).append(" / ").append(power[1]).append(" demand | Charging: ").append(power[2]);
+        text.append("\nFuel: ").append(FuelSystem.display(FuelSystem.available(p.level(), s))).append(" | Battery: ").append(power[3]);
+        text.append("\nAir: ").append(supplies == 0 ? "No active supply" : oxygen + "% at outlets").append(" | Leaks: ").append(leaks).append(" | Ports: ").append(graph.nodes().stream().filter(StationGraph.Node::dock).count());
+        text.append("\nAccess: ").append(s.getStringOr("access", "private")).append(" | Door nodes: ").append(graph.nodes().size());
         for (var n : graph.nodes())
             text.append("\n").append(n.dock() ? "Dock " : "Door ").append(n.controller().subtract(WorldStore.pos(s, "base")).toShortString()).append(" | routes ").append(graph.routes().get(n.id()).size());
         text.append("\n").append(SystemsConsole.summary(p.level(), s));
@@ -160,6 +163,7 @@ public final class StationService
     public static void action(ServerPlayer p, BlockPos at, ComputerTerminal.Action action, String argument)
     {
         var s = at(p, at);
+        var before = Set.of("STATION_INVITE", "STATION_REMOVE", "STATION_ACCESS").contains(action.name()) ? WorldStore.get(p.level().getServer()).snapshot() : null;
         String notice = "";
         switch (action.name())
         {
@@ -208,7 +212,11 @@ public final class StationService
                 StationAccess.requireBuilder(p, s);
                 if (argument.isBlank())
                     throw new IllegalArgumentException("Enter a station name");
-                s.putString("home", argument);
+                com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "rename-station", () ->
+                {
+                    s.putString("home", argument);
+                    return null;
+                });
             }
             case "STATION_INVITE" ->
             {
@@ -262,6 +270,8 @@ public final class StationService
                 return;
             }
         }
+        if (before != null)
+            com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(p.level().getServer(), "station-access", before);
         WorldStore.get(p.level().getServer()).requestSave();
         if (StationAccess.ready(s))
             open(p, at, notice);

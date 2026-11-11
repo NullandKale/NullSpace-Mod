@@ -103,3 +103,21 @@ This covers abrupt process death and torn/unpromoted temporary files. It does no
 Startup must finish any pending order automatically. The second process checks exactly one ship, the complete planned hull, preserved committed ship/device identities, saved barrel contents where a flush occurred, outside-block preservation, a successful launch preflight and repeated-recovery idempotence. A frozen-source fingerprint and per-case success markers prevent stale or mixed-build results from being accepted. Normal `runGameTest` registers this entrypoint but does not halt its JVM; the physical matrix is always opt-in.
 
 The two-client script also requires `shipyard-race-passed`: each actual client buys from its own shipyard screen on the same pad. Exactly one wins; both retain their currency items. That case runs after the existing travel, engineering and remote-camera scenarios. Both crash runners check a frozen input fingerprint and retain per-case logs and success markers.
+
+## Save and journal performance test
+
+[`scripts/test/performance-test.ps1`](../../scripts/test/performance-test.ps1) measures what saving and journaling cost on a generated world of real ships: one dedicated-server JVM per scenario, a one-minute warm-up, a stepped ramp, then flat out. It is opt-in and never part of `check`, `verify.ps1` or CI. The design and the scenarios are in the [performance test](performance-test.md). [`scripts/test/compare-performance.py`](../../scripts/test/compare-performance.py) prints two runs side by side:
+
+```powershell
+.\scripts	est\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label before
+.\scripts	est\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label after
+python scripts	est\compare-performance.py build\performance\<run before> build\performance\<run after>
+```
+
+## Videos of graphical tests
+
+A client test that takes a screenshot every few ticks can be joined into a video: `python scripts/test/make-video.py <screenshots folder> <output.mp4>` (needs `ffmpeg` on the path; see [`make-video.py`](../../scripts/test/make-video.py)). [`SpaceGridClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/perf/SpaceGridClientGameTest.java) records ships launching into a grid in space and landing again this way.
+
+## Running one native test class
+
+`.\scripts	est\Run-FocusedTests.ps1 -SkipBuild -Classes <full.Class.Name>` needs `rg` (ripgrep) on the path for its inventory check and ends with an error without it; the test itself still runs and writes `native-tests.xml` in its `build/focused-tests` folder. Tests that change global state, or launch to the first free orbit slot, run in their own environment (their own batch) so they cannot disturb a test running at the same time.

@@ -152,6 +152,7 @@ public final class SpaceStart
         PlanetSurfaces.ensureLanding(server, record.getStringOr("planet", LocalSpaces.HOME));
         var preset = ShipBlueprints.get(record.getStringOr("preset", "rivet_bolt"));
         var ship = store.repository().find(record.getStringOr("ship", ""));
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.Job construction = null;
         if (ship == null)
         {
             BlockPos base = null;
@@ -192,9 +193,49 @@ public final class SpaceStart
             ship.putDouble("simX", arrival.x);
             ship.putDouble("simY", arrival.y);
             ship.putDouble("simZ", arrival.z);
-            store.ships().add(ship);
-            store.save(); // Reserve identity and storage before placing the first block.
+            construction = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "starting-ship", List.of(ship.getStringOr("id", "")), new HullScan.Bounds(base, base.offset(31, 31, 31)));
+            var allocated = ship;
+            var prepared = construction;
+            construction.step(() ->
+            {
+                allocated.putString("buildJournal", prepared.fileName());
+                store.ships().add(allocated);
+                store.save();
+                return null;
+            });
         }
+        if (construction == null)
+            construction = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "starting-ship-migration", List.of(ship.getStringOr("id", "")), WorldStore.bounds(ship));
+        var startedShip = ship;
+        var at = construction.step(() -> buildHull(player, level, store, startedShip, preset, key));
+        construction.commit();
+        var controller = WorldStore.pos(ship, "controller");
+        var facing = level.getBlockState(controller).getValue(HorizontalDirectionalBlock.FACING);
+        player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), facing.getOpposite().toYRot(), 0, true);
+        if (!player.entityTags().contains(SUPPLIES))
+        {
+            player.getInventory().add(new ItemStack(Items.BREAD, 16));
+            player.getInventory().add(new ItemStack(Items.COAL, 16));
+            player.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            player.getInventory().add(new ItemStack(Items.IRON_AXE));
+            player.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(ModBlocks.HELMET));
+            player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModBlocks.CHEST));
+            player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(ModBlocks.LEGS));
+            player.setItemSlot(EquipmentSlot.FEET, new ItemStack(ModBlocks.BOOTS));
+            FieldGuide.supply(player);
+            player.addTag(SUPPLIES);
+        }
+        player.setAirSupply(player.getMaxAirSupply());
+        server.getPlayerList().saveAll();
+        record.putBoolean("completed", true);
+        store.save();
+        player.sendSystemMessage(Component.literal("Welcome aboard " + preset.name() + ". You are above " + LocalSpaces.get(server, LocalSpaces.address(ship)).name() + ". Use the Ship Controller to explore. Fuel is in the generator; food is in your" + " inventory."));
+        return ship;
+    }
+
+    private static BlockPos buildHull(ServerPlayer player, net.minecraft.server.level.ServerLevel level, WorldStore store, CompoundTag ship, ShipBlueprints.Preset preset, String key)
+    {
         var base = WorldStore.pos(ship, "base");
         for (int x = 0; x < 32; x += 16)
             for (int z = 0; z < 32; z += 16)
@@ -230,28 +271,9 @@ public final class SpaceStart
         crew.add(member);
         ship.put("crew", crew);
         store.save();
-        server.saveEverything(true, true, true);
-        player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), facing.getOpposite().toYRot(), 0, true);
-        if (!player.entityTags().contains(SUPPLIES))
-        {
-            player.getInventory().add(new ItemStack(Items.BREAD, 16));
-            player.getInventory().add(new ItemStack(Items.COAL, 16));
-            player.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
-            player.getInventory().add(new ItemStack(Items.IRON_AXE));
-            player.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
-            player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(ModBlocks.HELMET));
-            player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModBlocks.CHEST));
-            player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(ModBlocks.LEGS));
-            player.setItemSlot(EquipmentSlot.FEET, new ItemStack(ModBlocks.BOOTS));
-            FieldGuide.supply(player);
-            player.addTag(SUPPLIES);
-        }
-        player.setAirSupply(player.getMaxAirSupply());
-        server.getPlayerList().saveAll();
-        record.putBoolean("completed", true);
-        store.save();
-        player.sendSystemMessage(Component.literal("Welcome aboard " + preset.name() + ". You are above " + LocalSpaces.get(server, LocalSpaces.address(ship)).name() + ". Use the Ship Controller to explore. Fuel is in the generator; food is in your" + " inventory."));
-        return ship;
+        ship.remove("buildJournal");
+        com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, WorldStore.pos(ship, "controller"), ship.getStringOr("id", ""));
+        return at;
     }
 
     private SpaceStart()

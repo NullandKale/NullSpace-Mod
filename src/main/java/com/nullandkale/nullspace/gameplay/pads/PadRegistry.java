@@ -82,7 +82,11 @@ public final class PadRegistry
             if (ship.getIntOr("height", 32) != height || ship.getIntOr("width", 32) != b.width() || ship.getIntOr("depth", 32) != b.depth() || !delta.equals(BlockPos.ZERO))
             {
                 ShipSystems.cancelTransit(level, ship);
-                store.repository().mutate(new ShipRepository.ShipId(ship.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate -> PadAllocation.resize(candidate, b, height));
+                com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(level.getServer(), "resize-pad", () ->
+                {
+                    store.repository().mutate(new ShipRepository.ShipId(ship.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate -> PadAllocation.resize(candidate, b, height));
+                    return null;
+                });
                 ComputerService.rebase(level.getServer(), ship.getStringOr("id", ""), delta);
             }
         }

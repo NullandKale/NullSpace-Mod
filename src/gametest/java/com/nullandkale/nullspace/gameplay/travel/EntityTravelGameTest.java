@@ -490,8 +490,8 @@ public final class EntityTravelGameTest
         };
         try
         {
-            TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(level, bed.helm()));
-            problems.add("The injected failure at " + stage + " did not stop the launch");
+            var result = TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(level, bed.helm()));
+            problems.add("The injected failure at " + stage + " did not stop the launch: " + result.outcome() + " " + result.message());
         }
         catch (IllegalStateException expected)
         {
@@ -511,15 +511,29 @@ public final class EntityTravelGameTest
         });
     }
 
-    /** Pigs on a post and a wolf travel on every shipyard design: spine, dome and twin hull, small to large. */
-    @GameTest(maxTicks = 600)
+    /**
+     * Pigs on a post and a wolf travel on every shipyard design: spine, dome and twin hull, small to large. It launches every
+     * design in one tick to the first free orbit slot, so it runs in its own environment, alone: another test launching at the
+     * same time would take that slot, and the next one has not loaded its entities.
+     */
+    @GameTest(environment = "nullspace:entity_travel_animals", maxTicks = 600)
     public void animalsOnAFencePostTravelOnEveryShipyardDesign(GameTestHelper ctx)
     {
         var sites = new LinkedHashMap<String, java.util.function.Supplier<Bed>>();
         int slot = 10;
         for (var preset : ShipBlueprints.PRESETS)
             sites.put(preset.name(), catalogBed(ctx, slot++, preset.id()));
-        ctx.runAfterDelay(120, () -> animalsOnEveryDesign(ctx, sites));
+        // Every design launches in this one tick, to the first free orbit slot. Other tests hold some slots, so the free one
+        // is not always the same, and a slot's entities load over ticks: hold the first eight now, so the wait below loads them.
+        var space = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
+        holdOrbit(space, 0, true);
+        holdOrbit(space, 4, true);
+        ctx.runAfterDelay(120, () ->
+        {
+            animalsOnEveryDesign(ctx, sites);
+            holdOrbit(space, 0, false);
+            holdOrbit(space, 4, false);
+        });
     }
 
     public static void animalsOnEveryDesign(GameTestHelper ctx, Map<String, java.util.function.Supplier<Bed>> sites)

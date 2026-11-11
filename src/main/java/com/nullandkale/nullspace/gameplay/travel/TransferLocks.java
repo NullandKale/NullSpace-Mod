@@ -27,13 +27,56 @@ import net.minecraft.world.level.storage.*;
 public final class TransferLocks
 {
 
+    /** The areas around every ship and pending move in space, read once per tick instead of once per slot asked about. */
+    private record Occupancy(int tick, int ships, int pending, long generation, List<net.minecraft.world.phys.AABB> areas)
+    {}
+
+    private static final com.nullandkale.nullspace.core.ServerContext.Key<Occupancy> OCCUPANCY = new com.nullandkale.nullspace.core.ServerContext.Key<>();
+
+    private static Occupancy occupancy(MinecraftServer server)
+    {
+        var store = WorldStore.get(server);
+        var pending = TravelService.pending(server);
+        var context = com.nullandkale.nullspace.core.ServerContext.get(server);
+        var known = context.existing(OCCUPANCY);
+        int tick = server.getTickCount(), ships = store.ships().size();
+        long generation = store.repository().generation();
+        // A reservation or a new ship changes a count, a move changes the generation: the cache then reads again.
+        if (known != null && known.tick() == tick && known.ships() == ships && known.pending() == pending.size() && known.generation() == generation)
+            return known;
+        String space = TravelService.SPACE.identifier().toString();
+        var areas = new ArrayList<net.minecraft.world.phys.AABB>();
+        for (var p : pending.values())
+        {
+            if (p.sourceDimension.equals(space))
+                areas.add(p.sourceBounds.box().inflate(128));
+            if (p.targetDimension.equals(space))
+                areas.add(p.targetBounds.box().inflate(128));
+        }
+        for (var tag : store.ships())
+        {
+            var ship = (CompoundTag) tag;
+            if (ship.getStringOr("dimension", "").equals(space))
+                areas.add(WorldStore.bounds(ship).box().inflate(128));
+        }
+        var built = new Occupancy(tick, ships, pending.size(), generation, areas);
+        context.put(OCCUPANCY, built);
+        return built;
+    }
+
     public static boolean spaceSlotFree(MinecraftServer server, int slot)
     {
         if (slot < 0 || slot > 7000)
             return false;
         var base = new BlockPos(slot * TravelService.SPACE_SPACING, 96, 0);
         var area = new net.minecraft.world.phys.AABB(base.getX() - 128, -32, -128, base.getX() + 160, 256, 160);
-        return TravelService.pending(server).values().stream().noneMatch(p -> p.sourceDimension.equals(TravelService.SPACE.identifier().toString()) && area.intersects(p.sourceBounds.box().inflate(128)) || p.targetDimension.equals(TravelService.SPACE.identifier().toString()) && area.intersects(p.targetBounds.box().inflate(128))) && WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).noneMatch(ship -> ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString()) && area.intersects(WorldStore.bounds(ship).box().inflate(128)));
+        var space = server.getLevel(TravelService.SPACE);
+        if (space != null && UnresolvedJournals.areaBusy(space, new HullScan.Bounds(base.offset(-128, -128, -128), base.offset(159, 159, 159))))
+            return false;
+        for (var occupied : occupancy(server).areas())
+            if (area.intersects(occupied))
+                return false;
+        return true;
     }
 
     public static boolean locked(ServerLevel level, BlockPos pos)
@@ -47,6 +90,8 @@ public final class TransferLocks
     static boolean physicalAreaBusy(ServerLevel level, HullScan.Bounds bounds, Pending ignored)
     {
         String dimension = level.dimension().identifier().toString();
+        if (UnresolvedJournals.areaBusy(level, bounds))
+            return true;
         return TravelService.pending(level.getServer()).values().stream().anyMatch(p -> p != ignored && (p.sourceDimension.equals(dimension) && p.sourceBounds.box().intersects(bounds.box()) || p.targetDimension.equals(dimension) && p.targetBounds.box().intersects(bounds.box())));
     }
 
@@ -78,6 +123,8 @@ public final class TransferLocks
         if (ship == null)
             return false;
         String id = ship.getStringOr("id", ""), dimension = ship.getStringOr("dimension", "");
+        if (UnresolvedJournals.shipBusy(server, id))
+            return true;
         var bounds = WorldStore.bounds(ship);
         return TravelService.pending(server).values().stream().anyMatch(p -> !id.isEmpty() && p.ship.equals(id) || p.sourceDimension.equals(dimension) && p.sourceBounds.box().intersects(bounds.box()) || p.targetDimension.equals(dimension) && p.targetBounds.box().intersects(bounds.box()));
     }

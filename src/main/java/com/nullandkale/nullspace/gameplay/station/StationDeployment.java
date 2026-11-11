@@ -31,6 +31,26 @@ import net.minecraft.world.phys.*;
  */
 public final class StationDeployment
 {
+    /** Blocks that do something when used. Placing a station core on one of them would be an accident. */
+    private static final List<Class<?>> USABLE = new ArrayList<>();
+
+    static
+    {
+        USABLE.add(EntityBlock.class);
+        USABLE.add(ModBlocks.Machine.class);
+        USABLE.add(DoorBlock.class);
+        USABLE.add(TrapDoorBlock.class);
+        USABLE.add(FenceGateBlock.class);
+        USABLE.add(ButtonBlock.class);
+        USABLE.add(LeverBlock.class);
+        USABLE.add(BedBlock.class);
+        USABLE.add(NoteBlock.class);
+        USABLE.add(ComposterBlock.class);
+        USABLE.add(CakeBlock.class);
+        USABLE.add(RespawnAnchorBlock.class);
+        USABLE.add(DaylightDetectorBlock.class);
+        USABLE.add(FlowerPotBlock.class);
+    }
 
     public static CompoundTag waypoint(ServerPlayer p, boolean random)
     {
@@ -95,7 +115,11 @@ public final class StationDeployment
         var s = StationBuilds.queue(p.level().getServer(), id, p.getPlainTextName() + " Station", LocalSpaces.address(own), StationConstruction.constructionSite(p.level().getServer(), own), p.getUUID().toString(), StationBlueprint.foundation(), true);
         s.putString("constructionShip", own.getStringOr("id", ""));
         s.putLong("constructionSourcePort", source.controller().subtract(WorldStore.pos(own, "base")).asLong());
-        StationBuilds.redeem(p, stack, id, 1);
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.resume(p.level(), s.getStringOr("buildJournal", "")).step(() ->
+        {
+            StationBuilds.redeem(p, stack, id, 1);
+            return null;
+        });
         return s;
     }
 
@@ -103,7 +127,12 @@ public final class StationDeployment
     {
         var state = level.getBlockState(pos);
         var block = state.getBlock();
-        return !state.isAir() && state.getMenuProvider(level, pos) == null && !(block instanceof EntityBlock) && !(block instanceof ModBlocks.Machine) && !(block instanceof DoorBlock) && !(block instanceof TrapDoorBlock) && !(block instanceof FenceGateBlock) && !(block instanceof ButtonBlock) && !(block instanceof LeverBlock) && !(block instanceof BedBlock) && !(block instanceof NoteBlock) && !(block instanceof ComposterBlock) && !(block instanceof CakeBlock) && !(block instanceof RespawnAnchorBlock) && !(block instanceof DaylightDetectorBlock) && !(block instanceof FlowerPotBlock);
+        if (state.isAir() || state.getMenuProvider(level, pos) != null)
+            return false;
+        for (var usable : USABLE)
+            if (usable.isInstance(block))
+                return false;
+        return true;
     }
 
     static boolean stationStartGesture(net.minecraft.world.entity.player.Player player, net.minecraft.world.level.Level level, InteractionHand hand)

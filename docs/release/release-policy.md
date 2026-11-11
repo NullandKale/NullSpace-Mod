@@ -1,4 +1,4 @@
-# Releases, CI and the hosted server
+# Releases and CI
 
 ## When CI builds and tests
 
@@ -11,11 +11,11 @@
 
 Every release attaches the JAR and `SHA256SUMS.txt`. The workflow refuses a JAR with the wrong mod id or version, GameTest entrypoints or test output. Without a `LICENSE` file the run summary warns that the release is public without stated distribution terms (see [release-license-proposal.md](release-license-proposal.md)).
 
-## Releasing and deploying
+## Releasing
 
-1. Set `mod_version`, commit, and push a tag: `git tag v0.1.1_rc1 && git push origin v0.1.1_rc1` for a test build, or `git tag v0.1.1 && git push origin v0.1.1` for a full release.
+1. Set `mod_version`, commit the verified batch, and push a matching version tag.
 2. Wait for the Release workflow. A failed run publishes nothing.
-3. Deploy the release's JAR to the server: back up the current JAR and world, install, restart, confirm the server is healthy, and record `/opt/nullspace/deployment.json` with the JAR's SHA-256 and the service PID. `scripts/release/Promote-DeployedRelease.ps1 -Tag <tag> -CheckOnly` compares the release asset with the live server.
-4. Put the same JAR in the Modrinth client profile so clients match the server.
+3. Download the published release asset and check its SHA-256 against `SHA256SUMS.txt`.
+4. Use that exact asset in the Modrinth testing profile. Local development builds are not release candidates.
 
-A full release becomes Latest immediately. Prefer prerelease tags until a build is deployed and playtested, so Latest keeps matching the server. If a deployment fails, restore the previous JAR from `/opt/nullspace/backups/`.
+A full release becomes Latest immediately. Prefer prerelease tags until the candidate has completed playtesting. Published releases are immutable; fixes need a new tag.

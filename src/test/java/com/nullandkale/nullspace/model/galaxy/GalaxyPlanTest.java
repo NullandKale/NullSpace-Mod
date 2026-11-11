@@ -13,6 +13,32 @@ class GalaxyPlanTest
     private static final int SEEDS = 5000;
 
     @Test
+    void oldChartsGainMissingLandingsWithoutReplacingExistingWorldAssignments()
+    {
+        var original = GalaxyPlan.generate(42);
+        var legacy = new Galaxy(original.seed(), original.systems().stream().map(s -> s.id().equals(GalaxyPlan.HOME) ? s : new StarSystem(s.id(), s.name(), s.x(), s.y(), s.spectralClass(), s.color(), s.starRadius(), s.seed(), s.bodies().stream().map(b -> new Body(b.id(), b.name(), b.type(), b.parent(), b.orbitRadius(), b.angle(), b.radius(), b.color(), b.seed(), null)).toList())).toList(), original.features());
+        var repaired = GalaxyPlan.repairMissingLandings(legacy);
+        assertEquals(original.systems().getFirst(), repaired.systems().getFirst());
+        assertEquals(legacy.zones(), repaired.zones());
+        assertEquals(legacy.features(), repaired.features());
+        var surfaces = new HashSet<String>();
+        for (int i = 0; i < repaired.systems().size(); i++)
+        {
+            var before = legacy.systems().get(i);
+            var after = repaired.systems().get(i);
+            assertEquals(before.id(), after.id());
+            assertEquals(before.seed(), after.seed());
+            assertEquals(before.x(), after.x());
+            assertEquals(before.y(), after.y());
+            assertTrue(after.bodies().stream().anyMatch(Body::landable));
+            for (var body : after.bodies())
+                if (body.landable())
+                    assertTrue(surfaces.add(body.surface()), "Each landing keeps its own dimension");
+        }
+        assertSame(repaired, GalaxyPlan.repairMissingLandings(repaired));
+    }
+
+    @Test
     void everyPlaceIsReachableWithTheStartingEngineOnThousandsOfSeeds()
     {
         for (long seed = 0; seed < SEEDS; seed++)

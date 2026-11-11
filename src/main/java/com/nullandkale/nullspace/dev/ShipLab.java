@@ -22,11 +22,31 @@ import net.minecraft.world.level.storage.LevelResource;
 /** Opt-in lab fixtures: only use an empty volume above terrain, never replace an existing build. */
 public final class ShipLab
 {
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> visitor(String name, int plot)
+    {
+        return Commands.literal(name).executes(ctx -> visit(ctx.getSource().getPlayerOrException(), plot));
+    }
+
+    /** /nullspace lab: the gallery by default, and one subcommand for each of the other lab worlds. */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> labCommand()
+    {
+        var number = com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 24);
+        var plot = Commands.literal("plot").then(Commands.argument("number", number).executes(ctx -> visit(ctx.getSource().getPlayerOrException(), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "number"))));
+        var lab = visitor("lab", 0);
+        lab.then(visitor("gallery", 0));
+        lab.then(visitor("sphere", 21));
+        lab.then(visitor("systems", 23));
+        lab.then(visitor("recipes", -2));
+        lab.then(plot);
+        lab.then(visitor("reference", -1));
+        return lab;
+    }
+
     public static void initialize()
     {
         if (!FabricLoader.getInstance().isDevelopmentEnvironment())
             return;
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("lab").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), 0)).then(Commands.literal("gallery").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), 0))).then(Commands.literal("sphere").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), 21))).then(Commands.literal("systems").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), 23))).then(Commands.literal("recipes").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), -2))).then(Commands.literal("plot").then(Commands.argument("number", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 24)).executes(ctx -> visit(ctx.getSource().getPlayerOrException(), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "number"))))).then(Commands.literal("reference").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), -1))))));
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(labCommand())));
     }
 
     private static int visit(ServerPlayer player, int plot)
@@ -43,7 +63,10 @@ public final class ShipLab
                 var gallery = RecipeLab.ensure(server);
                 var at = gallery.spawn();
                 player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, java.util.Set.of(), 0, 0, true);
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Recipe gallery: 19 labeled chests. Each shows the crafting grid on the left and" + " output on the right; crafting tables are beside the chests. You can take" + " the samples. Returning does not refill or replace your edits."));
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("""
+                    Recipe gallery: 19 labeled chests. Each shows the crafting grid on the left and output on the \
+                    right; crafting tables are beside the chests. You can take the samples. Returning does not \
+                    refill or replace your edits."""));
             }
             else if (plot >= 23)
             {
@@ -51,7 +74,10 @@ public final class ShipLab
                 var at = SystemsLab.base(origin, plot).offset(15, 1, -2);
                 player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, java.util.Set.of(), 0, 0, true);
                 supply(player);
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Powered systems lab: helm and systems controller on deck 3; engineering," + " batteries, air supply and cameras on deck 1. Inspect/launch at the helm;" + " power/doors at a systems controller. Right-click a monitor, Tab to change" + " camera."));
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("""
+                    Powered systems lab: helm and systems controller on deck 3; engineering, batteries, air supply \
+                    and cameras on deck 1. Inspect/launch at the helm; power/doors at a systems controller. \
+                    Right-click a monitor, Tab to change camera."""));
             }
             else if (plot >= 21)
             {
@@ -60,7 +86,10 @@ public final class ShipLab
                 var at = plot == 21 ? annex.entry() : annex.blank().offset(15, 1, -2);
                 player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, java.util.Set.of(), 0, 0, true);
                 supply(player);
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Meridian sphere: 32 x 32 x 32, five decks, ten rooms. Walk through the stair" + " airlock and follow the stairs to the bridge on deck 3. Close all doors" + " before Inspect/Launch. Plot 22 is an empty full-size landing pad."));
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("""
+                    Meridian sphere: 32 x 32 x 32, five decks, ten rooms. Walk through the stair airlock and follow \
+                    the stairs to the bridge on deck 3. Close all doors before Inspect/Launch. Plot 22 is an empty \
+                    full-size landing pad."""));
             }
             else if (plot >= 0)
             {
@@ -68,7 +97,10 @@ public final class ShipLab
                 var at = plot == 0 ? gallery.spawn() : gallery.base(plot).offset(5, 1, -3);
                 player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, java.util.Set.of(), 0, 0, true);
                 supply(player);
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Ship gallery: 01-08 launchable, 09-12 repairs, 13-20 blanks. /nullspace lab sphere" + " visits the 32-cube sphere; plot 22 is a full-size blank. Supplies at the" + " entrance. /nullspace lab plot <1-22> visits a plot."));
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("""
+                    Ship gallery: 01-08 launchable, 09-12 repairs, 13-20 blanks. /nullspace lab sphere visits the \
+                    32-cube sphere; plot 22 is a full-size blank. Supplies at the entrance. /nullspace lab plot \
+                    <1-22> visits a plot."""));
             }
             else
             {

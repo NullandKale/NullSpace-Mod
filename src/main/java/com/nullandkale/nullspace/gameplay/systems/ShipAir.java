@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.gameplay.systems;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
+import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.model.power.PowerBus;
@@ -32,6 +33,11 @@ public final class ShipAir
         }
         if (!WorldStore.bounds(ship).contains(pos))
             return false;
+        // A closed door seals the simulation grid, but occupies only part of its block.
+        // A passenger standing in that block breathes the adjacent room, without opening a leak.
+        var state = level.getBlockState(pos);
+        if (ShipDoors.isDoor(state) && !ShipDoors.open(state))
+            return oxygen(level, ship, pos) >= SpatialAir.percent(Atmosphere.BREATHABLE);
         var r = ShipSystems.runtime(level, ship);
         if (r.dirty)
             ShipSystems.rebuild(level, ship, r, false);

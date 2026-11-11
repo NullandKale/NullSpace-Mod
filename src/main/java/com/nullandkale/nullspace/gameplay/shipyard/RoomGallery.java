@@ -53,7 +53,10 @@ public final class RoomGallery
                 var origin = build(server);
                 player.teleportTo(server.overworld(), origin.getX() + MARGIN + 8.5, origin.getY() + 1, origin.getZ() + 1.5, Set.of(), 0, 10, true);
                 FieldGuide.supply(player);
-                player.sendSystemMessage(Component.literal("Room kit gallery: " + USES.size() + " rooms, one row per use going south. Columns going east: small, medium and large pieces, each with few and then many windows. Each room opens north; a sign by the door names it. A blank cell means the room does not fit that size."));
+                player.sendSystemMessage(Component.literal("""
+                    Room kit gallery: %d rooms, one row per use going south. Columns going east: small, medium and \
+                    large pieces, each with few and then many windows. Each room opens north; a sign by the door \
+                    names it. A blank cell means the room does not fit that size.""".formatted(USES.size())));
                 return 1;
             }
             catch (Exception error)

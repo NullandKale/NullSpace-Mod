@@ -459,9 +459,9 @@ public final class JourneyGameTest
                 c.board();
                 var view = ShipControl.open(c.player(), WorldStore.pos(ship, "controller"), "Ready");
                 ctx.assertTrue(view.location().contains("Luna") && view.details().contains("Undock"), "The docked controller previews the original destination and automatic departure");
-                ctx.assertTrue(view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.ENGAGE && b.enabled()), "Engage is available on the ship while docked at an encounter: " + view.buttons().stream().filter(b -> b.action() == ShipControl.Action.ENGAGE).findFirst().orElseThrow().reason());
-                var result = ShipControl.input(c.player(), new ControllerPackets.Input(view.session(), ShipControl.Action.ENGAGE, ""));
-                ctx.assertTrue(result.startsWith("Course engaged"), "One Engage accepts the complete departure: " + result);
+                ctx.assertTrue(view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME && b.enabled()), "Continue journey is available while docked at an encounter: " + view.buttons().stream().filter(b -> b.action() == ShipControl.Action.RESUME).findFirst().orElseThrow().reason());
+                var result = ShipControl.input(c.player(), new ControllerPackets.Input(view.session(), ShipControl.Action.RESUME, ""));
+                ctx.assertTrue(result.startsWith("Course engaged"), "One Continue journey accepts undocking and the paid return course: " + result);
                 phase[0] = 6;
             }
             else if (phase[0] == 6 && !ship.contains("dock"))

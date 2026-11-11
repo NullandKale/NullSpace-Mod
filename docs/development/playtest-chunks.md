@@ -18,7 +18,7 @@ This breaks [the recovery, station and ship design](../design/recovery-stations-
 
 ## Playtest 2 batch (November 6): today's goal
 
-From the player's first session on the hosted server. These come before chunks 7 and 8. Order matters: the oxygen model is the base for canisters and suits, and the power/fuel balance tunes all of them.
+From the player's first multiplayer session. These come before chunks 7 and 8. Order matters: the oxygen model is the base for canisters and suits, and the power/fuel balance tunes all of them.
 
 | Chunk | Change | Done when |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ Other rules agreed November 7: you can open any door without a suit, including e
 
 ## P9 galaxy design
 
-Agreed with the player on November 6. The hosted server starts a **new world** for P9; there is no migration of old places. The current Sol/Vega/frontier layout and its flat surface dimensions are replaced.
+Agreed with the player on November 6. P9 targets **new worlds**; there is no migration of old places. The current Sol/Vega/frontier layout and its flat surface dimensions are replaced.
 
 **Chart.** Each world gets its own random chart, saved once and never rerolled. Sol is the home system, with Terra (the overworld), Luna, Ares and some new non-landable bodies. The **four other systems are fully random**. Planet counts are spread out, not clustered (for example 2, 4, 6 and 8, shuffled; Sol has about 4). Planets have 0–3 moons, with more around gas giants. About 40% of bodies are landable. Systems sit on a 2D chart about 100 ly across with a minimum spacing. Features that aren't stars are also on the chart: nebulae, asteroid fields, rogue planets, and one rare oddity such as a pulsar or black hole. You can jump to features but not land on them.
 
@@ -201,7 +201,7 @@ The controller shows that destination, the trip preview and **Engage**. It retai
 3. Check the trip preview and fuel, then press **Engage** once. The ship should launch, travel and dock without more travel buttons. Open the dock door and visit.
 4. Return aboard your own ship. Choose your home landing pad and **Engage** once. The ship should undock, travel and land there.
 5. With the Scanner off, try another planet in the same system: it should remain available. A different star system should explain that it needs a powered Scanner.
-6. Try **Investigate signal** during travel: after dropping out of FTL, the ship should automatically begin docking with the encounter. No second Engage/Dock click is required. **Disengage** cancels the approach and leaves the paid journey paused; cancellation must not restart docking.
+6. Try **Trip → Visit signal (optional)** during travel: after dropping out of FTL, the ship should automatically begin docking with the encounter. No second Engage/Dock click is required. **Disengage** cancels the approach and leaves the paid journey paused; cancellation must not restart docking.
 7. Check arrival views: ships get varied pitch, roll, heading and height. Crew remain upright inside their physical cabin, and docking still aligns the doors.
 8. Open a station controller with a long-named encounter ship nearby. It should open normally; generated vessel names no longer exceed the terminal packet's old 32-character limit.
 9. Check the Controller's first layout pass: distinct Current location and Destination, no repeated planet line, separate Trip/Manual steps tabs, approved action labels, and a footer that leaves Close its own space.

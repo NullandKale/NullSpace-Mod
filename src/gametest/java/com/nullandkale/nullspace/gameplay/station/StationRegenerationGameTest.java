@@ -42,11 +42,11 @@ public final class StationRegenerationGameTest
         store.save();
         var backup = store.directory.resolve("regeneration-test-backup");
         Files.createDirectories(backup.resolve("nullspace"));
-        Files.copy(store.directory.resolve("ships.nbt"), backup.resolve("nullspace/ships.nbt"), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(store.storeFile(), backup.resolve("nullspace").resolve(store.storeFile().getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
         var request = new JsonObject();
         request.addProperty("version", 1);
         request.addProperty("id", UUID.randomUUID().toString());
-        request.addProperty("sourceSha256", StationRegeneration.sha(store.directory.resolve("ships.nbt")));
+        request.addProperty("sourceSha256", StationRegeneration.sha(store.storeFile()));
         request.addProperty("backup", backup.toAbsolutePath().toString());
         var ids = new JsonArray();
         ids.add(id);

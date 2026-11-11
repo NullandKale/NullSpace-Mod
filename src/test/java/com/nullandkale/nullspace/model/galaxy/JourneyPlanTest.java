@@ -9,6 +9,24 @@ import static org.junit.jupiter.api.Assertions.*;
 class JourneyPlanTest
 {
     @Test
+    void quietTripsOutnumberSignalsWithoutRemovingEncounterVariety()
+    {
+        int signals = 0;
+        var kinds = new HashSet<Integer>();
+        for (long nonce = 0; nonce < 4096; nonce++)
+        {
+            var plan = JourneyPlan.between(42, "a", "b", 0, 0, nonce * 0x9e3779b97f4a7c15L);
+            if (plan.hasSignal())
+            {
+                signals++;
+                kinds.add(plan.kind());
+            }
+        }
+        assertTrue(signals > 850 && signals < 1200, "About one trip in four carries a signal");
+        assertEquals(Set.of(0, 1, 2, 3), kinds);
+    }
+
+    @Test
     void routesAreStableAndSharedInBothDirections()
     {
         var a = JourneyPlan.between(42, "sol_terra", "sol_luna", 0, 0);

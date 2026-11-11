@@ -59,8 +59,8 @@ public final class ComputerIntegrationGameTest
             var session = ComputerService.session(player);
             ComputerService.input(player, new ComputerService.Input(session, "echo durable_edit > ordinary\r", false));
             ComputerService.flush(server);
-            store.saveIfRequested(20);
-            var durable = WorldStore.read(store.directory.resolve("ships.nbt")).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
+            store.save();
+            var durable = WorldStore.read(store.storeFile()).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
             ctx.assertTrue(restore(durable).files.files().getOrDefault("/home/crew/ordinary", "").equals("durable_edit\n"), "A guest edit schedules its own ordinary save rather than waiting for an unrelated world" + " mutation");
         }
         finally
@@ -112,7 +112,7 @@ public final class ComputerIntegrationGameTest
                 ComputerService.flush(server);
                 ComputerService.input(player, new ComputerService.Input(session, "", true));
                 store.save();
-                var durable = WorldStore.read(store.directory.resolve("ships.nbt")).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
+                var durable = WorldStore.read(store.storeFile()).getCompoundOrEmpty("standaloneComputers").getCompoundOrEmpty(key);
                 if (kind < 4)
                     ctx.assertTrue(original.equals(durable), "Corrupt image/metadata is preserved byte-for-byte through use and save");
                 else

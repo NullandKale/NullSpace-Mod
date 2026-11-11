@@ -15,7 +15,8 @@
     "ShipExplosionMixin",
     "SceneLightMixin",
     "TransitBlockEntityMixin",
-    "ShipBlockEventsAccessor"
+    "ShipBlockEventsAccessor",
+    "MinecraftServerSaveMixin"
   ],
   "injectors": {
     "defaultRequire": 1

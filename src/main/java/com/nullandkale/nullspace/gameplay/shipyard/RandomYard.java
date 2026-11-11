@@ -55,7 +55,10 @@ public final class RandomYard
 
     public static void initialize()
     {
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("random").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), System.nanoTime())).then(Commands.argument("seed", LongArgumentType.longArg()).executes(ctx -> visit(ctx.getSource().getPlayerOrException(), LongArgumentType.getLong(ctx, "seed"))))))));
+        var seeded = Commands.argument("seed", LongArgumentType.longArg()).executes(ctx -> visit(ctx.getSource().getPlayerOrException(), LongArgumentType.getLong(ctx, "seed")));
+        var random = Commands.literal("random").executes(ctx -> visit(ctx.getSource().getPlayerOrException(), System.nanoTime())).then(seeded);
+        var shipyard = Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(random);
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(shipyard)));
     }
 
     private static int visit(net.minecraft.server.level.ServerPlayer player, long seed)
@@ -69,7 +72,10 @@ public final class RandomYard
             var at = gallery.spawn();
             player.teleportTo(server.overworld(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), -45, 10, true);
             FieldGuide.supply(player);
-            player.sendSystemMessage(Component.literal("Random ship gallery " + gallery.number() + ": " + ROWS * COLUMNS + " generated ships, one row per shape and tier (spine, dome, twin; small to large), one column per role, plus a wild card. Seed " + seed + ". Walk up each ramp to the docking door. Run the command again for a new gallery."));
+            player.sendSystemMessage(Component.literal("""
+                Random ship gallery %d: %d generated ships, one row per shape and tier (spine, dome, twin; small \
+                to large), one column per role, plus a wild card. Seed %d. Walk up each ramp to the docking \
+                door. Run the command again for a new gallery.""".formatted(gallery.number(), ROWS * COLUMNS, seed)));
             return 1;
         }
         catch (Exception error)

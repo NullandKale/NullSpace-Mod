@@ -21,6 +21,9 @@ import net.minecraft.server.level.*;
  */
 public final class ShipTopology
 {
+    // Carved hulls can remain joined at an edge or corner. Air gaps still split components.
+    static final List<BlockPos> CONNECTIONS = BlockPos.betweenClosedStream(new BlockPos(-1, -1, -1), new BlockPos(1, 1, 1)).filter(p -> !p.equals(BlockPos.ZERO)).map(BlockPos::immutable).toList();
+
     public record Resolution(CompoundTag ship, String problem)
     {}
 
@@ -48,11 +51,16 @@ public final class ShipTopology
             {
                 var delta = WorldStore.pos(existing, "base").subtract(new BlockPos(pad.bounds().minX(), pad.bounds().y() + 1, pad.bounds().minZ()));
                 ShipSystems.cancelTransit(level, existing);
-                store.repository().mutate(new ShipRepository.ShipId(existing.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate ->
+                var reframed = existing;
+                com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(level.getServer(), "reframe-pad", () ->
                 {
-                    PadAllocation.resize(candidate, pad.bounds(), PadRegistry.buildHeight(level, pad.bounds()));
-                    candidate.putString("homeId", pad.id());
-                    candidate.putString("home", pad.name());
+                    store.repository().mutate(new ShipRepository.ShipId(reframed.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate ->
+                    {
+                        PadAllocation.resize(candidate, pad.bounds(), PadRegistry.buildHeight(level, pad.bounds()));
+                        candidate.putString("homeId", pad.id());
+                        candidate.putString("home", pad.name());
+                    });
+                    return null;
                 });
                 if (!delta.equals(BlockPos.ZERO))
                     ComputerService.rebase(level.getServer(), existing.getStringOr("id", ""), delta);
@@ -66,8 +74,11 @@ public final class ShipTopology
                 long helms = connected.stream().filter(p -> ModBlocks.navigation(level.getBlockState(p))).count();
                 if (!connected.contains(controller) || helms != 1)
                     return new Resolution(null, "Resolve competing or disconnected helms before claiming this ship");
+                var beforeController = store.snapshot();
                 existing.putLong("controller", controller.asLong());
                 store.requestSave();
+                com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, controller, existing.getStringOr("id", ""));
+                com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(level.getServer(), "replace-controller", beforeController);
             }
             return new Resolution(existing, "");
         }
@@ -117,8 +128,11 @@ public final class ShipTopology
             tag.putInt("width", b.width());
             tag.putInt("depth", b.depth());
             tag.putInt("height", PadRegistry.buildHeight(level, b));
+            var beforeRegistration = store.snapshot();
             store.ships().add(tag);
             store.requestSave();
+            com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, controller, tag.getStringOr("id", ""));
+            com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(level.getServer(), "register-ship", beforeRegistration);
             return new Resolution(tag, "");
         }
         return new Resolution(null, "Register the pad below this ship first");
@@ -174,6 +188,8 @@ public final class ShipTopology
         var collars = DockingTunnel.positions(level);
         var queue = new ArrayDeque<BlockPos>();
         queue.add(start);
+        var queued = new HashSet<BlockPos>();
+        queued.add(start);
         while (!queue.isEmpty())
         {
             var p = queue.removeFirst();
@@ -183,8 +199,12 @@ public final class ShipTopology
             if (state.isAir())
                 continue;
             found.add(p);
-            for (var d : Direction.values())
-                queue.add(p.relative(d));
+            for (var offset : CONNECTIONS)
+            {
+                var next = p.offset(offset);
+                if (queued.add(next))
+                    queue.add(next);
+            }
         }
         return Set.copyOf(found);
     }

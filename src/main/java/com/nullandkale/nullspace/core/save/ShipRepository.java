@@ -67,6 +67,12 @@ public final class ShipRepository
         return generation;
     }
 
+    /** A journal committed edits made through the existing borrowed-record adapters. */
+    public void changed()
+    {
+        generation++;
+    }
+
     public void onReplace(Consumer<Mutation> listener)
     {
         listeners.add(listener);
@@ -79,6 +85,20 @@ public final class ShipRepository
         if (root == snapshot)
             return;
         root = snapshot;
+        generation++;
+        for (var listener : listeners)
+            listener.accept(mutation);
+    }
+
+    /**
+     * Applies the before or after side of an operation's records to the live store. Rollback and replay use this
+     * instead of replacing the whole store, so changes the operation did not make survive.
+     */
+    public void apply(List<StoreRecords.Entry> entries, boolean forward, Mutation mutation)
+    {
+        if (mutation != Mutation.TRANSFER && mutation != Mutation.RECOVERY)
+            throw new IllegalArgumentException("Applying records requires a transaction boundary");
+        StoreRecords.apply(root, entries, forward);
         generation++;
         for (var listener : listeners)
             listener.accept(mutation);

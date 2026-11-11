@@ -149,7 +149,7 @@ public final class SceneFrames
         if (space && ship != null)
         {
             result.putString("observer", ship.getStringOr("id", ""));
-            var nearby = WorldStore.get(level.getServer()).ships().stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("dimension", "").equals(lease.dimension) && LocalSpaces.together(ship, t)).sorted(Comparator.comparingDouble(t -> DockingManeuver.sceneDistance(ship, t))).limit(SceneService.MAX_SUBJECTS).toList();
+            var nearby = SceneService.neighbours(level.getServer(), lease.dimension, ship);
             for (var other : nearby)
                 SceneService.addSubject(subjects, level, other);
         }
@@ -209,7 +209,7 @@ public final class SceneFrames
         data.putString("dimension", level.dimension().identifier().toString());
         data.putString("observer", ship.getStringOr("id", ""));
         var subjects = new ListTag();
-        WorldStore.get(level.getServer()).ships().stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && LocalSpaces.together(ship, t)).sorted(Comparator.comparingDouble(t -> DockingManeuver.sceneDistance(ship, t))).limit(SceneService.MAX_SUBJECTS).forEach(t -> SceneService.addSubject(subjects, level, t));
+        SceneService.neighbours(level.getServer(), level.dimension().identifier().toString(), ship).forEach(t -> SceneService.addSubject(subjects, level, t));
         data.put("subjects", subjects);
         data.putLong("seed", SceneCatalog.get(level.getServer()).getLongOr("seed", 79419843));
         SceneService.deliver(player, new Frame(UUID.fromString(ship.getStringOr("id", "")), level.getServer().getTickCount(), data));

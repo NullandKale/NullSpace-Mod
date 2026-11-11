@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.core.ServerContext;
 import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
+import com.nullandkale.nullspace.gameplay.docking.DockingManeuver;
 import com.nullandkale.nullspace.gameplay.docking.DockingTunnel;
 import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
@@ -116,7 +117,7 @@ public final class SceneService
 
     static void open(ServerPlayer player, BlockPos console, boolean preview, boolean returnMachine, boolean returnEquipment)
     {
-        if (!player.level().hasChunkAt(console) || !(player.level().getBlockState(console).is(ModBlocks.MONITOR) || player.level().getBlockState(console).is(ModBlocks.CAMERA)) || player.distanceToSqr(Vec3.atCenterOf(console)) > 64 || !player.mayInteract(player.level(), console) || TransferLocks.busy(player) || TransferLocks.locked(player.level(), console))
+        if (!usableScreen(player, console))
             throw new IllegalArgumentException("Camera console unavailable, out of range, or in transit");
         var lease = new Lease(player, console, null, 0, 0);
         lease.machinePreview = preview;
@@ -134,7 +135,22 @@ public final class SceneService
 
     static boolean valid(ServerPlayer player, Lease lease)
     {
-        return player.isAlive() && player.level().dimension().identifier().toString().equals(lease.dimension) && player.level().getServer().getTickCount() <= lease.expires && !TransferLocks.busy(player) && (lease.freeCamera != null && player.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER) || lease.freeCamera == null && player.distanceToSqr(Vec3.atCenterOf(lease.console)) <= 64 && player.level().hasChunkAt(lease.console) && (player.level().getBlockState(lease.console).is(ModBlocks.MONITOR) || player.level().getBlockState(lease.console).is(ModBlocks.CAMERA)) && player.mayInteract(player.level(), lease.console) && !TransferLocks.locked(player.level(), lease.console));
+        if (!player.isAlive() || !player.level().dimension().identifier().toString().equals(lease.dimension) || player.level().getServer().getTickCount() > lease.expires || TransferLocks.busy(player))
+            return false;
+        // An operator's free camera needs only the permission. A camera or monitor needs its console within reach.
+        if (lease.freeCamera != null)
+            return player.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER);
+        return consoleInReach(player, lease);
+    }
+
+    private static boolean consoleInReach(ServerPlayer player, Lease lease)
+    {
+        var level = player.level();
+        if (player.distanceToSqr(Vec3.atCenterOf(lease.console)) > 64 || !level.hasChunkAt(lease.console))
+            return false;
+        var console = level.getBlockState(lease.console);
+        boolean screen = console.is(ModBlocks.MONITOR) || console.is(ModBlocks.CAMERA);
+        return screen && player.mayInteract(level, lease.console) && !TransferLocks.locked(level, lease.console);
     }
 
     public static void addSubject(ListTag subjects, ServerLevel level, CompoundTag ship)
@@ -213,7 +229,23 @@ public final class SceneService
     /** EVA stays in the owner's physical frame, even outside its hull bounds. */
     public static CompoundTag observer(ServerPlayer player)
     {
-        return WorldStore.get(player.level().getServer()).ships().stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("dimension", "").equals(player.level().dimension().identifier().toString()) && WorldStore.bounds(t).box().inflate(72).contains(player.position())).min(Comparator.comparingDouble(t -> WorldStore.bounds(t).box().getCenter().distanceToSqr(player.position()))).orElse(null);
+        String dimension = player.level().dimension().identifier().toString();
+        CompoundTag nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (var tag : WorldStore.get(player.level().getServer()).ships())
+        {
+            var ship = (CompoundTag) tag;
+            var box = WorldStore.bounds(ship).box();
+            if (!ship.getStringOr("dimension", "").equals(dimension) || !box.inflate(72).contains(player.position()))
+                continue;
+            double distance = box.getCenter().distanceToSqr(player.position());
+            if (distance < nearestDistance)
+            {
+                nearest = ship;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
     }
 
     /**
@@ -224,6 +256,44 @@ public final class SceneService
     {
         for (var p : server.getPlayerList().getPlayers())
             SceneFrames.background(p);
+    }
+
+    /** The ships in a dimension that share this ship's local space, nearest first, up to the most a scene draws. */
+    static List<CompoundTag> neighbours(net.minecraft.server.MinecraftServer server, String dimension, CompoundTag ship)
+    {
+        var near = new ArrayList<CompoundTag>();
+        for (var tag : WorldStore.get(server).ships())
+        {
+            var other = (CompoundTag) tag;
+            if (other.getStringOr("dimension", "").equals(dimension) && LocalSpaces.together(ship, other))
+                near.add(other);
+        }
+        near.sort(Comparator.comparingDouble(other -> DockingManeuver.sceneDistance(ship, other)));
+        return List.copyOf(near.subList(0, Math.min(near.size(), MAX_SUBJECTS)));
+    }
+
+    /** /nullspace viewport <x> <y> <z>: an operator opens a remote view of a block, for development. */
+    private static int openViewport(com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> c) throws com.mojang.brigadier.exceptions.CommandSyntaxException
+    {
+        var p = c.getSource().getPlayerOrException();
+        var at = net.minecraft.commands.arguments.coordinates.BlockPosArgument.getBlockPos(c, "position");
+        var l = new Lease(p, p.blockPosition(), at, p.getYRot(), p.getXRot());
+        l.expires = p.level().getServer().getTickCount() + 100;
+        leases(p.level().getServer()).put(p.getUUID(), l);
+        SceneFrames.send(p, l);
+        return 1;
+    }
+
+    /** The camera or monitor is loaded, in reach, a screen block, and nothing holds it or its player. */
+    private static boolean usableScreen(ServerPlayer player, BlockPos console)
+    {
+        var level = player.level();
+        if (!level.hasChunkAt(console))
+            return false;
+        var state = level.getBlockState(console);
+        if (!state.is(ModBlocks.MONITOR) && !state.is(ModBlocks.CAMERA))
+            return false;
+        return player.distanceToSqr(Vec3.atCenterOf(console)) <= 64 && player.mayInteract(level, console) && !TransferLocks.busy(player) && !TransferLocks.locked(level, console);
     }
 
     public static void initialize()
@@ -296,16 +366,9 @@ public final class SceneService
             ServerContext.get(server).remove(SENT_DEFINITIONS);
             SceneSnapshots.clear(server);
         });
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("viewport").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.argument("position", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()).executes(c ->
-        {
-            var p = c.getSource().getPlayerOrException();
-            var at = net.minecraft.commands.arguments.coordinates.BlockPosArgument.getBlockPos(c, "position");
-            var l = new Lease(p, p.blockPosition(), at, p.getYRot(), p.getXRot());
-            l.expires = p.level().getServer().getTickCount() + 100;
-            leases(p.level().getServer()).put(p.getUUID(), l);
-            SceneFrames.send(p, l);
-            return 1;
-        })))));
+        var position = Commands.argument("position", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()).executes(SceneService::openViewport);
+        var viewport = Commands.literal("viewport").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(position);
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(viewport)));
         CommandRegistrationCallback.EVENT.register((dispatcher, access, env) ->
         {
             String[] fields = {"x", "y", "z", "yaw", "pitch", "roll"};

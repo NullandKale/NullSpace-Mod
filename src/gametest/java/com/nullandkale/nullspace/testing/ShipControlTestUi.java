@@ -64,21 +64,21 @@ public final class ShipControlTestUi
             String tab = switch (action)
             {
                 case LAUNCH, JUMP, LAND, DOCK, UNDOCK -> "[ Manual steps ]";
-                case ENGAGE, DISENGAGE -> "[ Trip ]";
+                case ENGAGE, DISENGAGE, INVESTIGATE, RESUME -> "[ Trip ]";
                 case ADVANCED, INSPECT, SHOW_PROBLEM, REVIEW_LOOSE_BLOCKS, CONFIRM_LEAVE_BLOCKS -> "[ More ]";
                 default -> "";
             };
             String label = switch (action)
             {
                 case ENGAGE -> "[ Engage ]";
-                case DISENGAGE -> "[ Stop ]";
+                case DISENGAGE -> "[ Stop course ]";
                 case LAUNCH -> "[ Launch ]";
                 case JUMP -> "[ Jump ]";
                 case LAND -> "[ Land ]";
                 case DOCK -> "[ Dock ]";
                 case UNDOCK -> "[ Undock ]";
-                case INVESTIGATE -> "[ Investigate signal ]";
-                case RESUME -> "[ Resume journey ]";
+                case INVESTIGATE -> "[ Visit signal (optional) ]";
+                case RESUME -> "[ Continue journey ]";
                 case PILOT -> "[ Fly manually ]";
                 case CAMERA -> "[ View ship ]";
                 case AIRLOCK, CLOSE_DOORS -> "[ Close all doors ]";

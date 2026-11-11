@@ -21,10 +21,9 @@ public final class ShipScrap
     {
         var column = ShipStorage.padColumn(pad);
         var saved = WorldStore.bounds(ship);
-        var min = new BlockPos(Math.max(column.min().getX(), saved.min().getX()), Math.max(column.min().getY(), saved.min().getY()), Math.max(column.min().getZ(), saved.min().getZ()));
-        var max = new BlockPos(Math.min(column.max().getX(), saved.max().getX()), Math.min(column.max().getY(), saved.max().getY()), Math.min(column.max().getZ(), saved.max().getZ()));
+        var overlap = ShipStorage.overlap(column, saved);
         var blocks = new ArrayList<BlockPos>();
-        for (var cursor : BlockPos.betweenClosed(min, max))
+        for (var cursor : BlockPos.betweenClosed(overlap.min(), overlap.max()))
             if (level.hasChunkAt(cursor) && !level.getBlockState(cursor).isAir())
                 blocks.add(cursor.immutable());
         return blocks;
@@ -83,7 +82,6 @@ public final class ShipScrap
             return "Scrap " + name + " for good? Its blocks and everything aboard are lost. Press Scrap ship again to" + " confirm";
         }
         pending.remove(p.getUUID());
-        CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
         NavigationService.closeShip(server, ship.getStringOr("id", ""));
         var level = here ? p.level() : server.getLevel(TravelService.SPACE);
         var blocks = here ? captured(level, ship, pad) : BlockPos.betweenClosedStream(WorldStore.bounds(ship).min(), WorldStore.bounds(ship).max()).map(BlockPos::immutable).toList();
@@ -91,15 +89,19 @@ public final class ShipScrap
             for (int x = WorldStore.bounds(ship).min().getX() >> 4; x <= WorldStore.bounds(ship).max().getX() >> 4; x++)
                 for (int z = WorldStore.bounds(ship).min().getZ() >> 4; z <= WorldStore.bounds(ship).max().getZ() >> 4; z++)
                     level.getChunk(x, z);
-        for (var b : blocks)
-            if (!level.getBlockState(b).isAir())
-            {
-                level.removeBlockEntity(b);
-                level.setBlock(b, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
-            }
-        WorldStore.get(server).ships().remove(ship);
-        WorldStore.get(server).save();
-        return name + " was scrapped. Its titles no longer work";
+        return com.nullandkale.nullspace.gameplay.travel.BuildJournal.run(level, "scrap-ship", List.of(id), WorldStore.bounds(ship), () ->
+        {
+            CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
+            for (var b : blocks)
+                if (!level.getBlockState(b).isAir())
+                {
+                    level.removeBlockEntity(b);
+                    level.setBlock(b, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+                }
+            WorldStore.get(server).ships().remove(ship);
+            WorldStore.get(server).requestSave();
+            return name + " was scrapped. Its titles no longer work";
+        });
     }
 
     private ShipScrap()

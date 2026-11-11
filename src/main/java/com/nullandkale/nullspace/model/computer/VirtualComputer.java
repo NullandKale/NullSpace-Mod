@@ -9,6 +9,16 @@ import com.google.gson.*;
 /** Script scheduler, shell and virtual disk. All native capabilities are supplied explicitly. */
 public final class VirtualComputer implements ScriptLanguage.Host
 {
+    private static final String HELP = """
+        helphelp pwd ls cd cat echo mkdir cp mv rm edit sh bash python run ps kill clear
+        Variables: name=value; scripts: bash file.sh / python file.py
+        Background: run --detach file.py (or file.sh); jobs persist explicitly
+        Pipes: grep/head/wc; redirection: > and >>; history: Up/Down
+        Shift-Esc closes the console; Ctrl-C stops the foreground job.
+        ship status | rooms | power air 2 | doors all close | scan local
+        ship jump sol_luna | launch | land <pad name> | fire | cameras
+        Python: ship.status(), ship.power('air',2), sleep(1), print(...).""";
+
     public interface Devices
     {
         Object call(String name, List<Object> arguments);
@@ -401,7 +411,7 @@ public final class VirtualComputer implements ScriptLanguage.Host
         List<String> args = w.subList(1, w.size());
         return switch (name)
         {
-            case "help" -> "help pwd ls cd cat echo mkdir cp mv rm edit sh bash python run ps kill clear\n" + "Variables: name=value; scripts: bash file.sh / python file.py\n" + "Background: run --detach file.py (or file.sh); jobs persist explicitly\n" + "Pipes: grep/head/wc; redirection: > and >>; history: Up/Down\n" + "Shift-Esc closes the console; Ctrl-C stops the foreground job.\n" + "ship status | rooms | power air 2 | doors all close | scan local\n" + "ship jump sol_luna | launch | land <pad name> | fire | cameras\n" + "Python: ship.status(), ship.power('air',2), sleep(1), print(...).";
+            case "help" -> HELP;
             case "pwd" -> cwd;
             case "ls" -> String.join("  ", files.list(args.isEmpty() ? cwd : VirtualFiles.path(cwd, args.getFirst())));
             case "cd" ->

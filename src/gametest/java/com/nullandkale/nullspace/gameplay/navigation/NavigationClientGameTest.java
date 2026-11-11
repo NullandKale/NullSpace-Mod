@@ -53,6 +53,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                 try
                 {
                     var base = ShipLab.ensure(server);
+                    server.overworld().setBlock(base.offset(3, 2, 0), com.nullandkale.nullspace.content.ModBlocks.DOCKING_BASE.defaultBlockState().setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, net.minecraft.core.Direction.NORTH), 18);
                     launchHelm[0] = base.offset(6, 3, 3);
                     var p = world.getConnection().getServerPlayer();
                     p.teleportTo(server.overworld(), base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5, java.util.Set.of(), 0, 0, true);
@@ -212,6 +213,13 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     c.takeScreenshot("nullspace-ftl-investigate");
                     ShipControlTestUi.action(c, ShipControl.Action.INVESTIGATE);
                     c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:e_"), 300);
+                    world.getServer().waitFor(server ->
+                    {
+                        var ship = SceneService.observer(world.getConnection().getServerPlayer());
+                        if (ship.getCompoundOrEmpty("course").getStringOr("state", "").equals("PAUSED"))
+                            throw new AssertionError("Encounter approach paused: " + CourseService.summary(ship));
+                        return ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED");
+                    }, 1600);
                     world.getServer().runOnServer(server ->
                     {
                         var player = world.getConnection().getServerPlayer();
@@ -220,15 +228,9 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     c.waitTicks(5);
                     c.takeScreenshot("nullspace-ftl-resume");
-                    ShipControlTestUi.action(c, ShipControl.Action.DISENGAGE);
-                    world.getServer().waitFor(server ->
-                    {
-                        var ship = SceneService.observer(world.getConnection().getServerPlayer());
-                        return !CourseService.active(ship) && !ship.contains("dock");
-                    }, 800);
-                    c.waitTicks(5);
                     ShipControlTestUi.action(c, ShipControl.Action.RESUME);
-                    c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 300);
+                    // Departure backs away 112 blocks at .35 blocks/tick before re-entering FTL.
+                    c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 800);
                 }
                 world.getServer().runOnServer(server ->
                 {

@@ -23,7 +23,16 @@ final class EngineeringExecutor
         var words = command.words().toArray(String[]::new);
         var s = state(ship);
         if (command.kind() == ShipCommand.Kind.HELP)
-            return "rooms <page>; room here; air audit; profiles; profile <cruise/combat/emergency>;" + " power <controls air doors engines cameras weapons> <0-8>; order <six numbers" + " 0-5>; doors list; doors <all/group/id> <open/close>; group <name> <add/remove>" + " <door id>; devices <page>; device <id> <on/off>; groups; group <name> delete;" + " supply <on/off>. IDs use first 8 characters. Readings stay available during a" + " control blackout.";
+        {
+            var help = new StringBuilder();
+            help.append("rooms <page>; room here; air audit; profiles; profile <cruise/combat/emergency>;");
+            help.append(" power <controls air doors engines cameras weapons> <0-8>; order <six numbers");
+            help.append(" 0-5>; doors list; doors <all/group/id> <open/close>; group <name> <add/remove>");
+            help.append(" <door id>; devices <page>; device <id> <on/off>; groups; group <name> delete;");
+            help.append(" supply <on/off>. IDs use first 8 characters. Readings stay available during a");
+            help.append(" control blackout.");
+            return help.toString();
+        }
         if (command.kind() == ShipCommand.Kind.PROFILES)
             return "CRUISE: travel + air + camera. COMBAT: trade engine power for weapons. EMERGENCY:" + " controls and doors first, up to six air power, engines/cameras/weapons off." + " Apply: profile emergency. Profiles request power; hardware and stored energy" + " still limit delivery.";
         if (command.kind() == ShipCommand.Kind.PROFILE)
@@ -65,7 +74,10 @@ final class EngineeringExecutor
             return room < 0 ? "EXTERIOR / NO ROOM | No stored cabin air" : rooms(level, ship).get(room).description() + " | Your air: " + (breathable(level, ship, pos) ? "BREATHABLE" : "NOT BREATHABLE");
         }
         if (command.kind() == ShipCommand.Kind.AIR_AUDIT)
-            return "AIR AUDIT | Stored " + rooms(level, ship).stream().mapToLong(RoomReading::quantity).sum() + " units | Last edit displaced " + r.atmosphere.displaced() + " | Construction loss " + s.getLongOr("constructionVented", 0) + " units. Filling an entire room removes its remaining gas; reopening does not refill" + " it.";
+        {
+            long stored = rooms(level, ship).stream().mapToLong(RoomReading::quantity).sum();
+            return "AIR AUDIT | Stored " + stored + " units | Last edit displaced " + r.atmosphere.displaced() + " | Construction loss " + s.getLongOr("constructionVented", 0) + " units. Filling an entire room removes its remaining gas; reopening does not refill it.";
+        }
         if (command.kind() == ShipCommand.Kind.POWER)
         {
             PowerBus.System system;
@@ -129,7 +141,9 @@ final class EngineeringExecutor
             return "DEVICES page " + page + "/" + last + " | " + String.join(" | ", devices.stream().skip(page * 12L).limit(12).map(d ->
             {
                 var pos = BlockPos.of(d.getLongOr("position", 0));
-                return d.getStringOr("id", "").substring(0, 8) + " " + d.getStringOr("type", "").replace("nullspace:", "") + " " + pos.toShortString() + " " + (!r.blocks.contains(WorldStore.pos(ship, "base").offset(pos)) ? "DETACHED" : d.getBooleanOr("enabled", true) ? "ON" : "OFF") + " E=" + d.getIntOr("energy", 0);
+                String state = !r.blocks.contains(WorldStore.pos(ship, "base").offset(pos)) ? "DETACHED" : d.getBooleanOr("enabled", true) ? "ON" : "OFF";
+                String type = d.getStringOr("type", "").replace("nullspace:", "");
+                return d.getStringOr("id", "").substring(0, 8) + " " + type + " " + pos.toShortString() + " " + state + " E=" + d.getIntOr("energy", 0);
             }).toList());
         }
         if (command.kind() == ShipCommand.Kind.DEVICE)
@@ -147,7 +161,10 @@ final class EngineeringExecutor
             {
                 var p = base.offset(BlockPos.of(d.getLongOr("position", 0)));
                 var block = level.getBlockState(p);
-                return d.getStringOr("id", "").substring(0, 8) + " " + p.subtract(base).toShortString() + " " + (block.hasProperty(DoorBlock.OPEN) && block.getValue(DoorBlock.OPEN) ? "OPEN" : "CLOSED") + " groups=" + s.getCompoundOrEmpty("groups").keySet().stream().filter(g -> s.getCompoundOrEmpty("groups").getListOrEmpty(g).stream().anyMatch(t -> t.asString().orElse("").equals(d.getStringOr("id", "")))).toList();
+                String state = block.hasProperty(DoorBlock.OPEN) && block.getValue(DoorBlock.OPEN) ? "OPEN" : "CLOSED";
+                String id = d.getStringOr("id", "");
+                var groups = s.getCompoundOrEmpty("groups").keySet().stream().filter(g -> s.getCompoundOrEmpty("groups").getListOrEmpty(g).stream().anyMatch(t -> t.asString().orElse("").equals(id))).toList();
+                return id.substring(0, 8) + " " + p.subtract(base).toShortString() + " " + state + " groups=" + groups;
             }).toList());
         if (command.kind() == ShipCommand.Kind.GROUPS)
             return "GROUPS " + s.getCompoundOrEmpty("groups").keySet();

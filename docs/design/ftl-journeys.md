@@ -12,9 +12,9 @@ Space travel should take time that the player can use. A short loading screen wo
 
 1. At the Ship Controller choose a destination and press **Jump**. The destination can be a region, a landing pad or a docking port; the same choice covers all three. The Details panel shows the fuel cost and estimated time before departing.
 2. The ship enters the journey. The HUD shows the destination and remaining time, and the controller shows the same journey. Normal movement, inventories and ship controls stay available.
-3. Partway through, a **signal** may be announced in chat. Ignore it and keep travelling, or press **Investigate signal** at the controller.
-4. Investigating pauses the trip and takes the ship to the signal's own space, with its docking port already selected. **Dock** at the controller, open the docking door and walk through. Take supplies, repair access with ordinary blocks and tools, or salvage equipment.
-5. **Undock**, then **Resume journey**. The original destination and the time already spent are kept, and the jump fee already paid is not charged again.
+3. Partway through, a **signal** may be announced in chat. Ignore it and keep travelling, or open **Trip** and press **Visit signal (optional)**.
+4. Investigating pauses the trip and takes the ship to the signal's own space, with its docking port already selected. The ship begins docking automatically; after capture, open the docking door and walk through. Take supplies, repair access with ordinary blocks and tools, or salvage equipment.
+5. Return aboard and press **Continue journey** in **Trip**. The ship undocks and resumes automatically. The original destination and the time already spent are kept, and the jump fee already paid is not charged again.
 6. Arrival happens automatically when the remaining time runs out. **Land** or **Dock** works for the final pad or port, as it always did.
 
 ## What a journey is, in the data
@@ -40,7 +40,7 @@ Fuel is charged once, on departure. A jump inside a system costs 0.5 fuel, and b
 
 ## Signals
 
-A journey's *length* comes from its route, but its *signal* comes from a random nonce rolled at departure. Every trip meets a different signal, even on the same route, so repeating a route is not a way to farm a known site. (The route itself still gives stable quotes: the preview in the controller uses a fixed signal derived from the route.) A route has at most one signal.
+A journey's *length* comes from its route, but its *signal* comes from a random nonce rolled at departure. About one in four eligible trips offers a signal. Announcing one starts a five-minute cooldown for that vessel; trips started during the cooldown stay quiet. A new nonce keeps repeated routes from selecting a predictable site. (The route itself still gives stable quotes: the preview in the controller uses a fixed signal derived from the route.) A route has at most one signal.
 
 The signal arrives between a quarter and a half of the way through the trip. Its kind decides what is found:
 

@@ -46,11 +46,40 @@ public final class SceneViewport implements AutoCloseable
         return compute;
     }
 
-    private static final RenderPipeline COMPUTE_TRANSPARENT = RenderPipelines.register(RenderPipeline.builder().withLocation(Identifier.parse("nullspace:viewport_compute_transparent")).withVertexShader(Identifier.parse("nullspace:core/viewport")).withFragmentShader(Identifier.parse("nullspace:core/viewport_fog")).withBindGroupLayout(BindGroupLayouts.PROJECTION).withBindGroupLayout(SpaceComputeRenderer.VIEW).withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1).withBindGroupLayout(BindGroupLayouts.SAMPLER2).withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR).withPrimitiveTopology(PrimitiveTopology.QUADS).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false)).withCull(false).withColorTargetState(new ColorTargetState(Optional.of(BlendFunction.TRANSLUCENT), GpuFormat.RGBA8_UNORM, 15)).build());
+    private static final RenderPipeline COMPUTE_TRANSPARENT = computeTransparentPipeline();
+
+    private static RenderPipeline computeTransparentPipeline()
+    {
+        var pipeline = RenderPipeline.builder();
+        pipeline.withLocation(Identifier.parse("nullspace:viewport_compute_transparent"));
+        pipeline.withVertexShader(Identifier.parse("nullspace:core/viewport"));
+        pipeline.withFragmentShader(Identifier.parse("nullspace:core/viewport_fog"));
+        pipeline.withBindGroupLayout(BindGroupLayouts.PROJECTION);
+        pipeline.withBindGroupLayout(SpaceComputeRenderer.VIEW);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER2);
+        pipeline.withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR);
+        pipeline.withPrimitiveTopology(PrimitiveTopology.QUADS);
+        pipeline.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false));
+        pipeline.withCull(false);
+        pipeline.withColorTargetState(new ColorTargetState(Optional.of(BlendFunction.TRANSLUCENT), GpuFormat.RGBA8_UNORM, 15));
+        return RenderPipelines.register(pipeline.build());
+    }
 
     private static RenderPipeline reverse(String name, boolean transparent)
     {
-        return RenderPipelines.register(RenderPipeline.builder().withLocation(Identifier.parse("nullspace:" + name)).withVertexShader(Identifier.parse("nullspace:core/viewport")).withFragmentShader(Identifier.parse("nullspace:core/viewport")).withBindGroupLayout(BindGroupLayouts.PROJECTION).withBindGroupLayout(BindGroupLayouts.SAMPLER0).withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR).withPrimitiveTopology(PrimitiveTopology.QUADS).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, !transparent)).withCull(false).withColorTargetState(new ColorTargetState(transparent ? Optional.of(BlendFunction.TRANSLUCENT) : Optional.empty(), GpuFormat.RGBA8_UNORM, 15)).build());
+        var pipeline = RenderPipeline.builder();
+        pipeline.withLocation(Identifier.parse("nullspace:" + name));
+        pipeline.withVertexShader(Identifier.parse("nullspace:core/viewport"));
+        pipeline.withFragmentShader(Identifier.parse("nullspace:core/viewport"));
+        pipeline.withBindGroupLayout(BindGroupLayouts.PROJECTION);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER0);
+        pipeline.withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR);
+        pipeline.withPrimitiveTopology(PrimitiveTopology.QUADS);
+        pipeline.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, !transparent));
+        pipeline.withCull(false);
+        pipeline.withColorTargetState(new ColorTargetState(transparent ? Optional.of(BlendFunction.TRANSLUCENT) : Optional.empty(), GpuFormat.RGBA8_UNORM, 15));
+        return RenderPipelines.register(pipeline.build());
     }
 
     private static final RenderPipeline REVERSE_OPAQUE = reverse("viewport_reverse_opaque", false);

@@ -358,6 +358,51 @@ public final class GalaxyPlan
         return new Galaxy(worldSeed, systems, features);
     }
 
+    /** Repair older saved charts without rerolling their systems or replacing an assigned surface. */
+    public static Galaxy repairMissingLandings(Galaxy galaxy)
+    {
+        var used = new HashSet<String>();
+        galaxy.systems().forEach(s -> s.bodies().stream().map(Body::surface).filter(Objects::nonNull).forEach(used::add));
+        var systems = new ArrayList<StarSystem>();
+        boolean changed = false;
+        for (var system : galaxy.systems())
+        {
+            if (system.id().equals(HOME) || system.bodies().stream().anyMatch(Body::landable))
+            {
+                systems.add(system);
+                continue;
+            }
+            var bodies = new ArrayList<>(system.bodies());
+            boolean assigned = false;
+            for (int pass = 0; pass < 2 && !assigned; pass++)
+                for (int i = 0; i < bodies.size() && !assigned; i++)
+                {
+                    var body = bodies.get(i);
+                    if (pass == 1 && body.moon())
+                        continue;
+                    var types = pass == 0 ? List.of(body.type()) : List.of(BodyType.BARREN, BodyType.DESERT, BodyType.ICE, BodyType.LAVA, BodyType.OCEAN, BodyType.JUNGLE);
+                    for (var type : types)
+                    {
+                        if (!type.surface)
+                            continue;
+                        for (int slot = 0; slot < SURFACE_POOL.get(type); slot++)
+                        {
+                            String surface = "nullspace:" + surfaceSlot(type, slot);
+                            if (!used.add(surface))
+                                continue;
+                            bodies.set(i, new Body(body.id(), body.name(), type, body.parent(), body.orbitRadius(), body.angle(), type == body.type() ? body.radius() : Math.min(body.radius(), 1900), type == body.type() ? body.color() : type.color, body.seed(), surface));
+                            assigned = changed = true;
+                            break;
+                        }
+                        if (assigned)
+                            break;
+                    }
+                }
+            systems.add(new StarSystem(system.id(), system.name(), system.x(), system.y(), system.spectralClass(), system.color(), system.starRadius(), system.seed(), bodies));
+        }
+        return changed ? new Galaxy(galaxy.seed(), systems, galaxy.features()) : galaxy;
+    }
+
     /** Random system positions with Sol first, no two closer than SYSTEM_SPACING. */
     private static List<double[]> layout(Random random)
     {

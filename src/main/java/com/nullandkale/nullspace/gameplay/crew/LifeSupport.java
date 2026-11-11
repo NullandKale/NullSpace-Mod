@@ -59,7 +59,11 @@ public final class LifeSupport
     public static boolean suited(ServerPlayer p)
     {
         // Plain and armored suit pieces protect the same way; any mix counts as a full suit.
-        return piece(p, EquipmentSlot.HEAD, ModBlocks.HELMET, ModBlocks.ARMORED_HELMET) && piece(p, EquipmentSlot.CHEST, ModBlocks.CHEST, ModBlocks.ARMORED_CHEST) && piece(p, EquipmentSlot.LEGS, ModBlocks.LEGS, ModBlocks.ARMORED_LEGS) && piece(p, EquipmentSlot.FEET, ModBlocks.BOOTS, ModBlocks.ARMORED_BOOTS);
+        boolean head = piece(p, EquipmentSlot.HEAD, ModBlocks.HELMET, ModBlocks.ARMORED_HELMET);
+        boolean chest = piece(p, EquipmentSlot.CHEST, ModBlocks.CHEST, ModBlocks.ARMORED_CHEST);
+        boolean legs = piece(p, EquipmentSlot.LEGS, ModBlocks.LEGS, ModBlocks.ARMORED_LEGS);
+        boolean feet = piece(p, EquipmentSlot.FEET, ModBlocks.BOOTS, ModBlocks.ARMORED_BOOTS);
+        return head && chest && legs && feet;
     }
 
     private static boolean piece(ServerPlayer p, EquipmentSlot slot, net.minecraft.world.item.Item plain, net.minecraft.world.item.Item armored)
@@ -184,6 +188,14 @@ public final class LifeSupport
             player.sendOverlayMessage(net.minecraft.network.chat.Component.literal((cabin ? "CABIN AIR" : source ? "SUIT / TETHER AIR" : "AIRLESS SURFACE") + " | Oxygen " + meter / 10 + (suited(player) && !cabin ? " | Canister " + canisterPercent(player) + "%" : "")));
     }
 
+    /** A player may break a block unless a tunnel, a move or a lock covers it, and in space only inside a ship's region. */
+    private static boolean mayBreak(net.minecraft.world.level.Level world, ServerPlayer p, BlockPos pos)
+    {
+        if (DockingTunnel.protectedAt(p.level(), pos) || TransferLocks.busy(p) || TransferLocks.locked(p.level(), pos))
+            return false;
+        return !world.dimension().equals(TravelService.SPACE) || WorldStore.get(p.level().getServer()).at(p.level(), pos) != null;
+    }
+
     public static void initialize()
     {
         net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> player instanceof ServerPlayer p ? fillCanister(p, hand, hit.getBlockPos()) : net.minecraft.world.InteractionResult.PASS);
@@ -192,6 +204,7 @@ public final class LifeSupport
             var store = WorldStore.get(server);
 
             var savedAir = store.section("oxygen");
+            Map<String, CompoundTag> crewOf = null;
             for (ServerPlayer player : server.getPlayerList().getPlayers())
             {
                 if (!player.level().dimension().equals(TravelService.SPACE))
@@ -214,16 +227,21 @@ public final class LifeSupport
                     continue;
                 if (TransferLocks.busy(player))
                     continue;
-                CompoundTag vessel = null;
-                for (Tag tag : store.ships())
+                // Who is crew of which ship is read once per tick for everyone, not once per player.
+                if (crewOf == null)
                 {
-                    var candidate = (CompoundTag) tag;
-                    if (!candidate.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString()))
-                        continue;
-                    for (Tag member : candidate.getListOrEmpty("crew"))
-                        if (((CompoundTag) member).getStringOr("id", "").equals(player.getUUID().toString()))
-                            vessel = candidate;
+                    crewOf = new HashMap<>();
+                    String space = TravelService.SPACE.identifier().toString();
+                    for (Tag tag : store.ships())
+                    {
+                        var candidate = (CompoundTag) tag;
+                        if (!candidate.getStringOr("dimension", "").equals(space))
+                            continue;
+                        for (Tag member : candidate.getListOrEmpty("crew"))
+                            crewOf.put(((CompoundTag) member).getStringOr("id", ""), candidate);
+                    }
                 }
+                CompoundTag vessel = crewOf.get(player.getUUID().toString());
                 if (vessel == null)
                     vessel = store.at(player.level(), player.blockPosition());
                 if (vessel == null)
@@ -276,7 +294,9 @@ public final class LifeSupport
                 }
                 if (server.getTickCount() % 20 == 0)
                 {
-                    player.sendOverlayMessage(net.minecraft.network.chat.Component.literal((cabin ? "CABIN SEALED" : protection ? "SUIT / TETHER AIR" : "VACUUM - NO AIR") + " | Tether " + (int) tetherDistance(vessel, player.position()) + "/72 | Oxygen " + air(player.level().getServer()).getOrDefault(player.getUUID(), 1000) / 10));
+                    String where = cabin ? "CABIN SEALED" : protection ? "SUIT / TETHER AIR" : "VACUUM - NO AIR";
+                    int oxygenPercent = air(player.level().getServer()).getOrDefault(player.getUUID(), 1000) / 10;
+                    player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(where + " | Tether " + (int) tetherDistance(vessel, player.position()) + "/72 | Oxygen " + oxygenPercent));
                     // Record offline crew offsets without replacing or refilling their inventories or
                     // air.
                     var members = vessel.getListOrEmpty("crew");
@@ -288,7 +308,12 @@ public final class LifeSupport
                     {
                         member = new CompoundTag();
                         member.putString("id", player.getUUID().toString());
-                        members.add(member);
+                        var joined = member;
+                        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "join-crew", () ->
+                        {
+                            members.add(joined);
+                            return null;
+                        });
                     }
                     var base = WorldStore.pos(vessel, "base");
                     member.putDouble("x", player.getX() - base.getX());
@@ -326,12 +351,12 @@ public final class LifeSupport
                 return InteractionResult.FAIL;
             return InteractionResult.PASS;
         });
-        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, be) -> !(player instanceof ServerPlayer p) || (!DockingTunnel.protectedAt(p.level(), pos) && !TransferLocks.busy(p) && !TransferLocks.locked(p.level(), pos) && (!world.dimension().equals(TravelService.SPACE) || WorldStore.get(p.level().getServer()).at(p.level(), pos) != null)));
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, be) -> !(player instanceof ServerPlayer p) || mayBreak(world, p, pos));
         UseItemCallback.EVENT.register((player, world, hand) -> player instanceof ServerPlayer p && TransferLocks.busy(p) ? InteractionResult.FAIL : InteractionResult.PASS);
         UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> player instanceof ServerPlayer p && (TransferLocks.busy(p) || TransferLocks.locked(p.level(), entity.blockPosition())) ? InteractionResult.FAIL : InteractionResult.PASS);
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> player instanceof ServerPlayer p && (TransferLocks.busy(p) || TransferLocks.locked(p.level(), entity.blockPosition())) ? InteractionResult.FAIL : InteractionResult.PASS);
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> WorldStore.get(server).save());
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server -> WorldStore.get(server).save());
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> WorldStore.get(server).requestSave());
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server -> WorldStore.get(server).requestSave());
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
         {
             ServerContext.get(server).remove(AIR);
@@ -341,15 +366,19 @@ public final class LifeSupport
         {
             if (entity instanceof ServerPlayer p)
             {
-                CrewRelease.rememberDeath(p);
-                var store = WorldStore.get(p.level().getServer());
-                for (Tag tag : store.ships())
-                    ((CompoundTag) tag).getListOrEmpty("crew").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
-                store.list("targets").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
-                store.section("oxygen").remove(p.getUUID().toString());
-                air(p.level().getServer()).remove(p.getUUID());
-                last(p.level().getServer()).remove(p.getUUID());
-                store.save();
+                com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "crew-death", () ->
+                {
+                    CrewRelease.rememberDeath(p);
+                    var store = WorldStore.get(p.level().getServer());
+                    for (Tag tag : store.ships())
+                        ((CompoundTag) tag).getListOrEmpty("crew").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
+                    store.list("targets").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
+                    store.section("oxygen").remove(p.getUUID().toString());
+                    air(p.level().getServer()).remove(p.getUUID());
+                    last(p.level().getServer()).remove(p.getUUID());
+                    store.requestSave();
+                    return null;
+                });
             }
         });
         net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, player, alive) ->

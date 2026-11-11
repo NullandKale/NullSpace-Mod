@@ -189,7 +189,7 @@ public final class SpacePopulation
         }
         region.put("sites", sites);
         ledger.put(address, region);
-        store.save();
+        store.requestSave();
     }
 
     private static boolean populate(MinecraftServer server, String address, CompoundTag region)
@@ -280,7 +280,7 @@ public final class SpacePopulation
             if (station == null)
                 return false; // No clear storage section yet; never throw for this.
             site.putString("state", "placed");
-            store.save();
+            store.requestSave();
             NullSpace.LOGGER.info("Orbital place registered: {} in {} at {}", plan.name(), address, position);
             return true;
         }

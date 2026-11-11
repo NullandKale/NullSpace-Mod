@@ -116,7 +116,7 @@ public final class NavigationService
     {
         if (FuelSystem.available(level, s) == 0)
             return 0;
-        int engines = (int) ShipSystems.connected(level, s).stream().filter(p -> level.getBlockState(p).is(ModBlocks.ENGINE) && ShipSystems.active(s, p) && level.getBlockState(p.relative(level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING))).isAir()).mapToInt(p -> 1 + FuelSystem.tier(level, p)).sum();
+        int engines = ShipSystems.connected(level, s).stream().filter(p -> engineFires(level, s, p)).mapToInt(p -> 1 + FuelSystem.tier(level, p)).sum();
         if (engines == 0)
             return 0;
         if (!ShipSystems.enabled(s))
@@ -193,7 +193,7 @@ public final class NavigationService
             if (s != null)
             {
                 Piloting.stop(s);
-                WorldStore.get(server).save();
+                WorldStore.get(server).requestSave();
             }
         }
     }
@@ -237,6 +237,39 @@ public final class NavigationService
     static boolean allOnline(MinecraftServer server, Jump j, Set<UUID> ready)
     {
         return j.crew.stream().filter(id -> server.getPlayerList().getPlayer(id) != null).allMatch(ready::contains);
+    }
+
+    /** An engine counts when it is on and the block behind it is clear for the exhaust. */
+    private static boolean engineFires(ServerLevel level, CompoundTag s, BlockPos p)
+    {
+        var state = level.getBlockState(p);
+        return state.is(ModBlocks.ENGINE) && ShipSystems.active(s, p) && level.getBlockState(p.relative(state.getValue(HorizontalDirectionalBlock.FACING))).isAir();
+    }
+
+    /** A computer's standing order still holds: its ship is loaded, powered, crewed and has engines, and the terminal is intact. */
+    private static boolean commandHolds(MinecraftServer server, CompoundTag vessel, ServerLevel level, Automation command)
+    {
+        if (vessel == null || server.getTickCount() >= command.until() || level == null)
+            return false;
+        var controller = command.controller();
+        if (!level.hasChunkAt(controller) || !ShipTopology.loaded(level, vessel) || TransferLocks.locked(level, controller))
+            return false;
+        if (!level.getBlockState(controller).is(ModBlocks.TERMINAL) || !ShipSystems.connected(level, vessel).contains(controller))
+            return false;
+        return ShipSystems.active(vessel, controller) && propulsion(level, vessel) != 0 && crewAboard(level, vessel);
+    }
+
+    /** What the crew is told when a jump finishes. */
+    private static String underwayMessage(MinecraftServer server, Jump j)
+    {
+        if (j.mode == Mode.START || j.mode == Mode.RESUME)
+            return "FTL underway. You can move around your ship.";
+        if (j.mode == Mode.INVESTIGATE)
+        {
+            boolean selected = ship(server, j.ship).getCompoundOrEmpty("journey").getBooleanOr("encounterDockSelected", false);
+            return selected ? "Signal reached. Automatic docking will begin; Disengage cancels it." : "Signal reached. Select an available docking port, then Dock.";
+        }
+        return "Arrived in " + LocalSpaces.label(server, ship(server, j.ship));
     }
 
     static void finish(MinecraftServer server, Jump j, String message)
@@ -305,7 +338,7 @@ public final class NavigationService
             var command = entry.getValue();
             var vessel = ship(server, entry.getKey());
             var level = vessel == null ? null : WorldStore.level(server, vessel.getStringOr("dimension", ""));
-            if (vessel == null || server.getTickCount() >= command.until() || level == null || !level.hasChunkAt(command.controller()) || !ShipTopology.loaded(level, vessel) || TransferLocks.locked(level, command.controller()) || !level.getBlockState(command.controller()).is(ModBlocks.TERMINAL) || !ShipSystems.connected(level, vessel).contains(command.controller()) || !ShipSystems.active(vessel, command.controller()) || propulsion(level, vessel) == 0 || !crewAboard(level, vessel))
+            if (!commandHolds(server, vessel, level, command))
             {
                 if (vessel != null)
                     Piloting.stop(vessel);
@@ -397,7 +430,7 @@ public final class NavigationService
                         s.putDouble("simZ", arrival.z);
                         if (j.mode == Mode.INVESTIGATE)
                             JourneyService.selectEncounterDock(pilot, s);
-                        WorldStore.get(server).save();
+                        WorldStore.get(server).requestSave();
                     }
                     catch (RuntimeException save)
                     {
@@ -427,11 +460,11 @@ public final class NavigationService
                         if (p != null && !j.arrived.contains(id))
                             p.connection.disconnect(net.minecraft.network.chat.Component.literal("Reconnect to synchronize the destination scene"));
                     }
-                finish(server, j, j.mode == Mode.START || j.mode == Mode.RESUME ? "FTL underway. You can move around your ship." : j.mode == Mode.INVESTIGATE ? (ship(server, j.ship).getCompoundOrEmpty("journey").getBooleanOr("encounterDockSelected", false) ? "Signal reached. Automatic docking will begin; Disengage cancels it." : "Signal reached. Select an available docking port, then Dock.") : "Arrived in " + LocalSpaces.label(server, ship(server, j.ship)));
+                finish(server, j, underwayMessage(server, j));
             }
         }
         if (!r.pilots.isEmpty() && server.getTickCount() % 100 == 0)
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
     }
 
     public static void initialize()
@@ -444,7 +477,7 @@ public final class NavigationService
         {
             for (var l : List.copyOf(state(server).leases.values()))
                 close(server, l.player);
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> ServerContext.get(server).remove(KEY));
     }

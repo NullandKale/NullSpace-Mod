@@ -106,6 +106,8 @@ public final class ModBlocks
 
     private static Machine createMachine(String name, BlockBehaviour.Properties props)
     {
+        if (name.equals("ship_computer") || name.equals("station_core"))
+            return new Controller(props);
         return java.util.Set.of("generator", "battery", "engine", "local_scanner", "camera", "monitor", "air_supply", "weapon", "docking_base").contains(name) ? new InventoryMachine(props, name) : new Machine(props);
     }
 
@@ -230,6 +232,21 @@ public final class ModBlocks
                 }
             }
             return InteractionResult.SUCCESS;
+        }
+    }
+
+    /** A ship controller or station core: an ordinary machine that also carries its ship's id (no inventory, no menu). */
+    public static final class Controller extends Machine implements EntityBlock
+    {
+        public Controller(Properties props)
+        {
+            super(props);
+        }
+
+        @Override
+        public net.minecraft.world.level.block.entity.BlockEntity newBlockEntity(BlockPos at, BlockState state)
+        {
+            return new com.nullandkale.nullspace.content.machine.ControllerBlockEntity(at, state);
         }
     }
 

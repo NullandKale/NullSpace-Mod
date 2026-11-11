@@ -45,7 +45,7 @@ public final class PlayerRescue
             if (!store.section("rescues").contains(id))
                 return "No rescue is pending";
             store.section("rescues").remove(id);
-            store.save();
+            store.requestSave();
             return "Rescue cancelled";
         }
         if (!player.isAlive())
@@ -55,7 +55,7 @@ public final class PlayerRescue
         var intent = new CompoundTag();
         intent.putInt("remaining", 60);
         store.section("rescues").put(id, intent);
-        store.save();
+        store.requestSave();
         return "Rescue takes you to Terra Harbor. You keep what you are carrying. Your ship and its" + " cargo stay here.";
     }
 
@@ -70,11 +70,15 @@ public final class PlayerRescue
         var server = player.level().getServer();
         var at = TerraHarbor.arrival(server);
         var store = WorldStore.get(server);
-        for (var tag : store.ships())
-            ((CompoundTag) tag).getListOrEmpty("crew").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
-        store.list("targets").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
-        // Remove stale crew/arrival anchors before teleport. A retry can only move the same player.
-        store.save();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "rescue-crew", () ->
+        {
+            for (var tag : store.ships())
+                ((CompoundTag) tag).getListOrEmpty("crew").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
+            store.list("targets").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString()));
+            // Remove stale crew/arrival anchors before teleport. A retry can only move the same player.
+            store.requestSave();
+            return null;
+        });
         player.stopRiding();
         player.closeContainer();
         player.teleportTo(server.overworld(), at.x, at.y, at.z, Set.of(), 0, 0, true);
@@ -135,7 +139,7 @@ public final class PlayerRescue
                 {
                     arrive(p);
                     rescues.remove(id);
-                    store.save();
+                    store.requestSave();
                     p.sendSystemMessage(Component.literal("Arrived at Terra Harbor. Your ship and cargo remain where you left them."));
                 }
                 catch (RuntimeException error)

@@ -34,6 +34,17 @@ public final class TravelScreen extends Screen
         finishing = revealing;
     }
 
+    /** The player is faded out, the destination is the world or scene on screen, and the ground under them has been drawn. */
+    private static boolean arrived(net.minecraft.client.Minecraft client)
+    {
+        if (active.dimension().isEmpty() || sent || opacity() < .999 || client.level == null || client.player == null)
+            return false;
+        boolean scene = active.dimension().startsWith("scene:");
+        boolean there = scene ? SpaceSceneRenderer.readyForScene(active.dimension().substring(6)) : client.level.dimension().identifier().toString().equals(active.dimension());
+        var feet = client.player.blockPosition();
+        return there && client.level.hasChunkAt(feet) && (scene || client.levelRenderer.isSectionCompiledAndVisible(feet, 0L));
+    }
+
     private TravelScreen()
     {
         super(Component.literal("Ship transit"));
@@ -92,7 +103,7 @@ public final class TravelScreen extends Screen
             }
             if (!(client.gui.screen() instanceof TravelScreen))
                 client.gui.setScreen(new TravelScreen());
-            if (!active.dimension().isEmpty() && !sent && opacity() >= .999 && client.level != null && client.player != null && (active.dimension().startsWith("scene:") ? SpaceSceneRenderer.readyForScene(active.dimension().substring(6)) : client.level.dimension().identifier().toString().equals(active.dimension())) && client.level.hasChunkAt(client.player.blockPosition()) && (active.dimension().startsWith("scene:") || client.levelRenderer.isSectionCompiledAndVisible(client.player.blockPosition(), 0L)))
+            if (arrived(client))
             {
                 if (++stableTicks >= 10)
                 {

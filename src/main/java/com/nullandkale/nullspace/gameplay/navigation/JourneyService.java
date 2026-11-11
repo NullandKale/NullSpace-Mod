@@ -17,6 +17,8 @@ import net.minecraft.server.MinecraftServer;
 /** Saved, per-vessel gameplay time. The loading handshake is deliberately separate. */
 public final class JourneyService
 {
+    private static final long SIGNAL_COOLDOWN = 5 * 60 * 20;
+
     public static boolean active(CompoundTag ship)
     {
         return ship != null && ship.contains("journey");
@@ -78,7 +80,8 @@ public final class JourneyService
         j.putInt("kind", plan.kind());
         int length = seconds > 0 ? seconds : plan.seconds();
         j.putInt("duration", length * 20);
-        j.putInt("contactAt", Math.min(plan.contactSecond(), length) * 20);
+        boolean cooledDown = !ship.contains("lastSignalAt") || server.overworld().getGameTime() - ship.getLongOr("lastSignalAt", 0) >= SIGNAL_COOLDOWN;
+        j.putInt("contactAt", plan.hasSignal() && cooledDown ? Math.min(plan.contactSecond(), length) * 20 : Integer.MAX_VALUE);
         j.putInt("elapsed", 0);
         j.putInt("paid", cost);
         j.putString("state", "CRUISE");
@@ -135,7 +138,7 @@ public final class JourneyService
         var j = ship.getCompoundOrEmpty("journey");
         String to = LocalSpaces.get(server, j.getStringOr("destination", "")).name();
         int remaining = Math.max(0, (j.getIntOr("duration", 0) - j.getIntOr("elapsed", 0) + 19) / 20);
-        return (!cruising(ship) ? "Journey paused" : "FTL " + remaining / 60 + ":" + String.format(java.util.Locale.ROOT, "%02d", remaining % 60)) + " to " + to + (contact(ship) ? " | Signal: " + j.getStringOr("contact", "") + " (controller: Investigate)" : "");
+        return (!cruising(ship) ? "Journey paused" : "FTL " + remaining / 60 + ":" + String.format(java.util.Locale.ROOT, "%02d", remaining % 60)) + " to " + to + (contact(ship) ? " | Signal: " + j.getStringOr("contact", "") + " (Trip: Visit signal)" : "");
     }
 
     public static String stopReason(MinecraftServer server, CompoundTag ship)
@@ -195,8 +198,9 @@ public final class JourneyService
                 if (contact(ship) && !j.getBooleanOr("announced", false))
                 {
                     j.putBoolean("announced", true);
+                    ship.putLong("lastSignalAt", server.overworld().getGameTime());
                     for (var p : crew)
-                        p.sendSystemMessage(Component.literal("Signal: " + j.getStringOr("contact", "") + ". Use Investigate at the ship controller, or keep travelling."));
+                        p.sendSystemMessage(Component.literal("Signal: " + j.getStringOr("contact", "") + ". In the ship controller's Trip panel, choose Visit signal, or keep travelling."));
                 }
                 if (elapsed >= j.getIntOr("duration", 0))
                     Jumps.arrive(crew.getFirst(), ship);

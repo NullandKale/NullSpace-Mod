@@ -66,6 +66,8 @@ public final class ControllerChecks
             return space ? "" : "Launch into space first";
         if (StationAccess.station(ship))
             return "Stations are anchored";
+        if (action == Action.RESUME)
+            return CourseService.resumeReason(p, ship);
         if (DockingService.motionLocked(ship))
             return "Undock or cancel the docking maneuver first";
         if (ShipStorage.active(p))
@@ -74,12 +76,10 @@ public final class ControllerChecks
             return "This ship is already travelling or boarding";
         if (action == Action.INVESTIGATE)
             return JourneyService.stopReason(p.level().getServer(), ship);
-        if (action == Action.RESUME)
-            return JourneyService.active(ship) && !JourneyService.cruising(ship) ? NavigationService.propulsion(p.level(), ship) > 0 ? "" : "Load fuel and power controls and an engine before resuming" : "No paused journey";
         if (JourneyService.cruising(ship))
             return "FTL underway: investigate a signal or wait for arrival";
         if (action == Action.JUMP && JourneyService.active(ship))
-            return "Use Resume journey to continue your paid trip";
+            return "Use Continue journey in Trip to resume your paid trip";
         if (action == Action.LAUNCH)
             return space ? "Already in space" : fuelReason(p, ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
         if (!space)
@@ -91,7 +91,7 @@ public final class ControllerChecks
         if (target == null)
             return "Choose a destination";
         if (action == Action.JUMP)
-            return !CourseService.scannerReason(p, ship, target.region()).isEmpty() ? CourseService.scannerReason(p, ship, target.region()) : JourneyService.special(p.level().getServer(), target.region()) ? "Reach this signal using Investigate during a journey" : LocalSpaces.address(ship).equals(target.region()) ? "Already in the destination's region" : !StarSystems.rangeReason(p.level(), ship, target.region()).isEmpty() ? StarSystems.rangeReason(p.level(), ship, target.region()) : fuelReason(p, ship, StarSystems.jumpBase(p.level().getServer(), LocalSpaces.address(ship), target.region()));
+            return jumpReason(p, ship, target);
         if (action == Action.LAND && target.kind() != ShipDestination.Kind.PAD)
             return "Choose a landing pad as the destination";
         if (action == Action.DOCK && target.kind() != ShipDestination.Kind.PORT)
@@ -108,6 +108,22 @@ public final class ControllerChecks
         if (action == Action.LAND)
             return fuelReason(p, ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
         return "";
+    }
+
+    /** Why a jump to this destination cannot start, or empty. The first reason found wins. */
+    private static String jumpReason(ServerPlayer p, CompoundTag ship, ShipDestination target)
+    {
+        String scanner = CourseService.scannerReason(p, ship, target.region());
+        if (!scanner.isEmpty())
+            return scanner;
+        if (JourneyService.special(p.level().getServer(), target.region()))
+            return "Reach this signal using Investigate during a journey";
+        if (LocalSpaces.address(ship).equals(target.region()))
+            return "Already in the destination's region";
+        String range = StarSystems.rangeReason(p.level(), ship, target.region());
+        if (!range.isEmpty())
+            return range;
+        return fuelReason(p, ship, StarSystems.jumpBase(p.level().getServer(), LocalSpaces.address(ship), target.region()));
     }
 
     static String fuelReason(ServerPlayer p, CompoundTag ship, int base)

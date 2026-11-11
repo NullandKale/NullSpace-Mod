@@ -45,7 +45,14 @@ public final class ShipControl
 
     public enum Action
     {
-        SELECT, LAUNCH, JUMP, LAND, DOCK, UNDOCK, PILOT, CAMERA, ADVANCED, CLOSE_DOORS, AIRLOCK, DEPLOY, WAYPOINT, ACCEPT, DECLINE, CANCEL, REFRESH, CLOSE, INSPECT, SHOWCASE, EXPLAIN, SHOW_PROBLEM, INVESTIGATE, RESUME, REVIEW_LOOSE_BLOCKS, CONFIRM_LEAVE_BLOCKS, ENGAGE, DISENGAGE, MARK, BROWSE_SCANNER, RETURN_TO_CONTROLLER
+        SELECT, LAUNCH, JUMP, LAND, DOCK, UNDOCK, PILOT, CAMERA, // flight and docking
+        ADVANCED, CLOSE_DOORS, AIRLOCK, // the advanced screen, doors and the airlock
+        DEPLOY, WAYPOINT, ACCEPT, DECLINE, CANCEL, // stations and requests
+        REFRESH, CLOSE, INSPECT, SHOWCASE, EXPLAIN, SHOW_PROBLEM, // the screen and diagnostics
+        INVESTIGATE, RESUME, // journeys
+        REVIEW_LOOSE_BLOCKS, CONFIRM_LEAVE_BLOCKS, // loose blocks
+        ENGAGE, DISENGAGE, MARK, // courses
+        BROWSE_SCANNER, RETURN_TO_CONTROLLER // the scanner
     }
 
     static final class Session
@@ -86,7 +93,11 @@ public final class ShipControl
 
     private static boolean accessible(ServerPlayer p, BlockPos at)
     {
-        return p.isAlive() && p.level().hasChunkAt(at) && p.distanceToSqr(Vec3.atCenterOf(at)) <= 64 && (ModBlocks.navigation(p.level().getBlockState(at)) || scanner(p, at)) && p.mayInteract(p.level(), at) && StationAccess.mayUse(p, at) && !TransferLocks.busy(p) && !TransferLocks.locked(p.level(), at);
+        if (!p.isAlive() || !p.level().hasChunkAt(at) || p.distanceToSqr(Vec3.atCenterOf(at)) > 64)
+            return false;
+        if (!ModBlocks.navigation(p.level().getBlockState(at)) && !scanner(p, at))
+            return false;
+        return p.mayInteract(p.level(), at) && StationAccess.mayUse(p, at) && !TransferLocks.busy(p) && !TransferLocks.locked(p.level(), at);
     }
 
     private static CompoundTag vessel(ServerPlayer p, Session s)
@@ -123,7 +134,7 @@ public final class ShipControl
         }
         CompoundTag own = resolution.ship();
         if (!scanner(p, at) && JourneyService.selectEncounterDock(p, own))
-            WorldStore.get(p.level().getServer()).save();
+            WorldStore.get(p.level().getServer()).requestSave();
         var session = new Session(p, at, own, message);
         if (!ShipSystems.enabled(own) && SystemsUpgrade.upgradeCheck(p.level(), own, at).ready())
             SystemsUpgrade.upgrade(p.level(), own);
@@ -154,7 +165,12 @@ public final class ShipControl
             var ship = session == null ? null : WorldStore.get(p.level().getServer()).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getStringOr("id", "").equals(session.ship)).findFirst().orElse(null);
             var destination = ship == null ? null : ShipDestination.selected(ship);
             String format = "Ship control {}: {} | player={} ship={} ({}) controller={} destination={}";
-            var details = new Object[]{packet.action(), (result.isBlank() ? "Action accepted" : result).replace('\n', ' '), p.getPlainTextName(), ship == null ? "unavailable" : ship.getStringOr("home", "Ship"), session == null ? "unknown" : session.ship, session == null ? "unknown" : session.position.toShortString(), destination == null ? "none" : destination.name()};
+            String outcomeText = (result.isBlank() ? "Action accepted" : result).replace('\n', ' ');
+            String shipText = ship == null ? "unavailable" : ship.getStringOr("home", "Ship");
+            String sessionShipText = session == null ? "unknown" : session.ship;
+            String sessionPositionText = session == null ? "unknown" : session.position.toShortString();
+            String destinationText = destination == null ? "none" : destination.name();
+            var details = new Object[]{packet.action(), outcomeText, p.getPlainTextName(), shipText, sessionShipText, sessionPositionText, destinationText};
             NullSpace.LOGGER.info(format, details);
         }
         return result;
@@ -268,7 +284,7 @@ public final class ShipControl
                         {
                             Jumps.investigate(p, session.position);
                         }
-                        case RESUME -> Jumps.resume(p, session.position);
+                        case RESUME -> result = CourseService.resumeJourney(p, ship);
                         case DOCK ->
                         {
                             boolean available = session.catalog.stream().anyMatch(d -> d.id().equals(target.id()));

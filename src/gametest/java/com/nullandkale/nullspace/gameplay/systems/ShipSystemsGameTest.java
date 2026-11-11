@@ -25,6 +25,38 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 public final class ShipSystemsGameTest
 {
     @GameTest
+    public void closedDoorOccupantsBreatheTheRoomWithoutOpeningTheSeal(GameTestHelper ctx)
+    {
+        var level = ctx.getLevel();
+        var base = ctx.absolutePos(new BlockPos(17408, 64, 17408));
+        var helm = ShipTestFixture.build(level, base);
+        var ship = new net.minecraft.nbt.CompoundTag();
+        ship.putString("id", UUID.randomUUID().toString());
+        ship.putString("dimension", level.dimension().identifier().toString());
+        ship.putLong("base", base.above().asLong());
+        ship.putLong("controller", helm.asLong());
+        ship.putInt("width", 8);
+        ship.putInt("depth", 8);
+        var store = WorldStore.get(level.getServer());
+        store.ships().add(ship);
+        try
+        {
+            SystemsUpgrade.upgrade(level, ship);
+            var door = base.offset(3, 3, 0);
+            long quantity = ShipAir.rooms(level, ship).stream().mapToLong(ShipAir.RoomReading::quantity).sum();
+            for (var at : List.of(door, door.above()))
+                ctx.assertTrue(ShipAir.oxygen(level, ship, at) > 0 && ShipAir.breathable(level, ship, at), "Both halves of a closed door inherit breathable room air");
+            ctx.assertTrue(!ShipAir.breathable(level, ship, base.offset(0, 4, 4)), "Solid hull blocks do not become breathable");
+            ctx.assertTrue(ShipAir.rooms(level, ship).stream().allMatch(r -> r.leaks() == 0) && ShipAir.rooms(level, ship).stream().mapToLong(ShipAir.RoomReading::quantity).sum() == quantity, "Door occupancy neither opens the seal nor creates gas");
+            ctx.succeed();
+        }
+        finally
+        {
+            store.ships().remove(ship);
+        }
+    }
+
+    @GameTest
     public void upgradeDistinguishesMissingDisconnectedAndOutsideEquipment(GameTestHelper ctx)
     {
         var level = ctx.getLevel();

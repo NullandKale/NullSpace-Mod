@@ -14,8 +14,7 @@ Working record, November 5, 2026. The public alpha is not yet approved for publi
 | Existing coverage document understates the current suite and overstates proposed gaps | Completed combined coverage and exact-inventory checks; current and historical receipts below have distinct JAR hashes. Unregistered native test classes now fail verification before launching workers. |
 | No license declared | The owner wants free mod/fork distribution, monetized servers and videos, and approval before selling copies or forks. [Draft permissions](release-license-proposal.md) await review; do not assign MIT/GPL. |
 | No production server package | Prepared pinned private client/server files, checksums and launch instructions. The exact final package boots on loopback without the test mod and saves cleanly. Public distribution awaits the license. |
-| Local multiplayer does not test online authentication | Keep local two-client tests, then perform an authenticated join check on the hosted server. An offline loopback pass is not evidence for this gate. |
-| Public operations need final verification | The remote playtest establishes public-IP connectivity on the development server. Still rehearse whole-world restoration, authenticated joins and external access on the hosted production installation, and establish moderation/reporting. |
+| Local multiplayer does not test online authentication | Keep local two-client tests, then perform an authenticated multiplayer join check. An offline loopback pass is not evidence for this gate. |
 | Construction docks can trap recessed ships; demolished ports leave them clamped | Recompute the finished room's gap, protect visiting ships' departure corridors, and allow the normal Undock control to recover using a saved route or either surviving port. Four native regression methods and full graphical/multiplayer checks pass. |
 | Multi-second join/travel stalls | Recorded full-world save barriers of up to 964 ms during station construction and 861 ms during transfer. Staging/coalescing those saves is a separate performance task that must preserve recovery ordering. |
 
@@ -67,4 +66,4 @@ The source includes development labs, but [`ShipLab`](../../src/main/java/com/nu
 
 The default compute renderer checks for an OpenGL backend with OpenGL 4.3. Its error message offers `-Dnullspace.compute=false` for legacy rendering. Record compatibility from actual test devices; the local default-renderer tests do not validate every fallback or operating system.
 
-See [public server setup and release gates](public-alpha.md).
+See [public alpha release gates](public-alpha.md).

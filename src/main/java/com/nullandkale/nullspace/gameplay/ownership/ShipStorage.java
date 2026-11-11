@@ -89,7 +89,7 @@ public final class ShipStorage
 
     public static boolean areaBusy(ServerLevel level, HullScan.Bounds bounds, UUID exceptOwner)
     {
-        return jobs(level.getServer()).values().stream().anyMatch(j -> !j.player.equals(exceptOwner) && (level.dimension().equals(TravelService.SPACE) && j.source.box().intersects(bounds.box()) || level.dimension().identifier().toString().equals(j.dimension) && j.target.box().intersects(bounds.box())));
+        return jobs(level.getServer()).values().stream().anyMatch(j -> !j.player.equals(exceptOwner) && holds(level, j, bounds));
     }
 
     public static boolean locked(ServerLevel level, BlockPos at)
@@ -182,7 +182,7 @@ public final class ShipStorage
         if (TransferLocks.areaBusy(p.level(), area))
             return "This landing pad is reserved by another ship";
         CrewRelease.authorize(ship, p);
-        WorldStore.get(p.level().getServer()).save();
+        WorldStore.get(p.level().getServer()).requestSave();
         NavigationService.closeShip(p.level().getServer(), ship.getStringOr("id", ""));
         Piloting.stop(ship);
         var job = new Job(p, at, ship, pad, session);
@@ -299,6 +299,15 @@ public final class ShipStorage
 
     static void markStored(ServerPlayer p, CompoundTag ship)
     {
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(p.level().getServer(), "store-ship", () ->
+        {
+            markStoredRecord(p, ship);
+            return null;
+        });
+    }
+
+    private static void markStoredRecord(ServerPlayer p, CompoundTag ship)
+    {
         NavigationService.closeShip(p.level().getServer(), ship.getStringOr("id", ""));
         Piloting.stop(ship);
         ship.putBoolean("stored", true);
@@ -347,7 +356,7 @@ public final class ShipStorage
                 return problem;
             CrewRelease.releaseOfflineCrew(server, ship, p.getUUID());
             markStored(p, ship);
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
             return name + " stored where it was. Its title is in your inventory; deploy it from My ships";
         }
         return "Bring " + name + " to this pad first";
@@ -368,8 +377,12 @@ public final class ShipStorage
             return "Only the owner can get " + name + "'s title";
         if (ShipTitles.holds(p, ship))
             return "You already carry " + name + "'s title";
-        p.getInventory().placeItemBackInInventory(ShipTitles.issue(ship), net.minecraft.util.Prediction.SERVER_ONLY);
-        WorldStore.get(server).save();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.run(server, "replace-title", () ->
+        {
+            p.getInventory().placeItemBackInInventory(ShipTitles.issue(ship), net.minecraft.util.Prediction.SERVER_ONLY);
+            return null;
+        });
+        WorldStore.get(server).requestSave();
         return "New title for " + name + " issued. Older copies no longer work";
     }
 
@@ -387,7 +400,7 @@ public final class ShipStorage
         var column = padColumn(pad);
         var saved = WorldStore.bounds(ship);
         // Capture only inside the pad column, never neighbouring terrain or builds.
-        var bounds = new HullScan.Bounds(new BlockPos(Math.max(column.min().getX(), saved.min().getX()), Math.max(column.min().getY(), saved.min().getY()), Math.max(column.min().getZ(), saved.min().getZ())), new BlockPos(Math.min(column.max().getX(), saved.max().getX()), Math.min(column.max().getY(), saved.max().getY()), Math.min(column.max().getZ(), saved.max().getZ())));
+        var bounds = overlap(column, saved);
         if (!HullEntities.loaded(level, bounds))
             return TravelService.Result.waiting();
         var blocks = new HashSet<BlockPos>();
@@ -419,11 +432,50 @@ public final class ShipStorage
             tick(server, job);
     }
 
+    /** Another player's recall or storage job holds the area: the ship's flight area in space, or the pad's column on the surface. */
+    private static boolean holds(ServerLevel level, Job job, HullScan.Bounds bounds)
+    {
+        boolean inSpace = level.dimension().equals(TravelService.SPACE) && job.source.box().intersects(bounds.box());
+        boolean onSurface = level.dimension().identifier().toString().equals(job.dimension) && job.target.box().intersects(bounds.box());
+        return inSpace || onSurface;
+    }
+
+    /** The part of a ship that lies inside the pad's column. Storing takes only that; neighbouring terrain and builds stay. */
+    static HullScan.Bounds overlap(HullScan.Bounds column, HullScan.Bounds saved)
+    {
+        var min = new BlockPos(Math.max(column.min().getX(), saved.min().getX()), Math.max(column.min().getY(), saved.min().getY()), Math.max(column.min().getZ(), saved.min().getZ()));
+        var max = new BlockPos(Math.min(column.max().getX(), saved.max().getX()), Math.min(column.max().getY(), saved.max().getY()), Math.min(column.max().getZ(), saved.max().getZ()));
+        return new HullScan.Bounds(min, max);
+    }
+
+    /** The player left, died, changed dimension, walked away from the pad computer, or the computer changed. */
+    private static boolean cannotContinue(ServerPlayer p, Job job)
+    {
+        if (p == null || !p.isAlive() || !p.level().dimension().identifier().toString().equals(job.dimension))
+            return true;
+        if (p.distanceToSqr(job.computer.getX() + .5, job.computer.getY() + .5, job.computer.getZ() + .5) > 64)
+            return true;
+        return !p.level().getBlockState(job.computer).is(PadComputers.BLOCK) || !p.mayInteract(p.level(), job.computer);
+    }
+
+    /** What the player is told when the job ends. */
+    private static String recallNotice(ServerPlayer p, Job job, TravelService.Result result, CompoundTag moved)
+    {
+        if (result.outcome() != TravelService.Outcome.COMPLETED || moved == null)
+            return result.message();
+        String name = moved.getStringOr("home", "Ship");
+        if (job.store && !ShipTitles.owner(p, moved))
+            return name + " was moved to its owner's storage. The pad is clear";
+        if (job.store)
+            return name + " stored. The pad is clear and the ship's title is in your inventory";
+        return "Ship recalled to this pad. Your cargo, fuel and upgrades are preserved; damage still needs repair";
+    }
+
     static void tick(MinecraftServer server, Job job)
     {
         var p = server.getPlayerList().getPlayer(job.player);
         String notice = "";
-        if (p == null || !p.isAlive() || !p.level().dimension().identifier().toString().equals(job.dimension) || p.distanceToSqr(job.computer.getX() + .5, job.computer.getY() + .5, job.computer.getZ() + .5) > 64 || !p.level().getBlockState(job.computer).is(PadComputers.BLOCK) || !p.mayInteract(p.level(), job.computer))
+        if (cannotContinue(p, job))
             notice = "Recall cancelled: stay beside the accessible Pad Computer";
         else if (++job.ticks > 600)
             notice = "Recall timed out while loading. Reopen Recall ships and try again";
@@ -445,9 +497,9 @@ public final class ShipStorage
                             markStored(p, moved);
                         else
                             moved.remove("stored");
-                        WorldStore.get(server).save();
+                        WorldStore.get(server).requestSave();
                     }
-                    notice = result.outcome() != TravelService.Outcome.COMPLETED || moved == null ? result.message() : job.store && !ShipTitles.owner(p, moved) ? moved.getStringOr("home", "Ship") + " was moved to its owner's storage. The pad is clear" : job.store ? moved.getStringOr("home", "Ship") + " stored. The pad is clear and the ship's title is in your" + " inventory" : "Ship recalled to this pad. Your cargo, fuel and upgrades are" + " preserved; damage still needs repair";
+                    notice = recallNotice(p, job, result, moved);
                 }
                 catch (Exception failure)
                 {

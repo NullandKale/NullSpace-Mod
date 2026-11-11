@@ -52,6 +52,8 @@ public final class HullScan
         var docking = DockingTunnel.positions(level);
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         queue.add(controller);
+        var queued = new HashSet<BlockPos>();
+        queued.add(controller);
         int engines = 0, computers = 0, doors = 0;
         while (!queue.isEmpty())
         {
@@ -86,8 +88,12 @@ public final class HullScan
                 if (ShipDoors.root(state) && ShipDoors.sealed(level, pos))
                     doors++;
             }
-            for (Direction d : Direction.values())
-                queue.add(pos.relative(d));
+            for (var offset : ShipTopology.CONNECTIONS)
+            {
+                var next = pos.offset(offset);
+                if (queued.add(next))
+                    queue.add(next);
+            }
         }
         BlockSupport.validatePistons(level, blocks);
         for (var event : ((ShipBlockEventsAccessor) level).nullspace$blockEvents())

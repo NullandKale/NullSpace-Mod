@@ -1,7 +1,9 @@
 package com.nullandkale.nullspace.gameplay.travel;
 
 import com.nullandkale.nullspace.NullSpace;
+import com.nullandkale.nullspace.core.save.Journals;
 import com.nullandkale.nullspace.core.save.ShipRepository;
+import com.nullandkale.nullspace.core.save.StoreRecords;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
 import com.nullandkale.nullspace.gameplay.crew.ShipRespawns;
@@ -84,7 +86,7 @@ final class ShipTransfer
     private final List<Entity> roots = new ArrayList<>();
 
     // Journal
-    private CompoundTag journal, after;
+    private CompoundTag journal, after, beforeStore;
     private ListTag ships;
     private Path file;
 
@@ -100,6 +102,11 @@ final class ShipTransfer
     }
 
     Result run()
+    {
+        return RecordJournal.withinOperation(server, this::runJournaled);
+    }
+
+    private Result runJournaled()
     {
         Result stop;
         if ((stop = checkSource()) != null)
@@ -126,7 +133,10 @@ final class ShipTransfer
         store.replace(after, ShipRepository.Mutation.TRANSFER);
         store.save();
         server.saveEverything(true, true, true);
+        // The store was saved above, so the first save that includes this move is the one just written.
+        journal.putLong("saveNumber", store.saveNumberCovering());
         TransferRecovery.checkpoint(file, journal, "COMMITTED");
+        TransferRecovery.finish(file, journal, "COMMITTED");
         return new Result(Outcome.COMPLETED, "Arrived");
     }
 
@@ -258,7 +268,7 @@ final class ShipTransfer
         return null;
     }
 
-    /** Copies the hull's blocks into the journal, with the save state before the move. */
+    /** Copies the hull's blocks into the journal. Only the hull is saved, not the rest of its box. */
     private void captureHull()
     {
         StructureTemplate template = new StructureTemplate();
@@ -267,17 +277,37 @@ final class ShipTransfer
         template.fillFromWorld(source, min, new Vec3i(max.getX() - min.getX() + 1, max.getY() - min.getY() + 1, max.getZ() - min.getZ() + 1), false, List.of());
         if (target.dimension().equals(SPACE))
             SceneCatalog.forShip(server, vessel);
-        journal = new CompoundTag();
-        journal.putInt("version", 1);
-        journal.putString("id", UUID.randomUUID().toString());
+        try
+        {
+            journal = Journals.create(store.directory, Journals.Kind.MOVE, recall ? "recall" : target.dimension().equals(SPACE) ? "launch" : "landing", List.of(id));
+        }
+        catch (java.io.IOException error)
+        {
+            throw new java.io.UncheckedIOException(error);
+        }
         journal.putString("source", source.dimension().identifier().toString());
         journal.putString("target", target.dimension().identifier().toString());
         journal.putLong("min", min.asLong());
         journal.putLong("max", max.asLong());
         journal.putLong("delta", delta.asLong());
-        journal.put("template", template.save(new CompoundTag()));
+        // The hull and any snow resting on it are what the move clears at the source, so they are all rollback restores.
+        var saved = template.save(new CompoundTag());
+        var restored = new HashSet<BlockPos>(scan.blocks());
+        for (var block : scan.blocks())
+        {
+            var above = block.above();
+            if (!scan.blocks().contains(above) && source.getBlockState(above).is(net.minecraft.world.level.block.Blocks.SNOW))
+                restored.add(above);
+        }
+        saved.getListOrEmpty("blocks").removeIf(entry ->
+        {
+            var coords = ((CompoundTag) entry).getListOrEmpty("pos");
+            return !restored.contains(min.offset(coords.getIntOr(0, 0), coords.getIntOr(1, 0), coords.getIntOr(2, 0)));
+        });
+        journal.put("template", saved);
+        journal.put("ticks", JournalTicks.capture(source, restored));
         ShipRespawns.captureSurface(source, id, sourceBase, scan.blocks());
-        journal.put("before", store.snapshot());
+        beforeStore = store.snapshot();
     }
 
     /**
@@ -347,8 +377,10 @@ final class ShipTransfer
         journal.put("players", passengers);
         for (Entity entity : cargo)
             TransferRecovery.authority(after, entity.getUUID(), target.dimension().identifier().toString(), source.dimension().identifier().toString(), min, max);
-        journal.put("after", after);
-        file = store.directory.resolve("transfers").resolve(journal.getStringOr("id", "") + ".nbt");
+        // The journal holds only the records this move changes, as before and after values.
+        var entries = StoreRecords.diff(beforeStore, after);
+        journal.put("records", StoreRecords.encode(entries));
+        file = Journals.file(store.directory, journal);
     }
 
     /**

@@ -15,6 +15,14 @@ public record ScenePose(Vec3 position, Quaterniond orientation)
         orientation = new Quaterniond(orientation).normalize();
     }
 
+    /** The pose a scene subject or observer is saved with: position x, y, z and yaw, pitch, roll in degrees. */
+    public static ScenePose read(net.minecraft.nbt.CompoundTag tag)
+    {
+        var position = new Vec3(tag.getDoubleOr("x", 0), tag.getDoubleOr("y", 0), tag.getDoubleOr("z", 0));
+        var orientation = new Quaterniond().rotationYXZ(Math.toRadians(tag.getDoubleOr("yaw", 0)), Math.toRadians(tag.getDoubleOr("pitch", 0)), Math.toRadians(tag.getDoubleOr("roll", 0)));
+        return new ScenePose(position, orientation);
+    }
+
     @Override
     public Quaterniond orientation()
     {

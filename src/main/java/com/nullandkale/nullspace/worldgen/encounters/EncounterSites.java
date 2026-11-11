@@ -232,7 +232,7 @@ public final class EncounterSites
                 }
                 site.putString("vessel", id);
                 site.putString("state", "placed");
-                store.save();
+                store.requestSave();
             }
             catch (RuntimeException failure)
             {

@@ -116,9 +116,19 @@ public final class CrashRecoveryGameTest
                 String stage = System.getProperty("nullspace.crash.stage");
                 TravelService.failureInjector = point ->
                 {
-                    if (point.equals(stage))
+                    if (point.equals(stage.equals("CORRUPT_COMMITTED") ? "COMMITTED" : stage))
                     {
-                        server.saveEverything(true, true, true);
+                        if (!stage.equals("CORRUPT_COMMITTED"))
+                            server.saveEverything(true, true, true);
+                        if (stage.equals("CORRUPT_COMMITTED"))
+                            try
+                            {
+                                java.nio.file.Files.write(WorldStore.get(server).storeFile(), new byte[]{1, 2, 3});
+                            }
+                            catch (java.io.IOException error)
+                            {
+                                throw new java.io.UncheckedIOException(error);
+                            }
                         Runtime.getRuntime().halt(86);
                     }
                 };
@@ -134,7 +144,7 @@ public final class CrashRecoveryGameTest
         else
         {
             var manifest = WorldStore.read(file);
-            boolean committed = System.getProperty("nullspace.crash.stage").equals("COMMITTED");
+            boolean committed = Set.of("COMMITTED", "CORRUPT_COMMITTED").contains(System.getProperty("nullspace.crash.stage"));
             afterEntitiesLoaded(ctx, planet, space, base, () ->
             {
                 TransferRecovery.recover(server);

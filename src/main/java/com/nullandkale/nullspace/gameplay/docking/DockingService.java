@@ -128,7 +128,7 @@ public final class DockingService
                 if (!d.getStringOr("state", "").equals("WAITING_CONSENT"))
                     throw new IllegalArgumentException("No request is waiting for consent");
                 d.putString("state", "APPROACHING");
-                WorldStore.get(server).save();
+                WorldStore.get(server).requestSave();
             }
             case "DOCK_CANCEL" ->
             {
@@ -230,7 +230,7 @@ public final class DockingService
                         }
                     }
                 d.putString("state", "EMERGENCY_BACKOFF");
-                WorldStore.get(server).save();
+                WorldStore.get(server).requestSave();
             }
             case "DOCK_UNDOCK" ->
             {
@@ -256,7 +256,7 @@ public final class DockingService
                     notice = "Undocking from the damaged berth. Surviving doors are closed; repair any hull" + " leaks.";
                 d.putString("state", "UNDOCKING");
                 d.putLong("expires", server.overworld().getGameTime() + 12000);
-                WorldStore.get(server).save();
+                WorldStore.get(server).requestSave();
             }
             default -> throw new IllegalArgumentException("Unsupported docking action");
         }

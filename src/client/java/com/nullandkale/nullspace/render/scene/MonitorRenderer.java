@@ -26,7 +26,23 @@ import org.lwjgl.system.MemoryStack;
 /** The installed block and the fullscreen viewer use the same independent scene renderer. */
 public final class MonitorRenderer
 {
-    private static final RenderPipeline PIPELINE = RenderPipelines.register(RenderPipeline.builder().withLocation(Identifier.parse("nullspace:monitor_surface")).withVertexShader(Identifier.parse("nullspace:core/viewport")).withFragmentShader(Identifier.parse("nullspace:core/viewport")).withBindGroupLayout(BindGroupLayouts.PROJECTION).withBindGroupLayout(BindGroupLayouts.SAMPLER0).withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR).withPrimitiveTopology(PrimitiveTopology.QUADS).withDepthStencilState(DepthStencilState.DEFAULT).withCull(false).withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15)).build());
+    private static final RenderPipeline PIPELINE = monitorPipeline();
+
+    private static RenderPipeline monitorPipeline()
+    {
+        var pipeline = RenderPipeline.builder();
+        pipeline.withLocation(Identifier.parse("nullspace:monitor_surface"));
+        pipeline.withVertexShader(Identifier.parse("nullspace:core/viewport"));
+        pipeline.withFragmentShader(Identifier.parse("nullspace:core/viewport"));
+        pipeline.withBindGroupLayout(BindGroupLayouts.PROJECTION);
+        pipeline.withBindGroupLayout(BindGroupLayouts.SAMPLER0);
+        pipeline.withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR);
+        pipeline.withPrimitiveTopology(PrimitiveTopology.QUADS);
+        pipeline.withDepthStencilState(DepthStencilState.DEFAULT);
+        pipeline.withCull(false);
+        pipeline.withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, 15));
+        return RenderPipelines.register(pipeline.build());
+    }
 
     private record Display(SceneViewport viewport, StagedVertexBuffer vertices, StagedVertexBuffer.Draw draw)
     {}
