@@ -97,12 +97,13 @@ public final class SphereGameTest
             var vessel = WorldStore.get(server).at(space, player.blockPosition());
             var computer = WorldStore.pos(vessel, "controller");
             TravelService.transfer(player, computer, destination, ShipService.preflight(space, computer));
-            var landed = base.offset(48, 0, 0);
-            ctx.assertTrue(player.level() == level && level.getBlockState(SphereLab.controller(landed)).is(ModBlocks.COMPUTER) && level.getBlockState(controller).isAir(), "Sphere must land on an equally large empty pad with one authoritative copy");
+            var arrivedShip = WorldStore.get(server).repository().find(vessel.getStringOr("id", ""));
+            var arrival = com.nullandkale.nullspace.gameplay.travel.MoveTestState.arrived(arrivedShip, controller, 3);
+            ctx.assertTrue(player.level() == level && level.getBlockState(arrival.apply(controller)).is(ModBlocks.COMPUTER) && level.getBlockState(controller).isAir(), "Sphere must land on an equally large empty pad with one authoritative copy");
             for (int deck = 0; deck < SphereLab.DECKS.size(); deck++)
                 for (int x : new int[]{6, 25})
                 {
-                    var cargo = (net.minecraft.world.Container) level.getBlockEntity(landed.offset(x, SphereLab.DECKS.get(deck) + 1, 15));
+                    var cargo = (net.minecraft.world.Container) level.getBlockEntity(arrival.apply(base.offset(x, SphereLab.DECKS.get(deck) + 1, 15)));
                     ctx.assertTrue(cargo.getItem(0).getCount() == deck + 1, "Room cargo must survive maximum-size travel");
                 }
             ctx.assertTrue(player.getInventory().countItem(Items.EMERALD) == 11, "Crew inventory must survive");

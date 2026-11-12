@@ -49,6 +49,12 @@ public final class EntityTravelGameTest
     /** A ship on a registered pad, with the chunks of both ends held loaded. */
     public record Bed(ServerLevel level, ServerLevel space, ServerPlayer player, BlockPos helm, String shipId, String padId, List<BlockPos> floor, int orbit)
     {
+        @Override
+        public BlockPos helm()
+        {
+            return WorldStore.pos(ship(), "controller");
+        }
+
         public CompoundTag ship()
         {
             return WorldStore.get(level.getServer()).repository().find(shipId);
@@ -352,6 +358,42 @@ public final class EntityTravelGameTest
             problems.add("The ship would not land: " + landed.message());
             return problems;
         }
+        try
+        {
+            CompoundTag landingJournal = null;
+            for (var journalFile : com.nullandkale.nullspace.core.save.Journals.list(WorldStore.get(server).directory))
+            {
+                var saved = WorldStore.read(journalFile);
+                if (saved.getStringOr("operation", "").equals("landing") && saved.getListOrEmpty("ships").stream().anyMatch(t -> t.asString().orElse("").equals(bed.shipId())))
+                    landingJournal = saved;
+            }
+            if (landingJournal != null)
+            {
+                var transform = ShipTransform.fromJournal(landingJournal);
+                for (int i = 0; i < seenInSpace.size(); i++)
+                {
+                    var prior = seenInSpace.get(i);
+                    String leash = prior.leash();
+                    if (leash.startsWith("fence post at "))
+                    {
+                        var xyz = leash.substring(14).split(", ");
+                        var at = transform.local(new BlockPos(Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]), Integer.parseInt(xyz[2])));
+                        leash = "fence post at " + at.toShortString();
+                    }
+                    var traits = new java.util.TreeMap<>(prior.traits());
+                    if (bed.level().getEntity(prior.id()) instanceof net.minecraft.world.entity.decoration.ItemFrame frame && frame.getDirection().getAxis().isVertical() && traits.containsKey("ItemRotation"))
+                    {
+                        int old = ((net.minecraft.nbt.NumericTag) traits.get("ItemRotation")).intValue();
+                        traits.put("ItemRotation", net.minecraft.nbt.ByteTag.valueOf((byte) Math.floorMod(old + 2 * transform.turns() * frame.getDirection().getAxisDirection().getStep(), 8)));
+                    }
+                    seenInSpace.set(i, new Seen(prior.id(), prior.type(), traits, leash, prior.vehicle(), prior.snaps()));
+                }
+            }
+        }
+        catch (java.io.IOException failure)
+        {
+            throw new java.io.UncheckedIOException(failure);
+        }
         problems.addAll(compare("Back on the pad", bed.level(), bed.space(), bed.ship(), seenInSpace, snapping.size()));
         return problems;
     }
@@ -493,6 +535,11 @@ public final class EntityTravelGameTest
         try
         {
             var result = TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(level, bed.helm()));
+            if (result.outcome() == TravelService.Outcome.WAITING)
+            {
+                ctx.runAfterDelay(2, () -> rollBack(ctx, bed, fence, seen, stages, index, problems));
+                return;
+            }
             problems.add("The injected failure at " + stage + " did not stop the launch: " + result.outcome() + " " + result.message());
         }
         catch (IllegalStateException expected)

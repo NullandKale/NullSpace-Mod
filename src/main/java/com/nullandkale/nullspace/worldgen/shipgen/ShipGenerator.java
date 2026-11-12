@@ -104,16 +104,19 @@ public final class ShipGenerator
             {
                 var step = flight.foot().relative(flight.up(), k).above(k);
                 grid.set(step, Kind.STAIR, flight.up());
-                // On a station there is no hidden air: the space under a step is solid.
+                // A one-block stringer joins the diagonal risers without closing the headroom
+                // over the flight below. Station tiles retain their filled stair foundations.
                 if (layout.station != null)
                     for (int under = flight.foot().getY(); under < step.getY(); under++)
                         grid.set(new BlockPos(step.getX(), under, step.getZ()), Kind.WALL);
+                else if (k > 0)
+                    grid.set(step.below(), Kind.WALL);
             }
         for (var space : layout.spaces)
             if (layout.station != null)
                 StationFurnishings.furnish(layout.station, space, grid, layout.linksOf(space));
             else
-                Furnishings.furnish(space, grid, layout.linksOf(space), space == layout.dockSpace);
+                Furnishings.furnish(space, grid, layout.linksOf(space), space == layout.dockSpace, layout.flights);
         for (var link : layout.links)
             if (!link.at().equals(layout.dockWall))
                 door(grid, link);

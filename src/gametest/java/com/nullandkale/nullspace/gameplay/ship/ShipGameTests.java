@@ -535,7 +535,9 @@ public final class ShipGameTests
         var base = ctx.absolutePos(new BlockPos(128, 64, 128));
         var controller = ShipTestFixture.build(level, base);
         var bounds = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
-        var pad = new PadRegistry.Pad(java.util.UUID.randomUUID().toString(), "Roundtrip", level.dimension().identifier().toString(), base.offset(-1, 1, 3), bounds);
+        // This recovery fixture keeps its north entrance aligned; LandingRotationGameTest covers turns.
+        level.setBlock(base.offset(3, 1, -1), com.nullandkale.nullspace.gameplay.pads.PadComputers.BLOCK.defaultBlockState(), 18);
+        var pad = new PadRegistry.Pad(java.util.UUID.randomUUID().toString(), "Roundtrip", level.dimension().identifier().toString(), base.offset(3, 1, -1), bounds);
         var file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace-pads.json");
         com.google.gson.JsonArray records;
         try

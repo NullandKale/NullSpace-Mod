@@ -25,6 +25,9 @@ public final class ShipControlTerminal implements TerminalDevice
     private final List<Hit> hits = new ArrayList<>();
     ControllerPackets.View view;
     boolean picker;
+    boolean viewMenu;
+    private boolean focusViewMenu;
+    private int viewMenuStart;
     final TerminalField search = new TerminalField("", 64);
     String highlighted = "", filter = "All";
     boolean searchFocused = true, pending, close, details;
@@ -167,11 +170,16 @@ public final class ShipControlTerminal implements TerminalDevice
     /** A clickable area. Plain hits (list rows, categories) get no bar unless focused. */
     void hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason, boolean plain, int color)
     {
+        hit(x, y, width, text, run, enabled, reason, plain, color, CANVAS);
+    }
+
+    void hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason, boolean plain, int color, int background)
+    {
         int index = hits.size();
         hits.add(new Hit(x, y, width, text, run, enabled, reason));
         String label = clean(text);
         label = label.substring(0, Math.min(width, label.length()));
-        display.put(x, y, label + " ".repeat(width - label.length()), enabled ? color : TerminalTheme.MUTED, selection == index ? FOCUS : plain ? CANVAS : SURFACE);
+        display.put(x, y, label + " ".repeat(width - label.length()), enabled ? color : TerminalTheme.MUTED, selection == index ? FOCUS : plain ? background : SURFACE);
     }
 
     void button(int x, int y, int width, String text, ShipControl.Action action)
@@ -198,10 +206,30 @@ public final class ShipControlTerminal implements TerminalDevice
         if (!picker && messages.size() > 3)
             line(19, "More: PgUp / PgDn", TerminalTheme.MUTED);
         for (int row = 0; row < (picker ? 1 : 3) && first + row < messages.size(); row++)
-            line((picker ? 23 : 20) + row, messages.get(first + row), TerminalTheme.TEXT);
+            if (!picker || !notice.isEmpty() || pending || !view.message().isBlank() && !view.message().equals("Ready"))
+                line((picker ? 22 : 20) + row, messages.get(first + row), TerminalTheme.TEXT);
         hit(66, 24, 12, "[ Close ]", () -> close = true, true);
+        if (picker && viewMenu)
+            DestinationPicker.drawViewMenu(this);
         selection = Math.clamp(selection, 0, Math.max(0, hits.size() - 1));
         return display;
+    }
+
+    void openViewMenu()
+    {
+        viewMenu = true;
+        focusViewMenu = true;
+        searchFocused = false;
+    }
+
+    void beginViewMenu()
+    {
+        viewMenuStart = hits.size();
+        if (focusViewMenu)
+        {
+            selection = viewMenuStart;
+            focusViewMenu = false;
+        }
     }
 
     /** Writes plain, non-interactive text at a column; no background bar. */
@@ -266,13 +294,18 @@ public final class ShipControlTerminal implements TerminalDevice
         display();
         if (input instanceof TerminalInput.Pointer p)
         {
-            searchFocused = picker && p.row() == 3 && p.column() >= 10 && p.column() < 68;
-            if (searchFocused)
+            if (picker && viewMenu && !(p.column() >= 50 && p.column() < 78 && p.row() >= 3 && p.row() < 3 + hits.size() - viewMenuStart))
             {
-                search.click(p.column() - 10);
+                viewMenu = false;
                 return;
             }
-            for (int i = 0; i < hits.size(); i++)
+            searchFocused = picker && !viewMenu && p.row() == 2 && p.column() >= 9 && p.column() < 48;
+            if (searchFocused)
+            {
+                search.click(p.column() - 9);
+                return;
+            }
+            for (int i = hits.size() - 1; i >= 0; i--)
             {
                 var hit = hits.get(i);
                 if (p.row() == hit.y && p.column() >= hit.x && p.column() < hit.x + hit.width)
@@ -294,6 +327,17 @@ public final class ShipControlTerminal implements TerminalDevice
         }
         else if (input instanceof TerminalInput.Key key)
         {
+            if (picker && viewMenu && key == TerminalInput.Key.ESCAPE)
+            {
+                viewMenu = false;
+                return;
+            }
+            if (picker && viewMenu && Set.of(TerminalInput.Key.UP, TerminalInput.Key.DOWN, TerminalInput.Key.LEFT, TerminalInput.Key.RIGHT, TerminalInput.Key.TAB).contains(key))
+            {
+                int step = key == TerminalInput.Key.UP || key == TerminalInput.Key.LEFT ? -1 : 1;
+                selection = viewMenuStart + Math.floorMod(selection - viewMenuStart + step, hits.size() - viewMenuStart);
+                return;
+            }
             if (picker && searchFocused && Set.of(TerminalInput.Key.LEFT, TerminalInput.Key.RIGHT, TerminalInput.Key.HOME, TerminalInput.Key.END, TerminalInput.Key.SELECT_ALL, TerminalInput.Key.BACKSPACE, TerminalInput.Key.DELETE).contains(key))
             {
                 search.input(input);
@@ -305,7 +349,7 @@ public final class ShipControlTerminal implements TerminalDevice
             {
                 searchFocused = false;
                 for (int i = 0; i < hits.size(); i++)
-                    if (hits.get(i).y == 7)
+                    if (hits.get(i).y == DestinationPicker.FIRST_ROW)
                     {
                         selection = i;
                         break;

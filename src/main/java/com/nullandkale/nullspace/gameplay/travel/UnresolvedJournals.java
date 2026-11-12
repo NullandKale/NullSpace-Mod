@@ -33,16 +33,21 @@ public final class UnresolvedJournals
     public record Area(String dimension, HullScan.Bounds bounds)
     {}
 
-    public record Entry(String id, long sequence, String kind, String operation, List<String> ships, String sourceDimension, String targetDimension, BlockPos min, BlockPos max, BlockPos delta, State state, String reason, int sinceTick, Path file, List<Area> regions)
+    public record Entry(String id, long sequence, String kind, String operation, List<String> ships, String sourceDimension, String targetDimension, BlockPos min, BlockPos max, BlockPos delta, State state, String reason, int sinceTick, Path file, List<Area> regions, HullScan.Bounds targetBounds)
     {
         public Entry(String id, long sequence, String kind, String operation, List<String> ships, String sourceDimension, String targetDimension, BlockPos min, BlockPos max, BlockPos delta, State state, String reason, int sinceTick, Path file)
         {
             this(id, sequence, kind, operation, ships, sourceDimension, targetDimension, min, max, delta, state, reason, sinceTick, file, List.of());
         }
 
+        public Entry(String id, long sequence, String kind, String operation, List<String> ships, String sourceDimension, String targetDimension, BlockPos min, BlockPos max, BlockPos delta, State state, String reason, int sinceTick, Path file, List<Area> regions)
+        {
+            this(id, sequence, kind, operation, ships, sourceDimension, targetDimension, min, max, delta, state, reason, sinceTick, file, regions, min == null || max == null ? null : new HullScan.Bounds(min.offset(delta), max.offset(delta)));
+        }
+
         Entry with(State state, String reason, Path file)
         {
-            return new Entry(id, sequence, kind, operation, ships, sourceDimension, targetDimension, min, max, delta, state, reason, sinceTick, file, regions);
+            return new Entry(id, sequence, kind, operation, ships, sourceDimension, targetDimension, min, max, delta, state, reason, sinceTick, file, regions, targetBounds);
         }
 
         public boolean hasAreas()
@@ -74,7 +79,7 @@ public final class UnresolvedJournals
             var region = (CompoundTag) tag;
             regions.add(new Area(region.getStringOr("source", ""), new HullScan.Bounds(BlockPos.of(region.getLongOr("min", 0)), BlockPos.of(region.getLongOr("max", 0)))));
         }
-        return new Entry(journal.getStringOr("id", ""), journal.getLongOr("sequence", 0), journal.getStringOr("kind", "MOVE"), journal.getStringOr("operation", ""), List.copyOf(ships), journal.getStringOr("source", ""), journal.getStringOr("target", journal.getStringOr("source", "")), min, max, delta, state, reason, tick, file, List.copyOf(regions));
+        return new Entry(journal.getStringOr("id", ""), journal.getLongOr("sequence", 0), journal.getStringOr("kind", "MOVE"), journal.getStringOr("operation", ""), List.copyOf(ships), journal.getStringOr("source", ""), journal.getStringOr("target", journal.getStringOr("source", "")), min, max, delta, state, reason, tick, file, List.copyOf(regions), located ? ShipTransform.destinationBounds(journal) : null);
     }
 
     public static void put(MinecraftServer server, Entry entry)
@@ -115,7 +120,7 @@ public final class UnresolvedJournals
                     return true;
             if (entry.sourceDimension().equals(dimension) && new HullScan.Bounds(entry.min(), entry.max()).box().intersects(bounds.box()))
                 return true;
-            if (entry.targetDimension().equals(dimension) && new HullScan.Bounds(entry.min().offset(entry.delta()), entry.max().offset(entry.delta())).box().intersects(bounds.box()))
+            if (entry.targetDimension().equals(dimension) && entry.targetBounds().box().intersects(bounds.box()))
                 return true;
         }
         return false;

@@ -57,16 +57,25 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
             c.getInput().lookAt(scanner[0]);
             c.waitFor(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(scanner[0]), 100);
             c.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
             c.takeScreenshot("nullspace-scanner-block-browser");
             c.runOnClient(mc ->
             {
                 var screen = (TerminalScreen) mc.gui.screen();
-                ShipControlTestUi.click(screen, 11, 3);
+                ShipControlTestUi.click(screen, 3, 1);
+                ShipControlTestUi.click(screen, 3, 1);
+            });
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("STAR MAP"), 100);
+            c.takeScreenshot("nullspace-scanner-approved-full-width-map");
+
+            c.runOnClient(mc ->
+            {
+                var screen = (TerminalScreen) mc.gui.screen();
+                ShipControlTestUi.click(screen, 11, 2);
                 mc.keyboardHandler.textInput(mc.getWindow().handle(), "Sol / Luna");
-                ShipControlTestUi.click(screen, screen.buffer().row(5).indexOf("Planets & moons") + 1, 5);
-                ShipControlTestUi.click(screen, 3, 7);
-                ShipControlTestUi.click(screen, 3, 22);
+                ShipControlTestUi.view(screen, "Planets & moons");
+                ShipControlTestUi.click(screen, 3, 3);
+                ShipControlTestUi.click(screen, 3, 23);
             });
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
             world.getServer().runOnServer(server ->
@@ -75,7 +84,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 if (!ShipDestination.selected(ship).region().equals("sol_luna") || CourseService.active(ship) || NavigationService.pending(server))
                     throw new AssertionError("Scanner directly sets the shared destination and starts no movement");
             });
-            c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 32, 22));
+            c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 32, 23));
             c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 100);
             c.takeScreenshot("nullspace-scanner-upgrades");
             c.runOnClient(mc ->
@@ -87,7 +96,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 var open = buttons.stream().filter(b -> b.getMessage().getString().equals("Open scanner")).findFirst().orElseThrow();
                 screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(open.getX() + open.getWidth() / 2.0, open.getY() + open.getHeight() / 2.0, new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
             c.takeScreenshot("nullspace-scanner-return-from-upgrades");
             world.getServer().runOnServer(server ->
             {

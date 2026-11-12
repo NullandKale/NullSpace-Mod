@@ -200,6 +200,8 @@ public final class ComputerTerminal
             var station = WorldStore.get(player.level().getServer()).at(player.level(), pos);
             if (station != null)
             {
+                boolean encounter = station.getBooleanOr("worldGenerated", false) && station.getStringOr("owner", "").isEmpty();
+                session.destinations.put("station_view", new Destination("station_view", Claims.claimable(station) ? "Derelict" : !encounter && StationAccess.builder(player, station) ? "Construction" : "Visitor", "SETTING"));
                 session.destinations.put("station_rights", new Destination("station_rights", StationAccess.owner(player, station) ? "Owner" : "Builder", "SETTING"));
                 if (Claims.claimable(station))
                     session.destinations.put("station_claim", new Destination("station_claim", "Claim", "CLAIMABLE"));

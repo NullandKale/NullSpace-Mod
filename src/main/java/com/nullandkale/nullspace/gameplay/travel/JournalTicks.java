@@ -44,13 +44,18 @@ public final class JournalTicks
 
     public static void restore(ServerLevel level, CompoundTag saved, BlockPos delta)
     {
+        restore(level, saved, p -> p.offset(delta));
+    }
+
+    public static void restore(ServerLevel level, CompoundTag saved, java.util.function.UnaryOperator<BlockPos> move)
+    {
         for (var element : saved.getListOrEmpty("blocks"))
         {
             var tick = (CompoundTag) element;
             var id = Identifier.parse(tick.getStringOr("type", ""));
             if (!BuiltInRegistries.BLOCK.containsKey(id))
                 throw new IllegalArgumentException("Scheduled block is unavailable: " + id);
-            level.getBlockTicks().schedule(new ScheduledTick<>(BuiltInRegistries.BLOCK.getValue(id), BlockPos.of(tick.getLongOr("at", 0)).offset(delta), level.getGameTime() + tick.getLongOr("delay", 0), TickPriority.byValue(tick.getIntOr("priority", 0)), tick.getLongOr("order", 0)));
+            level.getBlockTicks().schedule(new ScheduledTick<>(BuiltInRegistries.BLOCK.getValue(id), move.apply(BlockPos.of(tick.getLongOr("at", 0))), level.getGameTime() + tick.getLongOr("delay", 0), TickPriority.byValue(tick.getIntOr("priority", 0)), tick.getLongOr("order", 0)));
         }
         for (var element : saved.getListOrEmpty("fluids"))
         {
@@ -58,7 +63,7 @@ public final class JournalTicks
             var id = Identifier.parse(tick.getStringOr("type", ""));
             if (!BuiltInRegistries.FLUID.containsKey(id))
                 throw new IllegalArgumentException("Scheduled fluid is unavailable: " + id);
-            level.getFluidTicks().schedule(new ScheduledTick<>(BuiltInRegistries.FLUID.getValue(id), BlockPos.of(tick.getLongOr("at", 0)).offset(delta), level.getGameTime() + tick.getLongOr("delay", 0), TickPriority.byValue(tick.getIntOr("priority", 0)), tick.getLongOr("order", 0)));
+            level.getFluidTicks().schedule(new ScheduledTick<>(BuiltInRegistries.FLUID.getValue(id), move.apply(BlockPos.of(tick.getLongOr("at", 0))), level.getGameTime() + tick.getLongOr("delay", 0), TickPriority.byValue(tick.getIntOr("priority", 0)), tick.getLongOr("order", 0)));
         }
     }
 

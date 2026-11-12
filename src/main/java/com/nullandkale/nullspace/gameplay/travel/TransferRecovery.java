@@ -309,7 +309,7 @@ public final class TransferRecovery
             var region = (CompoundTag) tag;
             extraReady &= entitiesReady(WorldStore.level(server, region.getStringOr("source", "")), new HullScan.Bounds(WorldStore.pos(region, "min"), WorldStore.pos(region, "max")));
         }
-        if (!entitiesReady(source, new HullScan.Bounds(min, max)) | !entitiesReady(target, new HullScan.Bounds(min.offset(delta), max.offset(delta))) | !extraReady)
+        if (!entitiesReady(source, new HullScan.Bounds(min, max)) | !entitiesReady(target, new HullScan.Bounds(ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max())) | !extraReady)
         {
             var prior = UnresolvedJournals.get(server, id);
             int since = prior != null && prior.state() == UnresolvedJournals.State.WAITING ? prior.sinceTick() : tick;
@@ -333,10 +333,10 @@ public final class TransferRecovery
             BlockPos min = WorldStore.pos(journal, "min"), max = WorldStore.pos(journal, "max"), delta = WorldStore.pos(journal, "delta");
             for (Tag tag : journal.getListOrEmpty("entities"))
                 for (UUID moved : journaled((CompoundTag) tag))
-                    authorityStore(store, moved, source.dimension().identifier().toString(), target.dimension().identifier().toString(), min.offset(delta), max.offset(delta));
+                    authorityStore(store, moved, source.dimension().identifier().toString(), target.dimension().identifier().toString(), ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max());
             var moved = new HashSet<BlockPos>();
             for (var at : TransferReplay.positions(journal.getCompoundOrEmpty("template"), min))
-                moved.add(at.offset(delta));
+                moved.add(ShipTransform.fromJournal(journal).apply(at));
             TransferReplay.clear(target, moved);
             var template = new StructureTemplate();
             template.load(source.registryAccess().lookupOrThrow(Registries.BLOCK), journal.getCompoundOrEmpty("template"));
@@ -404,7 +404,7 @@ public final class TransferRecovery
             for (var old : HullEntities.inBounds(source, new HullScan.Bounds(min, max)))
                 if (ids.contains(old.getUUID()))
                     old.discard();
-            for (var old : HullEntities.inBounds(target, new HullScan.Bounds(min.offset(delta), max.offset(delta))))
+            for (var old : HullEntities.inBounds(target, new HullScan.Bounds(ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max())))
                 if (ids.contains(old.getUUID()))
                     old.discard();
             var entity = EntityType.loadEntityRecursive(TagValueInput.create(ProblemReporter.DISCARDING, source.registryAccess(), entry.getCompoundOrEmpty("data")), source, EntitySpawnReason.LOAD, e -> e);
@@ -416,7 +416,7 @@ public final class TransferRecovery
         }
         // A fence-post knot is never journaled: an animal leaves one at the destination when it is tied there. With the
         // animals gone it would only block the next ship, so it goes with them.
-        for (var stray : HullEntities.inBounds(target, new HullScan.Bounds(min.offset(delta), max.offset(delta))))
+        for (var stray : HullEntities.inBounds(target, new HullScan.Bounds(ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max())))
             if (stray instanceof net.minecraft.world.entity.decoration.LeashFenceKnotEntity)
                 stray.discard();
         for (Tag tag : journal.getListOrEmpty("players"))
@@ -484,8 +484,8 @@ public final class TransferRecovery
         store.replace(journal.getCompoundOrEmpty("before").copy(), ShipRepository.Mutation.RECOVERY);
         for (Tag tag : journal.getListOrEmpty("entities"))
             for (UUID moved : journaled((CompoundTag) tag))
-                authorityStore(store, moved, source.dimension().identifier().toString(), target.dimension().identifier().toString(), min.offset(delta), max.offset(delta));
-        clear(target, min.offset(delta), max.offset(delta));
+                authorityStore(store, moved, source.dimension().identifier().toString(), target.dimension().identifier().toString(), ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max());
+        clear(target, ShipTransform.destinationBounds(journal).min(), ShipTransform.destinationBounds(journal).max());
         var template = new StructureTemplate();
         template.load(source.registryAccess().lookupOrThrow(Registries.BLOCK), journal.getCompoundOrEmpty("template"));
         TransferReplay.placeInBox(source, template, min);

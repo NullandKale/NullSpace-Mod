@@ -110,7 +110,7 @@ public final class PlanetSurfaces
                 var column = new BlockPos(offset + x, padY, originZ + z);
                 for (int y = padY + 1; y <= padY + 40; y++)
                     level.setBlock(column.atY(y), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                for (int y = padY - 1; y >= padY - 24; y--)
+                for (int y = padY - 1; y >= level.getMinY(); y--)
                 {
                     var below = column.atY(y);
                     var state = level.getBlockState(below);

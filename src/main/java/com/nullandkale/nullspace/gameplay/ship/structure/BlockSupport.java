@@ -112,15 +112,20 @@ public final class BlockSupport
      */
     public static CompoundTag destinationTemplate(CompoundTag original, Set<BlockPos> captured, BlockPos delta)
     {
+        return destinationTemplate(original, captured, p -> p.offset(delta));
+    }
+
+    public static CompoundTag destinationTemplate(CompoundTag original, Set<BlockPos> captured, java.util.function.UnaryOperator<BlockPos> move)
+    {
         var copy = original.copy();
         for (var entry : copy.getListOrEmpty("blocks"))
         {
             var tag = ((CompoundTag) entry).getCompoundOrEmpty("nbt");
             if (!tag.getStringOr("id", "").equals("minecraft:beehive"))
                 continue;
-            flower(tag, captured, delta);
+            flower(tag, captured, move);
             for (var bee : tag.getListOrEmpty("bees"))
-                flower(((CompoundTag) bee).getCompoundOrEmpty("entity_data"), captured, delta);
+                flower(((CompoundTag) bee).getCompoundOrEmpty("entity_data"), captured, move);
         }
         return copy;
     }
@@ -137,12 +142,12 @@ public final class BlockSupport
         return copy;
     }
 
-    private static void flower(CompoundTag tag, Set<BlockPos> captured, BlockPos delta)
+    private static void flower(CompoundTag tag, Set<BlockPos> captured, java.util.function.UnaryOperator<BlockPos> move)
     {
         tag.read("flower_pos", BlockPos.CODEC).ifPresent(pos ->
         {
             if (captured.contains(pos))
-                tag.store("flower_pos", BlockPos.CODEC, pos.offset(delta));
+                tag.store("flower_pos", BlockPos.CODEC, move.apply(pos));
             else
                 tag.remove("flower_pos");
         });

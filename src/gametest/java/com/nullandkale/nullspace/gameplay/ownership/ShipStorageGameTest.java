@@ -128,7 +128,8 @@ public final class ShipStorageGameTest
             space = surface.getServer().getLevel(TravelService.SPACE);
             base = ctx.absolutePos(new BlockPos(180000 + index * 4096, 96, 180000));
             padBase = ctx.absolutePos(new BlockPos(120000 + index * 4096, 70, 120000));
-            computer = padBase.offset(-1, 1, 3);
+            // Keep this rectangular recall pad aligned with the generated north entrance.
+            computer = padBase.offset(3, 1, -1);
             // Big enough for the smallest generated ship (19 x 30), with a clear strip beside it.
             for (int x = -1; x <= 22; x++)
                 for (int z = -1; z <= 32; z++)

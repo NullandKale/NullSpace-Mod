@@ -304,7 +304,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                 world.getServer().runOnServer(server ->
                 {
                     for (int i = 0; i < 3; i++)
-                        if (!(server.overworld().getBlockEntity(furnacePositions.get(i)) instanceof AbstractFurnaceBlockEntity))
+                        if (!(server.overworld().getBlockEntity(com.nullandkale.nullspace.gameplay.travel.MoveTestState.arrived(WorldStore.get(server).at(server.overworld(), world.getConnection().getServerPlayer().blockPosition()), helm, 3).apply(furnacePositions.get(i))) instanceof AbstractFurnaceBlockEntity))
                             throw new AssertionError("Furnace missing after round trip");
                 });
             }

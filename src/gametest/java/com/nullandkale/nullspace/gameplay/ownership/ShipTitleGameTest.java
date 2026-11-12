@@ -77,7 +77,7 @@ public final class ShipTitleGameTest
                     crew.add(member);
                     ship.put("crew", crew);
                     WorldStore.get(server).section("lastSeen").putLong(away, server.overworld().getGameTime() - CrewRelease.ABANDONED_TICKS - 1);
-                    visitor.teleportTo(f.surface, f.computer.getX() + .5, f.computer.getY(), f.computer.getZ() + 1.5, Set.of(), 0, 0, true);
+                    visitor.teleportTo(f.surface, f.computer.getX() + .5, f.computer.getY(), f.computer.getZ() - .5, Set.of(), 0, 0, true);
                     var listed = ShipStorage.candidates(visitor, f.computer).stream().filter(d -> d.id().replace("-", "").equals(key[0])).findFirst();
                     ctx.assertTrue(listed.isPresent() && listed.get().state().equals("ABANDONED"), "Another player sees the ship as abandoned");
                     String notice = ShipStorage.store(visitor, f.computer, key[0], null);

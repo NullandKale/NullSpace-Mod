@@ -51,6 +51,18 @@ final class Frame
         reserved.add(new BlockPos(at.getX(), s.floorY + 1, at.getZ()));
     }
 
+    void reserve(BlockPos at)
+    {
+        // Reserve the column on both decks joined by a stair flight.
+        if (Math.abs(at.getY() - (s.floorY + 1)) <= s.height + 1)
+            reserved.add(new BlockPos(at.getX(), s.floorY + 1, at.getZ()));
+    }
+
+    boolean floorFree(BlockPos at)
+    {
+        return !reserved.contains(new BlockPos(at.getX(), s.floorY + 1, at.getZ())) && !g.has(at);
+    }
+
     static int mirror(int local)
     {
         return local == RIGHT ? LEFT : local == LEFT ? RIGHT : local;

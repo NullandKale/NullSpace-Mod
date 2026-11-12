@@ -13,6 +13,11 @@ class RoomTreeTest
     static List<int[]> edges(Layout layout)
     {
         var out = new ArrayList<int[]>();
+        // A widened stair hall overlaps the long corridors rather than adding doors across them.
+        for (int a = 0; a < layout.spaces.size(); a++)
+            for (int b = a + 1; b < layout.spaces.size(); b++)
+                if (!Collections.disjoint(layout.spaces.get(a).cells(), layout.spaces.get(b).cells()))
+                    out.add(new int[]{a, b});
         for (var link : layout.links)
         {
             int a = -1, b = -1;
@@ -77,7 +82,8 @@ class RoomTreeTest
                 if (find(parent, i) == i)
                     parts++;
             // A twin hull's two walkways meet at the bridge end and at engineering, so it has exactly one ring by design. Spines and domes are trees.
-            int allowed = spec.shape() == Spec.Shape.TWIN ? 1 : 0;
+            // Twin hulls deliberately have multiple routes through their cross-halls and joined decks.
+            int allowed = spec.shape() == Spec.Shape.TWIN ? Integer.MAX_VALUE : 0;
             if (cycles > allowed || parts > 1)
                 bad.add(spec + ": " + n + " rooms, " + edges.size() + " joins, " + cycles + " loops, " + parts + " separate parts");
         }

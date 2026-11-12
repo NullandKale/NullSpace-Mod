@@ -100,7 +100,8 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
                 var destination = gallery.base(13);
                 if (Math.abs(p.getX() - (destination.getX() + 5.5)) > 2)
                     throw new AssertionError("Ship must land on selected blank pad");
-                if (!server.overworld().getBlockState(gallery.controller(13)).is(ModBlocks.COMPUTER))
+                var arrived = WorldStore.get(server).at(p.level(), p.blockPosition());
+                if (arrived == null || !server.overworld().getBlockState(WorldStore.pos(arrived, "controller")).is(ModBlocks.COMPUTER))
                     throw new AssertionError("Blank pad must receive the actual ship");
                 try
                 {

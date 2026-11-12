@@ -37,13 +37,25 @@ public final class Claims
         if (!state.is(ModBlocks.STATION_CORE))
             return name + " is damaged: its controller is destroyed. Place a Ship Controller aboard and open it" + " to claim the wreck";
         // Take command: the derelict's core becomes an ordinary ship controller facing the same way.
-        return com.nullandkale.nullspace.gameplay.travel.BuildJournal.run(level, "claim-derelict", java.util.List.of(s.getStringOr("id", "")), java.util.List.of(controller), () ->
+        var job = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "claim-derelict", java.util.List.of(s.getStringOr("id", "")), java.util.List.of(controller));
+        try
         {
-            level.setBlock(controller, ModBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)), 3);
-            var result = take(p, s, name);
-            com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, controller, s.getStringOr("id", ""));
+            String result = job.step(() ->
+            {
+                level.setBlock(controller, ModBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, state.getValue(HorizontalDirectionalBlock.FACING)), 3);
+                var claimed = take(p, s, name);
+                com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, controller, s.getStringOr("id", ""));
+                return claimed;
+            });
+            // Hand control over only after the new ownership and core are durable and unlocked.
+            job.commitNow();
             return result;
-        });
+        }
+        catch (RuntimeException | Error failure)
+        {
+            job.abort();
+            throw failure;
+        }
     }
 
     /** An unclaimed derelict whose controller has been destroyed. */

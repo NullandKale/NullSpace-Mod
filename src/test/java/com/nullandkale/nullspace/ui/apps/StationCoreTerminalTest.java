@@ -13,6 +13,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class StationCoreTerminalTest
 {
     @Test
+    void derelictExplainsClaimingWithoutShowingStationConstruction()
+    {
+        var terminal = new StationCoreTerminal("Derelict", List.of(new TerminalPackets.Destination("station_view", "Derelict", "SETTING"), new TerminalPackets.Destination("station_claim", "Claim", "CLAIMABLE")));
+        var display = terminal.display();
+        assertTrue(display.row(1).contains("UNCLAIMED VESSEL"));
+        assertTrue(display.row(10).contains("Your current ship stays"));
+        assertFalse(display.row(12).contains("Build whole station"));
+        terminal.input(new TerminalInput.Pointer(5, 15));
+        assertEquals(new ControllerTerminal.Action("station_claim", ""), terminal.pollAction());
+    }
+
+    @Test
     void stationNameAndInvitedPlayerRemainSeparateAcrossLiveReadings()
     {
         var terminal = new StationCoreTerminal("Station", List.of());

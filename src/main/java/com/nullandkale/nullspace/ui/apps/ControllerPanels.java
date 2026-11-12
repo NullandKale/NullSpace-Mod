@@ -71,9 +71,9 @@ final class ControllerPanels
             drawManual(o);
         else
             drawMore(o);
-        o.button(2, 14, 20, "Fly manually", ShipControl.Action.PILOT);
-        o.button(24, 14, 22, "View ship", ShipControl.Action.CAMERA);
-        o.button(48, 14, 28, "Close all doors", ShipControl.Action.CLOSE_DOORS);
+        o.button(2, 15, 20, "Fly manually", ShipControl.Action.PILOT);
+        o.button(24, 15, 22, "View ship", ShipControl.Action.CAMERA);
+        o.button(48, 15, 28, "Close all doors", ShipControl.Action.CLOSE_DOORS);
         for (var a : List.of(ShipControl.Action.ACCEPT, ShipControl.Action.DECLINE, ShipControl.Action.CANCEL))
             if (o.view.buttons().stream().anyMatch(b -> b.action() == a && b.enabled()))
                 o.button(a == ShipControl.Action.ACCEPT ? 27 : 52, 18, 23, a == ShipControl.Action.ACCEPT ? "Allow docking" : ShipControlTerminal.label(a), a);
@@ -81,26 +81,30 @@ final class ControllerPanels
 
     static void drawTrip(ShipControlTerminal o)
     {
+        // A docked ship without an available course still has a useful next step.
+        boolean undock = enabled(o, ShipControl.Action.UNDOCK) && !enabled(o, ShipControl.Action.RESUME) && !enabled(o, ShipControl.Action.ENGAGE);
         if (!o.view.trip().title().isEmpty())
         {
             var trip = o.view.trip();
-            o.text(2, 8, trip.title(), TerminalTheme.TEXT);
-            o.text(2, 9, trip.hint(), TerminalTheme.MUTED);
+            o.text(2, 9, trip.title(), TerminalTheme.TEXT);
+            o.text(2, 10, trip.hint(), TerminalTheme.MUTED);
             boolean resume = o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME);
             if (trip.phase() == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.ARRIVAL_READY)
-                o.text(2, 10, "No new travel action is needed", TerminalTheme.AMBER);
+                o.text(2, 11, "No new travel action is needed", TerminalTheme.AMBER);
             else if (trip.phase().automatic())
-                o.text(2, 10, "In progress; no action needed", TerminalTheme.GREEN);
+                o.text(2, 11, "In progress; no action needed", TerminalTheme.GREEN);
+            else if (undock)
+                o.button(2, 11, 22, "Undock", ShipControl.Action.UNDOCK);
             else if (trip.phase() != com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.COMPLETE)
             {
                 var action = resume ? ShipControl.Action.RESUME : ShipControl.Action.ENGAGE;
-                o.button(2, 10, 22, resume ? "Continue journey" : "Engage", action);
-                o.view.buttons().stream().filter(b -> b.action() == action && !b.enabled()).findFirst().ifPresent(b -> o.text(26, 10, b.reason(), TerminalTheme.AMBER));
+                o.button(2, 11, 22, resume ? "Continue journey" : "Engage", action);
+                o.view.buttons().stream().filter(b -> b.action() == action && !b.enabled()).findFirst().ifPresent(b -> o.text(26, 11, b.reason(), TerminalTheme.AMBER));
             }
             if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.INVESTIGATE && b.enabled()))
-                o.button(2, 11, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
+                o.button(2, 12, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
             else if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.DISENGAGE && b.enabled()))
-                o.button(2, 11, 22, "Stop course", ShipControl.Action.DISENGAGE);
+                o.button(2, 12, 22, "Stop course", ShipControl.Action.DISENGAGE);
             return;
         }
         String trip = o.view.details().lines().filter(l -> l.startsWith("Trip:") || l.startsWith("Already at")).findFirst().orElse("Choose a course, then Engage").replaceFirst("^Trip: ", "");
@@ -108,24 +112,29 @@ final class ControllerPanels
         if (fuel.find() && !fuel.group(1).equals("0.00"))
             trip += " - needs " + fuel.group(1) + " fuel";
         String journey = o.view.message().lines().filter(l -> l.startsWith("FTL ") || l.startsWith("Journey paused")).findFirst().orElse("");
-        o.text(2, 8, journey.isBlank() ? trip : journey, TerminalTheme.TEXT);
+        o.text(2, 9, journey.isBlank() ? trip : journey, TerminalTheme.TEXT);
         boolean paused = o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME);
         boolean cruising = !paused && journey.startsWith("FTL ");
-        var primary = paused ? ShipControl.Action.RESUME : ShipControl.Action.ENGAGE;
+        var primary = undock ? ShipControl.Action.UNDOCK : paused ? ShipControl.Action.RESUME : ShipControl.Action.ENGAGE;
         if (cruising)
-            o.text(2, 10, "Travelling; arrival is automatic", TerminalTheme.GREEN);
+            o.text(2, 11, "Travelling; arrival is automatic", TerminalTheme.GREEN);
         else
-            o.button(2, 10, 22, paused ? "Continue journey" : "Engage", primary);
+            o.button(2, 11, 22, undock ? "Undock" : paused ? "Continue journey" : "Engage", primary);
         String blocker = o.view.buttons().stream().filter(b -> b.action() == primary).map(ControllerPackets.Button::reason).findFirst().orElse("Choose a destination");
         if (!cruising && !blocker.isEmpty())
-            o.text(24, 10, blocker, TerminalTheme.AMBER);
+            o.text(26, 11, blocker, TerminalTheme.AMBER);
         if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.INVESTIGATE && b.enabled()))
         {
-            o.button(2, 11, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
-            o.text(2, 12, "Ignore it to keep travelling. Arrival is automatic.", TerminalTheme.MUTED);
+            o.button(2, 12, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
+            o.text(2, 13, "Ignore it to keep travelling. Arrival is automatic.", TerminalTheme.MUTED);
         }
         else if (!cruising)
-            o.button(2, 11, 22, "Stop course", ShipControl.Action.DISENGAGE);
+            o.button(2, 12, 22, "Stop course", ShipControl.Action.DISENGAGE);
+    }
+
+    private static boolean enabled(ShipControlTerminal o, ShipControl.Action action)
+    {
+        return o.view.buttons().stream().anyMatch(b -> b.action() == action && b.enabled());
     }
 
     static void drawManual(ShipControlTerminal o)
@@ -135,26 +144,26 @@ final class ControllerPanels
         for (int i = 0; i < travel.length; i++)
         {
             var action = travel[i];
-            o.button(2, 8 + i, 13, ShipControlTerminal.label(action), action);
+            o.button(2, 9 + i, 13, ShipControlTerminal.label(action), action);
             String reason = o.view.buttons().stream().filter(b -> b.action() == action).map(ControllerPackets.Button::reason).findFirst().orElse("Unavailable");
-            o.text(17, 8 + i, reason.isEmpty() ? purposes[i] : reason, reason.isEmpty() ? TerminalTheme.GREEN : TerminalTheme.MUTED);
+            o.text(17, 9 + i, reason.isEmpty() ? purposes[i] : reason, reason.isEmpty() ? TerminalTheme.GREEN : TerminalTheme.MUTED);
         }
     }
 
     static void drawMore(ShipControlTerminal o)
     {
-        o.button(2, 8, 28, "Loose blocks", ShipControl.Action.REVIEW_LOOSE_BLOCKS);
+        o.button(2, 9, 28, "Loose blocks", ShipControl.Action.REVIEW_LOOSE_BLOCKS);
         if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.CONFIRM_LEAVE_BLOCKS))
-            o.button(33, 8, 31, "Confirm leave blocks", ShipControl.Action.CONFIRM_LEAVE_BLOCKS);
-        o.button(2, 9, 28, "Check ship", ShipControl.Action.INSPECT);
-        o.button(2, 10, 28, "Locate problem", ShipControl.Action.SHOW_PROBLEM);
-        o.hit(2, 11, 28, o.details ? "[ Hide detail ]" : "[ Details ]", () ->
+            o.button(33, 9, 31, "Confirm leave blocks", ShipControl.Action.CONFIRM_LEAVE_BLOCKS);
+        o.button(2, 10, 28, "Check ship", ShipControl.Action.INSPECT);
+        o.button(2, 11, 28, "Locate problem", ShipControl.Action.SHOW_PROBLEM);
+        o.hit(2, 12, 28, o.details ? "[ Hide detail ]" : "[ Details ]", () ->
         {
             o.details = !o.details;
             o.statusScroll = 0;
             o.notice = "";
         }, true);
-        o.button(2, 12, 28, "Advanced", ShipControl.Action.ADVANCED);
+        o.button(2, 13, 28, "Advanced", ShipControl.Action.ADVANCED);
     }
 
     private ControllerPanels()

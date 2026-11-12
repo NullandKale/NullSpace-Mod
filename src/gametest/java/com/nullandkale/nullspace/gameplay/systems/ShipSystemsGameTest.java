@@ -251,6 +251,7 @@ public final class ShipSystemsGameTest
         var base = ctx.absolutePos(new BlockPos(6144, 64, 6144));
         String name = "Systems " + UUID.randomUUID().toString().substring(0, 8);
         SphereLab.buildPad(level, base, name);
+        com.nullandkale.nullspace.gameplay.travel.MoveTestState.alignNorth(level, name);
         SphereLab.buildShip(level, base);
         var helm = SphereLab.controller(base);
         level.setBlock(helm, ModBlocks.COMPUTER.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH), 18);

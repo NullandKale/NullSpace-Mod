@@ -240,7 +240,8 @@ public final class BlockSupportGameTest
         var helm = ShipTestFixture.build(level, base);
         var pad = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
         String name = "Workshop " + UUID.randomUUID().toString().substring(0, 8);
-        PadComputers.register(level, base.offset(-1, 1, 3), pad, name);
+        level.setBlock(base.offset(3, 1, -1), PadComputers.BLOCK.defaultBlockState(), FLAGS);
+        PadComputers.register(level, base.offset(3, 1, -1), pad, name);
         var machines = List.of(Blocks.HOPPER, Blocks.DISPENSER, Blocks.DROPPER, Blocks.BREWING_STAND, Blocks.CRAFTER, Blocks.LECTERN, Blocks.DECORATED_POT, Blocks.CHISELED_BOOKSHELF, Blocks.JUKEBOX, Blocks.ENCHANTING_TABLE, Blocks.BEEHIVE);
         int[][] offsets = {{1, 3}, {1, 4}, {1, 5}, {2, 5}, {3, 5}, {4, 5}, {5, 5}, {1, 1}, {2, 1}, {4, 1}, {5, 1}};
         var positions = new ArrayList<BlockPos>();

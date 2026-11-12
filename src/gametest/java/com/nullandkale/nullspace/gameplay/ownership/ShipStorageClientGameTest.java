@@ -35,7 +35,7 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
         try (var world = c.worldBuilder().create())
         {
             var pad = new BlockPos(0, 90, 0);
-            var computer = pad.offset(-1, 1, 3);
+            var computer = pad.offset(3, 1, -1);
             var id = new String[1];
             world.getServer().runOnServer(server ->
             {

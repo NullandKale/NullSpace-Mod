@@ -12,9 +12,9 @@ final class StarMapPanel
 
     static boolean drawScopes(ShipControlTerminal o)
     {
-        if (!o.search.value().isBlank() || o.view.here().isBlank())
+        if (!o.search.value().isBlank() || o.view.here().isBlank() || !(o.filter.equals("All") || o.filter.equals("Planets & moons")))
             return false;
-        o.hit(2, 2, 76, "[ Back ] Stars" + (o.scopeSystem.isBlank() ? "" : " / " + o.scopeSystem) + (o.scopeRegion.isBlank() ? "" : " / " + o.region(o.scopeRegion).replace(o.scopeSystem + " / ", "")), () ->
+        o.hit(2, 1, 76, "[ Back ] Stars" + (o.scopeSystem.isBlank() ? "" : " / " + o.scopeSystem) + (o.scopeRegion.isBlank() ? "" : " / " + o.region(o.scopeRegion).replace(o.scopeSystem + " / ", "")), () ->
         {
             if (!o.scopeRegion.isBlank())
                 o.scopeRegion = "";
@@ -35,11 +35,11 @@ final class StarMapPanel
         if (o.scopeSystem.isBlank())
         {
             var systems = bodies.stream().map(x -> DestinationPicker.system(o, x)).distinct().sorted().toList();
-            o.page = Math.clamp(o.page, 0, Math.max(0, (systems.size() - 1) / 12));
-            for (int i = 0; i < 12 && o.page * 12 + i < systems.size(); i++)
+            o.page = Math.clamp(o.page, 0, Math.max(0, (systems.size() - 1) / DestinationPicker.PAGE_SIZE));
+            for (int i = 0; i < DestinationPicker.PAGE_SIZE && o.page * DestinationPicker.PAGE_SIZE + i < systems.size(); i++)
             {
-                String name = systems.get(o.page * 12 + i);
-                o.hit(2, 7 + i, 76, name + " | " + bodies.stream().filter(e -> DestinationPicker.system(o, e).equals(name)).count() + " planets/moons >", () ->
+                String name = systems.get(o.page * DestinationPicker.PAGE_SIZE + i);
+                o.hit(2, DestinationPicker.FIRST_ROW + i, 76, name + " | " + bodies.stream().filter(e -> DestinationPicker.system(o, e).equals(name)).count() + " planets/moons >", () ->
                 {
                     o.scopeSystem = name;
                     o.page = 0;
@@ -50,12 +50,12 @@ final class StarMapPanel
         else
         {
             var local = bodies.stream().filter(e -> DestinationPicker.system(o, e).equals(o.scopeSystem)).toList();
-            o.page = Math.clamp(o.page, 0, Math.max(0, (local.size() - 1) / 12));
-            for (int i = 0; i < 12 && o.page * 12 + i < local.size(); i++)
+            o.page = Math.clamp(o.page, 0, Math.max(0, (local.size() - 1) / DestinationPicker.PAGE_SIZE));
+            for (int i = 0; i < DestinationPicker.PAGE_SIZE && o.page * DestinationPicker.PAGE_SIZE + i < local.size(); i++)
             {
-                var body = local.get(o.page * 12 + i);
+                var body = local.get(o.page * DestinationPicker.PAGE_SIZE + i);
                 long contacts = o.view.entries().stream().filter(e -> e.region().equals(body.region()) && (e.kind() == ShipDestination.Kind.VESSEL || e.kind() == ShipDestination.Kind.PAD)).count();
-                o.hit(2, 7 + i, 76, body.name() + " | " + o.state(body.state()) + " | " + contacts + " stations / ships / pads >", () ->
+                o.hit(2, DestinationPicker.FIRST_ROW + i, 76, body.name() + " | " + o.state(body.state()) + " | " + contacts + " stations / ships / pads >", () ->
                 {
                     o.scopeRegion = body.region();
                     o.page = 0;
@@ -83,35 +83,22 @@ final class StarMapPanel
         };
     }
 
-    /**
-     * The galaxy chart (P9) on the 76x12 area under the filters: every system and feature at its 2D
-     * position, colored by whether the ship's engines reach it in one jump.
-     */
+    /** Full-width chart; names stay on the chart and use nearby free space when crowded. */
     static void drawMap(ShipControlTerminal o)
     {
-        o.text(2, 6, String.format(Locale.ROOT, "STAR MAP  engine range %.0f ly  green: one jump  grey: hop via others", o.view.range()), TerminalTheme.MUTED);
-        var selected = o.view.chart().stream().filter(p -> p.id().equals(o.chartSelected)).findFirst();
-        o.text(2, 20, selected.isPresent() ? selected.get().summary() + (selected.get().kind().equals("System") ? " | select again to open" : "") : "@ you  * star  ~ nebula  : asteroids  o rogue planet  + pulsar  # black hole", selected.isPresent() ? TerminalTheme.TEXT : TerminalTheme.MUTED);
-        boolean[][] used = new boolean[25][80];
+        final int black = 0xff000000;
+        o.text(2, 0, "SCANNER / STAR MAP", TerminalTheme.BLUE);
+        o.text(40, 0, String.format(Locale.ROOT, "Range %.0f ly | green: one jump", o.view.range()), TerminalTheme.MUTED);
+        for (int row = 3; row <= 20; row++)
+            o.display.put(2, row, " ".repeat(76), TerminalTheme.TEXT, black);
         var places = new ArrayList<>(o.view.chart());
-        // Draw the current place last so its glyph wins any collision.
-        places.sort(Comparator.comparing(ControllerPackets.ChartPlace::here));
-        for (var place : places)
+        places.sort(Comparator.comparing((ControllerPackets.ChartPlace p) -> !p.id().equals(o.chartSelected)).thenComparing(p -> !p.here()));
+        var layout = ChartLabels.place(places.stream().map(p -> new ChartLabels.Contact(p.id(), p.name(), p.x(), p.y())).toList(), 76, 18);
+        for (var placed : layout)
         {
-            int col = 2 + Math.clamp(place.x() * 73 / 1000, 0, 73);
-            int row = 7 + Math.clamp(place.y() * 11 / 1000, 0, 11);
-            while (used[row][col] && col < 76)
-                col++;
-            String label = glyph(place) + " " + place.name();
-            boolean room = col + label.length() <= 78;
-            for (int i = 0; room && i < label.length() + 1 && col + i < 80; i++)
-                if (used[row][col + i])
-                    room = false;
-            String shown = room ? label : String.valueOf(glyph(place));
-            for (int i = 0; i < shown.length() + (room ? 1 : 0) && col + i < 80; i++)
-                used[row][col + i] = true;
+            var place = places.stream().filter(p -> p.id().equals(placed.id())).findFirst().orElseThrow();
             int color = place.id().equals(o.chartSelected) ? TerminalTheme.AMBER : place.here() ? TerminalTheme.BLUE : place.inRange() ? TerminalTheme.GREEN : TerminalTheme.MUTED;
-            o.hit(col, row, shown.length(), shown, () ->
+            Runnable choose = () ->
             {
                 if (o.chartSelected.equals(place.id()) && place.kind().equals("System"))
                 {
@@ -122,9 +109,15 @@ final class StarMapPanel
                 }
                 o.chartSelected = place.id();
                 o.highlighted = o.view.entries().stream().filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(place.zone())).map(ControllerPackets.Entry::id).findFirst().orElse("");
-            }, true, "", true, color);
+            };
+            for (var line : placed.line())
+                o.display.put(2 + line.x(), 3 + line.y(), ".", TerminalTheme.MUTED, black);
+            o.hit(2 + placed.x(), 3 + placed.y(), 1, String.valueOf(glyph(place)), choose, true, "", true, color, black);
+            o.hit(2 + placed.labelX(), 3 + placed.labelY(), placed.label().length(), placed.label(), choose, true, "", true, color, black);
         }
-        o.view.chart().stream().filter(p -> p.id().equals(o.chartSelected)).findFirst().ifPresent(p -> o.text(2, 19, p.name() + (p.here() ? " | you are here" : p.inRange() ? String.format(Locale.ROOT, " | %.1f ly | jump %.2f fuel | in range", p.lightYears(), p.fuel()) : String.format(Locale.ROOT, " | %.1f ly | %.2f fuel total | %s", p.lightYears(), p.fuel(), p.route())), p.inRange() || p.here() ? TerminalTheme.TEXT : TerminalTheme.AMBER));
+        var selected = o.view.chart().stream().filter(p -> p.id().equals(o.chartSelected)).findFirst();
+        selected.ifPresent(p -> o.text(2, 21, p.name() + (p.here() ? " | you are here" : p.inRange() ? String.format(Locale.ROOT, " | %.1f ly | jump %.2f fuel | in range", p.lightYears(), p.fuel()) : String.format(Locale.ROOT, " | %.1f ly | %.2f fuel total | %s", p.lightYears(), p.fuel(), p.route())), p.inRange() || p.here() ? TerminalTheme.TEXT : TerminalTheme.AMBER));
+        o.text(2, 22, selected.map(ControllerPackets.ChartPlace::summary).orElse("Select a contact. Select a star again to browse its planets."), TerminalTheme.MUTED);
     }
 
     static String systemNameOf(ShipControlTerminal o, ControllerPackets.ChartPlace place)

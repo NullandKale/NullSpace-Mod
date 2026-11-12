@@ -42,7 +42,7 @@ public final class JournalRestore
         var sourceMax = WorldStore.pos(original, "max");
         var originalDelta = WorldStore.pos(original, "delta");
         var savedBase = WorldStore.pos(ship, "base");
-        var sourceBase = change.before() != null ? savedBase : savedBase.subtract(originalDelta);
+        var sourceBase = original.contains("transform") ? ShipTransform.fromJournal(original).source() : change.before() != null ? savedBase : savedBase.subtract(originalDelta);
         var localMin = sourceMin.subtract(sourceBase);
         var localMax = sourceMax.subtract(sourceBase);
         var originals = new ArrayList<Location>();
@@ -53,8 +53,8 @@ public final class JournalRestore
                 continue;
             var offset = side.equals("source") ? BlockPos.ZERO : originalDelta;
             var positions = new HashSet<BlockPos>();
-            TransferReplay.positions(original.getCompoundOrEmpty("template"), sourceMin).forEach(p -> positions.add(p.offset(offset)));
-            var bounds = new HullScan.Bounds(sourceMin.offset(offset), sourceMax.offset(offset));
+            TransferReplay.positions(original.getCompoundOrEmpty("template"), sourceMin).forEach(p -> positions.add(side.equals("source") ? p : ShipTransform.fromJournal(original).apply(p)));
+            var bounds = side.equals("source") ? new HullScan.Bounds(sourceMin, sourceMax) : ShipTransform.destinationBounds(original);
             load(level, bounds);
             HullEntities.requireLoaded(level, bounds);
             originals.add(new Location(level, bounds.min(), bounds.max(), positions));
@@ -165,6 +165,7 @@ public final class JournalRestore
                     ship.putInt("depth", landing.bounds().depth());
                     ship.putInt("height", PadRegistry.buildHeight(target, landing.bounds()));
                 }
+                RotatedShipState.ship(ship, new ShipTransform(savedBase, restoredBase, 0, 0, 0));
                 store.repository().apply(List.of(new StoreRecords.Entry("ships", StoreRecords.Kind.KEYED, id, store.repository().find(id), ship)), true, ShipRepository.Mutation.RECOVERY);
                 ShipIntegrity.stamp(target, WorldStore.pos(ship, "controller"), id);
                 for (var uuid : affected)

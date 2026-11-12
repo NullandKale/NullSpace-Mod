@@ -67,16 +67,7 @@ public final class TerraLandingSite
             var names = PadRegistry.read(server).stream().map(p -> p.name().toLowerCase(java.util.Locale.ROOT)).toList();
             for (int suffix = 2; names.contains(name.toLowerCase(java.util.Locale.ROOT)); suffix++)
                 name = nameFor(suffix);
-            for (int dx = -1; dx <= 32; dx++)
-                for (int dz = -1; dz <= 32; dz++)
-                    level.setBlock(new BlockPos(x + dx, high, z + dz), (dx < 0 || dx > 31 || dz < 0 || dz > 31 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), Block.UPDATE_CLIENTS);
-            // A continuous stair across the gentle slope gives players a way off the platform.
-            for (int step = 1; step <= Math.min(9, high - low + 1); step++)
-            {
-                var p = new BlockPos(x + 16, high - step + 1, z - 1 - step);
-                if (level.getBlockState(p).isAir())
-                    level.setBlock(p, Blocks.COBBLESTONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), Block.UPDATE_CLIENTS);
-            }
+            buildPlatform(level, x, z, high);
             var controller = new BlockPos(x - 1, high + 1, z + 16);
             level.setBlock(controller, PadComputers.BLOCK.defaultBlockState().setValue(PadComputerBlock.FACING, Direction.WEST), Block.UPDATE_CLIENTS);
             try
@@ -93,6 +84,42 @@ public final class TerraLandingSite
             return;
         }
         NullSpace.LOGGER.warn("No clear terrain site for Terra's starter pad; it will be retried on the next visit");
+    }
+
+    /** Shared terrain construction; registration remains a one-time site operation. */
+    static void buildPlatform(ServerLevel level, int x, int z, int high)
+    {
+        for (int dx = -1; dx <= 32; dx++)
+            for (int dz = -1; dz <= 32; dz++)
+            {
+                // Fill the raised platform down to terrain, leaving no shaded spawning cavity.
+                for (int y = high - 1; y >= level.getMinY(); y--)
+                {
+                    var support = new BlockPos(x + dx, y, z + dz);
+                    if (!level.getBlockState(support).isAir() && level.getFluidState(support).isEmpty())
+                        break;
+                    level.setBlock(support, Blocks.COBBLESTONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+                level.setBlock(new BlockPos(x + dx, high, z + dz), (dx < 0 || dx > 31 || dz < 0 || dz > 31 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
+        // A continuous stair across the gentle slope gives players a way off the platform.
+        for (int step = 1; high - step + 1 >= level.getMinY(); step++)
+        {
+            var p = new BlockPos(x + 16, high - step + 1, z - 1 - step);
+            level.getChunk(p);
+            if (!level.getBlockState(p).isAir() && level.getFluidState(p).isEmpty())
+                break;
+            level.setBlock(p, Blocks.COBBLESTONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), Block.UPDATE_CLIENTS);
+            boolean grounded = level.getBlockState(p.below()).isCollisionShapeFullBlock(level, p.below());
+            for (var under = p.below(); under.getY() >= level.getMinY(); under = under.below())
+            {
+                if (!level.getBlockState(under).isAir() && level.getFluidState(under).isEmpty())
+                    break;
+                level.setBlock(under, Blocks.COBBLESTONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
+            if (grounded)
+                break;
+        }
     }
 
     private static String nameFor(int suffix)

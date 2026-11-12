@@ -70,6 +70,9 @@ public final class Walk
     /** True if a person standing somewhere reachable can use a fixture at {@code at}: it touches a reachable cell, or one up to two below. */
     public static boolean usable(Set<BlockPos> reach, BlockPos at)
     {
+        // A sunken fixture such as farmland is used from the standing cell above it.
+        if (reach.contains(at.above()))
+            return true;
         for (var d : SIDES)
         {
             var n = at.relative(d);

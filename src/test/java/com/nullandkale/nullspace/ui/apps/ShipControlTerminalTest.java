@@ -55,11 +55,11 @@ class ShipControlTerminalTest
             if (phase == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.PAUSED)
                 buttons.add(new ControllerPackets.Button(ShipControl.Action.RESUME, ""));
             var panel = new ShipControlTerminal(new ControllerPackets.View(SESSION, BlockPos.ZERO, false, true, "Ship", "Ready", "region", "Destination", "", "FTL old message", original.entries(), buttons, 0, "Here", "", "", List.of(), 25, new com.nullandkale.nullspace.gameplay.navigation.TripPresentation(phase, "Current " + phase, "Current instructions")));
-            assertTrue(panel.display().row(8).contains("Current " + phase));
+            assertTrue(panel.display().row(9).contains("Current " + phase));
             if (phase.automatic())
             {
-                assertTrue(panel.display().row(10).contains("no action needed"));
-                assertFalse(panel.display().row(10).contains("Engage"));
+                assertTrue(panel.display().row(11).contains("no action needed"));
+                assertFalse(panel.display().row(11).contains("Engage"));
             }
             if (phase == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.PAUSED)
             {
@@ -67,7 +67,7 @@ class ShipControlTerminalTest
                 assertEquals(ShipControl.Action.RESUME, panel.pollAction().action());
             }
             assertTrue(click(panel, "Manual steps"));
-            assertTrue(panel.display().row(8).contains("Launch"));
+            assertTrue(panel.display().row(9).contains("Launch"));
         }
     }
 
@@ -102,17 +102,17 @@ class ShipControlTerminalTest
         var original = state(true, "");
         var entries = List.of(new ControllerPackets.Entry("station", ShipDestination.Kind.VESSEL, "Outpost", "sol_luna", "Station: 2/2 free"), new ControllerPackets.Entry("ship", ShipDestination.Kind.VESSEL, "Courier", "sol_luna", "Ship: 1/1 free"));
         var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), BlockPos.ZERO, true, true, "Ship", "Ready", "", "None", "", "", entries, original.buttons()));
-        panel.input(new TerminalInput.Pointer(12, 5));
-        assertTrue(panel.display().row(7).contains("Outpost"));
-        assertFalse(panel.display().row(8).contains("Courier"));
-        panel.input(new TerminalInput.Pointer(3, 7));
-        panel.input(new TerminalInput.Pointer(26, 5));
-        assertTrue(panel.display().row(7).contains("Courier"));
-        assertFalse(panel.display().row(8).contains("Outpost"));
-        panel.input(new TerminalInput.Pointer(3, 22));
+        chooseView(panel, "Stations");
+        assertTrue(panel.display().row(3).contains("Outpost"));
+        assertFalse(panel.display().row(4).contains("Courier"));
+        panel.input(new TerminalInput.Pointer(3, 3));
+        chooseView(panel, "Ships");
+        assertTrue(panel.display().row(3).contains("Courier"));
+        assertFalse(panel.display().row(4).contains("Outpost"));
+        panel.input(new TerminalInput.Pointer(3, 23));
         assertNull(panel.pollAction(), "Changing category cannot set the now-hidden station destination");
-        panel.input(new TerminalInput.Pointer(3, 7));
-        panel.input(new TerminalInput.Pointer(3, 22));
+        panel.input(new TerminalInput.Pointer(3, 3));
+        panel.input(new TerminalInput.Pointer(3, 23));
         assertEquals("ship", panel.pollAction().target());
     }
 
@@ -146,7 +146,7 @@ class ShipControlTerminalTest
             buttons.add(new ControllerPackets.Button(action, ""));
             var view = new ControllerPackets.View(original.session(), original.position(), false, true, original.ship(), original.summary(), original.selected(), original.destination(), original.location(), "FTL journey", original.entries(), buttons);
             var panel = new ShipControlTerminal(view);
-            int row = action == ShipControl.Action.RESUME ? 10 : 11;
+            int row = action == ShipControl.Action.RESUME ? 11 : 12;
             assertTrue(panel.display().row(row).contains(action == ShipControl.Action.RESUME ? "Continue journey" : "Visit signal"));
             panel.input(new TerminalInput.Pointer(3, row));
             assertEquals(action, panel.pollAction().action());
@@ -159,8 +159,8 @@ class ShipControlTerminalTest
     {
         var original = state(false, "port");
         var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), original.position(), false, true, original.ship(), original.summary(), original.selected(), original.destination(), original.location(), "FTL 0:32 to Luna", original.entries(), original.buttons()));
-        assertTrue(panel.display().row(8).contains("FTL 0:32 to Luna"));
-        assertTrue(panel.display().row(10).contains("arrival is automatic"));
+        assertTrue(panel.display().row(9).contains("FTL 0:32 to Luna"));
+        assertTrue(panel.display().row(11).contains("arrival is automatic"));
         assertFalse(shows(panel, "[ Engage ]"));
         assertFalse(shows(panel, "Stop course"));
         assertFalse(shows(panel, "Visit signal"));
@@ -172,13 +172,13 @@ class ShipControlTerminalTest
         var original = state(false, "pad");
         var t = new ShipControlTerminal(original);
         assertTrue(click(t, "[ Change ]"));
-        t.input(new TerminalInput.Pointer(60, 19));
+        chooseView(t, "Docking ports");
         t.input(new TerminalInput.Pointer(3, 19));
         assertNull(t.pollAction(), "The old Find control cannot create a station");
-        t.input(new TerminalInput.Pointer(3, 7));
+        t.input(new TerminalInput.Pointer(3, 3));
         var next = state(false, "port");
         t.update(next);
-        t.input(new TerminalInput.Pointer(3, 22));
+        t.input(new TerminalInput.Pointer(3, 23));
         var selected = t.pollAction();
         assertEquals(ShipControl.Action.SELECT, selected.action());
         assertEquals("port", selected.target());
@@ -207,15 +207,15 @@ class ShipControlTerminalTest
         var original = state(true, "");
         var entries = List.of(new ControllerPackets.Entry("terra", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"), new ControllerPackets.Entry("luna", ShipDestination.Kind.REGION, "Sol / Luna", "sol_luna", "Orbit"), new ControllerPackets.Entry("vega", ShipDestination.Kind.REGION, "Vega / Pelagos", "vega_pelagos", "Orbit"), new ControllerPackets.Entry("station", ShipDestination.Kind.VESSEL, "Outpost", "sol_luna", "Station: 2/2 free"), new ControllerPackets.Entry("berth1", ShipDestination.Kind.PORT, "Outpost A", "sol_luna", "Available"), new ControllerPackets.Entry("berth2", ShipDestination.Kind.PORT, "Outpost B", "sol_luna", "Available"));
         var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), BlockPos.ZERO, true, true, "Ship", "Ready", "", "None", "", "", entries, original.buttons(), 0, "Sol / Terra", "", ""));
-        assertFalse(panel.display().row(7).contains("Outpost"), "Start in the current planet, not a global port list");
-        panel.input(new TerminalInput.Pointer(3, 2));
-        assertTrue(panel.display().row(7).contains("Terra"));
-        assertTrue(panel.display().row(8).contains("Luna"));
-        panel.input(new TerminalInput.Pointer(3, 8));
-        assertTrue(panel.display().row(8).contains("Outpost"));
-        assertFalse(panel.display().row(9).contains("Outpost B"), "Ordinary browsing hides berth details");
-        panel.input(new TerminalInput.Pointer(3, 8));
-        panel.input(new TerminalInput.Pointer(3, 22));
+        assertFalse(panel.display().row(3).contains("Outpost"), "Start in the current planet, not a global port list");
+        panel.input(new TerminalInput.Pointer(3, 1));
+        assertTrue(panel.display().row(3).contains("Terra"));
+        assertTrue(panel.display().row(4).contains("Luna"));
+        panel.input(new TerminalInput.Pointer(3, 4));
+        assertTrue(panel.display().row(4).contains("Outpost"));
+        assertFalse(panel.display().row(5).contains("Outpost B"), "Ordinary browsing hides berth details");
+        panel.input(new TerminalInput.Pointer(3, 4));
+        panel.input(new TerminalInput.Pointer(3, 23));
         assertEquals(new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "station"), panel.pollAction());
         assertTrue(panel.picker());
     }
@@ -228,28 +228,71 @@ class ShipControlTerminalTest
         var chart = List.of(new ControllerPackets.ChartPlace("sol", "Sol", "System", 100, 100, "sol_terra", 0, 0, true, true, "G star", ""), new ControllerPackets.ChartPlace("feature_a", "Kel Nebula", "Nebula", 300, 100, "feature_a", 18.2, 2.82, true, false, "Nebula | stepping stone", ""), new ControllerPackets.ChartPlace("sys_d", "Corion", "System", 800, 900, "sys_d_1", 61.0, 9.4, false, false, "A star | 7 planets, 2 moons, 2 landable", "3 hops via Kel Nebula, Tal Drift"));
         var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), BlockPos.ZERO, true, true, "Ship", "Ready", "", "None", "", "", entries, original.buttons(), 0, "Sol / Terra", "", "", chart, 25));
         // Back out of the current planet to the top level: the star map.
-        panel.input(new TerminalInput.Pointer(3, 2));
-        panel.input(new TerminalInput.Pointer(3, 2));
+        panel.input(new TerminalInput.Pointer(3, 1));
+        panel.input(new TerminalInput.Pointer(3, 1));
         var screen = new StringBuilder();
         for (int y = 0; y < 25; y++)
             screen.append(panel.display().row(y)).append('\n');
         assertTrue(screen.toString().contains("STAR MAP"), screen.toString());
-        assertTrue(screen.toString().contains("engine range 25 ly"));
-        assertTrue(panel.display().row(20).contains("# black hole"), "Legend fits on screen");
-        assertTrue(panel.display().row(8).contains("@ Sol"), "You are marked at Sol");
-        assertTrue(panel.display().row(8).contains("~ Kel Nebula"));
-        assertTrue(panel.display().row(16).contains("* Corion"));
-        int nebula = panel.display().row(8).indexOf("~ Kel Nebula");
-        panel.input(new TerminalInput.Pointer(nebula, 8));
-        assertTrue(panel.display().row(19).contains("18.2 ly | jump 2.82 fuel | in range"));
-        panel.input(new TerminalInput.Pointer(3, 22));
+        assertTrue(screen.toString().contains("Range 25 ly"));
+        var chartBuffer = panel.display();
+        for (int row = 3; row <= 20; row++)
+            for (int col = 2; col < 78; col++)
+                assertEquals(0xff000000, chartBuffer.cell(col, row).background(), "The chart keeps its full width and 18 rows");
+        assertTrue(click(panel, "Kel Nebula"));
+        assertTrue(panel.display().row(21).contains("18.2 ly | jump 2.82 fuel | in range"));
+        panel.input(new TerminalInput.Pointer(3, 23));
         assertEquals(new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "nebula"), panel.pollAction());
         panel.update(panel.state());
-        int corion = panel.display().row(16).indexOf("* Corion");
-        panel.input(new TerminalInput.Pointer(corion, 16));
-        assertTrue(panel.display().row(19).contains("61.0 ly | 9.40 fuel total | 3 hops via Kel Nebula, Tal Drift"), panel.display().row(19));
-        panel.input(new TerminalInput.Pointer(corion, 16));
-        assertTrue(panel.display().row(7).contains("Corion I"), "Selecting a system again opens it");
+        assertTrue(click(panel, "Corion"));
+        assertTrue(panel.display().row(21).contains("61.0 ly | 9.40 fuel total | 3 hops via Kel Nebula, Tal Drift"), panel.display().row(21));
+        assertTrue(click(panel, "Corion"));
+        assertTrue(panel.display().row(3).contains("Corion I"), "Selecting a system again opens it");
+    }
+
+    @Test
+    void globalPadViewPaginatesItsContactsRatherThanCountingPlanets()
+    {
+        var original = state(true, "");
+        var entries = new ArrayList<ControllerPackets.Entry>();
+        entries.add(new ControllerPackets.Entry("terra", ShipDestination.Kind.REGION, "Sol / Terra", "sol_terra", "Orbit"));
+        for (int i = 0; i < 20; i++)
+            entries.add(new ControllerPackets.Entry("pad" + i, ShipDestination.Kind.PAD, "Pad " + i, "sol_terra", "READY"));
+        var panel = new ShipControlTerminal(new ControllerPackets.View(original.session(), BlockPos.ZERO, true, true, "Ship", "Ready", "", "None", "", "", entries, original.buttons(), 0, "Sol / Terra", "", ""));
+        panel.scopeSystem = "";
+        panel.scopeRegion = "";
+        chooseView(panel, "Landing pads");
+        assertTrue(panel.display().row(21).contains("1 / 2"));
+        assertTrue(click(panel, "[ > ]"));
+        assertTrue(panel.display().row(3).contains("Pad 18"));
+        assertTrue(panel.display().row(4).contains("Pad 19"));
+    }
+
+    private static void chooseView(ShipControlTerminal panel, String name)
+    {
+        assertTrue(click(panel, "[ View:"));
+        for (int row = 3; row < 9; row++)
+            if (panel.display().row(row).substring(50).contains(name))
+            {
+                panel.input(new TerminalInput.Pointer(52, row));
+                return;
+            }
+        fail("Missing view " + name);
+    }
+
+    @Test
+    void viewMenuCanBeDismissedWithoutClickingTheDestinationUnderneath()
+    {
+        var panel = new ShipControlTerminal(state(true, ""));
+        assertTrue(click(panel, "[ View:"));
+        assertTrue(panel.viewMenu);
+        panel.input(new TerminalInput.Pointer(3, 3));
+        assertFalse(panel.viewMenu);
+        assertEquals("", panel.highlighted);
+        assertNull(panel.pollAction());
+        assertTrue(click(panel, "[ View:"));
+        panel.input(TerminalInput.Key.ESCAPE);
+        assertFalse(panel.viewMenu);
     }
 
     private static ControllerPackets.View state(boolean scanner, String selected)
@@ -260,19 +303,31 @@ class ShipControlTerminalTest
     }
 
     @Test
+    void dockedShipCanUndockFromTripWithSpaceAroundThePanel()
+    {
+        var original = state(false, "");
+        var buttons = List.of(new ControllerPackets.Button(ShipControl.Action.ENGAGE, "Choose a destination"), new ControllerPackets.Button(ShipControl.Action.UNDOCK, ""));
+        var panel = new ShipControlTerminal(new ControllerPackets.View(SESSION, BlockPos.ZERO, false, true, "Ship", "Ready", "", "None", "", "", original.entries(), buttons));
+        assertTrue(panel.display().row(8).isBlank());
+        assertTrue(panel.display().row(14).isBlank());
+        assertTrue(click(panel, "[ Undock ]"));
+        assertEquals(ShipControl.Action.UNDOCK, panel.pollAction().action());
+    }
+
+    @Test
     void engageIsPrimaryAndManualStepsRemainAvailable()
     {
         var t = new ShipControlTerminal(state(false, "port"));
-        assertTrue(t.display().row(10).contains("Engage"));
+        assertTrue(t.display().row(11).contains("Engage"));
         assertFalse(t.display().row(9).contains("Jump"));
         assertTrue(click(t, "[ Manual steps ]"));
         String[] labels = {"Launch", "Jump", "Land", "Dock", "Undock"};
         for (int i = 0; i < labels.length; i++)
-            assertTrue(t.display().row(8 + i).contains(labels[i]));
-        assertTrue(t.display().row(10).contains("Jump to the destination"), "Blocker is readable before clicking");
-        t.input(new TerminalInput.Pointer(3, 8));
+            assertTrue(t.display().row(9 + i).contains(labels[i]));
+        assertTrue(t.display().row(11).contains("Jump to the destination"), "Blocker is readable before clicking");
+        t.input(new TerminalInput.Pointer(3, 9));
         assertEquals(ShipControl.Action.LAUNCH, t.pollAction().action());
-        t.input(new TerminalInput.Pointer(3, 8));
+        t.input(new TerminalInput.Pointer(3, 9));
         assertNull(t.pollAction(), "Pending movement cannot be submitted twice");
     }
 
@@ -281,7 +336,7 @@ class ShipControlTerminalTest
     {
         var t = new ShipControlTerminal(state(false, "port"));
         assertTrue(click(t, "[ Manual steps ]"));
-        t.input(new TerminalInput.Pointer(3, 10));
+        t.input(new TerminalInput.Pointer(3, 11));
         assertEquals(new ControllerPackets.Input(SESSION, ShipControl.Action.EXPLAIN, "LAND"), t.pollAction());
         assertTrue(t.status().contains("Jump to the destination"));
         assertNull(t.pollAction());
@@ -293,9 +348,9 @@ class ShipControlTerminalTest
         var t = new ShipControlTerminal(state(false, "pad"));
         assertTrue(click(t, "[ Change ]"));
         t.input(new TerminalInput.Text("Waypoint"));
-        t.input(new TerminalInput.Pointer(3, 7));
+        t.input(new TerminalInput.Pointer(3, 3));
         assertNull(t.pollAction());
-        t.input(new TerminalInput.Pointer(3, 22));
+        t.input(new TerminalInput.Pointer(3, 23));
         assertEquals(new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
         assertNull(t.pollAction());
         assertTrue(t.picker(), "Wait for the server to save the destination");
@@ -311,8 +366,8 @@ class ShipControlTerminalTest
         assertTrue(click(t, "[ Change ]"));
         t.input(new TerminalInput.Text("Waypoint"));
         t.update(state(false, "port"));
-        assertTrue(t.display().row(3).contains("Waypoint"));
-        assertTrue(t.display().row(7).contains("Waypoint berth"));
+        assertTrue(t.display().row(2).contains("Waypoint"));
+        assertTrue(t.display().row(3).contains("Waypoint berth"));
         t.input(TerminalInput.Key.ESCAPE);
         t.update(state(false, "port"));
         assertFalse(t.picker());
@@ -323,9 +378,9 @@ class ShipControlTerminalTest
     {
         var t = new ShipControlTerminal(state(true, "pad"));
         assertTrue(t.picker());
-        assertFalse(t.display().row(8).contains("[ Jump ]"));
-        t.input(new TerminalInput.Pointer(3, 9));
-        t.input(new TerminalInput.Pointer(3, 22));
+        assertFalse(t.display().row(4).contains("[ Jump ]"));
+        t.input(new TerminalInput.Pointer(3, 5));
+        t.input(new TerminalInput.Pointer(3, 23));
         assertEquals(new ControllerPackets.Input(SESSION, ShipControl.Action.SELECT, "port"), t.pollAction());
         assertTrue(t.picker());
     }
@@ -341,7 +396,7 @@ class ShipControlTerminalTest
             t.input(TerminalInput.Key.PAGE_DOWN);
             t.display();
         }
-        assertTrue(t.display().row(8).contains("No matching destinations"));
+        assertTrue(t.display().row(4).contains("No matching destinations"));
         assertNull(t.pollAction());
     }
 
@@ -362,11 +417,11 @@ class ShipControlTerminalTest
     {
         var original = state(false, "pad");
         var panel = new ShipControlTerminal(original);
-        panel.input(new TerminalInput.Pointer(3, 10));
+        panel.input(new TerminalInput.Pointer(3, 11));
         panel.pollAction();
         panel.update(new ControllerPackets.View(original.session(), original.position(), false, false, original.ship(), "Power changed", original.selected(), original.destination(), original.location(), "New reading", original.entries(), original.buttons(), 0));
         assertTrue(panel.status().contains("Waiting"));
-        panel.input(new TerminalInput.Pointer(3, 10));
+        panel.input(new TerminalInput.Pointer(3, 11));
         assertNull(panel.pollAction(), "A live reading is not an action acknowledgment");
     }
 
@@ -379,13 +434,13 @@ class ShipControlTerminalTest
         assertTrue(display.row(2).contains("Here") && display.row(2).contains("Terra"));
         assertTrue(display.row(5).contains("Going to") && display.row(5).contains("Sol / Luna"));
         assertFalse(display.row(6).contains("Sol / Luna"));
-        assertTrue(display.row(8).contains("Local travel"));
+        assertTrue(display.row(9).contains("Local travel"));
         assertNotEquals(display.cell(20, 2).foreground(), display.cell(2, 5).foreground());
         assertFalse(display.row(18).contains("Build station"));
         assertTrue(click(panel, "[ Manual steps ]"));
-        assertTrue(panel.display().row(8).contains("Launch"));
+        assertTrue(panel.display().row(9).contains("Launch"));
         assertTrue(click(panel, "[ Trip ]"));
-        assertTrue(panel.display().row(10).contains("Engage"));
+        assertTrue(panel.display().row(11).contains("Engage"));
         panel.input(new TerminalInput.Pointer(3, 5));
         assertEquals(' ', panel.display().cell(64, 24).glyph(), "Footer leaves space before Close");
         assertTrue(panel.display().row(24).contains("[ Close ]"));

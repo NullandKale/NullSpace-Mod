@@ -46,7 +46,10 @@ public final class CrashRecoveryGameTest
         var source = landing ? space : planet;
         var target = landing ? planet : space;
         var controller = landing ? spaceController : planetController;
-        var targetController = landing ? planetController : spaceController;
+        // This fixture's entrance faces north and its pad computer is west. Its 7x7
+        // hull is centred in the 8x8 destination after the quarter turn.
+        var landingTransform = new ShipTransform(new BlockPos(0, 96, 0), base.above(), 32, 32, 3, new BlockPos(0, 0, -25));
+        var targetController = landing ? landingTransform.apply(spaceController) : spaceController;
         var sourceMin = landing ? new BlockPos(0, 96, 0) : base.above();
         var targetMin = landing ? base.above() : new BlockPos(0, 96, 0);
         planet.setChunkForced(256, 256, true);
@@ -154,13 +157,17 @@ public final class CrashRecoveryGameTest
                 ctx.assertTrue(authoritative.getBlockState(pos).is(ModBlocks.COMPUTER), "Restart must select one authoritative ship");
                 ctx.assertTrue((committed ? source : target).getBlockState(committed ? controller : targetController).isAir(), "Restart must remove the other copy");
                 var vessel = WorldStore.get(server).at(authoritative, pos);
-                ctx.assertTrue(vessel != null && vessel.getCompoundOrEmpty("systems").equals(manifest.getCompoundOrEmpty("systems")), "Real restart must preserve device identities, power configuration, stored energy," + " and finite room air exactly");
-                var computerRecord = vessel.getCompoundOrEmpty("computers").getCompoundOrEmpty(Long.toString(BlockPos.ZERO.asLong()));
+                var expectedState = new CompoundTag();
+                expectedState.put("systems", manifest.getCompoundOrEmpty("systems").copy());
+                if (committed)
+                    RotatedShipState.ship(expectedState, landing ? landingTransform : new ShipTransform(base.above(), new BlockPos(0, 96, 0), 8, 8, 0));
+                ctx.assertTrue(vessel != null && vessel.getCompoundOrEmpty("systems").equals(expectedState.getCompoundOrEmpty("systems")), "Real restart must preserve device identities, power configuration, stored energy," + " and finite room air exactly");
+                var computerRecord = vessel.getCompoundOrEmpty("computers").getCompoundOrEmpty(Long.toString(landing && committed ? landingTransform.local(BlockPos.ZERO).asLong() : BlockPos.ZERO.asLong()));
                 var restoredComputer = new VirtualComputer((name, args) -> 0);
                 restoredComputer.restore(ComputerImageCodec.decode(computerRecord.get("image")));
                 ctx.assertTrue(restoredComputer.files.read("/home/crew/cargo3").equals("\u661f\uD83D\uDE80".repeat(5461)) && restoredComputer.processes.size() == 1 && restoredComputer.processes.values().iterator().next().job().pc == 2, "Fresh JVM recovery preserves a large Unicode computer disk and sleeping detached" + " program counter");
                 var min = committed ? targetMin : sourceMin;
-                ctx.assertTrue(authoritative.getBlockState(min.offset(1, 5, 1)).is(net.minecraft.world.level.block.Blocks.GLASS), "Edited hull survives restart");
+                ctx.assertTrue(authoritative.getBlockState(landing && committed ? landingTransform.apply(sourceMin.offset(1, 5, 1)) : min.offset(1, 5, 1)).is(net.minecraft.world.level.block.Blocks.GLASS), "Edited hull survives restart");
                 ctx.assertTrue(vessel.getListOrEmpty("crew").stream().anyMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(manifest.getStringOr("offline", ""))), "Offline crew assignment survives recovery");
                 var bounds = new HullScan.Bounds(min, min.offset(31, 31, 31));
                 var entities = HullEntities.inBounds(authoritative, bounds);
@@ -170,7 +177,7 @@ public final class CrashRecoveryGameTest
                     ctx.assertTrue(entities.stream().filter(e -> e.getUUID().equals(id)).count() == 1, "Restart must preserve one " + key + " UUID");
                     ctx.assertTrue(HullEntities.inBounds(committed ? source : target, new HullScan.Bounds(committed ? sourceMin : targetMin, (committed ? sourceMin : targetMin).offset(31, 31, 31))).stream().noneMatch(e -> e.getUUID().equals(id)), "Restart must not duplicate " + key);
                 }
-                var chest = (net.minecraft.world.level.block.entity.ChestBlockEntity) authoritative.getBlockEntity(min.offset(2, 2, 2));
+                var chest = (net.minecraft.world.level.block.entity.ChestBlockEntity) authoritative.getBlockEntity(landing && committed ? landingTransform.apply(sourceMin.offset(2, 2, 2)) : min.offset(2, 2, 2));
                 ctx.assertTrue(chest.getItem(0).getCount() == 7, "Restart must preserve chest cargo");
                 var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(new com.mojang.authlib.GameProfile(UUID.fromString(manifest.getStringOr("player", "")), "test-mock-player"), false);
                 var player = new net.minecraft.server.level.ServerPlayer(server, authoritative, cookie.gameProfile(), cookie.clientInformation());
@@ -189,7 +196,7 @@ public final class CrashRecoveryGameTest
                     ctx.assertTrue(WorldStore.get(server).list("targets").stream().noneMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString())), "Arrival correction must run after native login registration and consume its" + " pending target");
                     ctx.assertTrue(player.getInventory().countItem(Items.EMERALD) == 11, "Real restart/rejoin must preserve player inventory");
                     ctx.assertTrue(player.level() == authoritative, "Real restart/rejoin must resolve authoritative arrival");
-                    ctx.assertTrue(Math.abs(player.getYRot() - 63) < .01 && Math.abs(player.getXRot() - 17) < .01, "Online passenger facing must survive restart");
+                    ctx.assertTrue(Math.abs(player.getYRot() - (landing && committed ? landingTransform.yaw(63) : 63)) < .01 && Math.abs(player.getXRot() - 17) < .01, "Online passenger facing must survive restart");
                     server.getPlayerList().remove(player);
                     try
                     {

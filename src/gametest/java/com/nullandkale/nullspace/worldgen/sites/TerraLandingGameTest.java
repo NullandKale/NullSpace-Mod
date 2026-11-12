@@ -17,6 +17,24 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class TerraLandingGameTest
 {
+    @GameTest(environment = "nullspace:ship_control", maxTicks = 200)
+    public void raisedPadStairsReachTerrainAndFoundationsLeaveNoOpenCavity(GameTestHelper ctx)
+    {
+        var level = ctx.getLevel();
+        TerrainPadFixture.build(level);
+        for (int x = -1; x <= 32; x++)
+            for (int z = -1; z <= 32; z++)
+                for (int y = TerrainPadFixture.GROUND; y < TerrainPadFixture.TOP; y++)
+                    ctx.assertTrue(!level.getBlockState(new BlockPos(TerrainPadFixture.X + x, y, TerrainPadFixture.Z + z)).isAir(), "No open spawning cavity below the raised platform");
+        for (int step = 1; step <= 20; step++)
+        {
+            var at = new BlockPos(TerrainPadFixture.X + 16, TerrainPadFixture.TOP - step + 1, TerrainPadFixture.Z - 1 - step);
+            ctx.assertTrue(level.getBlockState(at).is(Blocks.COBBLESTONE_STAIRS), "Stairs continue past the former nine-step limit");
+            ctx.assertTrue(!level.getBlockState(at.below()).isAir(), "Each stair has a foundation");
+        }
+        ctx.succeed();
+    }
+
     @GameTest(environment = "nullspace:ship_control", maxTicks = 180)
     public void freshWorldHasAReadyTerraPadAndAnOrbitingShipCanActuallyLandThere(GameTestHelper ctx) throws Exception
     {

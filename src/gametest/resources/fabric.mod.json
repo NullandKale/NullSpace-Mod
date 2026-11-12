@@ -9,6 +9,7 @@
       "com.nullandkale.nullspace.gameplay.ship.structure.HullCarveGameTest",
       "com.nullandkale.nullspace.gameplay.ship.structure.LooseBlocksGameTest",
       "com.nullandkale.nullspace.worldgen.sites.TerraLandingGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.LandingRotationGameTest",
       "com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.JourneyGameTest",
       "com.nullandkale.nullspace.gameplay.start.SpaceStartGameTest",
@@ -115,6 +116,7 @@
       "com.nullandkale.nullspace.content.guide.GuideClientGameTest",
       "com.nullandkale.nullspace.gameplay.ship.FirstTripClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest",
+      "com.nullandkale.nullspace.worldgen.sites.TerraLandingClientGameTest",
       "com.nullandkale.nullspace.perf.SpaceGridClientGameTest"
     ]
   },

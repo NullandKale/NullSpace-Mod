@@ -604,11 +604,13 @@ public final class LocalMultiplayerTest
                     // the cargo.
                     int gold = s.getPlayerList().getPlayers().stream().mapToInt(p -> p.getInventory().countItem(net.minecraft.world.item.Items.GOLD_INGOT)).sum();
                     check(s.overworld().getEntity(itemId[0]) != null || gold == 3, "Dropped cargo must survive");
-                    var chest = (net.minecraft.world.level.block.entity.ChestBlockEntity) s.overworld().getBlockEntity(base.offset(2, 3, 2));
+                    var landedShip = WorldStore.get(s).at(s.overworld(), s.getPlayerList().getPlayers().getFirst().blockPosition());
+                    var arrived = com.nullandkale.nullspace.gameplay.travel.MoveTestState.arrived(landedShip, base.offset(6, 3, 3), 3);
+                    var chest = (net.minecraft.world.level.block.entity.ChestBlockEntity) s.overworld().getBlockEntity(arrived.apply(base.offset(2, 3, 2)));
                     check(chest.getItem(0).getCount() == 7, "Chest cargo must survive");
-                    var dropper = (net.minecraft.world.level.block.entity.DropperBlockEntity) s.overworld().getBlockEntity(base.offset(1, 3, 6));
+                    var dropper = (net.minecraft.world.level.block.entity.DropperBlockEntity) s.overworld().getBlockEntity(arrived.apply(base.offset(1, 3, 6)));
                     check(dropper != null && dropper.getItem(0).is(net.minecraft.world.item.Items.DIAMOND) && dropper.getItem(0).getCount() == 5, "Dropper cargo must survive real multiplayer launch, offline return and" + " reconnect");
-                    var brewer = (net.minecraft.world.level.block.entity.BrewingStandBlockEntity) s.overworld().getBlockEntity(base.offset(5, 3, 5));
+                    var brewer = (net.minecraft.world.level.block.entity.BrewingStandBlockEntity) s.overworld().getBlockEntity(arrived.apply(base.offset(5, 3, 5)));
                     check(brewer != null && brewer.getItem(0).is(net.minecraft.world.item.Items.GLASS_BOTTLE) && brewer.getItem(3).getCount() == 3, "Brewing stand cargo must survive multiplayer travel");
                     for (var p : s.getPlayerList().getPlayers())
                         check(p.containerMenu == p.inventoryMenu, "Travel must close old source container menus before its block entities are" + " removed");

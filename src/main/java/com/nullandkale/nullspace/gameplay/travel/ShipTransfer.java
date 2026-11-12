@@ -78,6 +78,10 @@ final class ShipTransfer
     private ServerLevel target;
     private BlockPos targetBase, delta, targetMin, targetMax;
     private PadRegistry.Pad landing;
+    private ShipTransform transform;
+    private String mainEntrance = "";
+    private BlockPos mainExit;
+    private final Map<BlockPos, String> entranceIds = new LinkedHashMap<>();
 
     // What travels
     private List<Entity> cargo;
@@ -182,8 +186,6 @@ final class ShipTransfer
                 return Result.rejected(validation.detail());
             var b = landing.bounds();
             targetBase = new BlockPos(b.minX(), b.y() + 1, b.minZ());
-            if (scan.bounds().max().getX() - sourceBase.getX() >= b.width() || scan.bounds().max().getZ() - sourceBase.getZ() >= b.depth())
-                return Result.rejected("Ship does not fit this pad");
             for (int x = b.minX(); x <= b.maxX(); x++)
                 for (int z = b.minZ(); z <= b.maxZ(); z++)
                     for (int y = b.y() + 1; y <= target.getMaxY(); y++)
@@ -214,8 +216,68 @@ final class ShipTransfer
     private Result checkDestination()
     {
         delta = targetBase.subtract(sourceBase);
-        targetMin = scan.bounds().min().offset(delta);
-        targetMax = scan.bounds().max().offset(delta);
+        int turns = 0;
+        if (landing != null)
+        {
+            var ports = new ArrayList<com.nullandkale.nullspace.gameplay.docking.DockingPorts.Port>();
+            for (var at : scan.blocks().stream().sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList())
+                if (source.getBlockState(at).is(com.nullandkale.nullspace.content.ModBlocks.DOCKING_BASE))
+                    try
+                    {
+                        var port = com.nullandkale.nullspace.gameplay.docking.DockingPorts.readPort(source, vessel.copy(), at, false);
+                        ports.add(port);
+                        entranceIds.put(at.subtract(sourceBase), port.id());
+                    }
+                    catch (IllegalArgumentException invalid)
+                    {
+                        /* Other framed exits may still be usable. */ }
+            var pad = landing.bounds();
+            var computer = landing.computer();
+            Direction side = computer.getX() < pad.minX() ? Direction.WEST : computer.getX() > pad.maxX() ? Direction.EAST : computer.getZ() < pad.minZ() ? Direction.NORTH : Direction.SOUTH;
+            if (!ports.isEmpty())
+            {
+                var port = ports.stream().filter(p -> p.id().equals(vessel.getStringOr("mainEntrance", ""))).findFirst().orElse(ports.getFirst());
+                mainEntrance = port.id();
+                turns = Math.floorMod(side.get2DDataValue() - port.facing().get2DDataValue(), 4);
+            }
+            else
+            {
+                // Hand-built hulls may have an exterior door without docking hardware.
+                var exits = new LinkedHashMap<BlockPos, Direction>();
+                for (var at : scan.blocks().stream().sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList())
+                {
+                    var state = source.getBlockState(at);
+                    if (!(state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) || !com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors.root(state))
+                        continue;
+                    var facing = state.getValue(net.minecraft.world.level.block.DoorBlock.FACING);
+                    boolean front = scan.pressure().breathable(at.relative(facing));
+                    boolean back = scan.pressure().breathable(at.relative(facing.getOpposite()));
+                    if (front != back)
+                        exits.put(at.subtract(sourceBase), back ? facing : facing.getOpposite());
+                }
+                if (!exits.isEmpty())
+                {
+                    var saved = vessel.contains("mainExit") ? WorldStore.pos(vessel, "mainExit") : null;
+                    mainExit = exits.containsKey(saved) ? saved : exits.keySet().iterator().next();
+                    turns = Math.floorMod(side.get2DDataValue() - exits.get(mainExit).get2DDataValue(), 4);
+                }
+            }
+        }
+        transform = new ShipTransform(sourceBase, targetBase, vessel == null ? inspected.pad().bounds().width() : vessel.getIntOr("width", 32), vessel == null ? inspected.pad().bounds().depth() : vessel.getIntOr("depth", 32), turns);
+        if (landing != null && turns != 0)
+        {
+            var rotated = transform.bounds(scan.bounds());
+            int w = rotated.max().getX() - rotated.min().getX() + 1;
+            int d = rotated.max().getZ() - rotated.min().getZ() + 1;
+            var pad = landing.bounds();
+            var offset = new BlockPos(pad.minX() + Math.floorDiv(pad.width() - w, 2) - rotated.min().getX(), 0, pad.minZ() + Math.floorDiv(pad.depth() - d, 2) - rotated.min().getZ());
+            transform = new ShipTransform(sourceBase, targetBase, transform.width(), transform.depth(), turns, offset);
+        }
+        var destinationBounds = transform.bounds(scan.bounds());
+        targetMin = destinationBounds.min();
+        targetMax = destinationBounds.max();
+        if (landing != null && (targetMin.getX() < landing.bounds().minX() || targetMin.getZ() < landing.bounds().minZ() || targetMax.getX() > landing.bounds().maxX() || targetMax.getZ() > landing.bounds().maxZ()))
+            return Result.rejected("Ship does not fit this pad with its entrance facing the Pad Computer");
         if (TransferLocks.areaBusy(target, new HullScan.Bounds(targetMin, targetMax), current, recall ? actor.getUUID() : null))
             return Result.rejected("This destination is reserved by another ship's travel or recall");
         if (targetMin.getY() < target.getMinY() || targetMax.getY() > target.getMaxY() || !target.getWorldBorder().isWithinBounds(targetMin) || !target.getWorldBorder().isWithinBounds(targetMax))
@@ -294,6 +356,7 @@ final class ShipTransfer
         journal.putLong("min", min.asLong());
         journal.putLong("max", max.asLong());
         journal.putLong("delta", delta.asLong());
+        transform.save(journal, scan.bounds());
         // The hull and any snow resting on it are what the move clears at the source, so they are all rollback restores.
         var saved = template.save(new CompoundTag());
         var restored = new HashSet<BlockPos>(scan.blocks());
@@ -393,6 +456,8 @@ final class ShipTransfer
         var boarded = members.stream().map(t -> ((CompoundTag) t).getStringOr("id", "")).collect(java.util.stream.Collectors.toSet());
         for (var tag : ships)
             ((CompoundTag) tag).getListOrEmpty("crew").removeIf(t -> boarded.contains(((CompoundTag) t).getStringOr("id", "")));
+        RotatedShipState.ship(next, transform);
+        RotatedShipState.beds(after, id, transform);
         ships.add(next);
         journal.put("players", passengers);
         for (Entity entity : cargo)
@@ -451,7 +516,16 @@ final class ShipTransfer
             next.putDouble("simY", arrival.y);
             next.putDouble("simZ", arrival.z);
         }
-        next.putLong("controller", controller.offset(delta).asLong());
+        next.putLong("controller", transform.apply(controller).asLong());
+        if (!mainEntrance.isEmpty())
+        {
+            next.putString("mainEntrance", mainEntrance);
+            var nodes = next.getCompoundOrEmpty("doorNodes");
+            entranceIds.forEach((position, token) -> nodes.putString(Long.toString(position.asLong()), token));
+            next.put("doorNodes", nodes);
+        }
+        if (mainExit != null)
+            next.putLong("mainExit", mainExit.asLong());
         var home = landing != null ? landing : inspected.pad();
         if (home != null)
         {
@@ -490,6 +564,7 @@ final class ShipTransfer
                 {
                     if (leavingPieces)
                         TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
+                    RotatedShipState.crew(member, transform);
                     members.add(member);
                     WorldStore.target(after, uuid, target.dimension().identifier().toString(), targetBase.getX() + member.getDoubleOr("x", 0), targetBase.getY() + member.getDoubleOr("y", 0), targetBase.getZ() + member.getDoubleOr("z", 0), member.getFloatOr("yaw", 0), member.getFloatOr("pitch", 0));
                 }
@@ -503,6 +578,7 @@ final class ShipTransfer
             member.putDouble("z", player.getZ() - sourceBase.getZ());
             member.putFloat("yaw", player.getYRot());
             member.putFloat("pitch", player.getXRot());
+            RotatedShipState.crew(member, transform);
             members.add(member);
             var original = new CompoundTag();
             original.putString("id", player.getUUID().toString());
@@ -512,7 +588,7 @@ final class ShipTransfer
             original.putFloat("yaw", player.getYRot());
             original.putFloat("pitch", player.getXRot());
             passengers.add(original);
-            WorldStore.target(after, player.getUUID(), target.dimension().identifier().toString(), player.getX() + delta.getX(), player.getY() + delta.getY(), player.getZ() + delta.getZ(), player.getYRot(), player.getXRot());
+            WorldStore.target(after, player.getUUID(), target.dimension().identifier().toString(), targetBase.getX() + member.getDoubleOr("x", 0), targetBase.getY() + member.getDoubleOr("y", 0), targetBase.getZ() + member.getDoubleOr("z", 0), member.getFloatOr("yaw", 0), player.getXRot());
         }
         if (current != null)
             for (var entry : current.crew.entrySet())
@@ -530,8 +606,9 @@ final class ShipTransfer
                 member.putDouble("z", position.z - sourceBase.getZ());
                 if (leavingPieces)
                     TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
+                RotatedShipState.crew(member, transform);
                 members.add(member);
-                WorldStore.target(after, uuid, target.dimension().identifier().toString(), targetBase.getX() + member.getDoubleOr("x", 0), targetBase.getY() + member.getDoubleOr("y", 0), targetBase.getZ() + member.getDoubleOr("z", 0), 0, 0);
+                WorldStore.target(after, uuid, target.dimension().identifier().toString(), targetBase.getX() + member.getDoubleOr("x", 0), targetBase.getY() + member.getDoubleOr("y", 0), targetBase.getZ() + member.getDoubleOr("z", 0), member.getFloatOr("yaw", 0), 0);
                 var original = new CompoundTag();
                 original.putString("id", uuid.toString());
                 original.putDouble("x", position.x);
@@ -551,7 +628,8 @@ final class ShipTransfer
         for (ServerPlayer player : source.players())
             if (scan.bounds().box().inflate(8).contains(player.position()) && player.containerMenu != player.inventoryMenu)
                 player.closeContainer();
-        var destinationSnapshot = BlockSupport.destinationTemplate(BlockSupport.connectedTemplate(journal.getCompoundOrEmpty("template"), min, scan.blocks()), scan.blocks(), delta);
+        var destinationSnapshot = BlockSupport.destinationTemplate(BlockSupport.connectedTemplate(journal.getCompoundOrEmpty("template"), min, scan.blocks()), scan.blocks(), transform::apply);
+        destinationSnapshot = transform.template(target, destinationSnapshot, min);
         var destinationTemplate = new StructureTemplate();
         destinationTemplate.load(target.registryAccess().lookupOrThrow(Registries.BLOCK), destinationSnapshot);
         // Snow or grass on the pad gives way to the landing ship instead of ending up inside it.
@@ -567,9 +645,10 @@ final class ShipTransfer
                     item.setDeltaMovement(Vec3.ZERO);
                 }
         TransferRecovery.place(target, destinationTemplate, targetMin);
-        var area = net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(min, max);
-        target.getBlockTicks().copyAreaFrom(source.getBlockTicks(), area, delta);
-        target.getFluidTicks().copyAreaFrom(source.getFluidTicks(), area, delta);
+        var ticks = journal.getCompoundOrEmpty("ticks").copy();
+        for (var kind : List.of("blocks", "fluids"))
+            ticks.getListOrEmpty(kind).removeIf(t -> !scan.blocks().contains(WorldStore.pos((CompoundTag) t, "at")));
+        JournalTicks.restore(target, ticks, transform::apply);
     }
 
     /**
@@ -606,6 +685,14 @@ final class ShipTransfer
                 mounts.put(player, player.getVehicle().getUUID());
                 player.stopRiding();
             }
+        var riderPositions = new LinkedHashMap<UUID, Vec3>();
+        var riderYaws = new LinkedHashMap<UUID, Float>();
+        for (var entity : cargo)
+            if (entity.getVehicle() != null && cargoIds.contains(entity.getVehicle().getUUID()))
+            {
+                riderPositions.put(entity.getUUID(), transform.apply(entity.position()));
+                riderYaws.put(entity.getUUID(), transform.yaw(entity.getYRot()));
+            }
         for (Entity entity : roots)
         {
             if (!entity.getType().canSerialize())
@@ -613,12 +700,33 @@ final class ShipTransfer
                 entity.discard();
                 continue;
             }
-            var moved = entity.teleport(new TeleportTransition(target, entity.position().add(delta.getX(), delta.getY(), delta.getZ()), entity.getDeltaMovement(), entity.getYRot(), entity.getXRot(), TeleportTransition.DO_NOTHING));
+            Vec3 arrival = transform.apply(entity.position());
+            float yaw = transform.yaw(entity.getYRot());
+            if (entity instanceof net.minecraft.world.entity.decoration.BlockAttachedEntity attached)
+            {
+                arrival = Vec3.atCenterOf(transform.apply(attached.getPos()));
+                if (entity instanceof net.minecraft.world.entity.decoration.HangingEntity hanging)
+                {
+                    hanging.rotate(transform.rotation());
+                    yaw = hanging.getYRot();
+                    if (hanging instanceof net.minecraft.world.entity.decoration.ItemFrame frame && frame.getDirection().getAxis().isVertical())
+                        frame.setRotation(Math.floorMod(frame.getRotation() + 2 * transform.turns() * frame.getDirection().getAxisDirection().getStep(), 8));
+                }
+            }
+            var moved = entity.teleport(new TeleportTransition(target, arrival, transform.velocity(entity.getDeltaMovement()), yaw, entity.getXRot(), TeleportTransition.DO_NOTHING));
             if (moved == null)
                 throw new IllegalStateException("Could not transfer passenger entity");
         }
+        for (var rider : riderPositions.entrySet())
+        {
+            var entity = target.getEntity(rider.getKey());
+            if (entity != null)
+            {
+                entity.snapTo(rider.getValue().x, rider.getValue().y, rider.getValue().z, riderYaws.get(rider.getKey()), entity.getXRot());
+            }
+        }
         for (ServerPlayer player : crew)
-            player.teleport(new TeleportTransition(target, player.position().add(delta.getX(), delta.getY(), delta.getZ()), Vec3.ZERO, player.getYRot(), player.getXRot(), TeleportTransition.PLACE_PORTAL_TICKET));
+            player.teleport(new TeleportTransition(target, transform.apply(player.position()), Vec3.ZERO, transform.yaw(player.getYRot()), player.getXRot(), TeleportTransition.PLACE_PORTAL_TICKET));
         for (var mount : mounts.entrySet())
         {
             var vehicle = target.getEntity(mount.getValue());
@@ -633,7 +741,7 @@ final class ShipTransfer
         }
         for (var tied : posts.entrySet())
         {
-            var at = tied.getValue().offset(delta);
+            var at = transform.apply(tied.getValue());
             if (!(target.getEntity(tied.getKey()) instanceof Leashable leashed))
                 continue;
             if (target.getBlockState(at).is(net.minecraft.tags.BlockTags.FENCES))

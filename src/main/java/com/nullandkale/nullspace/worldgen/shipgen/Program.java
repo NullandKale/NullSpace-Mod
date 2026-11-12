@@ -30,46 +30,44 @@ final class Program
         };
     }
 
-    private static List<RoomUse> wishes(Spec.Role role, int level, int decks)
+    private static List<RoomUse> wishes(Spec.Role role)
     {
-        if (decks > 1)
-            return level == 0 ? switch (role)
-            {
-                case FREIGHTER -> List.of(CARGO, STORAGE, CARGO, SMELTING, CRAFTING);
-                case EXPLORER -> List.of(CRAFTING, STORAGE, SMELTING, MINING, BREWING);
-                default -> List.of(STORAGE, CRAFTING, SMELTING, BREWING);
-            } : switch (role)
-            {
-                case FREIGHTER -> List.of(CREW, GALLEY, CREW, LOUNGE);
-                case EXPLORER -> List.of(CREW, LAB, ENCHANTING, HYDROPONICS, CABIN, LOUNGE, GALLEY);
-                default -> List.of(CREW, CABIN, LAB, LOUNGE, GALLEY);
-            };
         return switch (role)
         {
-            case FREIGHTER -> List.of(CARGO, CREW, CARGO, STORAGE, SMELTING, CARGO, GALLEY);
-            case EXPLORER -> List.of(CREW, LAB, CRAFTING, HYDROPONICS, GALLEY, ENCHANTING, SMELTING, LOUNGE, MINING);
-            default -> List.of(CREW, STORAGE, LAB, CRAFTING, BREWING, CABIN, SMELTING);
+            case FREIGHTER -> List.of(CARGO, STORAGE);
+            case EXPLORER -> List.of(CREW, LAB);
+            default -> List.of(CREW, STORAGE);
         };
     }
 
-    /** The uses for {@code count} side-room pairs on one deck. */
-    static List<RoomUse> sides(Spec spec, int level, int count, int length, int depth)
+    /** One bag for the whole vessel, including its fixed rooms and every deck. */
+    static final class Bag
     {
-        var random = new Random(spec.seed() * 31 + level * 7919L + 17);
-        var wish = new ArrayList<>(wishes(spec.role(), level, spec.tier().decks));
-        // Keep the first two as the role's identity; the rest vary with the seed.
-        var tail = new ArrayList<>(wish.subList(Math.min(2, wish.size()), wish.size()));
-        Collections.shuffle(tail, random);
-        var ordered = new ArrayList<>(wish.subList(0, Math.min(2, wish.size())));
-        ordered.addAll(tail);
-        var out = new ArrayList<RoomUse>();
-        for (var use : ordered)
-            if (out.size() < count && fits(use, length, depth) && (!out.contains(use) || use == CARGO))
-                out.add(use);
-        for (var use : List.of(STORAGE, CREW, LOUNGE, CARGO))
-            while (out.size() < count)
-                out.add(use);
-        return out;
+        private final List<RoomUse> order = new ArrayList<>();
+        private final EnumMap<RoomUse, Integer> used = new EnumMap<>(RoomUse.class);
+
+        Bag(Spec spec)
+        {
+            var random = new Random(spec.seed() * 31 + 17);
+            var preferred = wishes(spec.role());
+            order.addAll(preferred);
+            var rest = new ArrayList<>(List.of(CARGO, STORAGE, CREW, CABIN, CRAFTING, SMELTING, GALLEY, VIEWING, ENCHANTING, BREWING, HYDROPONICS, LOUNGE, LAB, MINING));
+            rest.removeAll(order);
+            Collections.shuffle(rest, random);
+            order.addAll(rest);
+        }
+
+        void reserve(RoomUse use)
+        {
+            used.merge(use, 1, Integer::sum);
+        }
+
+        RoomUse next(int length, int depth)
+        {
+            RoomUse choice = order.stream().filter(use -> fits(use, length, depth)).min(Comparator.comparingInt(use -> used.getOrDefault(use, 0))).orElseThrow(() -> new IllegalArgumentException("No room fits " + length + " x " + depth));
+            reserve(choice);
+            return choice;
+        }
     }
 
     private Program()

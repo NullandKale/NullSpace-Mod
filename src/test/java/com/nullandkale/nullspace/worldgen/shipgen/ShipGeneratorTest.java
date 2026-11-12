@@ -69,30 +69,42 @@ class ShipGeneratorTest
     }
 
     @Test
-    void shipsMirrorAcrossTheirCentreLine()
+    void shipsKeepSymmetricHullFootprintsWithIndependentRoomUses()
     {
         for (var spec : specs())
         {
             var ship = ShipGenerator.build(spec);
-            assertEquals(1, ship.width() % 2, label(spec) + " has an odd width, so it has a centre line");
-            int bad = 0;
-            String first = null;
-            for (var e : ship.voxels().entrySet())
+            assertEquals(1, ship.width() % 2, label(spec));
+            // Rooms now have different windows, fixtures and functions on either side.
+            // Every column of the exterior silhouette still has its matching opposite column.
+            var columns = new HashSet<BlockPos>();
+            ship.voxels().keySet().forEach(at -> columns.add(new BlockPos(at.getX(), 0, at.getZ())));
+            for (var at : columns)
+                assertTrue(columns.contains(new BlockPos(ship.width() - 1 - at.getX(), 0, at.getZ())), label(spec) + " at " + at);
+        }
+    }
+
+    @Test
+    void everyGeneratedBlockHasAFullFaceConnectionToTheHelm()
+    {
+        for (var spec : specs())
+        {
+            var ship = ShipGenerator.build(spec);
+            var seen = new HashSet<BlockPos>();
+            var queue = new ArrayDeque<BlockPos>();
+            queue.add(ship.helm());
+            seen.add(ship.helm());
+            while (!queue.isEmpty())
             {
-                var at = e.getKey();
-                var mirror = new BlockPos(ship.width() - 1 - at.getX(), at.getY(), at.getZ());
-                var other = ship.voxels().get(mirror);
-                // The room's design mirrors (shell, windows, doors, stairs, lights) and so do the ship's engines, generators and batteries; furniture does not have to.
-                if (!RoomKitTest.mirrored(e.getValue().kind()))
-                    continue;
-                if (other == null || other.kind() != e.getValue().kind() || other.facing() != e.getValue().mirrored().facing())
+                var at = queue.removeFirst();
+                for (var direction : Direction.values())
                 {
-                    bad++;
-                    if (first == null)
-                        first = at + " " + e.getValue() + " vs " + other;
+                    var next = at.relative(direction);
+                    if (ship.voxels().containsKey(next) && seen.add(next))
+                        queue.addLast(next);
                 }
             }
-            assertEquals(0, bad, label(spec) + " has " + bad + " cells that do not mirror, first " + first);
+            assertEquals(ship.voxels().size(), seen.size(), label(spec) + " has detached generated blocks");
         }
     }
 
@@ -173,7 +185,7 @@ class ShipGeneratorTest
     @Test
     void everyRoomCanBeWalkedToAndEveryMachineIsReachable()
     {
-        for (var spec : specs())
+        assertAll(specs().stream().map(spec -> (org.junit.jupiter.api.function.Executable) () ->
         {
             var ship = ShipGenerator.build(spec);
             var walk = reachable(ship);
@@ -186,11 +198,17 @@ class ShipGeneratorTest
                 var bedPart = e.getValue().kind() == Kind.BED || e.getValue().kind() == Kind.BED_FOOT;
                 assertTrue(bedPart || Walk.usable(walk, e.getKey()), label(spec) + " has an unreachable " + e.getValue().kind() + " at " + e.getKey());
             }
-            // Walking spaces stay open the whole way, and never narrow to a single block or end in a blind nook.
+            // Main walkways stay wide. Room furniture and crop beds may have narrower aisles,
+            // provided every room and fixture remains reachable as checked above.
+            var layout = Shapes.layout(spec);
+            var shift = ship.dock().subtract(layout.dockWall);
+            var halls = layout.spaces.stream().filter(space -> space.use == RoomUse.CORRIDOR || space.use == RoomUse.STAIRS).toList();
             int narrow = 0;
             var first = new ArrayList<BlockPos>();
             for (var p : walk)
             {
+                if (halls.stream().noneMatch(space -> space.cells().contains(p.subtract(shift))))
+                    continue;
                 var open = new ArrayList<Direction>();
                 for (var d : new Direction[]{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST})
                     if (walk.contains(p.relative(d)))
@@ -199,7 +217,7 @@ class ShipGeneratorTest
                 if (corridor)
                 {
                     // Stairs and the step below the docking door are the only places a path may be a single block.
-                    boolean stairs = ship.kind(p) == Kind.DOOR_LOWER || ship.kind(p.below()) == Kind.STAIR || ship.kind(p.relative(Direction.NORTH).below()) == Kind.STAIR || ship.kind(p.relative(Direction.SOUTH).below()) == Kind.STAIR;
+                    boolean stairs = ship.kind(p) == Kind.DOOR_LOWER || ship.kind(p.below()) == Kind.STAIR || ship.kind(p.relative(Direction.NORTH)) == Kind.STAIR || ship.kind(p.relative(Direction.SOUTH)) == Kind.STAIR || ship.kind(p.relative(Direction.NORTH).below()) == Kind.STAIR || ship.kind(p.relative(Direction.SOUTH).below()) == Kind.STAIR;
                     if (!stairs)
                     {
                         narrow++;
@@ -209,13 +227,13 @@ class ShipGeneratorTest
                 }
             }
             assertEquals(0, narrow, label(spec) + " has " + narrow + " single-block-wide or blind spots, e.g. " + first);
-        }
+        }));
     }
 
     @Test
     void shipInteriorsAreBright()
     {
-        for (var spec : specs())
+        assertAll(specs().stream().map(spec -> (org.junit.jupiter.api.function.Executable) () ->
         {
             var ship = ShipGenerator.build(spec);
             var lit = RoomKitTest.light(ship);
@@ -228,7 +246,7 @@ class ShipGeneratorTest
                     dark.add(at + "=" + lit.getOrDefault(at, 0));
             }
             assertTrue(dark.isEmpty(), label(spec) + " has " + dark.size() + " dim spots, e.g. " + dark.stream().limit(4).toList());
-        }
+        }));
     }
 
     @Test
@@ -253,8 +271,7 @@ class ShipGeneratorTest
             long glass = ship.voxels().values().stream().filter(v -> v.kind() == Kind.GLASS).count();
             assertTrue(glass >= 6, label(spec) + " has only " + glass + " window blocks");
             int height = ship.voxels().keySet().stream().mapToInt(BlockPos::getY).max().orElse(0) + 1;
-            if (spec.shape() == Spec.Shape.SPINE)
-                assertEquals(spec.tier().decks, ship.decks(), label(spec) + " has the deck count of its tier");
+            assertEquals(spec.tier().decks, ship.decks(), label(spec) + " has the deck count of its tier");
             assertTrue(height >= spec.tier().height + 2, label(spec) + " is at least one room tall plus its hull");
         }
     }

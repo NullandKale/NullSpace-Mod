@@ -36,15 +36,15 @@ final class Shapes
     private static Layout spine(Spec spec, boolean twin)
     {
         var t = spec.tier();
-        int h = t.height, decks = twin ? 1 : t.decks, pitch = h + 1;
+        int h = t.height, decks = t.decks, pitch = h + 1;
         int wr = twin ? Math.min(t.cell, 7) : t.cell;
         int gap = twin ? (wr >= 7 ? 3 : 5) : 0;
         int cx = twin ? wr + (9 + gap) / 2 : wr + 2;
         int[] corridors = twin ? new int[]{wr + 1, wr + 3, 2 * cx - wr - 3, 2 * cx - wr - 1} : new int[]{cx - 1, cx + 1};
         int leftWall = corridors[0] - 1, rightWall = corridors[corridors.length - 1] + 1;
         int frontHalf = twin ? cx - wr - 1 : new int[]{3, 4, 5}[t.ordinal()], rearHalf = twin ? frontHalf : new int[]{5, 6, 7}[t.ordinal()];
-        int len = twin ? Math.min(t.length, 5) : t.length;
-        int frontDepth = 5, rearDepth = decks > 1 ? len - 1 : len;
+        int len = t.length;
+        int frontDepth = 5, rearDepth = decks > 1 ? len - 2 : len;
         var out = new Layout();
         out.cx = cx;
         // Slots along the ship: pairs of rooms, with a stairwell slot between decks. Trim to the build volume.
@@ -71,21 +71,23 @@ final class Shapes
         int z = frontDepth + 2;
         for (int i = 0; i < kinds.size(); i++)
         {
-            depths[i] = kinds.get(i) ? pitch + 1 : len;
+            depths[i] = kinds.get(i) ? pitch + 2 : len;
             starts[i] = z;
             z += depths[i] + 1;
         }
         int rearStart = z;
         int lastEnd = starts[kinds.size() - 1] + depths[kinds.size() - 1] - 1;
-        int sideCount = (int) kinds.stream().filter(stairs -> !stairs).count();
+        var bag = new Program.Bag(spec);
+        for (int level = 0; level < decks; level++)
+        {
+            bag.reserve(level == 0 && decks > 1 ? ENTRY : level == decks - 1 ? BRIDGE : CABIN);
+            bag.reserve(level == 0 ? ENGINEERING : level == decks - 1 ? VIEWING : LOUNGE);
+        }
 
         for (int level = 0; level < decks; level++)
         {
             int floorY = level * pitch, row0 = floorY + 1;
-            var sideUses = new ArrayDeque<>(Program.sides(spec, level, sideCount, len, wr));
             boolean top = level == decks - 1;
-            // A tall ship steps in at the top: the bridge deck has no side rooms, so the decks below show their roofs.
-            boolean wide = !(decks >= 3 && top);
             var front = level == 0 && decks > 1 ? ENTRY : top ? BRIDGE : CABIN;
             var rear = level == 0 ? ENGINEERING : top ? VIEWING : LOUNGE;
             var frontSpace = out.add(Space.box("front" + level, front, level, floorY, h, cx - frontHalf, cx + frontHalf, 1, frontDepth, Direction.NORTH, Program.windows(front)));
@@ -107,27 +109,27 @@ final class Shapes
                 int z0 = starts[i], z1 = z0 + depths[i] - 1, zMid = (z0 + z1) / 2;
                 if (kinds.get(i))
                 {
-                    // The corridor swells to seven wide here, with a flight up in each outer lane and a clear walkway between.
-                    for (int dx : new int[]{-3, -2, 2, 3})
-                        for (int zz = z0; zz <= z1; zz++)
-                            for (int y = 0; y < h; y++)
-                                out.extra.add(new BlockPos(cx + dx, floorY + 1 + y, zz));
-                    if (wide)
+                    // The corridor swells to nine wide here, with a flight up in each outer lane and a clear walkway between.
+                    out.add(Space.box("stairs" + level, STAIRS, level, floorY, h, cx - 4, cx + 4, z0, z1, Direction.NORTH, 0));
+                    // Side rooms use the space that used to be a solid hull block beside the stairs.
+                    for (boolean left : new boolean[]{true, false})
                     {
-                        out.solids.add(new Layout.Box(0, cx - 4, floorY, floorY + h + 1, z0 - 1, z1 + 1));
-                        out.solids.add(new Layout.Box(cx + 4, 2 * cx, floorY, floorY + h + 1, z0 - 1, z1 + 1));
+                        int wall = cx + (left ? -5 : 5);
+                        int x0 = left ? 0 : wall + 1, x1 = left ? wall - 1 : 2 * cx;
+                        var use = bag.next(z1 - z0 + 1, x1 - x0 + 1);
+                        out.add(Space.box((left ? "stairLeft" : "stairRight") + level, use, level, floorY, h, x0, x1, z0, z1, left ? Direction.WEST : Direction.EAST, Program.windows(use)));
+                        out.links.add(opening(wall, row0, zMid, left ? Direction.EAST : Direction.WEST, h));
                     }
                     if (level < decks - 1)
-                        for (int lane : new int[]{cx - 3, cx + 3})
-                            stairs(out, lane, floorY, z1 - 1, pitch);
+                        for (int lane : new int[]{cx - 2, cx + 2})
+                            stairs(out, lane, floorY, z1 - 2, pitch);
                     continue;
                 }
-                if (!wide)
-                    continue;
-                var use = sideUses.isEmpty() ? STORAGE : sideUses.removeFirst();
-                // Rooms either side, mirror images: entered through the wall that faces the corridor.
-                out.add(Space.box("left" + level + "_" + i, use, level, floorY, h, 0, leftWall - 1, z0, z1, Direction.WEST, Program.windows(use)));
-                out.add(Space.box("right" + level + "_" + i, use, level, floorY, h, rightWall + 1, 2 * cx, z0, z1, Direction.EAST, Program.windows(use)));
+                // Separate uses on each side; the bag is shared with every other deck.
+                var leftUse = bag.next(len, leftWall);
+                var rightUse = bag.next(len, 2 * cx - rightWall);
+                out.add(Space.box("left" + level + "_" + i, leftUse, level, floorY, h, 0, leftWall - 1, z0, z1, Direction.WEST, Program.windows(leftUse)));
+                out.add(Space.box("right" + level + "_" + i, rightUse, level, floorY, h, rightWall + 1, 2 * cx, z0, z1, Direction.EAST, Program.windows(rightUse)));
                 out.links.add(opening(leftWall, row0, zMid, Direction.EAST, h));
                 out.links.add(opening(rightWall, row0, zMid, Direction.WEST, h));
             }
@@ -139,7 +141,7 @@ final class Shapes
     {
         int z = frontDepth + 2;
         for (boolean stairs : kinds)
-            z += (stairs ? pitch + 1 : length) + 1;
+            z += (stairs ? pitch + 2 : length) + 1;
         return z + rearDepth + 1;
     }
 
@@ -159,45 +161,61 @@ final class Shapes
             out.extra.add(new BlockPos(lane, slab, footZ - k));
     }
 
-    /** A round commons under a glass dome, with the bridge, engineering and a pair of rooms off its four arms. */
+    /** Stacked commons with side rooms, a bridge above and engineering below. */
     private static Layout dome(Spec spec)
     {
         var t = spec.tier();
-        int i = t.ordinal();
-        int h = t.height, radius = new int[]{4, 5, 6}[i], depth = new int[]{5, 6, 5}[i], length = new int[]{5, 7, 9}[i];
+        int i = t.ordinal(), h = t.height, pitch = h + 1;
+        int radius = new int[]{4, 5, 6}[i], depth = new int[]{5, 6, 5}[i], length = new int[]{5, 7, 9}[i];
         int bridgeHalf = new int[]{3, 4, 4}[i], bridgeDepth = 5, engineHalf = new int[]{4, 5, 6}[i], engineDepth = 5;
         int cx = 40, cz = 40;
         var out = new Layout();
         out.cx = cx;
-        out.hullH = i == 0 ? 1 : 1;
-        int row0 = 1;
-
-        var cells = new HashSet<BlockPos>();
-        for (int dx = -(radius + 1); dx <= radius + 1; dx++)
-            for (int dz = -(radius + 1); dz <= radius + 1; dz++)
-            {
-                int d2 = dx * dx + dz * dz;
-                boolean arm = Math.abs(dx) <= 1 && Math.abs(dz) <= radius + 1 || Math.abs(dz) <= 1 && Math.abs(dx) <= radius + 1;
-                if (d2 > radius * radius && !arm)
-                    continue;
-                int rows = h + (arm ? 0 : d2 <= (radius - 3) * (radius - 3) ? 2 : d2 <= (radius - 1) * (radius - 1) ? 1 : 0);
-                for (int y = 0; y < rows; y++)
-                    cells.add(new BlockPos(cx + dx, row0 + y, cz + dz));
-            }
-        out.add(Space.custom("hub", HUB, 0, 0, h + 2, Direction.NORTH, 2 * radius + 1, 2 * radius + 1, new BlockPos(cx - radius, row0, cz + radius), cells, 2));
-
+        var bag = new Program.Bag(spec);
+        for (int level = 0; level < t.decks; level++)
+        {
+            bag.reserve(level == 0 && t.decks > 1 ? ENTRY : level == t.decks - 1 ? BRIDGE : CABIN);
+            bag.reserve(level == 0 ? ENGINEERING : level == t.decks - 1 ? VIEWING : LOUNGE);
+        }
         int wallN = cz - radius - 2, wallS = cz + radius + 2, wallE = cx + radius + 2, wallW = cx - radius - 2;
-        var bridge = out.add(Space.box("bridge", BRIDGE, 0, 0, h, cx - bridgeHalf, cx + bridgeHalf, wallN - bridgeDepth, wallN - 1, Direction.NORTH, 2));
-        out.add(Space.box("engineering", ENGINEERING, 0, 0, h, cx - engineHalf, cx + engineHalf, wallS + 1, wallS + engineDepth, Direction.SOUTH, 0));
-        var use = Program.sides(spec, 0, 1, length, depth).getFirst();
-        out.add(Space.box("east", use, 0, 0, h, wallE + 1, wallE + depth, cz - length / 2, cz + length / 2, Direction.EAST, Program.windows(use)));
-        out.add(Space.box("west", use, 0, 0, h, wallW - depth, wallW - 1, cz - length / 2, cz + length / 2, Direction.WEST, Program.windows(use)));
-        out.links.add(opening(cx, row0, wallN, Direction.NORTH, h));
-        out.links.add(opening(cx, row0, wallS, Direction.SOUTH, h));
-        out.links.add(opening(wallE, row0, cz, Direction.EAST, h));
-        out.links.add(opening(wallW, row0, cz, Direction.WEST, h));
-        out.dockSpace = bridge;
-        out.dockWall = new BlockPos(cx, row0, wallN - bridgeDepth - 1);
+        for (int level = 0; level < t.decks; level++)
+        {
+            int floorY = level * pitch, row0 = floorY + 1;
+            boolean top = level == t.decks - 1;
+            var cells = new HashSet<BlockPos>();
+            for (int dx = -(radius + 1); dx <= radius + 1; dx++)
+                for (int dz = -(radius + 1); dz <= radius + 1; dz++)
+                {
+                    int d2 = dx * dx + dz * dz;
+                    boolean arm = Math.abs(dx) <= 1 && Math.abs(dz) <= radius + 1 || Math.abs(dz) <= 1 && Math.abs(dx) <= radius + 1;
+                    if (d2 > radius * radius && !arm)
+                        continue;
+                    int rows = h + (!top || arm ? 0 : d2 <= (radius - 3) * (radius - 3) ? 2 : d2 <= (radius - 1) * (radius - 1) ? 1 : 0);
+                    for (int y = 0; y < rows; y++)
+                        cells.add(new BlockPos(cx + dx, row0 + y, cz + dz));
+                }
+            out.add(Space.custom("hub" + level, HUB, level, floorY, top ? h + 2 : h, Direction.NORTH, 2 * radius + 1, 2 * radius + 1, new BlockPos(cx - radius, row0, cz + radius), cells, 2));
+            var front = level == 0 && t.decks > 1 ? ENTRY : top ? BRIDGE : CABIN;
+            var rear = level == 0 ? ENGINEERING : top ? VIEWING : LOUNGE;
+            var entry = out.add(Space.box("front" + level, front, level, floorY, h, cx - bridgeHalf, cx + bridgeHalf, wallN - bridgeDepth, wallN - 1, Direction.NORTH, Program.windows(front)));
+            out.add(Space.box("rear" + level, rear, level, floorY, h, cx - engineHalf, cx + engineHalf, wallS + 1, wallS + engineDepth, Direction.SOUTH, Program.windows(rear)));
+            var east = bag.next(length, depth);
+            var west = bag.next(length, depth);
+            out.add(Space.box("east" + level, east, level, floorY, h, wallE + 1, wallE + depth, cz - length / 2, cz + length / 2, Direction.EAST, Program.windows(east)));
+            out.add(Space.box("west" + level, west, level, floorY, h, wallW - depth, wallW - 1, cz - length / 2, cz + length / 2, Direction.WEST, Program.windows(west)));
+            out.links.add(opening(cx, row0, wallN, Direction.NORTH, h));
+            out.links.add(opening(cx, row0, wallS, Direction.SOUTH, h));
+            out.links.add(opening(wallE, row0, cz, Direction.EAST, h));
+            out.links.add(opening(wallW, row0, cz, Direction.WEST, h));
+            if (!top)
+                for (int lane : new int[]{cx - 2, cx + 2})
+                    stairs(out, lane, floorY, cz + pitch / 2, pitch);
+            if (level == 0)
+            {
+                out.dockSpace = entry;
+                out.dockWall = new BlockPos(cx, row0, wallN - bridgeDepth - 1);
+            }
+        }
         return out;
     }
 

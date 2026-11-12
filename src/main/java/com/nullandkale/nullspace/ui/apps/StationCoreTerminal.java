@@ -169,6 +169,8 @@ public final class StationCoreTerminal implements ControllerApplication
         for (int y = 0; y < 25; y++)
             buffer.put(0, y, " ".repeat(80), TerminalTheme.TEXT, TerminalTheme.BACKGROUND);
         hits.clear();
+        if (!setting("station_view", "Construction").equals("Construction") && picker.isEmpty())
+            return visit();
         text(2, 1, picker.isEmpty() ? "STATION CORE" : picker.equals("PLAYER") ? "CHOOSE A PLAYER TO INVITE" : "CHOOSE A BUILDER", TerminalTheme.BLUE);
         if (!picker.isEmpty())
         {
@@ -279,6 +281,39 @@ public final class StationCoreTerminal implements ControllerApplication
             control("claim", 2, 24, 30, "[ Claim and take command ]", () -> send("station_claim", ""));
         control("advanced", 40, 24, 14, "[ Advanced ]", () -> send("station_systems", ""));
         control("problem", 60, 24, 18, "[ Show problem ]", () -> send("station_refresh", ""));
+        selection = Math.clamp(selection, 0, Math.max(0, hits.size() - 1));
+        return buffer;
+    }
+
+    /** Encounter cores explain the vessel before offering ownership or construction controls. */
+    private TerminalBuffer visit()
+    {
+        boolean claimable = catalog.stream().anyMatch(d -> d.id().equals("station_claim"));
+        text(2, 1, claimable ? "UNCLAIMED VESSEL" : "STATION VISITOR", TerminalTheme.BLUE);
+        text(2, 3, setting("station_name", "Vessel"), TerminalTheme.TEXT);
+        if (claimable)
+        {
+            text(2, 5, "You can take ownership of this vessel.", TerminalTheme.TEXT);
+            text(2, 7, "Claiming gives you its title and a Ship Controller.", TerminalTheme.MUTED);
+            text(2, 8, "Fuel, cargo and damage stay as you found them.", TerminalTheme.MUTED);
+            text(2, 10, "Your current ship stays where you left it.", TerminalTheme.TEXT);
+            text(2, 11, "Return through the dock to use it again.", TerminalTheme.MUTED);
+            text(2, 12, "A surface Pad Computer's My ships list can recover either ship.", TerminalTheme.MUTED);
+            control("claim", 2, 15, 30, "[ Claim vessel ]", () -> send("station_claim", ""));
+            text(2, 17, "Check its hull, engines and supplies before trying to fly.", TerminalTheme.AMBER);
+        }
+        else
+        {
+            text(2, 5, "This station cannot be claimed as a ship.", TerminalTheme.TEXT);
+            text(2, 7, "Explore the site, then return to your ship through the dock.", TerminalTheme.MUTED);
+            text(2, 8, "Use your Ship Controller to continue your journey.", TerminalTheme.MUTED);
+            text(2, 10, "Construction is for the owner and invited builders.", TerminalTheme.MUTED);
+        }
+        var lines = (notice.isEmpty() ? status : notice).replaceAll("[^ -~\\n]", "?").lines().toList();
+        scroll = Math.clamp(scroll, 0, Math.max(0, lines.size() - 3));
+        for (int i = 0; i < 3 && scroll + i < lines.size(); i++)
+            text(2, 20 + i, lines.get(scroll + i), TerminalTheme.TEXT);
+        control("problem", 2, 24, 18, "[ Refresh ]", () -> send("station_refresh", ""));
         selection = Math.clamp(selection, 0, Math.max(0, hits.size() - 1));
         return buffer;
     }

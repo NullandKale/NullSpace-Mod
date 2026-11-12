@@ -49,7 +49,7 @@ public final class FirstShipGameTest
         for (int x = -1; x <= width; x++)
             for (int z = -1; z <= width; z++)
                 level.setBlock(floor.offset(x, -1, z), (x == -1 || z == -1 || x == width || z == width ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
-        var padComputer = floor.offset(-1, 0, -1);
+        var padComputer = floor.offset(middle, 0, -1);
         level.setBlock(padComputer, PadComputers.BLOCK.defaultBlockState(), 18);
         var scan = PadComputers.inspect(level, padComputer);
         ctx.assertTrue(scan.valid(), "Player-built dirt pad and cobble ring are valid");

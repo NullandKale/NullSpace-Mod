@@ -15,9 +15,12 @@ import static com.nullandkale.nullspace.worldgen.shipgen.Kind.*;
 final class Furnishings
 {
     /** Furnishes {@code s} in {@code g}. {@code dock} is true for the room the docking door opens into. */
-    static void furnish(Space s, Grid g, List<Link> links, boolean dock)
+    static void furnish(Space s, Grid g, List<Link> links, boolean dock, List<Layout.Flight> flights)
     {
         var f = new Frame(s, g, links);
+        for (var flight : flights)
+            for (int k = -1; k <= flight.steps(); k++)
+                f.reserve(flight.foot().relative(flight.up(), k));
         if (dock)
         {
             f.reserve(f.c, f.d - 1);
@@ -388,6 +391,8 @@ final class Furnishings
             if (at.getY() != s.floorY + 1)
                 continue;
             int dx = at.getX() - mx, dz = at.getZ() - mz;
+            if (!f.floorFree(at))
+                continue;
             if (Math.abs(dx) <= 1 || Math.abs(dz) <= 1)
                 continue;
             int d2 = dx * dx + dz * dz, ax = Math.abs(dx), az = Math.abs(dz);

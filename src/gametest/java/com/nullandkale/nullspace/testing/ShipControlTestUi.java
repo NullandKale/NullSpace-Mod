@@ -54,6 +54,7 @@ public final class ShipControlTestUi
     /** Uses a controller action the way a player does: open its tab, then press its button. */
     public static void action(ClientGameTestContext c, ShipControl.Action action)
     {
+        String[] wanted = {""};
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
@@ -91,8 +92,14 @@ public final class ShipControlTestUi
             };
             if (!tab.isEmpty() && !visible(screen, label))
                 clickLabel(screen, tab);
-            if (!clickLabel(screen, label))
-                throw new AssertionError("Controller has no " + label + " control");
+            wanted[0] = label;
+        });
+        // A committed docking collar can still be waiting for the batched save boundary.
+        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen screen && visible(screen, wanted[0]), 100);
+        c.runOnClient(mc ->
+        {
+            if (!clickLabel((TerminalScreen) mc.gui.screen(), wanted[0]))
+                throw new AssertionError("Controller has no " + wanted[0] + " control");
         });
     }
 
@@ -106,7 +113,7 @@ public final class ShipControlTestUi
             clickLabel(screen, "[ Change ]");
             search(c, screen, name, kind);
         });
-        boolean browser = c.computeOnClient(mc -> ((TerminalScreen) mc.gui.screen()).buffer().row(7).isBlank());
+        boolean browser = c.computeOnClient(mc -> ((TerminalScreen) mc.gui.screen()).buffer().row(3).isBlank());
         if (browser)
         {
             throw new AssertionError("Use the physical Scanner for this destination: " + name);
@@ -116,10 +123,10 @@ public final class ShipControlTestUi
             var screen = (TerminalScreen) mc.gui.screen();
             if (browser)
                 search(c, screen, name, kind);
-            if (screen.buffer().row(7).isBlank())
+            if (screen.buffer().row(3).isBlank())
                 throw new AssertionError("No destination matching " + name);
-            click(screen, 3, 7);
-            click(screen, 3, 22);
+            click(screen, 3, 3);
+            click(screen, 3, 23);
         });
         c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
     }
@@ -151,15 +158,15 @@ public final class ShipControlTestUi
     /** Selects from the existing Scanner session without toggling the physical block again. */
     public static void scannerDestination(ClientGameTestContext c, String name, String kind)
     {
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
             search(c, screen, name, kind);
-            if (screen.buffer().row(7).isBlank())
+            if (screen.buffer().row(3).isBlank())
                 throw new AssertionError("Scanner cannot find " + name);
-            click(screen, 3, 7);
-            click(screen, 3, 22);
+            click(screen, 3, 3);
+            click(screen, 3, 23);
         });
         c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
     }
@@ -177,16 +184,16 @@ public final class ShipControlTestUi
             p.teleportTo(scanner.getX() + .5, scanner.getY(), scanner.getZ() + 1.5);
             p.gameMode.useItemOn(p, p.level(), net.minecraft.world.item.ItemStack.EMPTY, net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(scanner), net.minecraft.core.Direction.SOUTH, scanner, false));
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
-            for (int i = 0; i < 3 && !screen.buffer().row(6).contains("STAR MAP"); i++)
-                click(screen, 3, 2);
-            if (!screen.buffer().row(6).contains("STAR MAP"))
+            for (int i = 0; i < 3 && !screen.buffer().row(0).contains("STAR MAP"); i++)
+                click(screen, 3, 1);
+            if (!screen.buffer().row(0).contains("STAR MAP"))
                 throw new AssertionError("The Scanner's top level is the star map");
             boolean you = false;
-            for (int y = 7; y <= 18; y++)
+            for (int y = 3; y <= 20; y++)
                 you |= screen.buffer().row(y).contains("@ ");
             if (!you)
                 throw new AssertionError("The star map marks where you are");
@@ -197,7 +204,7 @@ public final class ShipControlTestUi
         {
             var screen = (TerminalScreen) mc.gui.screen();
             // Select the first place that is not you, to show its distance and jump fuel.
-            for (int y = 7; y <= 18; y++)
+            for (int y = 3; y <= 20; y++)
             {
                 String row = screen.buffer().row(y);
                 for (int x = 2; x < 78; x++)
@@ -226,21 +233,26 @@ public final class ShipControlTestUi
 
     private static void search(ClientGameTestContext c, TerminalScreen screen, String name, String kind)
     {
-        click(screen, 11, 3);
+        click(screen, 11, 2);
         screen.keyPressed(new KeyEvent(InputConstants.KEY_A, 0, InputConstants.MOD_CONTROL));
         for (int i = 0; i < 64; i++)
             screen.keyPressed(new KeyEvent(InputConstants.KEY_BACKSPACE, 0, 0));
         net.minecraft.client.Minecraft.getInstance().keyboardHandler.textInput(net.minecraft.client.Minecraft.getInstance().getWindow().handle(), name);
-        if (kind.equals("Ports"))
-            click(screen, 60, 19);
-        else
-        {
-            String label = kind.equals("Pads") ? "Landing pads" : kind.equals("Regions") ? "Planets & moons" : kind.equals("Stations") ? "Stations" : kind.equals("Ships") ? "Ships" : "All";
-            int column = screen.buffer().row(5).indexOf(label);
-            if (column < 0)
-                throw new AssertionError("Missing destination category " + label);
-            click(screen, column + 1, 5);
-        }
+        String label = kind.equals("Ports") ? "Docking ports" : kind.equals("Pads") ? "Landing pads" : kind.equals("Regions") ? "Planets & moons" : kind.equals("Stations") ? "Stations" : kind.equals("Ships") ? "Ships" : "All";
+        view(screen, label);
+    }
+
+    public static void view(TerminalScreen screen, String label)
+    {
+        if (!clickLabel(screen, "[ View:"))
+            throw new AssertionError("Missing View selector");
+        for (int row = 3; row < 9; row++)
+            if (screen.buffer().row(row).substring(50).contains(label))
+            {
+                click(screen, 52, row);
+                return;
+            }
+        throw new AssertionError("Missing destination category " + label);
     }
 
     private ShipControlTestUi()
