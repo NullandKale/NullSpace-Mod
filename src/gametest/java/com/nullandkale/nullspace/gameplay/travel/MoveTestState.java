@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.gameplay.travel;
 
 import com.nullandkale.nullspace.core.save.*;
 import com.nullandkale.nullspace.gameplay.pads.*;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -35,5 +36,7 @@ public final class MoveTestState
         throw new AssertionError("Missing fixture pad: " + name);
     }
 
-    private MoveTestState() {}
+    private MoveTestState()
+    {
+    }
 }

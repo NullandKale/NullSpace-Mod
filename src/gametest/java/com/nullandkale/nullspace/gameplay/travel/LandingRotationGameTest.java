@@ -169,61 +169,61 @@ public final class LandingRotationGameTest
     {
         var server = bed.level().getServer();
         var store = WorldStore.get(server);
-            var oldController = bed.helm();
-            var previous = TravelService.failureInjector;
-            boolean[] injected = {false};
-            try
+        var oldController = bed.helm();
+        var previous = TravelService.failureInjector;
+        boolean[] injected = {false};
+        try
+        {
+            TravelService.failureInjector = stage ->
             {
-                TravelService.failureInjector = stage ->
+                if (stage.equals("SOURCE_CLEARED"))
                 {
-                    if (stage.equals("SOURCE_CLEARED"))
-                    {
-                        injected[0] = true;
-                        throw new IllegalStateException("rotated landing interrupted");
-                    }
-                };
-                TravelService.transfer(bed.player(), bed.helm(), "id:" + target.id(), ShipService.preflight(bed.space(), bed.helm()));
-                ctx.fail("The interruption must stop the MOVE");
-            }
-            catch (IllegalStateException expected)
-            {
-                ctx.assertTrue(expected.getMessage().equals("rotated landing interrupted"), "Only the intended failure is accepted");
-            }
-            finally
-            {
-                TravelService.failureInjector = previous;
-            }
-            ctx.assertTrue(injected[0], "The rotated hull was staged and the source cleared");
-            try
-            {
-                java.nio.file.Path pending = null;
-                CompoundTag journal = null;
-                for (var file : Journals.list(store.directory))
-                {
-                    var tag = WorldStore.read(file);
-                    if (tag.getStringOr("stage", "").equals("SOURCE_CLEARED") && tag.getListOrEmpty("ships").stream().anyMatch(t -> t.asString().orElse("").equals(bed.shipId())))
-                    {
-                        pending = file;
-                        journal = tag;
-                    }
+                    injected[0] = true;
+                    throw new IllegalStateException("rotated landing interrupted");
                 }
-                ctx.assertTrue(pending != null, "The interrupted MOVE is retained");
-                var moved = ShipTransform.fromJournal(journal).apply(oldController);
-                ctx.assertTrue(bed.level().getBlockState(moved).is(ModBlocks.COMPUTER), "The rotated destination is present before rescue");
-                TransferRecovery.setAside(server, pending, new IllegalStateException("operator restore fixture"));
-                var entry = UnresolvedJournals.get(server, journal.getStringOr("id", ""));
-                ctx.assertTrue(UnresolvedJournals.areaBusy(bed.level(), ShipTransform.destinationBounds(journal)), "The exact rotated destination is reserved in quarantine");
-                JournalRestore.restore(server, entry, "space");
-                var restored = bed.ship();
-                ctx.assertTrue(bed.space().getBlockState(WorldStore.pos(restored, "controller")).is(ModBlocks.COMPUTER), "Operator restore establishes one authoritative source-oriented hull");
-                ctx.assertTrue(bed.level().getBlockState(moved).isAir(), "The rotated staged copy is removed");
-                ctx.assertTrue(UnresolvedJournals.get(server, entry.id()) == null, "Successful rescue releases the original quarantine");
-            }
-            catch (java.io.IOException failure)
+            };
+            TravelService.transfer(bed.player(), bed.helm(), "id:" + target.id(), ShipService.preflight(bed.space(), bed.helm()));
+            ctx.fail("The interruption must stop the MOVE");
+        }
+        catch (IllegalStateException expected)
+        {
+            ctx.assertTrue(expected.getMessage().equals("rotated landing interrupted"), "Only the intended failure is accepted");
+        }
+        finally
+        {
+            TravelService.failureInjector = previous;
+        }
+        ctx.assertTrue(injected[0], "The rotated hull was staged and the source cleared");
+        try
+        {
+            java.nio.file.Path pending = null;
+            CompoundTag journal = null;
+            for (var file : Journals.list(store.directory))
             {
-                throw new java.io.UncheckedIOException(failure);
+                var tag = WorldStore.read(file);
+                if (tag.getStringOr("stage", "").equals("SOURCE_CLEARED") && tag.getListOrEmpty("ships").stream().anyMatch(t -> t.asString().orElse("").equals(bed.shipId())))
+                {
+                    pending = file;
+                    journal = tag;
+                }
             }
-            ctx.succeed();
+            ctx.assertTrue(pending != null, "The interrupted MOVE is retained");
+            var moved = ShipTransform.fromJournal(journal).apply(oldController);
+            ctx.assertTrue(bed.level().getBlockState(moved).is(ModBlocks.COMPUTER), "The rotated destination is present before rescue");
+            TransferRecovery.setAside(server, pending, new IllegalStateException("operator restore fixture"));
+            var entry = UnresolvedJournals.get(server, journal.getStringOr("id", ""));
+            ctx.assertTrue(UnresolvedJournals.areaBusy(bed.level(), ShipTransform.destinationBounds(journal)), "The exact rotated destination is reserved in quarantine");
+            JournalRestore.restore(server, entry, "space");
+            var restored = bed.ship();
+            ctx.assertTrue(bed.space().getBlockState(WorldStore.pos(restored, "controller")).is(ModBlocks.COMPUTER), "Operator restore establishes one authoritative source-oriented hull");
+            ctx.assertTrue(bed.level().getBlockState(moved).isAir(), "The rotated staged copy is removed");
+            ctx.assertTrue(UnresolvedJournals.get(server, entry.id()) == null, "Successful rescue releases the original quarantine");
+        }
+        catch (java.io.IOException failure)
+        {
+            throw new java.io.UncheckedIOException(failure);
+        }
+        ctx.succeed();
     }
 
     @GameTest(maxTicks = 500)
