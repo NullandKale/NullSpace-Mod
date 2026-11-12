@@ -97,6 +97,7 @@ public final class DockingRecoveryGameTest
             DockingManeuver.tickMotion(level.getServer(), ship);
         ctx.assertTrue(dock.getStringOr("state", "").equals("CLAMPED"), "The real final approach clamps before the regression: " + ship.getStringOr("flightStatus", ""));
         DockingManeuver.tickMotion(level.getServer(), ship);
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(level.getServer());
         return dock;
     }
 
@@ -104,6 +105,7 @@ public final class DockingRecoveryGameTest
     {
         for (int i = 0; i < 340 && ship.contains("dock"); i++)
             DockingManeuver.tickMotion(level.getServer(), ship);
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(level.getServer());
         ctx.assertTrue(!ship.contains("dock") && station.getCompoundOrEmpty("dockLinks").isEmpty(), "Departure completes and releases the station reservation: " + ship.getStringOr("flightStatus", ""));
     }
 
@@ -174,6 +176,7 @@ public final class DockingRecoveryGameTest
             var source = DockingPorts.firstPort(level, ship);
             station.putLong("constructionSourcePort", source.controller().subtract(WorldStore.pos(ship, "base")).asLong());
             StationConstruction.connectConstruction(server, station);
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
             var dock = ship.getCompoundOrEmpty("dock");
             // Old platform connections used .05 even for a ship whose nose extends past its door.
             pose(ship, DockingManeuver.matingPose(ship, source, station, target, .05));
@@ -181,6 +184,7 @@ public final class DockingRecoveryGameTest
             StationConstruction.commissionConstruction(server, station);
             ctx.assertTrue(!dock.getBooleanOr("construction", true) && dock.getDoubleOr("gap", 0) > 1, "Commissioning recalculates the finished room's real hull separation");
             DockingManeuver.tickMotion(server, ship);
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
             DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");
             finishDeparture(ctx, level, ship, station);
         }

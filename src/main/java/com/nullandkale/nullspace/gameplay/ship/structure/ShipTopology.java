@@ -21,8 +21,8 @@ import net.minecraft.server.level.*;
  */
 public final class ShipTopology
 {
-    // Carved hulls can remain joined at an edge or corner. Air gaps still split components.
-    static final List<BlockPos> CONNECTIONS = BlockPos.betweenClosedStream(new BlockPos(-1, -1, -1), new BlockPos(1, 1, 1)).filter(p -> !p.equals(BlockPos.ZERO)).map(BlockPos::immutable).toList();
+    // Hull structure and electrical discovery use the same full-face connections.
+    static final List<BlockPos> CONNECTIONS = Arrays.stream(Direction.values()).map(d -> BlockPos.ZERO.relative(d)).toList();
 
     public record Resolution(CompoundTag ship, String problem)
     {}

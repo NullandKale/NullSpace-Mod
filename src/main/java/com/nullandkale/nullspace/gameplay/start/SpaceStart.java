@@ -143,11 +143,13 @@ public final class SpaceStart
             throw new IllegalStateException("The space dimension is unavailable");
         if (record.isEmpty())
         {
+            var before = store.snapshot();
             record.putString("ship", UUID.randomUUID().toString());
             record.putString("preset", settings.ship());
             record.putString("planet", planet(server, player.getUUID()));
             starts.put(key, record);
-            store.save();
+            store.requestSave();
+            com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(server, "prepare-space-start", before);
         }
         PlanetSurfaces.ensureLanding(server, record.getStringOr("planet", LocalSpaces.HOME));
         var preset = ShipBlueprints.get(record.getStringOr("preset", "rivet_bolt"));
@@ -200,7 +202,7 @@ public final class SpaceStart
             {
                 allocated.putString("buildJournal", prepared.fileName());
                 store.ships().add(allocated);
-                store.save();
+                store.requestSave();
                 return null;
             });
         }
@@ -208,7 +210,7 @@ public final class SpaceStart
             construction = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "starting-ship-migration", List.of(ship.getStringOr("id", "")), WorldStore.bounds(ship));
         var startedShip = ship;
         var at = construction.step(() -> buildHull(player, level, store, startedShip, preset, key));
-        construction.commit();
+        construction.commitNow();
         var controller = WorldStore.pos(ship, "controller");
         var facing = level.getBlockState(controller).getValue(HorizontalDirectionalBlock.FACING);
         player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), facing.getOpposite().toYRot(), 0, true);
@@ -228,8 +230,10 @@ public final class SpaceStart
         }
         player.setAirSupply(player.getMaxAirSupply());
         server.getPlayerList().saveAll();
+        var beforeCompletion = store.snapshot();
         record.putBoolean("completed", true);
-        store.save();
+        store.requestSave();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(server, "complete-space-start", beforeCompletion);
         player.sendSystemMessage(Component.literal("Welcome aboard " + preset.name() + ". You are above " + LocalSpaces.get(server, LocalSpaces.address(ship)).name() + ". Use the Ship Controller to explore. Fuel is in the generator; food is in your" + " inventory."));
         return ship;
     }
@@ -270,7 +274,7 @@ public final class SpaceStart
         crew.removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(key));
         crew.add(member);
         ship.put("crew", crew);
-        store.save();
+        store.requestSave();
         ship.remove("buildJournal");
         com.nullandkale.nullspace.gameplay.ship.ShipIntegrity.stamp(level, WorldStore.pos(ship, "controller"), ship.getStringOr("id", ""));
         return at;

@@ -68,14 +68,16 @@ final class PerfStartup
         }
         ctx.assertTrue(present == count, "The fresh startup read the requested journal population: " + present + " != " + count);
         var root = new JsonObject();
-        root.addProperty("schemaVersion", 2);
+        root.addProperty("schemaVersion", 3);
         root.addProperty("fixtureVersion", 2);
         root.addProperty("scenario", "startup");
         root.addProperty("ships", store.snapshot().getCompoundOrEmpty("performanceFixture").getIntOr("requested", 0));
         root.addProperty("journalsAtStart", count);
         double seconds = (System.currentTimeMillis() - Long.getLong("nullspace.perf.processStartedMillis", System.currentTimeMillis())) / 1000.0;
         root.addProperty("readySeconds", seconds);
-        root.addProperty("recoveryMs", TransferRecovery.recoveryNanos(server) / 1e6);
+        root.addProperty("storeLoadMs", store.loadNanos() / 1e6);
+        root.addProperty("journalRecoveryMs", TransferRecovery.recoveryNanos(server) / 1e6);
+        root.addProperty("recoveryMs", (store.loadNanos() + TransferRecovery.recoveryNanos(server)) / 1e6);
         root.addProperty("javaVersion", System.getProperty("java.version"));
         root.addProperty("shipRecords", store.ships().size());
         var step = new JsonObject();

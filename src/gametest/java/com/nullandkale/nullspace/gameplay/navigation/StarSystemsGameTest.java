@@ -92,6 +92,7 @@ public final class StarSystemsGameTest
             for (var body : system.bodies())
             {
                 String id = body.id();
+                ctx.assertTrue(body.landable() == (body.type() != GalaxyPlan.BodyType.GAS_GIANT), "Every nongas body is landable: " + id);
                 var key = PlanetSurfaces.dimension(server, id);
                 if (!body.landable())
                 {
@@ -100,9 +101,11 @@ public final class StarSystemsGameTest
                 }
                 var level = server.getLevel(key);
                 ctx.assertTrue(level != null && dimensions.add(key.identifier().toString()), "Every landable body has a separate surface: " + id + " -> " + key.identifier() + (level == null ? " (not loaded)" : " (duplicate)"));
+                if (body.surface().equals(GalaxyPlan.planetDimension(id)))
+                    ctx.assertTrue(level.getSeed() == body.seed(), "New terrain uses the individual planet seed: " + id);
                 ctx.assertTrue(id.equals(PlanetSurfaces.address(level)), "Launch returns to the correct zone: " + id);
-                boolean breathable = id.equals(LocalSpaces.HOME) || ContentCatalog.surfaceOfDimension(key.identifier().toString()).orElseThrow().breathable();
-                ctx.assertTrue(PlanetSurfaces.breathable(level) == breathable, "Surface air matches the pool");
+                boolean breathable = id.equals(LocalSpaces.HOME) || body.type() == GalaxyPlan.BodyType.OCEAN || body.type() == GalaxyPlan.BodyType.JUNGLE;
+                ctx.assertTrue(PlanetSurfaces.breathable(level) == breathable, "Surface air matches the saved planet type");
                 if (id.equals(LocalSpaces.HOME))
                     continue;
                 var sky = new CompoundTag();

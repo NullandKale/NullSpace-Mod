@@ -135,7 +135,7 @@ public final class JourneyGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 300)
+    @GameTest(environment = "nullspace:journey_offline_reload", maxTicks = 300)
     public void twoCrewsMeetTheirOwnSignalsAndKeepIndependentSavedProgress(GameTestHelper ctx) throws Exception
     {
         var a = ConcurrentShipActionsGameTest.client(ctx, 41);
@@ -210,7 +210,7 @@ public final class JourneyGameTest
                     vessels.set(i, current);
             }
             // Builds run one at a time, so the last encounter can take a while on large ships.
-            if (vessels.stream().anyMatch(s -> !StationAccess.ready(s)))
+            if (vessels.stream().anyMatch(s -> !StationAccess.ready(s) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, s.getStringOr("id", ""))))
                 return;
             done[0] = true;
             for (var vessel : vessels)
@@ -243,6 +243,7 @@ public final class JourneyGameTest
                 }
                 int kind = vessel.getIntOr("encounterKind", -1);
                 ctx.assertTrue(fuel > 0 && (kind != 0 || crops == 48), "Encounter rewards are real loot and growing blocks for role " + kind);
+                ctx.assertTrue(fuel <= 64, "An encounter's total generator and container fuel stays within one stack: " + fuel);
                 if (kind == 1 || kind == 2)
                 {
                     var rooms = ShipRooms.rooms(EncounterSites.design(kind, vessel.getLongOr("encounterSeed", 1)));
@@ -337,7 +338,7 @@ public final class JourneyGameTest
         }
     }
 
-    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 1600)
+    @GameTest(environment = "nullspace:journey_restart_flow", maxTicks = 1600)
     public void savedJourneyCanStopDockCollectFuelAndResumeWithoutPayingAgain(GameTestHelper ctx) throws Exception
     {
         var c = ConcurrentShipActionsGameTest.client(ctx, 40);
@@ -381,7 +382,7 @@ public final class JourneyGameTest
             {
                 var site = WorldStore.get(server).section("encounters").getCompoundOrEmpty(siteId[0]);
                 var vessel = WorldStore.get(server).repository().find(site.getStringOr("vessel", ""));
-                if (vessel == null || !StationAccess.ready(vessel))
+                if (vessel == null || !StationAccess.ready(vessel) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, vessel.getStringOr("id", "")))
                     return;
                 vesselId[0] = vessel.getStringOr("id", "");
                 ctx.assertTrue(JourneyService.stopReason(server, ship).isEmpty(), "Built signal is available to investigate");
@@ -409,7 +410,7 @@ public final class JourneyGameTest
                 ctx.assertTrue(CourseService.active(ship), "The encounter course automatically continues into docking");
                 phase[0] = 3;
             }
-            else if (phase[0] == 3 && ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"))
+            else if (phase[0] == 3 && ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship))
             {
                 var port = DockingPorts.firstPort(level, ship);
                 var at = port.anchors().getFirst();
@@ -417,7 +418,7 @@ public final class JourneyGameTest
                 DockingService.perform(c.player(), ship, port.controller(), "DOCK_BOARD");
                 phase[0] = 4;
             }
-            else if (phase[0] == 4 && !Boarding.busy(c.player()) && SceneService.observer(c.player()).getStringOr("id", "").equals(vesselId[0]))
+            else if (phase[0] == 4 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])) && SceneService.observer(c.player()).getStringOr("id", "").equals(vesselId[0]))
             {
                 var vessel = WorldStore.get(server).repository().find(vesselId[0]);
                 var rubble = WorldStore.pos(vessel, "base").offset(12, 1, 10);
@@ -436,7 +437,8 @@ public final class JourneyGameTest
                         slot = i;
                         break;
                     }
-                ctx.assertTrue(StationAccess.mayUse(c.player(), fuelLocker) && slot >= 0, "Engineering's fuel locker is usable by a visitor");
+                ctx.assertTrue(StationAccess.mayUse(c.player(), fuelLocker), "A visitor can use the engineering locker");
+                ctx.assertTrue(slot >= 0, "Engineering's fuel locker contains fuel: design=" + vessel.getStringOr("encounterDesign", "") + ", seed=" + vessel.getLongOr("encounterSeed", 0) + ", stocked=" + vessel.getBooleanOr("encounterStocked", false) + ", block=" + level.getBlockState(fuelLocker) + ", items=" + (supplies == null ? "missing" : java.util.stream.IntStream.range(0, supplies.getContainerSize()).mapToObj(i -> supplies.getItem(i).toString()).toList()));
                 var fuelItem = supplies.getItem(slot).getItem();
                 c.player().getInventory().add(supplies.removeItem(slot, 1));
                 int left = 0;
@@ -448,6 +450,11 @@ public final class JourneyGameTest
                 ctx.assertTrue(cargo[0] != null && c.player().getInventory().contains(new net.minecraft.world.item.ItemStack(fuelItem)), "Actual coal transfers from cargo into player inventory");
                 WorldStore.get(server).save();
                 ctx.assertTrue(ship.getCompoundOrEmpty("journey").getIntOr("elapsed", -2) == paused[0], "Docking and looting do not consume journey progress");
+                phase[0] = 41;
+            }
+            else if (phase[0] == 41 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])))
+            {
+                var vessel = WorldStore.get(server).repository().find(vesselId[0]);
                 var port = DockingPorts.ports(level, vessel).getFirst();
                 var at = port.anchors().getFirst();
                 c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
@@ -495,6 +502,7 @@ public final class JourneyGameTest
         ctx.runAfterDelay(20, () ->
         {
             c.fixture().ship().putDouble("simYaw", 37);
+            c.fixture().ship().putLong("nextSignalNonce", 0);
             Jumps.jump(c.player(), WorldStore.pos(c.fixture().ship(), "controller"), "sol_luna");
             phase[0] = 0;
         });

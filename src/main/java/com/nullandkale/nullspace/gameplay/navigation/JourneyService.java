@@ -133,6 +133,8 @@ public final class JourneyService
 
     public static String summary(MinecraftServer server, CompoundTag ship)
     {
+        if (ship.getStringOr("flightStatus", "").startsWith("Arrival ready:"))
+            return ship.getStringOr("flightStatus", "");
         if (!active(ship))
             return "";
         var j = ship.getCompoundOrEmpty("journey");
@@ -149,7 +151,7 @@ public final class JourneyService
         var vessel = WorldStore.get(server).repository().find(site.getStringOr("vessel", ""));
         if (vessel == null)
             return !site.getStringOr("state", "").equals("planned") ? "This site has already been salvaged" : "Signal resolving; try again shortly";
-        return StationAccess.ready(vessel) ? "" : "Signal resolving; try again shortly";
+        return StationAccess.ready(vessel) && !com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, vessel.getStringOr("id", "")) ? "" : "Signal resolving; try again shortly";
     }
 
     /** Select the investigated site's berth once; the paid destination stays in journey.selection. */

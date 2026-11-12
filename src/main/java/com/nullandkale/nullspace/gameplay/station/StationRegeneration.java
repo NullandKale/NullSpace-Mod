@@ -134,7 +134,7 @@ public final class StationRegeneration
                     return null;
                 });
             }
-            store.save();
+            store.requestSave();
         }
         catch (RuntimeException error)
         {

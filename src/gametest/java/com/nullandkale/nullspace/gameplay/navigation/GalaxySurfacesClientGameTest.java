@@ -24,15 +24,24 @@ public final class GalaxySurfacesClientGameTest implements FabricClientGameTest
         try (var world = c.worldBuilder().create())
         {
             world.getConnection().waitForChunksRender();
-            for (var type : GalaxyPlan.SURFACE_POOL.keySet())
+            var bodies = world.getServer().computeOnServer(server ->
             {
-                String slot = GalaxyPlan.surfaceSlot(type, 0);
+                var examples = new EnumMap<GalaxyPlan.BodyType, GalaxyPlan.Body>(GalaxyPlan.BodyType.class);
+                StarSystems.galaxy(server).systems().stream().flatMap(s -> s.bodies().stream()).filter(b -> b.landable() && b.surface().equals(GalaxyPlan.planetDimension(b.id()))).forEach(b -> examples.putIfAbsent(b.type(), b));
+                if (examples.isEmpty())
+                    throw new AssertionError("No dedicated planet dimensions were created");
+                return List.copyOf(examples.values());
+            });
+            for (var body : bodies)
+            {
                 world.getServer().runOnServer(server ->
                 {
-                    var key = ResourceKey.create(Registries.DIMENSION, Identifier.parse("nullspace:" + slot));
+                    var key = ResourceKey.create(Registries.DIMENSION, Identifier.parse(body.surface()));
                     var level = server.getLevel(key);
                     if (level == null)
-                        throw new AssertionError("Missing surface " + slot);
+                        throw new AssertionError("Missing surface " + body.surface());
+                    if (level.getSeed() != body.seed())
+                        throw new AssertionError("Incorrect planet seed");
                     var chunk = level.getChunk(4, 4);
                     int y = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, 8, 8) + 2;
                     var p = world.getConnection().getServerPlayer();
@@ -41,7 +50,7 @@ public final class GalaxySurfacesClientGameTest implements FabricClientGameTest
                 });
                 world.getConnection().waitForChunksRender();
                 c.waitTicks(30);
-                c.takeScreenshot("nullspace-surface-" + type.name().toLowerCase(Locale.ROOT));
+                c.takeScreenshot("nullspace-surface-" + body.type().name().toLowerCase(Locale.ROOT));
             }
             ClientTestEvidence.passed(getClass());
         }

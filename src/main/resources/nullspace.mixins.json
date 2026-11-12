@@ -16,7 +16,9 @@
     "SceneLightMixin",
     "TransitBlockEntityMixin",
     "ShipBlockEventsAccessor",
-    "MinecraftServerSaveMixin"
+    "MinecraftServerSaveMixin",
+    "PlanetDimensionsMixin",
+    "PlanetSeedMixin"
   ],
   "injectors": {
     "defaultRequire": 1

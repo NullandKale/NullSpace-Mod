@@ -49,7 +49,7 @@ public final class SpacePopulationGameTest
             var stations = sites.stream().map(s -> store.repository().find(s.id())).toList();
             if (stations.stream().anyMatch(s -> s != null && !StationAccess.ready(s)))
                 ctx.assertTrue(!TransferLocks.active(server), "Background population never installs a global travel/boarding barrier");
-            if (stations.stream().anyMatch(s -> s == null || !StationAccess.ready(s)))
+            if (stations.stream().anyMatch(s -> s == null || !StationAccess.ready(s) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, s.getStringOr("id", ""))))
             {
                 ctx.runAfterDelay(5, () -> poll[0].run());
                 return;

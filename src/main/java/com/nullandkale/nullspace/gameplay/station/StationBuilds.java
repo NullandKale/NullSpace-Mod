@@ -200,7 +200,7 @@ public final class StationBuilds
             if (StationService.idOf(s).equals(token) || s.getStringOr("buildReceipt", "").equals(token))
                 s.putBoolean("buildPaid", true);
         }
-        WorldStore.get(p.level().getServer()).save();
+        WorldStore.get(p.level().getServer()).requestSave();
         if (!p.isCreative())
             stack.shrink(cost);
         stack.remove(DataComponents.CUSTOM_DATA);
@@ -317,7 +317,7 @@ public final class StationBuilds
             s.put("roomPieces", pieces);
             s.putBoolean("buildPaid", false);
             s.putBoolean("foundation", false);
-            WorldStore.get(p.level().getServer()).save();
+            WorldStore.get(p.level().getServer()).requestSave();
             redeem(p, stack, token, generate ? additions.size() : 1);
             return null;
         });
@@ -420,11 +420,21 @@ public final class StationBuilds
                 progress.put(id, index);
                 if (index < blocks.size())
                     return null;
+                int salvageGenerators = s.contains("encounterKind") ? (int) blocks.stream().filter(t -> level.getBlockState(base.offset(WorldStore.pos((CompoundTag) t, "pos"))).is(ModBlocks.GENERATOR)).count() : 0;
+                int salvageFuel = 8;
                 for (var entry : blocks)
                 {
                     var block = (CompoundTag) entry;
                     var position = base.offset(WorldStore.pos(block, "pos"));
-                    FuelSystem.provision(level, position, 64);
+                    if (s.contains("encounterKind") && level.getBlockState(position).is(ModBlocks.GENERATOR))
+                    {
+                        int share = salvageGenerators == 0 ? 0 : (salvageFuel + salvageGenerators - 1) / salvageGenerators;
+                        FuelSystem.provision(level, position, share);
+                        salvageFuel -= share;
+                        salvageGenerators--;
+                    }
+                    else if (!s.contains("encounterKind"))
+                        FuelSystem.provision(level, position, 64);
                 }
                 if (!ShipSystems.enabled(s))
                     SystemsUpgrade.upgrade(level, s);

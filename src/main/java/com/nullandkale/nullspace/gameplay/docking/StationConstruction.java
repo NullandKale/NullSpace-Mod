@@ -68,7 +68,7 @@ public final class StationConstruction
             station.getCompoundOrEmpty("dockLinks").put(port.id(), marker);
             d.putString("targetNode", port.id());
             d.putBoolean("construction", false);
-            WorldStore.get(server).save();
+            WorldStore.get(server).requestSave();
         }
         catch (IllegalArgumentException notReady)
         {
@@ -101,7 +101,7 @@ public final class StationConstruction
         station.put("dockLinks", links);
         NavigationService.closeShip(server, DockingService.id(source));
         Piloting.stop(source);
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
     }
 
     public static Vec3 constructionSite(MinecraftServer server, CompoundTag own)

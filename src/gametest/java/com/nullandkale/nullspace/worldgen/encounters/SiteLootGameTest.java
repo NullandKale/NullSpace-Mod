@@ -42,8 +42,16 @@ public final class SiteLootGameTest
                 if (chest.getItem(i).is(Items.COAL) || chest.getItem(i).is(Items.CHARCOAL))
                     fuel += chest.getItem(i).getCount();
             ctx.assertTrue(fuel > 0, "Engine rooms always hold some fuel");
-            ctx.assertTrue(chest.getCustomName() != null && chest.getCustomName().getString().equals("Engine room supplies"), "The container is named for its room");
+            ctx.assertTrue(chest.getCustomName() == null, "Generated labels do not become distinct dropped-container names");
+            ctx.assertTrue(fuel <= 3, "Engineering supplies contain a small fuel reserve");
         }
+        var drops = net.minecraft.world.level.block.Block.getDrops(ctx.getLevel().getBlockState(at), ctx.getLevel(), at, ctx.getLevel().getBlockEntity(at), null, new net.minecraft.world.item.ItemStack(Items.IRON_AXE));
+        var droppedChest = drops.stream().filter(i -> i.is(Items.CHEST)).findFirst().orElseThrow();
+        ctx.assertTrue(net.minecraft.world.item.ItemStack.isSameItemSameComponents(droppedChest, new net.minecraft.world.item.ItemStack(Items.CHEST)), "A dismantled generated chest stacks with a normal chest");
+        var chest = (ChestBlockEntity) ctx.getLevel().getBlockEntity(at);
+        chest.applyComponents(chest.collectComponents(), net.minecraft.core.component.DataComponentPatch.builder().set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Player cargo")).build());
+        SiteLoot.assign(ctx.getLevel(), at, "cargo", 10, "Default supplies");
+        ctx.assertTrue(chest.getCustomName().getString().equals("Player cargo"), "Stocking leaves player-authored names intact");
         var galaxy = StarSystems.galaxy(server);
         ctx.assertTrue(SiteLoot.treasure(server, LocalSpaces.HOME).equals("treasure_0"), "Sol's derelicts hold everyday treasure");
         for (var f : galaxy.features())

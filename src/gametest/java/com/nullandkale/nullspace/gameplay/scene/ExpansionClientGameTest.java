@@ -190,7 +190,52 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
             c.waitTicks(2);
             c.takeScreenshot("nullspace-space-graphics-settings");
             c.runOnClient(mc -> mc.gui.setScreen(null));
+            world.getServer().runOnServer(server ->
+            {
+                var level = server.getLevel(com.nullandkale.nullspace.gameplay.travel.TravelService.SPACE);
+                var ownBase = new BlockPos(4_000_000, 96, 0);
+                var otherBase = ownBase.offset(4096, 0, 0);
+                addCameraShip(level, ownBase, 0);
+                addCameraShip(level, otherBase, 14);
+                // Outside entity tracking range: the scene frame must provide this actor.
+                for (var at : BlockPos.betweenClosed(otherBase.offset(0, 3, 1), otherBase.offset(0, 5, 5)))
+                    level.setBlock(at, Blocks.GLASS.defaultBlockState(), 18);
+                var skeleton = net.minecraft.world.entity.EntityTypes.SKELETON.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                skeleton.setNoAi(true);
+                skeleton.setPos(otherBase.getX() + 2.5, otherBase.getY() + 3, otherBase.getZ() + 3.5);
+                skeleton.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(ModBlocks.HELMET));
+                level.addFreshEntity(skeleton);
+                var camera = ownBase.offset(6, 4, 3);
+                level.setBlock(camera, ModBlocks.CAMERA.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.EAST), 18);
+                var p = world.getConnection().getServerPlayer();
+                p.teleportTo(level, ownBase.getX() + 5.5, ownBase.getY() + 3, ownBase.getZ() + 3.5, Set.of(), -90, 0, true);
+                SceneService.open(p, camera);
+            });
+            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().entityCount() > 0, 600);
+            c.waitTicks(30);
+            c.takeScreenshot("nullspace-remote-vessel-enemies");
+            c.runOnClient(mc -> mc.gui.setScreen(null));
         }
         ClientTestEvidence.passed(getClass());
+    }
+
+    private static void addCameraShip(net.minecraft.server.level.ServerLevel level, BlockPos base, double x)
+    {
+        var helm = com.nullandkale.nullspace.testing.ShipTestFixture.build(level, base);
+        var ship = new net.minecraft.nbt.CompoundTag();
+        ship.putString("id", UUID.randomUUID().toString());
+        ship.putString("kind", "ship");
+        ship.putString("dimension", level.dimension().identifier().toString());
+        ship.putString("localSpace", com.nullandkale.nullspace.model.galaxy.LocalSpaces.HOME);
+        ship.putLong("base", base.above().asLong());
+        ship.putLong("controller", helm.asLong());
+        ship.putInt("width", 8);
+        ship.putInt("height", 10);
+        ship.putInt("depth", 8);
+        ship.putDouble("simX", x);
+        com.nullandkale.nullspace.core.save.WorldStore.get(level.getServer()).ships().add(ship);
+        for (int cx = (base.getX() - 1) >> 4; cx <= (base.getX() + 8) >> 4; cx++)
+            for (int cz = (base.getZ() - 1) >> 4; cz <= (base.getZ() + 8) >> 4; cz++)
+                level.getChunkSource().addTicketWithRadius(SceneSnapshots.CAMERA_TICKET, new net.minecraft.world.level.ChunkPos(cx, cz), 0);
     }
 }

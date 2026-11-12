@@ -496,7 +496,7 @@ public final class ShipStorage
                         if (job.store)
                             markStored(p, moved);
                         else
-                            moved.remove("stored");
+                            ShipTitles.consumeHeld(p, moved);
                         WorldStore.get(server).requestSave();
                     }
                     notice = recallNotice(p, job, result, moved);

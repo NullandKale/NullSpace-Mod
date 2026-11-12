@@ -65,8 +65,9 @@ public final class Boarding
 
     static void beginBoard(ServerPlayer p, CompoundTag source, CompoundTag target, Port port, Port other, boolean construction)
     {
-        if (busy(p) || TransferLocks.inTransit(p.level().getServer(), source) || TransferLocks.inTransit(p.level().getServer(), target) || !StationAccess.ready(source) || !StationAccess.ready(target))
-            throw new IllegalArgumentException("Another transfer is in progress or this vessel is under construction");
+        String blocked = blockedReason(p, source, target);
+        if (!blocked.isEmpty())
+            throw new IllegalArgumentException(blocked);
         if (!StationAccess.allowed(p, target))
             throw new IllegalArgumentException("Destination access is private");
         if (port != null && !port.cells().contains(BlockPos.containing(p.position())) && !DockingPorts.compactEntrance(p, source, port))
@@ -121,6 +122,20 @@ public final class Boarding
         });
         p.closeContainer();
         progress(p, t, "Cycling airlocks", false);
+    }
+
+    static String blockedReason(ServerPlayer p, CompoundTag source, CompoundTag target)
+    {
+        var server = p.level().getServer();
+        if (busy(p))
+            return "Finish your current boarding first";
+        if (!StationAccess.ready(source) || !StationAccess.ready(target))
+            return "Wait for vessel construction to finish before boarding";
+        if (com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, DockingService.id(source)) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, DockingService.id(target)))
+            return "Securing the docking connection; boarding will be available shortly";
+        if (TransferLocks.inTransit(server, source) || TransferLocks.inTransit(server, target))
+            return "A vessel is reserved by travel or recovery; finish that operation before boarding";
+        return "";
     }
 
     static boolean captured(CompoundTag a, CompoundTag b)

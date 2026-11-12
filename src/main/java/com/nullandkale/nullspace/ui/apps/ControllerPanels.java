@@ -63,7 +63,8 @@ final class ControllerPanels
         o.tab(2, 7, 8, "Trip", 0);
         o.tab(12, 7, 16, "Manual steps", 1);
         o.tab(30, 7, 8, "More", 2);
-        o.text(17, 17, o.view.connection(), TerminalTheme.MUTED);
+        if (o.tab != 0 || o.view.trip().title().isEmpty())
+            o.text(2, 17, o.view.connection(), TerminalTheme.MUTED);
         if (o.tab == 0)
             drawTrip(o);
         else if (o.tab == 1)
@@ -80,6 +81,28 @@ final class ControllerPanels
 
     static void drawTrip(ShipControlTerminal o)
     {
+        if (!o.view.trip().title().isEmpty())
+        {
+            var trip = o.view.trip();
+            o.text(2, 8, trip.title(), TerminalTheme.TEXT);
+            o.text(2, 9, trip.hint(), TerminalTheme.MUTED);
+            boolean resume = o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.RESUME);
+            if (trip.phase() == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.ARRIVAL_READY)
+                o.text(2, 10, "No new travel action is needed", TerminalTheme.AMBER);
+            else if (trip.phase().automatic())
+                o.text(2, 10, "In progress; no action needed", TerminalTheme.GREEN);
+            else if (trip.phase() != com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.COMPLETE)
+            {
+                var action = resume ? ShipControl.Action.RESUME : ShipControl.Action.ENGAGE;
+                o.button(2, 10, 22, resume ? "Continue journey" : "Engage", action);
+                o.view.buttons().stream().filter(b -> b.action() == action && !b.enabled()).findFirst().ifPresent(b -> o.text(26, 10, b.reason(), TerminalTheme.AMBER));
+            }
+            if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.INVESTIGATE && b.enabled()))
+                o.button(2, 11, 30, "Visit signal (optional)", ShipControl.Action.INVESTIGATE);
+            else if (o.view.buttons().stream().anyMatch(b -> b.action() == ShipControl.Action.DISENGAGE && b.enabled()))
+                o.button(2, 11, 22, "Stop course", ShipControl.Action.DISENGAGE);
+            return;
+        }
         String trip = o.view.details().lines().filter(l -> l.startsWith("Trip:") || l.startsWith("Already at")).findFirst().orElse("Choose a course, then Engage").replaceFirst("^Trip: ", "");
         var fuel = java.util.regex.Pattern.compile("Minimum fuel: ([0-9.]+)").matcher(o.view.details());
         if (fuel.find() && !fuel.group(1).equals("0.00"))

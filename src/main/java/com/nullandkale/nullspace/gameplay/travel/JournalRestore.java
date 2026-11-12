@@ -188,7 +188,7 @@ public final class JournalRestore
                 store.requestSave();
                 return null;
             });
-            build.commit();
+            build.commitNow();
             var marker = new CompoundTag();
             marker.putString("rescuedOriginal", entry.file().getFileName().toString());
             finishOriginal(server, marker, true);

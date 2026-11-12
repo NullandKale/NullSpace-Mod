@@ -24,6 +24,42 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 /** Playtest 3: doorway air, Engage closing doors, and fuel drawn evenly from generators. */
 public final class PlaytestThreeGameTest
 {
+    @GameTest
+    public void travelKeepsInteriorDoorsOpenWhileExteriorSealsRemainRequired(GameTestHelper ctx) throws Exception
+    {
+        var level = ctx.getLevel();
+        var base = ctx.absolutePos(new BlockPos(14000, 80, 14000));
+        var helm = com.nullandkale.nullspace.testing.ShipTestFixture.build(level, base);
+        com.nullandkale.nullspace.gameplay.pads.PadComputers.register(level, base.offset(-1, 1, 3), new com.nullandkale.nullspace.gameplay.pads.PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Interior doors " + UUID.randomUUID().toString().substring(0, 8), false);
+        for (var at : BlockPos.betweenClosed(base.offset(1, 3, 4), base.offset(5, 5, 4)))
+            level.setBlock(at, Blocks.STONE.defaultBlockState(), 18);
+        var inner = base.offset(3, 3, 4);
+        var door = Blocks.OAK_DOOR.defaultBlockState().setValue(DoorBlock.FACING, Direction.NORTH).setValue(DoorBlock.OPEN, true);
+        level.setBlock(inner, door.setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER), 18);
+        level.setBlock(inner.above(), door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), 18);
+        var ship = ShipTopology.resolve(level, helm);
+        SystemsUpgrade.upgrade(level, ship);
+        var exterior = base.offset(3, 3, 0);
+        ShipDoors.setOpen(level, exterior, true);
+        ctx.assertTrue(SystemsConsole.closeExteriorDoorsNow(level, ship).isEmpty(), "Departure can seal the exterior");
+        ctx.assertTrue(ShipDoors.open(level.getBlockState(inner)) && !ShipDoors.open(level.getBlockState(exterior)), "Interior airflow stays open while the exterior closes");
+        ShipService.inspect(level, helm);
+        ShipDoors.setOpen(level, exterior, true);
+        boolean unsafe = false;
+        try
+        {
+            ShipService.inspect(level, helm);
+        }
+        catch (HullScan.Failure expected)
+        {
+            unsafe = true;
+        }
+        ctx.assertTrue(unsafe, "An open exterior exit still makes travel unsafe");
+        ShipDoors.setOpen(level, exterior, false);
+        WorldStore.get(level.getServer()).ships().remove(ship);
+        ctx.succeed();
+    }
+
     @GameTest(maxTicks = 200)
     public void doorwaysBreatheTheRoomEngageClosesDoorsAndFuelDrawsEvenly(GameTestHelper ctx) throws java.io.IOException
     {

@@ -148,8 +148,9 @@ public final class ControllerScreen
             costs += "\nJourney: " + JourneyService.preview(p.level().getServer(), ship, target.region()).seconds() + " seconds; optional signals appear en route";
         var power = ShipSystems.powerStats(p.level(), ship);
         String resources = "Power " + power[0] + " / " + power[1] + " demand | Battery " + power[3] + " | Charging " + power[2] + "\nBow: " + ShipHeading.forward(p.level(), ship).getName() + " (opposite main engine exhaust)";
-        var docking = ship.contains("dock") ? "Docking: " + ship.getCompoundOrEmpty("dock").getStringOr("state", "") : "";
-        String flight = java.util.stream.Stream.of(s.message, CourseService.summary(ship), JourneyService.summary(p.level().getServer(), ship), ship.getStringOr("flightStatus", ""), docking).filter(text -> !text.isBlank()).collect(java.util.stream.Collectors.joining("\n"));
+        var trip = TripPresentation.current(p, ship);
+        trip = new TripPresentation(trip.phase(), limit(trip.title(), 160), limit(trip.hint(), 256));
+        String flight = s.message.isBlank() ? "" : "Last action: " + s.message;
         String course = CourseService.active(ship) ? CourseService.summary(ship) : connection(p, ship);
         String minimumFuel = "\nMinimum fuel: " + FuelSystem.display(CourseService.minimumFuel(p, ship, target)) + " + docking reserve";
         String fuelAboard = "\nFuel aboard: " + FuelSystem.display(FuelSystem.available(p.level(), ship));
@@ -157,7 +158,7 @@ public final class ControllerScreen
         String name = limit(ship.getStringOr("home", "Ship"), 160);
         String destinationId = target == null ? "" : target.id();
         String destinationName = target == null ? "Choose destination" : limit(target.name(), 160);
-        return new View(s.id, s.position, s.scanner, opening, name, summary, destinationId, destinationName, limit(location, 160), limit(flight, 2048), entries, buttons, s.response, locationHere(p, ship), course, plan, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0);
+        return new View(s.id, s.position, s.scanner, opening, name, summary, destinationId, destinationName, limit(location, 160), limit(flight, 2048), entries, buttons, s.response, locationHere(p, ship), course, plan, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0, trip);
     }
 
     /** The star map from this ship's place: every system and feature, with jump fuel and range. */

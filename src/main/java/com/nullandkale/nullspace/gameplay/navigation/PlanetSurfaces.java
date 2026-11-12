@@ -20,8 +20,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 
 /**
- * Links between zones and surface dimensions. The world's galaxy chart assigns each landable body a
- * surface from the fixed pool (P9); other zones have no surface.
+ * Links between zones and their persistent surface dimensions. Gas giants remain orbit-only.
  */
 public final class PlanetSurfaces
 {
@@ -60,6 +59,12 @@ public final class PlanetSurfaces
     {
         if (level.dimension().equals(Level.OVERWORLD))
             return true;
+        if (level.getServer() != null)
+        {
+            String zone = address(level);
+            if (zone != null)
+                return StarSystems.body(level.getServer(), zone).map(b -> b.type() == com.nullandkale.nullspace.model.galaxy.GalaxyPlan.BodyType.OCEAN || b.type() == com.nullandkale.nullspace.model.galaxy.GalaxyPlan.BodyType.JUNGLE).orElse(false);
+        }
         return ContentCatalog.surfaceOfDimension(level.dimension().identifier().toString()).map(ContentCatalog.PlanetDefinition::breathable).orElse(!level.dimension().equals(TravelService.SPACE));
     }
 
@@ -126,7 +131,7 @@ public final class PlanetSurfaces
             throw new IllegalStateException("Cannot register planetary landing site", e);
         }
         sites.putBoolean(address, true);
-        store.save();
+        store.requestSave();
     }
 
     /**

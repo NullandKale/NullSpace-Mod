@@ -185,7 +185,16 @@ public final class LifeSupport
         int local = localOxygen(player, ship);
         int meter = breathe(player, suitTarget(player, local, source), savedAir);
         if (player.level().getServer().getTickCount() % 20 == 0)
-            player.sendOverlayMessage(net.minecraft.network.chat.Component.literal((cabin ? "CABIN AIR" : source ? "SUIT / TETHER AIR" : "AIRLESS SURFACE") + " | Oxygen " + meter / 10 + (suited(player) && !cabin ? " | Canister " + canisterPercent(player) + "%" : "")));
+            showAirStatus(player, cabin, source, local, meter);
+    }
+
+    private static void showAirStatus(ServerPlayer player, boolean cabin, boolean source, int local, int meter)
+    {
+        if (player.isCreative() || player.isSpectator())
+            return;
+        String text = com.nullandkale.nullspace.model.air.OxygenStatus.text(meter, local, cabin, source, suited(player), canisterPercent(player));
+        if (!text.isEmpty())
+            player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(text).withStyle(meter <= 200 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.GRAY));
     }
 
     /** A player may break a block unless a tunnel, a move or a lock covers it, and in space only inside a ship's region. */
@@ -272,7 +281,6 @@ public final class LifeSupport
                     source = !cabin && suited(player) && ShipAir.tether(player.level(), vessel);
                 }
                 boolean construction = StationConstruction.constructionAir(player, vessel);
-                boolean protection = suited(player) && source || construction;
                 if (!player.isSpectator())
                 {
                     boolean vacuumFlight = (player.isCreative() || suited(player)) && !cabin;
@@ -294,9 +302,7 @@ public final class LifeSupport
                 }
                 if (server.getTickCount() % 20 == 0)
                 {
-                    String where = cabin ? "CABIN SEALED" : protection ? "SUIT / TETHER AIR" : "VACUUM - NO AIR";
-                    int oxygenPercent = air(player.level().getServer()).getOrDefault(player.getUUID(), 1000) / 10;
-                    player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(where + " | Tether " + (int) tetherDistance(vessel, player.position()) + "/72 | Oxygen " + oxygenPercent));
+                    showAirStatus(player, cabin || construction, source || construction, construction ? 100 : localOxygen(player, vessel), air(server).getOrDefault(player.getUUID(), 1000));
                     // Record offline crew offsets without replacing or refilling their inventories or
                     // air.
                     var members = vessel.getListOrEmpty("crew");

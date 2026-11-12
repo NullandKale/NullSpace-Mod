@@ -79,7 +79,7 @@ public final class ShipYardCrashGameTest
                     var manifest = new CompoundTag();
                     var orders = WorldStore.get(server).list("shipyardOrders");
                     var ship = WorldStore.get(server).at(level, origin.offset(preset.helm()));
-                    manifest.putString("order", !orders.isEmpty() ? ((CompoundTag) orders.getFirst()).getStringOr("id", "") : ship.getStringOr("shipyardOrder", ""));
+                    manifest.putString("order", !orders.isEmpty() ? ((CompoundTag) orders.getFirst()).getStringOr("id", "") : ship == null ? "not-registered" : ship.getStringOr("shipyardOrder", ""));
                     if (ship != null)
                     {
                         manifest.putString("ship", ship.getStringOr("id", ""));
@@ -96,11 +96,6 @@ public final class ShipYardCrashGameTest
                             throw new java.io.UncheckedIOException(error);
                         }
                     Runtime.getRuntime().halt(86);
-                };
-                TravelService.failureInjector = checkpoint ->
-                {
-                    if (checkpoint.equals("COMMITTED") && Set.of("COMMITTED", "CORRUPT_COMMITTED").contains(stage))
-                        halt.run();
                 };
                 ShipYardService.placementObserver = count ->
                 {
@@ -121,11 +116,14 @@ public final class ShipYardCrashGameTest
                         if (stage.equals("HULL_PLACED"))
                             server.saveEverything(true, true, true);
                     }
-                    if (checkpoint.name().equals(stage))
+                    if (checkpoint.name().equals(stage) || checkpoint == ShipYardService.DeliveryStage.COMMITTED && stage.equals("CORRUPT_COMMITTED"))
                         halt.run();
                 };
                 ShipYardService.deliver(buyer, beacon, preset.id());
-                throw new AssertionError("Expected process termination at " + stage);
+                ctx.runAfterDelay(100, () ->
+                {
+                    throw new AssertionError("Expected process termination at " + stage);
+                });
             });
         }
         else if (mode.equals("verify"))

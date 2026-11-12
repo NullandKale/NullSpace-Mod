@@ -27,6 +27,8 @@ final class PerfBuilds implements PerfRun.Operation
     private CompoundTag delivered, pending;
     private int nextRoom = 1;
     private boolean furnished;
+    private boolean awaitingScrap;
+    private boolean awaitingCollar;
 
     PerfBuilds(PerfWorld world) throws java.io.IOException
     {
@@ -85,10 +87,17 @@ final class PerfBuilds implements PerfRun.Operation
     {
         world.refresh();
         workshop = WorldStore.get(world.server()).repository().find(workshop.getStringOr("id", ""));
+        if (awaitingCollar)
+        {
+            if (BuildJournal.pending(world.server(), world.stations.getFirst().getStringOr("id", "")))
+                return PerfRun.PENDING;
+            awaitingCollar = false;
+            return collar();
+        }
         if (pending != null)
         {
             pending = WorldStore.get(world.server()).repository().find(pending.getStringOr("id", ""));
-            if (!StationAccess.ready(pending))
+            if (!StationAccess.ready(pending) || BuildJournal.pending(world.server(), pending.getStringOr("id", "")))
                 return PerfRun.PENDING;
             pending = null;
             return "";
@@ -120,6 +129,12 @@ final class PerfBuilds implements PerfRun.Operation
     private String delivery()
     {
         var level = world.server().overworld();
+        if (awaitingScrap)
+        {
+            if (TransferLocks.areaBusy(level, new com.nullandkale.nullspace.gameplay.ship.structure.HullScan.Bounds(floor.above(), floor.offset(31, 32, 31))))
+                return PerfRun.PENDING;
+            awaitingScrap = false;
+        }
         world.builder.teleportTo(level, floor.getX() - 2.5, floor.getY() + 1, floor.getZ() + 1.5, Set.of(), 0, 0, true);
         if (delivered != null)
         {
@@ -130,13 +145,16 @@ final class PerfBuilds implements PerfRun.Operation
             if (!result.contains("scrapped"))
                 throw new IllegalStateException("Fixture delivery cleanup failed: " + confirmation + "; " + result);
             delivered = null;
+            awaitingScrap = true;
+            return PerfRun.PENDING;
         }
         world.builder.teleportTo(level, floor.getX() - 2.5, floor.getY() + 1, floor.getZ() + 1.5, Set.of(), 0, 0, true);
         try
         {
             delivered = com.nullandkale.nullspace.gameplay.shipyard.ShipYardService.deliver(world.builder, beacon, "rivet_bolt");
             CrewRelease.authorize(delivered, world.builder);
-            return "";
+            pending = delivered;
+            return PerfRun.PENDING;
         }
         catch (IllegalArgumentException loading)
         {
@@ -151,10 +169,14 @@ final class PerfBuilds implements PerfRun.Operation
         var source = world.stations.getFirst();
         var target = world.stations.size() > 1 ? world.stations.get(1) : source;
         var level = WorldStore.level(world.server(), source.getStringOr("dimension", ""));
-        return RecordJournal.run(world.server(), "perf-collar-link", () ->
+        if (source.contains("dock") && !source.getCompoundOrEmpty("dock").getBooleanOr("tunnelRetracted", false))
         {
-            if (source.contains("dock"))
-                DockingTunnel.retract(world.server(), source.getCompoundOrEmpty("dock"));
+            DockingTunnel.retract(world.server(), source.getCompoundOrEmpty("dock"));
+            awaitingCollar = true;
+            return PerfRun.PENDING;
+        }
+        RecordJournal.run(world.server(), "perf-collar-link", () ->
+        {
             var a = DockingPorts.ports(level, source).getFirst();
             var b = DockingPorts.ports(level, target).get(target == source ? 1 : 0);
             var dock = new CompoundTag();
@@ -166,5 +188,7 @@ final class PerfBuilds implements PerfRun.Operation
             DockingTunnel.ensure(world.server(), dock, a, b);
             return "";
         });
+        pending = source;
+        return PerfRun.PENDING;
     }
 }

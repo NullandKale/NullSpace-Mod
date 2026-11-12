@@ -31,6 +31,7 @@ public final class ShipControlTerminal implements TerminalDevice
     private int pendingTicks;
     String pendingTarget = "";
     private int pendingResponse;
+    private ShipControl.Action pendingAction;
     int selection, page, statusScroll;
     String notice = "";
     int tab; // 0 Trip, 1 Manual steps, 2 More
@@ -113,6 +114,7 @@ public final class ShipControlTerminal implements TerminalDevice
             return;
         notice = "Waiting for server...";
         pending = true;
+        pendingAction = action;
         pendingTicks = 0;
         pendingResponse = view.response();
         actions.add(new ControllerPackets.Input(view.session(), action, target));
@@ -370,7 +372,16 @@ public final class ShipControlTerminal implements TerminalDevice
     public void tick()
     {
         if (pending && ++pendingTicks > 100)
-            notice = "No reply yet. Close and reopen these controls to check the action.";
+        {
+            if (pendingAction == ShipControl.Action.SELECT)
+            {
+                pending = false;
+                pendingTarget = "";
+                notice = "Selection not confirmed. Choose a destination and retry.";
+            }
+            else
+                notice = "No reply yet. Close and reopen these controls to check the action.";
+        }
     }
 
     static String kind(ShipDestination.Kind kind)

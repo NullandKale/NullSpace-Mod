@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.Blocks;
 public final class HullCarveGameTest
 {
     @GameTest(environment = "nullspace:hull_carve", maxTicks = 300)
-    public void cornerCarvingsKeepTouchingBlocksAndTravelWhileAirGapsStayDisconnected(GameTestHelper ctx) throws Exception
+    public void cornerCarvingsKeepFaceConnectedBlocksAndTravelWhileAirGapsStayDisconnected(GameTestHelper ctx) throws Exception
     {
         var server = ctx.getLevel().getServer();
         var level = server.overworld();
@@ -35,10 +35,10 @@ public final class HullCarveGameTest
         ShipService.inspect(level, helm);
         var corner = base.offset(7, 7, 7);
         for (var at : BlockPos.betweenClosed(base.offset(6, 6, 6), corner))
-            if (!at.equals(base.offset(6, 6, 6)) && !at.equals(corner))
+            if (!Set.of(base.offset(6, 6, 6), base.offset(7, 6, 6), base.offset(7, 7, 6), corner).contains(at))
                 level.setBlock(at, Blocks.AIR.defaultBlockState(), 18);
         var scan = ShipService.inspect(level, helm);
-        ctx.assertTrue(scan.scan().blocks().contains(corner), "Carving face connections does not detach a block still touching the hull's corner");
+        ctx.assertTrue(scan.scan().blocks().contains(corner), "A carved bend remains connected through full faces");
         var loose = base.offset(0, 10, 7);
         level.setBlock(loose, Blocks.STONE.defaultBlockState(), 18);
         boolean rejected = false;

@@ -4,209 +4,206 @@
       "id": "aboard",
       "title": "Already on a ship",
       "pages": [
-        "This ship is your home. Food is in your inventory. Furnace fuel goes in the generator and feeds both power and engines. Open the Ship Controller to choose where to go. Keep some supplies for getting back.",
-        "Choose a planet, landing pad or docking port, then press Jump. You can walk around while travelling. The countdown shows how long is left. Each trip may pick up a new signal: salvage, a garden or cargo.",
-        "Signals are optional. In Trip, choose Visit signal to pause and dock automatically. Return aboard and choose Continue journey to undock and resume; paid progress is kept. Far from Sol, wrecks fight back. Signals fade once you arrive.",
-        "Search by room: food in the galley, fuel beside engineering, tools and parts at workbenches, building materials in cargo. Scouts share small spaces. Larger ships have separate rooms. Supplies do not refill when you come back."
+        "Put furnace fuel in the generator. Open the Ship Controller, choose a destination, then Engage. The Trip tab shows what happens next. You can walk around during FTL.",
+        "Signals are optional. Visit signal approaches and docks. Ignore it to keep travelling. Return to your ship and press Continue journey to depart; the jump is already paid."
       ]
     },
     {
       "id": "start",
       "title": "Build my first ship",
       "pages": [
-        "Make a dirt or grass pad inside a cobblestone ring. Put a Pad Computer on the ring and click Register pad. You can keep its suggested name. Show pad area marks the ground that stays behind.",
-        "Above the pad, build a sealed hull with a normal door, Ship Controller, outward-facing engine, generator and inward-facing Air Supply. Leave standing room at the controller and clear space behind the engine.",
-        "Load furnace fuel in the generator. Close the door and open the Ship Controller; it sets up systems once the generator and Air Supply connect. Launch checks the ship: fix any problem and retry. Use Land to return home."
+        "Craft the basic parts, Pad Computer, Ship Controller, generator, engine and Air Supply. Their recipes follow in this order under Recipes.",
+        "Register a dirt or grass pad inside a cobblestone ring. Build the ship above it: a sealed cabin, framed exit, inward-facing Air Supply and outward-facing engine.",
+        "Leave headroom at the controller and clear exhaust behind the engine. Add fuel, open the controller and choose Launch. Follow any named repair instruction, then retry."
       ]
     },
     {
       "id": "pads",
       "title": "Landing pads",
       "pages": [
-        "Use a flat grass/dirt rectangle inside a complete cobblestone ring. Grass may become dirt. The interior and ship fit within 32 x 32 x 32.",
-        "Place the Pad Computer on the ring. Facing does not matter. Click Register pad with the suggested name, or edit it first. Show pad area and Show ship area highlight different parts; outlines fade after 30 seconds.",
-        "Leave clear sky above the ship. A stacked pad overhead obstructs launch. On landing, choose a pad on your current planet. Inspect again after repairs."
-      ]
-    },
-    {
-      "id": "hull",
-      "title": "Hull and cargo",
-      "pages": [
-        "Use full blocks for the pressure hull, full glass for windows and framed doors or trapdoors. Stairs, slabs and panes are fittings, not pressure seals.",
-        "Keep all ship parts connected. Pad dirt stays behind. Furnaces, storage and many workshop blocks travel with saved contents. Read Inspect for exact exceptions.",
-        "Stop moving pistons and pending actions before travel. Live explosives and world-bound machinery can block launch. Diagnostics name the broken block or machine."
-      ]
-    },
-    {
-      "id": "controllers",
-      "title": "Controllers",
-      "pages": [
-        "One Ship Controller combines flight, travel, docking and engineering. Planets, landing pads and ports share one Destination selection. Launch, Jump, Land and Dock remain separate direct actions.",
-        "Computer Base is a crafting chassis; Computer Terminal runs NullOS. Machinery opens native controls and slots, with detailed terminals under Advanced."
-      ]
-    },
-    {
-      "id": "power",
-      "title": "Ship power",
-      "pages": [
-        "Load any furnace fuel into a generator. Connected engines and generation share its real fuel slots. Top/side hoppers insert fuel; bottom hoppers remove empty containers. No cables or fuel pipes are needed.",
-        "Generation supplies demand and charges batteries; batteries cover shortages. Disabling generation leaves its fuel accessible to engines. Fuel burns only for real work, including stationary electrical use.",
-        "Engine, Generator, Battery and Scanner each accept the same System Upgrade item. Three slots give Stock, I, II and III. Battery modules cannot be removed until stored charge fits the smaller capacity."
-      ]
-    },
-    {
-      "id": "air",
-      "title": "Spatial air",
-      "pages": [
-        "Air occupies a 32-cube grid. Pumps fill their outlet cells, then gas spreads through rooms. Breaches drain stored air. Crew uses air locally.",
-        "Air particles show filling, equalization and leaks. Full sealed rooms become quiet. Real vacuum leaks stay visible. Turning particles off does not stop oxygen use.",
-        "Keep the air-supply outlet inside the cabin and unobstructed. Watch room readings. Closing a door helps only if its frame and surrounding hull also seal."
-      ]
-    },
-    {
-      "id": "doors",
-      "title": "Doors and groups",
-      "pages": [
-        "The Ship Controller handles framed doors and trapdoors. Advanced engineering retains door groups and batch commands.",
-        "For docking place any standard door above one outward-facing Docking Base. Frame it, leave walking space inside and a clear approach outside. Iron doors work without extra buttons."
-      ]
-    },
-    {
-      "id": "suit",
-      "title": "Suits and EVA",
-      "pages": [
-        "Wear all four suit pieces. Nothing stops you opening a door to vacuum without one, so check before you step out. Fill an Air Canister at an Air Supply for air away from the ship.",
-        "In space, leaving the cabin enables flight. The tether limit is 72 blocks. Watch oxygen and return before it runs out. Airless planet surfaces retain normal gravity.",
-        "Airless ground drains oxygen away from a safe cabin/source. Wearing armor alone is not unlimited life support. Repair the cabin and monitor air before exploring."
-      ]
-    },
-    {
-      "id": "travel",
-      "title": "Launch and land",
-      "pages": [
-        "At the controller: Inspect hull, fix errors, close doors, then Launch. Blocks and cargo transfer to space with a loading screen. The hull stays stationary Minecraft blocks.",
-        "Recall EVA crew before travel. Landing restores the real hull at a clear registered pad. Do not quit during a loading screen. On reconnect, follow recovery messages."
-      ]
-    },
-    {
-      "id": "flight",
-      "title": "Piloting",
-      "pages": [
-        "Controller > Pilot. W/S thrust, A/D yaw, Space/Ctrl lift. Up/Down pitch, Q/E roll. R brakes; F fires the cannon. Only one crew member pilots.",
-        "Drag to orbit and use the wheel to zoom. H shows controls. Esc returns to the Ship Controller and stops motion. Ship camera is an observer view; it grants no thrust.",
-        "Power loss or unsafe crew stops flight. Local piloting stays in this region. Select a Destination and use Jump to change regions. Avoid solid bodies and other hulls."
-      ]
-    },
-    {
-      "id": "planets",
-      "title": "Planet travel",
-      "pages": [
-        "Choose one Destination: a region, landing pad or docking port. Jump takes time aboard the ship and keeps the final destination. Arrival is automatic; Land or Dock finishes the trip.",
-        "Terra is the overworld. Pelagos has grass and breathable air. Luna, Ares and Cinder are airless. New surfaces are flat; first arrival creates a starter pad.",
-        "Launching returns to that planet orbit. Existing overworld pads belong to Terra. Jump back to Sol/Terra before landing at home."
-      ]
-    },
-    {
-      "id": "sensors",
-      "title": "Scanners",
-      "pages": [
-        "One Scanner lists nearby destinations. Select a result and Set destination; the controller uses that same selection. Looking at a target never starts travel.",
-        "Install System Upgrades: Stock range 1024, then 2048/4096/8192. The first module enables distant destinations. Cameras and scanners need Cameras power; Advanced holds allocation tuning."
-      ]
-    },
-    {
-      "id": "cameras",
-      "title": "Cameras",
-      "pages": [
-        "Mount a small Camera on a solid wall, pointing toward the view. Right-click to name it, see a live preview, enable it or view fullscreen. Esc returns from fullscreen to setup.",
-        "Mount thin Monitor blocks like pictures. Complete rectangles up to 8 x 8 share one named camera feed. Right-click any tile to select a camera for the wall. Old cube displays keep their hull seals.",
-        "A fullscreen feed uses arrows to aim, Page Up/Down to zoom and F2 to capture. Tab changes eligible feeds. Ground feeds cover a bounded neighborhood.",
-        "Camera loading does not tick distant machines or TNT. A feed fills in as terrain arrives. Unsupported renderer details may differ from a normal player view."
-      ]
-    },
-    {
-      "id": "computer",
-      "title": "NullOS terminal",
-      "pages": [
-        "Computer Terminal opens an 80-column console. It keeps files and jobs with the ship. It uses a custom runtime isolated from host files, processes and networks.",
-        "Keep Controls powered for ship calls. Up/Down recalls commands. Ctrl-C stops a foreground job; Shift-Esc closes the console. A standalone terminal can still edit files."
-      ]
-    },
-    {
-      "id": "shell",
-      "title": "Shell commands",
-      "pages": [
-        "Try these commands:\nhelp\nls\nship status\nship rooms\npython air.py\nbash seal.sh\n\nseal.sh closes doors.",
-        "Files: pwd, cd, ls, cat, echo, mkdir, cp, mv, rm. Pipes support grep, head, wc. Use > to replace a file and >> to append. These paths stay inside the guest disk.",
-        "edit name.py starts a replacement editor. Type lines. A single . line or Ctrl-S saves; Ctrl-C cancels. cat name.py reads it back."
-      ]
-    },
-    {
-      "id": "scripts",
-      "title": "Scripts and jobs",
-      "pages": [
-        "Bash-style: bash file.sh\nPython-style:\npython file.py\n\nLoops, branches and native ship functions are supported. These are language subsets, not full Bash/Python.",
-        "run --detach file.py leaves a job running. ps lists jobs; kill ID stops one. Foreground jobs pause without a viewer. Files and detached jobs survive a restart.",
-        "Detached jobs compute while chunks unload. World actions wait for the full hull to load again. Jobs use the last known power state while unloaded."
-      ]
-    },
-    {
-      "id": "automation",
-      "title": "Native ship API",
-      "pages": [
-        "Shell: ship rooms\nPython:\nprint(ship.rooms())\n\nOther calls handle power, doors, devices, scanners, cameras, firing and bounded flight.",
-        "Try: ship scan local\nship scan long\nship doors all close\n\nThe usual power and safety checks apply. Travel scripts need online crew near the Ship Controller."
-      ]
-    },
-    {
-      "id": "combat",
-      "title": "Damage and cannon",
-      "pages": [
-        "The cannon needs connected, enabled hardware and Weapons power. Press F while piloting to fire. Normal recharge rules apply.",
-        "Damage removes real hull and equipment. Breaches lose air; severed hardware loses the bus. Repair survivors before travel. Material blast resistance still matters."
-      ]
-    },
-    {
-      "id": "trouble",
-      "title": "Troubleshooting",
-      "pages": [
-        "Pad not found? Put its computer on the cobble ring at floor height. Fill the interior with grass/dirt. Repair border holes and check for overlapping ownership.",
-        "No power? Load generator fuel; check battery, enabled switches, connected hull and allocations. No scanner feed? Add one Cameras slot per enabled camera/scanner.",
-        "Losing air? Check room readings, exterior doors, hatch frames and breaches. Engine blocked? Clear its outward exhaust. Inspect names unsupported machines and travel obstacles.",
-        "Cannot land? Jump to the right planet, choose a registered pad and clear its volume. Crew or cargo not ready? Recall crew and wait for the loading handshake."
-      ]
-    },
-    {
-      "id": "crafting",
-      "title": "Crafting notes",
-      "pages": [
-        "Recipes follow in this book: real items in a 3 x 3 grid; hover for names, click a crafted part for its recipe. Mirroring works, rotation does not. Circuit boards craft in fours; wooden doors accept any wood."
+        "Make a flat dirt/grass rectangle inside a complete cobblestone ring, at most 32 x 32. Put the Pad Computer on the ring and choose Register pad.",
+        "Show pad area marks what stays on the ground. Keep the ship within 32 blocks above the floor and leave clear sky. Registering a pad does not build a ship."
       ]
     },
     {
       "id": "shipyard",
       "title": "Ship beacons",
       "pages": [
-        "Place a Ship Beacon on a registered pad ring. Its catalog shows designs, a footprint and readiness. Select a model, then Deliver ship. Delivery is free; stand clear of the pad.",
-        "New ships include fuel, a Ship Controller and a compact door-on-base port. Enter normally, close the door, inspect and launch. Existing builds and their fuel are preserved.",
-        "Clear the pad and sky. Resume interrupted delivery with the same design. Operators can visit six examples with /nullspace shipyard."
+        "Put a Ship Beacon on a registered pad ring. Stand clear, choose a design, then Deliver ship. Keep the pad and sky empty. Delivery includes the existing ship design and supplies.",
+        "Wait until construction finishes. Enter the ship, check fuel and air, then use its controller. An interrupted delivery uses recovery; do not deliver another hull over it."
+      ]
+    },
+    {
+      "id": "hull",
+      "title": "Hull and cargo",
+      "pages": [
+        "Connect ship blocks through full faces. Use full blocks or glass for pressure walls. Stairs, slabs and panes are fittings. A framed door or hatch gives access.",
+        "Containers and their contents travel with the hull. Stop pistons and pending block actions before departure. Inspect names blocks that need repair or removal."
+      ]
+    },
+    {
+      "id": "controllers",
+      "title": "Controllers",
+      "pages": [
+        "Ship Controller: choose a destination, Engage, fly manually or manage systems. Manual steps also offer Launch, Jump, Land, Dock and Undock.",
+        "Scanner: browse destinations and Set destination. This changes the shared selection; it never starts travel. Return to the Ship Controller to Engage."
+      ]
+    },
+    {
+      "id": "power",
+      "title": "Ship power",
+      "pages": [
+        "Generators burn furnace fuel for electricity and propulsion. Batteries store electricity and cover shortages up to their discharge limit. A charged battery does not replace jump fuel.",
+        "Open each machine to check its switch, fuel or charge. Keep Controls, Air and Engines powered. Upgrade modules improve machinery; scarce fuel still needs a reserve for the return trip."
+      ]
+    },
+    {
+      "id": "air",
+      "title": "Spatial air",
+      "pages": [
+        "Point an Air Supply into a room and leave its outlet clear. Air spreads between connected spaces. Open interior doors to refill other rooms; repair exterior leaks.",
+        "Room air and your oxygen are different readings. Low oxygen warns you to return to air. Healthy cabin air stays quiet. Use machine room readings to find a weak pump or leak."
+      ]
+    },
+    {
+      "id": "doors",
+      "title": "Doors and groups",
+      "pages": [
+        "Interior doors may stay open during travel. Close exterior doors and hatches to keep the cabin sealed. Engage closes exterior doors; Close all doors remains a manual command.",
+        "For docking, put a normal door over an outward-facing Docking Base. Frame the door, leave standing room behind it and a clear approach outside."
+      ]
+    },
+    {
+      "id": "suit",
+      "title": "Suits and EVA",
+      "pages": [
+        "Wear all four suit pieces before leaving a safe cabin. Armor alone is not an air source. Carry an Air Canister and use it on an Air Supply to refill it.",
+        "In space, the suit permits EVA flight within the 72-block tether. On an airless planet, gravity remains normal. Watch suit air and return before supplies run out."
+      ]
+    },
+    {
+      "id": "travel",
+      "title": "Launch and land",
+      "pages": [
+        "Close exterior openings and keep everyone inside breathable cabins. At the controller, choose a destination and Engage. Launch and landing move the real hull between dimensions.",
+        "A short transition waits for passengers and the destination view. Stay aboard until it finishes. Reconnecting follows the saved arrival; do not dismantle a ship during transfer."
+      ]
+    },
+    {
+      "id": "planets",
+      "title": "Planet travel",
+      "pages": [
+        "Every nongas planet and moon has its own surface. Ocean and jungle worlds have breathable air; other types need a suit and air. Terra is the Overworld.",
+        "Choose a landing pad on your destination planet and Engage. The first visit creates a starter pad. Lava can allow arrival but remains dangerous and can obstruct takeoff."
+      ]
+    },
+    {
+      "id": "sensors",
+      "title": "Scanners",
+      "pages": [
+        "Open the Scanner. Browse Stars, a system, then a planet or berth. Highlight a result and Set destination. Go back to the Ship Controller and Engage.",
+        "Grey map targets need intermediate hops or better engines. Set a reachable next stop. Each hop is a separate trip. Sensor equipment needs Cameras power."
       ]
     },
     {
       "id": "star_systems",
       "title": "Star systems",
       "pages": [
-        "Each world has its own galaxy: Sol, four random systems and features such as nebulae. The Scanner's Stars page is the map; green is one jump away.",
-        "Jumps cost 1.00 fuel plus 0.10 per light-year. Engine tier sets range: 25, 40, 60, 100 ly. Tier 2 needs an Advanced Upgrade, tier 3 an Exotic one."
+        "The Scanner map shows Sol, four other systems and features. Engine tiers reach 25/40/60/100 light-years. Hop through reachable places to go farther; keep fuel for returning."
+      ]
+    },
+    {
+      "id": "flight",
+      "title": "Piloting",
+      "pages": [
+        "Controller > Fly manually. W/S thrust, A/D yaw, Space/Ctrl lift. Up/Down pitch, Q/E roll. R brakes, F fires. H shows controls; Esc stops and returns to the controller.",
+        "Manual flight stays in the current region. To travel farther, choose another destination and Engage. Keep fuel and power aboard and avoid planets and other hulls."
       ]
     },
     {
       "id": "stations",
       "title": "Stations and docks",
       "pages": [
-        "Space regions automatically contain stations. At the controller choose Destination > Ports, select a station berth, then Dock. Autopilot handles approach and mating. Scanners share the same ship destination.",
-        "After capture, open the normal dock door and walk through. A short transition boards the other vessel. Return through the same port, then Undock. Crew must be aboard breathable cabins.",
-        "Carry a Station Core, suit and module kits. Deploy station from the controller, open the dock door and walk through wearing the suit. The core shows room tiles, Build buttons and separate access fields."
+        "Select a station berth and Engage. Wait for approach, capture and collar completion. Open the connected dock door and walk through to board.",
+        "Return through the same port. For an encounter, Continue journey handles departure. For ordinary docking, Undock from your visiting ship. Public stations cannot be claimed.",
+        "To build a station, carry a Station Core, suit and module kits. Deploy the core in space using its placement action. Build and connect rooms from the core controls."
+      ]
+    },
+    {
+      "id": "salvage",
+      "title": "Claim a salvage ship",
+      "pages": [
+        "Board an unclaimed salvage vessel and open its Station Core. Choose Claim. A damaged core can be replaced with a Ship Controller; open it aboard the wreck to claim it.",
+        "Claiming keeps the same hull, cargo, fuel and damage. You receive its title. Your previous ship stays where you left it; claiming does not scrap or replace it.",
+        "Return through the connected port to use your original ship. To recover either owned ship later, use My ships at a surface Pad Computer. Keep both ships clear of crew before storage."
+      ]
+    },
+    {
+      "id": "storage",
+      "title": "Store and deploy ships",
+      "pages": [
+        "Stand beside a surface Pad Computer and open My ships. Choose your ship, then Store. Everyone must leave it first. Storage clears the pad and gives the owner a title.",
+        "To deploy, choose the stored ship at a clear pad and stay by the computer. A carried matching title is consumed after success; a refused deployment keeps it. Owners can replace a lost title."
+      ]
+    },
+    {
+      "id": "combat",
+      "title": "Damage and cannon",
+      "pages": [
+        "The cannon needs connected hardware and Weapons power. F fires while piloting. Damage breaks real hull blocks and can vent a cabin; repair leaks before travelling."
+      ]
+    },
+    {
+      "id": "cameras",
+      "title": "Cameras",
+      "pages": [
+        "Place a Camera facing the view. Right-click to name and preview it. Mount Monitor tiles in a rectangle up to 8 x 8, then right-click a tile to choose a camera.",
+        "In fullscreen, arrows aim, Page Up/Down zoom, Tab changes feeds and Esc returns. A distant view does not run remote machines or explosives."
+      ]
+    },
+    {
+      "id": "trouble",
+      "title": "Troubleshooting",
+      "pages": [
+        "Cannot launch? Inspect the hull. Fix the named block, close exterior openings, clear exhaust and sky, and get crew inside safe cabins.",
+        "No power or air? Check generator fuel, machine switches and power allocation. Clear the Air Supply outlet. Open interior doors to distribute air; close exterior leaks.",
+        "Cannot land or dock? Check the current planet, selected pad/berth, occupancy and construction status. Finish the current maneuver before starting another."
+      ]
+    },
+    {
+      "id": "crafting",
+      "title": "Crafting notes",
+      "pages": [
+        "Recipes follow basic parts, flight systems, suit supplies, upgrades and later equipment. Hover an ingredient for its name; click it to open its recipe. Mirroring works, rotation does not."
+      ]
+    },
+    {
+      "id": "computer",
+      "title": "NullOS terminal",
+      "pages": [
+        "Computer Terminal opens NullOS for files and ship scripts. Controls power enables ship calls. Up/Down recalls commands; Ctrl-C stops a job; Shift-Esc closes the terminal."
+      ]
+    },
+    {
+      "id": "shell",
+      "title": "Shell commands",
+      "pages": [
+        "Start with help, ls and ship status. Read a file with cat name.py. Run one with python name.py or bash name.sh. All paths remain inside the ship computer.",
+        "Use edit name.py, type lines, then a single . line or Ctrl-S to save. Ctrl-C cancels. Pipes and > / >> work for basic file processing."
+      ]
+    },
+    {
+      "id": "scripts",
+      "title": "Scripts and jobs",
+      "pages": [
+        "Detached jobs: run --detach file.py, ps, kill ID. Files and jobs persist with the ship. These are limited Bash/Python-style languages; see help for supported calls."
+      ]
+    },
+    {
+      "id": "automation",
+      "title": "Native ship API",
+      "pages": [
+        "Try ship rooms, ship scan local and ship doors all close. Scripts obey the same power and crew safety checks as buttons. World actions wait while hull chunks are unloaded."
       ]
     }
   ]

@@ -13,6 +13,19 @@ class GalaxyPlanTest
     private static final int SEEDS = 5000;
 
     @Test
+    void migrationKeepsAssignedLegacyTerrainAndEveryBodyField()
+    {
+        var old = new Body("old", "Existing world", BodyType.DESERT, null, 123, .7, 1400, 0xff123456, 71, "nullspace:surface_desert_a");
+        var missing = new Body("new", "Unassigned world", BodyType.TOXIC, null, 345, .9, 1300, 0xff987654, 99, null);
+        var system = new StarSystem("legacy", "Saved system", 14, 22, "G", 0xffffffff, 1700, 87, List.of(old, missing));
+        var repaired = GalaxyPlan.repairMissingLandings(new Galaxy(42, List.of(system), List.of()));
+        assertEquals(old, repaired.systems().getFirst().bodies().getFirst());
+        var added = repaired.systems().getFirst().bodies().get(1);
+        assertEquals(new Body(missing.id(), missing.name(), missing.type(), missing.parent(), missing.orbitRadius(), missing.angle(), missing.radius(), missing.color(), missing.seed(), GalaxyPlan.planetDimension(missing.id())), added);
+        assertSame(repaired, GalaxyPlan.repairMissingLandings(repaired));
+    }
+
+    @Test
     void oldChartsGainMissingLandingsWithoutReplacingExistingWorldAssignments()
     {
         var original = GalaxyPlan.generate(42);
@@ -79,7 +92,7 @@ class GalaxyPlanTest
     }
 
     @Test
-    void zonesAreUniqueAndSurfacesStayInsideThePool()
+    void everyNongasBodyHasItsOwnStableDimension()
     {
         long landable = 0, bodies = 0;
         for (long seed = 0; seed < SEEDS; seed++)
@@ -94,6 +107,7 @@ class GalaxyPlanTest
                 for (var b : s.bodies())
                 {
                     bodies++;
+                    assertEquals(b.type() != BodyType.GAS_GIANT, b.landable(), "Every nongas body is landable");
                     if (!b.landable())
                         continue;
                     landable++;
@@ -102,17 +116,13 @@ class GalaxyPlanTest
                     if (b.moon())
                         assertTrue(s.bodies().stream().anyMatch(p -> p.id().equals(b.parent()) && !p.moon()), "a moon orbits a planet of its system");
                 }
-            for (var type : GalaxyPlan.SURFACE_POOL.keySet())
-            {
-                var used = surfaces.stream().filter(x -> x.startsWith("nullspace:surface_" + type.name().toLowerCase(Locale.ROOT))).count();
-                assertTrue(used <= GalaxyPlan.SURFACE_POOL.get(type), type + " pool exceeded");
-            }
+
         }
         for (long seed = 0; seed < SEEDS; seed++)
             for (var s : GalaxyPlan.generate(seed).systems())
                 assertTrue(s.bodies().stream().anyMatch(Body::landable), "every system can be landed in");
         double share = landable / (double) bodies;
-        assertTrue(share > .25 && share < .55, "about 40% of bodies are landable, was " + share);
+        assertTrue(share > .55, "All nongas planets and moons are landable, was " + share);
     }
 
     @Test

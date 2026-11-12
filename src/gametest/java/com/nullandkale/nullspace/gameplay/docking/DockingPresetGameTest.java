@@ -48,6 +48,7 @@ public final class DockingPresetGameTest
             level.setBlock(existing, net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
             DockingManeuver.tickMotion(server, ship);
             ctx.assertTrue(dock.contains("tunnel") && DockingTunnel.sections(level, ship) == 1 && DockingTunnel.sections(level, station) == 1, "Both storage frames have persistent, rendered boarding collars");
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
             var cells = dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty("source").getListOrEmpty("blocks");
             var floor = cells.stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("kind", "").equals("floor")).findFirst().orElseThrow();
             var step = WorldStore.pos(floor, "at").above();
@@ -108,6 +109,7 @@ public final class DockingPresetGameTest
             // Cancel an interrupted departure to exercise durable collar removal.
             dock.putString("state", "UNDOCKING");
             DockingService.perform(player, ship, source.controller(), "DOCK_CANCEL");
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
             ctx.assertTrue(level.getBlockState(WorldStore.pos(floor, "at")).isAir() && level.getBlockState(existing).is(net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK), "Retraction removes only temporary collar blocks, retaining the original hull");
         }
         finally

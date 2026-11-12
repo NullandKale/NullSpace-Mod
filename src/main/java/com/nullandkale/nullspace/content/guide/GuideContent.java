@@ -21,7 +21,7 @@ import com.google.gson.*;
 /** Native book pages, clickable indexes, and recipes read from the same data as crafting. */
 public final class GuideContent
 {
-    public static final List<String> RECIPES = ContentCatalog.EQUIPMENT.stream().map(ContentCatalog.EquipmentDefinition::id).toList();
+    public static final List<String> RECIPES = java.util.stream.Stream.concat(List.of("field_guide", "machine_casing", "circuit_board", "computer_base", "pad_computer", "ship_computer", "generator", "engine", "air_supply", "battery", "docking_base", "local_scanner", "space_helmet", "space_chestplate", "space_leggings", "space_boots", "air_canister", "ship_beacon", "system_upgrade", "advanced_system_upgrade", "exotic_system_upgrade", "exotic_system_upgrade_from_echo_shard", "armored_space_helmet", "armored_space_chestplate", "armored_space_leggings", "armored_space_boots", "weapon", "camera", "monitor", "station_core", "station_module", "computer_terminal").stream(), ContentCatalog.EQUIPMENT.stream().map(ContentCatalog.EquipmentDefinition::id)).distinct().toList();
 
     private record Page(String id, String title, Component body)
     {}
@@ -169,6 +169,15 @@ public final class GuideContent
         return switch (name)
         {
             case "computer_terminal" -> "Terminal";
+            case "ship_computer" -> "Ship Controller";
+            case "local_scanner" -> "Scanner";
+            case "advanced_system_upgrade" -> "Advanced upgrade";
+            case "exotic_system_upgrade" -> "Exotic upgrade";
+            case "exotic_system_upgrade_from_echo_shard" -> "Exotic: echo shard";
+            case "armored_space_helmet" -> "Armored helmet";
+            case "armored_space_chestplate" -> "Armored chestplate";
+            case "armored_space_leggings" -> "Armored leggings";
+            case "armored_space_boots" -> "Armored boots";
             case "space_chestplate" -> "Suit chestplate";
             case "space_leggings" -> "Suit leggings";
             case "space_helmet" -> "Space helmet";

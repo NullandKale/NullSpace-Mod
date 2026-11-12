@@ -58,6 +58,16 @@ public final class ShipTitles
         return false;
     }
 
+    /** Redeems carried copies only after deployment has committed; a refused move keeps its title. */
+    static void consumeHeld(ServerPlayer player, CompoundTag ship)
+    {
+        var inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++)
+            if (valid(inventory.getItem(i), ship))
+                inventory.setItem(i, ItemStack.EMPTY);
+        inventory.setChanged();
+    }
+
     /** Issues a new title for an owned ship and invalidates every earlier copy. */
     public static ItemStack issue(CompoundTag ship)
     {

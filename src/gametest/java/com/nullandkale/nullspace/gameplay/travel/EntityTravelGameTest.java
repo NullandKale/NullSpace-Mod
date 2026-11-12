@@ -156,6 +156,8 @@ public final class EntityTravelGameTest
         return () ->
         {
             var ship = ShipYardService.deliver(player, beacon, design);
+            // This synchronous entity fixture starts its transfer in the same call.
+            BuildJournal.flushPending(server);
             var helm = WorldStore.pos(ship, "controller");
             return new Bed(level, server.getLevel(TravelService.SPACE), player, helm, ship.getStringOr("id", ""), ship.getStringOr("homeId", ""), floor(level, helm), orbit);
         };

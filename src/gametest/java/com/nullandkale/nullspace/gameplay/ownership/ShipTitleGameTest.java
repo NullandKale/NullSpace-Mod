@@ -165,10 +165,10 @@ public final class ShipTitleGameTest
                     var delta = WorldStore.pos(ship, "base").subtract(f.base);
                     var chest = (ChestBlockEntity) f.surface.getBlockEntity(cargo.offset(delta));
                     ctx.assertTrue(chest != null && chest.getItem(0).getCount() == 7, "Cargo survives storage and deployment");
+                    ctx.assertTrue(!ShipTitles.holds(f.player, ship), "Successful deployment consumes matching carried titles");
                     // A replacement title invalidates every older copy.
-                    ctx.assertTrue(ShipStorage.title(f.player, f.computer, f.selection()).startsWith("You already"), "No second title while one is carried");
-                    takeTitle(f);
                     ctx.assertTrue(ShipStorage.title(f.player, f.computer, f.selection()).startsWith("New title"), "A lost title can be replaced by the owner");
+                    ctx.assertTrue(ShipStorage.title(f.player, f.computer, f.selection()).startsWith("You already"), "No second title while one is carried");
                     ctx.assertTrue(!ShipTitles.valid(oldTitle[0], ship) && ShipTitles.holds(f.player, ship), "The replacement works and the old paper does not");
                     // A stale copy is visibly marked void, once; the real title is untouched.
                     var stale = oldTitle[0].copy();
@@ -176,6 +176,28 @@ public final class ShipTitleGameTest
                     var inventory = f.player.getInventory();
                     for (int i = 0; i < inventory.getContainerSize(); i++)
                         ctx.assertTrue(!ShipTitles.markIfVoid(f.surface.getServer(), inventory.getItem(i)), "The current title is never marked void");
+                    ctx.assertTrue(ShipStorage.store(f.player, f.computer, f.selection(), null).startsWith("Storing"), "The next storage cycle starts");
+                    phase[0] = 3;
+                }
+                case 3, 5 ->
+                {
+                    int titles = 0;
+                    for (int i = 0; i < f.player.getInventory().getContainerSize(); i++)
+                        if (ShipTitles.valid(f.player.getInventory().getItem(i), ship))
+                            titles += f.player.getInventory().getItem(i).getCount();
+                    ctx.assertTrue(titles == 1, "Repeated storage issues exactly one current title");
+                    ctx.assertTrue(ShipStorage.request(f.player, f.computer, f.selection(), null).startsWith("Recall requested"), "Repeated deployment starts");
+                    phase[0]++;
+                }
+                case 4 ->
+                {
+                    ctx.assertTrue(!ShipTitles.holds(f.player, ship) && !ShipTitles.stored(ship), "The second deployment consumes its title");
+                    ctx.assertTrue(ShipStorage.store(f.player, f.computer, f.selection(), null).startsWith("Storing"), "The third storage cycle starts");
+                    phase[0] = 5;
+                }
+                case 6 ->
+                {
+                    ctx.assertTrue(!ShipTitles.holds(f.player, ship) && !ShipTitles.stored(ship), "The third deployment leaves no extra title");
                     f.close();
                     ctx.succeed();
                 }

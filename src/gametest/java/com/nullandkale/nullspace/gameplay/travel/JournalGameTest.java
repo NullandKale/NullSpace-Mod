@@ -346,6 +346,7 @@ public final class JournalGameTest
             return null;
         });
         ctx.assertTrue(level.getBlockState(origin).is(Blocks.STONE) && level.getBlockState(origin.offset(1, 0, 0)).is(Blocks.STONE), "A committed build keeps its blocks");
+        BuildJournal.flushPending(server);
         ctx.assertTrue(store.snapshot().getStringOr("buildJournalProbe", "").equals("committed"), "and its records");
         ctx.assertTrue(!unfinished(store, "", "test-commit"), "It leaves no unfinished journal");
         var committedFile = Journals.list(store.directory).stream().filter(p ->
@@ -589,40 +590,47 @@ public final class JournalGameTest
         if (toSpace)
             rescueLevel.setBlock(occupiedBlock, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
         var completed = new boolean[1];
+        var interruptedOnce = new boolean[1];
         ctx.onEachTick(() ->
         {
             if (completed[0])
                 return;
             try
             {
-                var previousHook = TravelService.failureInjector;
-                try
+                if (!interruptedOnce[0])
                 {
-                    TravelService.failureInjector = stage ->
+                    var previousHook = TravelService.failureInjector;
+                    try
                     {
-                        if (stage.equals("PLACED"))
-                            throw new IllegalStateException("rescue commit interrupted");
-                    };
-                    JournalRestore.restore(server, UnresolvedJournals.get(server, entry.id()), destination);
-                    ctx.fail("The rescue commit must be interrupted");
+                        TravelService.failureInjector = stage ->
+                        {
+                            if (stage.equals("PLACED"))
+                                throw new IllegalStateException("rescue commit interrupted");
+                        };
+                        JournalRestore.restore(server, UnresolvedJournals.get(server, entry.id()), destination);
+                        ctx.fail("The rescue commit must be interrupted");
+                    }
+                    catch (IllegalStateException interrupted)
+                    {
+                        ctx.assertTrue(interrupted.getMessage().contains("rescue commit interrupted"), "The intended commit seam was reached");
+                    }
+                    finally
+                    {
+                        TravelService.failureInjector = previousHook;
+                    }
+                    ctx.assertTrue(level.getBlockState(controller).is(ModBlocks.COMPUTER) && level.getEntity(uuid) != null, "Rollback restores the original hull and passenger");
+                    ctx.assertTrue(level.getBlockState(blocked).isAir(), "Rollback leaves the rescue destination empty");
+                    interruptedOnce[0] = true;
                 }
-                catch (IllegalStateException interrupted)
-                {
-                    ctx.assertTrue(interrupted.getMessage().contains("rescue commit interrupted"), "The intended commit seam was reached");
-                }
-                finally
-                {
-                    TravelService.failureInjector = previousHook;
-                }
-                ctx.assertTrue(level.getBlockState(controller).is(ModBlocks.COMPUTER) && level.getEntity(uuid) != null, "Rollback restores the original hull and passenger");
-                ctx.assertTrue(level.getBlockState(blocked).isAir(), "Rollback leaves the rescue destination empty");
                 var source = server.createCommandSourceStack();
                 server.getCommands().performPrefixedCommand(source, "nullspace recovery show " + entry.id());
                 server.getCommands().performPrefixedCommand(source, "nullspace recovery export " + entry.id());
                 server.getCommands().performPrefixedCommand(source, "nullspace recovery restore " + entry.id() + " " + destination);
-                completed[0] = true;
                 var restored = store.repository().find(id);
                 var rescuedBase = WorldStore.pos(restored, "base");
+                if (toSpace ? !restored.getStringOr("dimension", "").equals(rescueLevel.dimension().identifier().toString()) : !rescuedBase.equals(targetBase))
+                    return; // The command reports ordinary saved-entity loading; retry on another tick.
+                completed[0] = true;
                 ctx.assertTrue(restored.getStringOr("dimension", "").equals(rescueLevel.dimension().identifier().toString()) && (toSpace ? !rescuedBase.equals(occupiedSlot) : rescuedBase.equals(targetBase)), "The operator command chooses the requested pad or a clear space slot");
                 ctx.assertTrue(level.getBlockState(controller).isAir() && rescueLevel.getEntity(uuid) != null && rescueLevel.getEntity(uuid).getX() >= rescuedBase.getX(), "The old hull is cleared and one authoritative passenger is at the destination");
                 if (toSpace)

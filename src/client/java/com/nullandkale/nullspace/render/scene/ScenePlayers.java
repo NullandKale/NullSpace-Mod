@@ -142,53 +142,20 @@ final class ScenePlayers
             }
         }
         playersSubmitted = submitted;
+        var seenEntities = new HashSet<String>();
+        for (var tag : scene.getListOrEmpty("subjects"))
+        {
+            var subject = (CompoundTag) tag;
+            if (background && subject.getStringOr("id", "").equals(scene.getStringOr("observer", "")))
+                continue;
+            submitEntities(mc, subject, subject.getListOrEmpty("entities"), eye, camera, nodes, seenEntities);
+        }
         if (!background)
         {
             var observer = scene.getListOrEmpty("subjects").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(scene.getStringOr("observer", ""))).findFirst().orElse(new CompoundTag());
             var parent = ScenePose.read(observer);
             var origin = BlockPos.of(observer.getLongOr("base", 0));
-            var seenEntities = new HashSet<String>();
-            for (var t : scene.getListOrEmpty("entities"))
-            {
-                var data = (CompoundTag) t;
-                String id = data.getStringOr("id", "");
-                if (!seenEntities.add(id))
-                    continue;
-                var typeId = Identifier.tryParse(data.getStringOr("type", ""));
-                if (typeId == null)
-                    continue;
-                var type = BuiltInRegistries.ENTITY_TYPE.getValue(typeId);
-                if (type == null)
-                    continue;
-                var local = new Vec3(data.getDoubleOr("x", 0), data.getDoubleOr("y", 0), data.getDoubleOr("z", 0));
-                var physical = local.add(Vec3.atLowerCornerOf(origin));
-                var entity = ENTITIES.get(id);
-                if (entity == null || entity.getType() != type)
-                {
-                    entity = type.create(mc.level, net.minecraft.world.entity.EntitySpawnReason.LOAD);
-                    if (entity == null)
-                        continue;
-                    entity.setId(nextVisualId--);
-                    if (ENTITIES.size() >= 128)
-                        ENTITIES.clear();
-                    ENTITIES.put(id, entity);
-                }
-                entity.setPos(physical);
-                entity.setYRot(data.getFloatOr("yaw", 0));
-                entity.setXRot(data.getFloatOr("pitch", 0));
-                var state = mc.getEntityRenderDispatcher().extractEntity(entity, 0);
-                var offset = parent.toUniverse(local).subtract(eye);
-                state.distanceToCameraSq = offset.lengthSqr();
-                state.nameTag = null;
-                state.shadowPieces.clear();
-                state.leashStates = null;
-                var stack = new PoseStack();
-                stack.translate(offset.x, offset.y, offset.z);
-                stack.mulPose(new Matrix4f().rotation(new Quaternionf(parent.orientation())));
-                mc.getEntityRenderDispatcher().submit(state, camera, 0, 0, 0, stack, nodes);
-                submitted++;
-                entitiesSubmitted++;
-            }
+            submitEntities(mc, observer, scene.getListOrEmpty("entities"), eye, camera, nodes, seenEntities);
             var visibleBlocks = new HashSet<String>();
             for (var t : scene.getListOrEmpty("subjects"))
             {
@@ -305,4 +272,63 @@ final class ScenePlayers
     private ScenePlayers()
     {
     }
+
+    private static void submitEntities(Minecraft mc, CompoundTag subject, ListTag entities, Vec3 eye, CameraRenderState camera, SubmitNodeStorage nodes, Set<String> seenEntities)
+    {
+        var parent = ScenePose.read(subject);
+        var origin = BlockPos.of(subject.getLongOr("base", 0));
+        for (var t : entities)
+        {
+            var data = (CompoundTag) t;
+            String id = data.getStringOr("id", "");
+            if (!seenEntities.add(id))
+                continue;
+            var typeId = Identifier.tryParse(data.getStringOr("type", ""));
+            if (typeId == null)
+                continue;
+            var type = BuiltInRegistries.ENTITY_TYPE.getValue(typeId);
+            if (type == null)
+                continue;
+            var local = new Vec3(data.getDoubleOr("x", 0), data.getDoubleOr("y", 0), data.getDoubleOr("z", 0));
+            var physical = local.add(Vec3.atLowerCornerOf(origin));
+            var entity = ENTITIES.get(id);
+            if (entity == null || entity.getType() != type)
+            {
+                entity = type.create(mc.level, net.minecraft.world.entity.EntitySpawnReason.LOAD);
+                if (entity == null)
+                    continue;
+                entity.setId(nextVisualId--);
+                if (ENTITIES.size() >= 128)
+                    ENTITIES.clear();
+                ENTITIES.put(id, entity);
+            }
+            entity.setPos(physical);
+            entity.setYRot(data.getFloatOr("yaw", 0));
+            entity.setXRot(data.getFloatOr("pitch", 0));
+            if (entity instanceof net.minecraft.world.entity.LivingEntity living)
+            {
+                living.setYBodyRot(entity.getYRot());
+                living.setYHeadRot(entity.getYRot());
+                for (var slot : List.of(net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.OFFHAND))
+                {
+                    var item = Identifier.tryParse(data.getStringOr(slot.getName(), "minecraft:air"));
+                    if (item != null)
+                        living.setItemSlot(slot, new ItemStack(BuiltInRegistries.ITEM.getValue(item)));
+                }
+            }
+            var state = mc.getEntityRenderDispatcher().extractEntity(entity, 0);
+            var offset = parent.toUniverse(local).subtract(eye);
+            state.distanceToCameraSq = offset.lengthSqr();
+            state.nameTag = null;
+            state.shadowPieces.clear();
+            state.leashStates = null;
+            var stack = new PoseStack();
+            stack.translate(offset.x, offset.y, offset.z);
+            stack.mulPose(new Matrix4f().rotation(new Quaternionf(parent.orientation())));
+            mc.getEntityRenderDispatcher().submit(state, camera, 0, 0, 0, stack, nodes);
+            submitted++;
+            entitiesSubmitted++;
+        }
+    }
+
 }

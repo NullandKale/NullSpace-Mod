@@ -9,7 +9,7 @@ if ((Get-Item -LiteralPath $build).Attributes -band [IO.FileAttributes]::Reparse
 # well as session locks before reclaiming completed, recognisable test runs.
 $java = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'")
 $crashStages = @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')
-$yardStages = @('INTENT_SAVED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','WORLD_SAVED','ORDER_CLEARED')
+$yardStages = @('INTENT_SAVED','PREPARED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','SHIP_REGISTERED','WORLD_SAVED','ORDER_CLEARED','QUEUED','COMMITTED','CORRUPT_COMMITTED')
 foreach ($name in @('local-crash','shipyard-crash','local-multiplayer','ui-core-client','star-systems-client','machine-full-cubes-client')) {
     $root = Join-Path $build $name
     if (-not (Test-Path -LiteralPath $root)) { continue }

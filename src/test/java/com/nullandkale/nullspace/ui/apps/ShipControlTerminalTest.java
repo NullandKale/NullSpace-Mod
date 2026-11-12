@@ -16,6 +16,51 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ShipControlTerminalTest
 {
+    @Test
+    void scannerCanSelectAgainAfterARefusalOrMissingSelectionReply()
+    {
+        var original = state(true, "pad");
+        var panel = new ShipControlTerminal(original);
+        panel.highlighted = "port";
+        assertTrue(click(panel, "Set destination"));
+        assertEquals("port", panel.pollAction().target());
+        panel.update(new ControllerPackets.View(original.session(), BlockPos.ZERO, true, false, "Ship", "Ready", "pad", "Old destination", "", "Out of range", original.entries(), original.buttons(), 1));
+        panel.highlighted = "region";
+        assertTrue(click(panel, "Set destination"));
+        assertEquals("region", panel.pollAction().target());
+        for (int i = 0; i < 101; i++)
+            panel.tick();
+        panel.highlighted = "pad";
+        assertTrue(click(panel, "Set destination"));
+        assertEquals("pad", panel.pollAction().target(), "A missing selection reply must not require visiting the controller");
+    }
+
+    @Test
+    void explicitTripStatesOverrideOldMessagesAndKeepManualStepsAvailable()
+    {
+        var original = state(false, "region");
+        for (var phase : com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.values())
+        {
+            var buttons = new ArrayList<>(original.buttons());
+            if (phase == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.PAUSED)
+                buttons.add(new ControllerPackets.Button(ShipControl.Action.RESUME, ""));
+            var panel = new ShipControlTerminal(new ControllerPackets.View(SESSION, BlockPos.ZERO, false, true, "Ship", "Ready", "region", "Destination", "", "FTL old message", original.entries(), buttons, 0, "Here", "", "", List.of(), 25, new com.nullandkale.nullspace.gameplay.navigation.TripPresentation(phase, "Current " + phase, "Current instructions")));
+            assertTrue(panel.display().row(8).contains("Current " + phase));
+            if (phase.automatic())
+            {
+                assertTrue(panel.display().row(10).contains("no action needed"));
+                assertFalse(panel.display().row(10).contains("Engage"));
+            }
+            if (phase == com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.PAUSED)
+            {
+                assertTrue(click(panel, "Continue journey"));
+                assertEquals(ShipControl.Action.RESUME, panel.pollAction().action());
+            }
+            assertTrue(click(panel, "Manual steps"));
+            assertTrue(panel.display().row(8).contains("Launch"));
+        }
+    }
+
     /** Clicks the first control showing this label, wherever the layout puts it. */
     private static boolean click(ShipControlTerminal t, String label)
     {

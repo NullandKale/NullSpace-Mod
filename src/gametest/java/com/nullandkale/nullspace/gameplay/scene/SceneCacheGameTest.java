@@ -19,6 +19,27 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 
 public final class SceneCacheGameTest
 {
+    @GameTest
+    public void vesselActorsIncludeVisibleEnemiesWithTheirEquipmentAndLocalPositions(GameTestHelper ctx)
+    {
+        var level = ctx.getLevel();
+        var base = ctx.absolutePos(new BlockPos(4, 3, 4));
+        var skeleton = net.minecraft.world.entity.EntityTypes.SKELETON.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        skeleton.setNoAi(true);
+        skeleton.setPos(base.getX() + .5, base.getY(), base.getZ() + .5);
+        skeleton.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(com.nullandkale.nullspace.content.ModBlocks.HELMET));
+        level.addFreshEntity(skeleton);
+        var bounds = new HullScan.Bounds(base.offset(-1, -1, -1), base.offset(2, 3, 2));
+        var actors = SceneFrames.entities(level, base, bounds);
+        var found = actors.stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(skeleton.getUUID().toString())).findFirst().orElseThrow();
+        ctx.assertTrue(found.getStringOr("type", "").equals("minecraft:skeleton") && found.getDoubleOr("x", -1) == .5, "The actor belongs to this vessel's frame");
+        ctx.assertTrue(found.getStringOr("head", "").equals(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.nullandkale.nullspace.content.ModBlocks.HELMET).toString()), "The enemy keeps its visible suit equipment");
+        skeleton.setInvisible(true);
+        ctx.assertTrue(SceneFrames.entities(level, base, bounds).stream().noneMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(skeleton.getUUID().toString())), "Invisible actors stay hidden");
+        skeleton.discard();
+        ctx.succeed();
+    }
+
     @GameTest(maxTicks = 140)
     public void unchangedGeometryAndExternalLightPropagationStayCorrect(GameTestHelper ctx)
     {

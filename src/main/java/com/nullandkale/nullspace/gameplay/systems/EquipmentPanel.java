@@ -130,6 +130,7 @@ public final class EquipmentPanel
             {
                 lines.add("Stored energy: " + device.getIntOr("energy", 0) + " / " + FuelSystem.capacity(level, pos));
                 lines.add("Charge / discharge limit: " + (4 * (1 + FuelSystem.tier(level, pos))) + " energy/t");
+                lines.add("Electrical reserve; jumps still need generator fuel.");
             }
             case "air_supply" ->
             {

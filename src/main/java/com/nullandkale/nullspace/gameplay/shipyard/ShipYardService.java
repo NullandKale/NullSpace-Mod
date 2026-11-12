@@ -32,12 +32,12 @@ import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.*;
 
-/** Server-only delivery authority. A saved intent makes interrupted construction resumable. */
+/** Server-only delivery authority. New deliveries use BUILD rollback; old intents retain their migration path. */
 public final class ShipYardService
 {
     public enum DeliveryStage
     {
-        INTENT_SAVED, HULL_PLACED, SHIP_SAVED, WORLD_SAVED, ORDER_CLEARED
+        PREPARED, HULL_PLACED, SHIP_REGISTERED, ORDER_CLEARED, QUEUED, WORLD_SAVED, COMMITTED
     }
 
     /** Durability checkpoints for the opt-in, fresh-process crash harness. */
@@ -150,7 +150,7 @@ public final class ShipYardService
         {
             var delivered = deliver(player, beacon, preset);
             CrewRelease.authorize(delivered, player);
-            WorldStore.get(player.level().getServer()).save();
+            WorldStore.get(player.level().getServer()).requestSave();
             notice = "DELIVERED: " + ShipBlueprints.get(preset).name() + ". Walk in, close the door, inspect and launch at the ship controller.";
         }
         open(player, beacon, preset, notice);
@@ -189,22 +189,22 @@ public final class ShipYardService
         order.putInt("padWidth", selected.bounds().width());
         order.putInt("padDepth", selected.bounds().depth());
         checkSpace(level, selected, preset, origin, false, player);
-        // Preview is read-only. Retire empty allocations only together with a durable delivery intent,
-        // so the new hull receives fresh identity/resources and interrupted delivery remains resumable.
+        // Preview is read-only. Retire empty allocations only inside the owning BUILD.
         var retired = emptyAssignments(level, origin, preset);
         var footprint = ShipBlueprints.blocks(preset).keySet().stream().map(origin::offset).toList();
         var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "shipyard-delivery", retired, footprint);
+        build.onWorldSaved(() -> deliveryObserver.accept(DeliveryStage.WORLD_SAVED));
+        build.onCommitted(() -> deliveryObserver.accept(DeliveryStage.COMMITTED));
         order.putString("journal", build.fileName());
         var delivered = build.step(() ->
         {
             if (!retired.isEmpty())
                 store.ships().removeIf(tag -> retired.contains(((CompoundTag) tag).getStringOr("id", "")));
-            store.list(ORDERS).add(order);
-            store.save();
-            deliveryObserver.accept(DeliveryStage.INTENT_SAVED);
+            deliveryObserver.accept(DeliveryStage.PREPARED);
             return complete(level.getServer(), order);
         });
         build.commit();
+        deliveryObserver.accept(DeliveryStage.QUEUED);
         return delivered;
     }
 
@@ -369,20 +369,27 @@ public final class ShipYardService
         if (initializeSystems)
             ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
         var store = WorldStore.get(server);
-        store.save();
-        deliveryObserver.accept(DeliveryStage.SHIP_SAVED);
-        server.saveEverything(true, true, true);
-        deliveryObserver.accept(DeliveryStage.WORLD_SAVED);
-        store.list(ORDERS).remove(order);
-        try
-        {
+        boolean legacy = !order.contains("journal");
+        if (legacy)
             store.save();
-        }
-        catch (RuntimeException failure)
-        {
-            store.list(ORDERS).add(order);
+        else
             store.requestSave();
-            throw failure;
+        deliveryObserver.accept(DeliveryStage.SHIP_REGISTERED);
+        if (legacy)
+        {
+            server.saveEverything(true, true, true);
+            deliveryObserver.accept(DeliveryStage.WORLD_SAVED);
+            store.list(ORDERS).remove(order);
+            try
+            {
+                store.save();
+            }
+            catch (RuntimeException failure)
+            {
+                store.list(ORDERS).add(order);
+                store.requestSave();
+                throw failure;
+            }
         }
         deliveryObserver.accept(DeliveryStage.ORDER_CLEARED);
         return ship;

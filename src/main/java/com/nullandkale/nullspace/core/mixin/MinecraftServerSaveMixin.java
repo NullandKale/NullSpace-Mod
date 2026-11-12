@@ -19,6 +19,6 @@ public abstract class MinecraftServerSaveMixin
     @Inject(method = "saveAllChunks", at = @At("RETURN"))
     private void nullspace$saveStoreWithWorld(boolean silent, boolean flush, boolean force, CallbackInfoReturnable<Boolean> result)
     {
-        WorldStore.worldSaved((MinecraftServer) (Object) this, force);
+        WorldStore.worldSaved((MinecraftServer) (Object) this, flush, force);
     }
 }

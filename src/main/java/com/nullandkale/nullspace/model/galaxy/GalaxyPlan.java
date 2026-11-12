@@ -29,10 +29,10 @@ public final class GalaxyPlan
 
     public static final String HOME = "sol";
 
-    /** What a body is. Landable types only become landable when a surface slot is assigned. */
+    /** What a body is. Every nongas body has a persistent surface. */
     public enum BodyType
     {
-        DESERT("Desert world", true, 0xffc89a5a), ICE("Ice world", true, 0xffbfd9e8), LAVA("Lava world", true, 0xffa8442a), OCEAN("Ocean world", true, 0xff3f6fb0), JUNGLE("Jungle world", true, 0xff4f8a3c), BARREN("Barren world", true, 0xff8d8a85), GAS_GIANT("Gas giant", false, 0xffd2a679), TOXIC("Toxic world", false, 0xffa5b44a);
+        DESERT("Desert world", true, 0xffc89a5a), ICE("Ice world", true, 0xffbfd9e8), LAVA("Lava world", true, 0xffa8442a), OCEAN("Ocean world", true, 0xff3f6fb0), JUNGLE("Jungle world", true, 0xff4f8a3c), BARREN("Barren world", true, 0xff8d8a85), GAS_GIANT("Gas giant", false, 0xffd2a679), TOXIC("Toxic world", true, 0xffa5b44a);
 
         public final String label;
         public final boolean surface;
@@ -61,8 +61,8 @@ public final class GalaxyPlan
     }
 
     /**
-     * Fixed pool of landable surface dimensions per type (Minecraft creates dimensions only when a
-     * world is made). Sol's Terra, Luna and Ares use their own dimensions and are not drawn from it.
+     * Legacy surface templates retained for existing terrain and builds. New planets have their own
+     * dimensions; these counts no longer limit landability.
      */
     public static final Map<BodyType, Integer> SURFACE_POOL = Collections.unmodifiableMap(new EnumMap<>(Map.of(BodyType.DESERT, 4, BodyType.ICE, 4, BodyType.LAVA, 3, BodyType.OCEAN, 3, BodyType.JUNGLE, 2, BodyType.BARREN, 6)));
 
@@ -74,7 +74,7 @@ public final class GalaxyPlan
 
     /**
      * A body is a zone. {@code parent} is null for planets and names the planet for moons. {@code
-     * surface} is the surface dimension (a pool slot, or Sol's fixed ones) or null if you can't land.
+     * surface} is its persistent dimension, including retained legacy assignments, or null for a gas giant.
      */
     public record Body(String id, String name, BodyType type, String parent, double orbitRadius, double angle, double radius, int color, long seed, String surface)
     {
@@ -332,7 +332,6 @@ public final class GalaxyPlan
         var random = new Random(worldSeed ^ 0x5a17c0de9e3779b9L);
         var names = new ArrayList<>(PREFIXES);
         Collections.shuffle(names, random);
-        var pool = new EnumMap<BodyType, Integer>(BodyType.class);
         var points = layout(random);
         // Spread planet counts across 1-9: one system from each band, in random order.
         var bands = new ArrayList<int[]>(List.of(new int[]{1, 2}, new int[]{3, 4}, new int[]{5, 6}, new int[]{7, 9}));
@@ -352,7 +351,7 @@ public final class GalaxyPlan
                 var band = bands.get(i - 1);
                 planets = band[0] + rng.nextInt(band[1] - band[0] + 1);
             }
-            systems.add(system(id, name, points.get(i), planets, seed, rng, pool, i == 0));
+            systems.add(system(id, name, points.get(i), planets, seed, rng, i == 0));
         }
         var features = features(random, names.subList(points.size(), names.size()), systems);
         return new Galaxy(worldSeed, systems, features);
@@ -361,46 +360,30 @@ public final class GalaxyPlan
     /** Repair older saved charts without rerolling their systems or replacing an assigned surface. */
     public static Galaxy repairMissingLandings(Galaxy galaxy)
     {
-        var used = new HashSet<String>();
-        galaxy.systems().forEach(s -> s.bodies().stream().map(Body::surface).filter(Objects::nonNull).forEach(used::add));
         var systems = new ArrayList<StarSystem>();
         boolean changed = false;
         for (var system : galaxy.systems())
         {
-            if (system.id().equals(HOME) || system.bodies().stream().anyMatch(Body::landable))
+            var bodies = new ArrayList<Body>();
+            for (var body : system.bodies())
             {
-                systems.add(system);
-                continue;
-            }
-            var bodies = new ArrayList<>(system.bodies());
-            boolean assigned = false;
-            for (int pass = 0; pass < 2 && !assigned; pass++)
-                for (int i = 0; i < bodies.size() && !assigned; i++)
+                if (body.surface() == null && body.type().surface)
                 {
-                    var body = bodies.get(i);
-                    if (pass == 1 && body.moon())
-                        continue;
-                    var types = pass == 0 ? List.of(body.type()) : List.of(BodyType.BARREN, BodyType.DESERT, BodyType.ICE, BodyType.LAVA, BodyType.OCEAN, BodyType.JUNGLE);
-                    for (var type : types)
-                    {
-                        if (!type.surface)
-                            continue;
-                        for (int slot = 0; slot < SURFACE_POOL.get(type); slot++)
-                        {
-                            String surface = "nullspace:" + surfaceSlot(type, slot);
-                            if (!used.add(surface))
-                                continue;
-                            bodies.set(i, new Body(body.id(), body.name(), type, body.parent(), body.orbitRadius(), body.angle(), type == body.type() ? body.radius() : Math.min(body.radius(), 1900), type == body.type() ? body.color() : type.color, body.seed(), surface));
-                            assigned = changed = true;
-                            break;
-                        }
-                        if (assigned)
-                            break;
-                    }
+                    body = new Body(body.id(), body.name(), body.type(), body.parent(), body.orbitRadius(), body.angle(), body.radius(), body.color(), body.seed(), planetDimension(body.id()));
+                    changed = true;
                 }
+                bodies.add(body);
+            }
             systems.add(new StarSystem(system.id(), system.name(), system.x(), system.y(), system.spectralClass(), system.color(), system.starRadius(), system.seed(), bodies));
         }
         return changed ? new Galaxy(galaxy.seed(), systems, galaxy.features()) : galaxy;
+    }
+
+    public static String planetDimension(String body)
+    {
+        if (!body.matches("[a-z0-9_]+"))
+            throw new IllegalArgumentException("Invalid planet identity");
+        return "nullspace:planet/" + body;
     }
 
     /** Random system positions with Sol first, no two closer than SYSTEM_SPACING. */
@@ -417,7 +400,7 @@ public final class GalaxyPlan
         return points;
     }
 
-    private static StarSystem system(String id, String name, double[] at, int planetCount, long seed, Random rng, Map<BodyType, Integer> pool, boolean home)
+    private static StarSystem system(String id, String name, double[] at, int planetCount, long seed, Random rng, boolean home)
     {
         int type = rng.nextInt(4);
         String spectral = List.of("M", "K", "G", "A").get(type);
@@ -452,7 +435,7 @@ public final class GalaxyPlan
                 // Inner orbits run hot, outer ones cold; gas giants sit further out.
                 double depth = planetCount == 1 ? .5 : p / (double) (planetCount - 1);
                 planetType = planetType(rng, depth);
-                surface = assign(planetType, rng, pool, .4);
+                surface = planetType.surface ? planetDimension(planetId) : null;
             }
             double radius = planetType == BodyType.GAS_GIANT ? 3000 + rng.nextInt(1500) : 1000 + rng.nextInt(900);
             bodies.add(new Body(planetId, planetName, planetType, null, orbit, angle, radius, tint(planetType.color, rng), rng.nextLong(), surface));
@@ -462,56 +445,12 @@ public final class GalaxyPlan
                 String moonId = home && p == 0 ? "sol_luna" : planetId + "_" + (char) ('a' + m);
                 String moonName = home && p == 0 ? "Luna" : planetName + "-" + (char) ('a' + m);
                 var moonType = home && p == 0 ? BodyType.BARREN : rng.nextInt(3) == 0 ? BodyType.ICE : BodyType.BARREN;
-                String moonSurface = home && p == 0 ? "nullspace:sol_luna" : assign(moonType, rng, pool, .4);
+                String moonSurface = home && p == 0 ? "nullspace:sol_luna" : planetDimension(moonId);
                 bodies.add(new Body(moonId, moonName, moonType, planetId, 12000 + m * 9000 + rng.nextInt(4000), rng.nextDouble() * Math.PI * 2, 300 + rng.nextInt(250), tint(moonType.color, rng), rng.nextLong(), moonSurface));
             }
             orbit += 25000 + rng.nextInt(20000) + (planetType == BodyType.GAS_GIANT ? 15000 : 0);
         }
-        if (!home && bodies.stream().noneMatch(Body::landable))
-            guaranteeLanding(bodies, rng, pool);
         return new StarSystem(id, name, at[0], at[1], spectral, color, starRadius, seed, bodies);
-    }
-
-    /**
-     * Every non-home system has somewhere to land: make one body landable, preferring one whose type
-     * has a free surface, otherwise turning the last planet into a type that still does.
-     */
-    private static void guaranteeLanding(List<Body> bodies, Random rng, Map<BodyType, Integer> pool)
-    {
-        for (int i = 0; i < bodies.size(); i++)
-        {
-            var b = bodies.get(i);
-            if (b.type().surface && free(b.type(), pool))
-            {
-                bodies.set(i, withSurface(b, b.type(), pool));
-                return;
-            }
-        }
-        for (int i = bodies.size() - 1; i >= 0; i--)
-        {
-            var b = bodies.get(i);
-            if (b.moon())
-                continue;
-            for (var type : List.of(BodyType.BARREN, BodyType.DESERT, BodyType.ICE, BodyType.LAVA, BodyType.OCEAN, BodyType.JUNGLE))
-                if (free(type, pool))
-                {
-                    bodies.set(i, withSurface(b, type, pool));
-                    return;
-                }
-        }
-    }
-
-    private static boolean free(BodyType type, Map<BodyType, Integer> pool)
-    {
-        return pool.getOrDefault(type, 0) < SURFACE_POOL.get(type);
-    }
-
-    private static Body withSurface(Body b, BodyType type, Map<BodyType, Integer> pool)
-    {
-        int used = pool.getOrDefault(type, 0);
-        pool.put(type, used + 1);
-        double radius = type == b.type() ? b.radius() : Math.min(b.radius(), 1900);
-        return new Body(b.id(), b.name(), type, b.parent(), b.orbitRadius(), b.angle(), radius, type == b.type() ? b.color() : type.color, b.seed(), "nullspace:" + surfaceSlot(type, used));
     }
 
     private static String homePlanetId(int p)
@@ -543,18 +482,6 @@ public final class GalaxyPlan
         if (depth < .67)
             return roll < 25 ? BodyType.OCEAN : roll < 45 ? BodyType.JUNGLE : roll < 65 ? BodyType.DESERT : roll < 85 ? BodyType.GAS_GIANT : BodyType.TOXIC;
         return roll < 55 ? BodyType.GAS_GIANT : roll < 85 ? BodyType.ICE : BodyType.BARREN;
-    }
-
-    /** Assigns a free pool slot with probability {@code chance}; null keeps the body orbit-only. */
-    private static String assign(BodyType type, Random rng, Map<BodyType, Integer> pool, double chance)
-    {
-        if (!type.surface || rng.nextDouble() >= chance)
-            return null;
-        int used = pool.getOrDefault(type, 0);
-        if (used >= SURFACE_POOL.get(type))
-            return null;
-        pool.put(type, used + 1);
-        return "nullspace:" + surfaceSlot(type, used);
     }
 
     private static int tint(int color, Random rng)

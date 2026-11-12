@@ -47,16 +47,16 @@ def table(*pools):
     return {"type": "minecraft:chest", "pools": list(pools)}
 
 
-FUEL = [item("coal", 6, 4, 12), item("charcoal", 2, 2, 8)]
+FUEL = [item("coal", 6, 1, 3), item("charcoal", 2, 1, 2)]
 
 ROOMS = {
-    "engineering": table(pool(FUEL, 2, 3), pool([item("redstone", 3, 2, 8),
+    "engineering": table(pool(FUEL, 1, 1), pool([item("redstone", 3, 2, 8),
                                                  item("nullspace:circuit_board", 1, 1, 2),
                                                  item("nullspace:machine_casing", 1)], 0, 2)),
     "galley": table(pool([item("bread", 4, 2, 6), item("carrot", 3, 2, 5),
                           item("potato", 3, 2, 5), item("apple", 2, 1, 3),
                           item("cooked_beef", 1, 1, 3)], 2, 4)),
-    "cargo": table(pool(FUEL, 1, 2), pool([item("copper_ingot", 3, 2, 8),
+    "cargo": table(pool(FUEL, 1, 1), pool([item("copper_ingot", 3, 2, 8),
                                             item("iron_ingot", 2, 1, 4), item("glass", 2, 2, 6),
                                             item("string", 1, 2, 6), item("paper", 1, 2, 6)],
                                            2, 3)),

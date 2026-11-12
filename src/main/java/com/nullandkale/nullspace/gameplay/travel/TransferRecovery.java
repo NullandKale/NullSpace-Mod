@@ -155,6 +155,7 @@ public final class TransferRecovery
     public static void recover(MinecraftServer server)
     {
         long started = System.nanoTime();
+        boolean opensStore = WorldStore.existing(server) == null;
         var store = WorldStore.get(server);
         List<Path> files;
         try
@@ -167,7 +168,7 @@ public final class TransferRecovery
         }
         for (Path file : files)
             handle(server, store, file);
-        ServerContext.get(server).put(RECOVERY_NANOS, recoveryNanos(server) + System.nanoTime() - started);
+        ServerContext.get(server).put(RECOVERY_NANOS, recoveryNanos(server) + System.nanoTime() - started - (opensStore ? store.loadNanos() : 0));
     }
 
     /** At start, journals set aside earlier lock their areas again. */
@@ -354,7 +355,7 @@ public final class TransferRecovery
         }
         if (journal.contains("entityChanges"))
             restoreBuildEntities(server, journal);
-        store.save();
+        store.requestSave();
         for (ServerPlayer player : server.getPlayerList().getPlayers())
             resolveArrival(player);
         server.saveEverything(true, true, true);
@@ -489,7 +490,7 @@ public final class TransferRecovery
         template.load(source.registryAccess().lookupOrThrow(Registries.BLOCK), journal.getCompoundOrEmpty("template"));
         TransferReplay.placeInBox(source, template, min);
         restoreEntitiesAndPlayers(store, journal, source, target, min, max, delta);
-        store.save();
+        store.requestSave();
         for (ServerPlayer player : server.getPlayerList().getPlayers())
             resolveArrival(player);
         server.saveEverything(true, true, true);

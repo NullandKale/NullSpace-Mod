@@ -26,16 +26,32 @@ public final class SystemsConsole
     static final String UPGRADE_QUERY = "upgrade readiness";
 
     /**
-     * Closes every ship door now (Engage, playtest 3). Doors owned by docking or disabled are left
+     * Closes every ship door on explicit request. Doors owned by docking or disabled are left
      * alone; returns the doors that could not close, for example ones held open by redstone.
      */
     public static List<BlockPos> closeDoorsNow(ServerLevel level, CompoundTag ship)
+    {
+        return closeDoorsNow(level, ship, false);
+    }
+
+    public static List<BlockPos> closeExteriorDoorsNow(ServerLevel level, CompoundTag ship)
+    {
+        return closeDoorsNow(level, ship, true);
+    }
+
+    private static List<BlockPos> closeDoorsNow(ServerLevel level, CompoundTag ship, boolean exteriorOnly)
     {
         if (!ShipSystems.enabled(ship))
             return List.of();
         var r = ShipSystems.runtime(level, ship);
         if (r.dirty)
             ShipSystems.rebuild(level, ship, r, false);
+        var closed = new HashSet<BlockPos>();
+        if (exteriorOnly)
+            for (var p : r.blocks)
+                if (ShipDoors.isDoor(level.getBlockState(p)) && ShipDoors.framed(level, p) && level.getBlockState(p).getFluidState().isEmpty())
+                    closed.add(p);
+        var pressure = exteriorOnly ? com.nullandkale.nullspace.gameplay.ship.structure.HullScan.pressure(level, WorldStore.bounds(ship), r.blocks, closed) : null;
         var stuck = new ArrayList<BlockPos>();
         for (var p : List.copyOf(r.blocks))
         {
@@ -45,6 +61,9 @@ public final class SystemsConsole
             if (DockingPorts.ownsDoor(level, p) || !ShipSystems.active(r, p))
                 continue;
             if (!state.getValue(DoorBlock.OPEN))
+                continue;
+            var normal = state.getBlock() instanceof TrapDoorBlock ? Direction.UP : state.getValue(DoorBlock.FACING);
+            if (exteriorOnly && pressure.breathable(p.relative(normal)) && pressure.breathable(p.relative(normal.getOpposite())))
                 continue;
             if (!ShipDoors.powered(level, p))
                 ShipDoors.setOpen(level, p, false);

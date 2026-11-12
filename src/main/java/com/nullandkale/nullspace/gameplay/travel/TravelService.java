@@ -121,6 +121,7 @@ public final class TravelService
     {
         TravelPackets.initialize();
         TransferRecovery.initialize();
+        BuildJournal.initialize();
         JournalCommands.initialize();
         ServerLifecycleEvents.SERVER_STARTED.register(server ->
         {

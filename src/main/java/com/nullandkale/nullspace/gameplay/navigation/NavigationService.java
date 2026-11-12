@@ -444,7 +444,13 @@ public final class NavigationService
                     j.ticks = 0;
                     SceneService.refresh(server);
                     var target = SceneCatalog.forShip(server, s).getStringOr("id", "");
-                    broadcast(server, j, "Arriving at " + LocalSpaces.label(server, s), "scene:" + target, false);
+                    broadcast(server, j, switch (j.mode)
+                    {
+                        case START -> "Entering FTL: synchronizing the view";
+                        case RESUME -> "Resuming FTL: synchronizing the view";
+                        case INVESTIGATE -> "Reaching the signal: synchronizing the view";
+                        case ARRIVE -> "Arriving at " + LocalSpaces.label(server, s);
+                    }, "scene:" + target, false);
                 }
                 catch (RuntimeException error)
                 {

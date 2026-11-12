@@ -131,9 +131,8 @@ final class ShipTransfer
         movePassengers();
         TransferRecovery.checkpoint(file, journal, "PASSENGERS_MOVED");
         store.replace(after, ShipRepository.Mutation.TRANSFER);
-        store.save();
         server.saveEverything(true, true, true);
-        // The store was saved above, so the first save that includes this move is the one just written.
+        // The world-save hook wrote the matching store copy after the chunks.
         journal.putLong("saveNumber", store.saveNumberCovering());
         TransferRecovery.checkpoint(file, journal, "COMMITTED");
         TransferRecovery.finish(file, journal, "COMMITTED");
@@ -188,7 +187,7 @@ final class ShipTransfer
             for (int x = b.minX(); x <= b.maxX(); x++)
                 for (int z = b.minZ(); z <= b.maxZ(); z++)
                     for (int y = b.y() + 1; y <= target.getMaxY(); y++)
-                        if (!target.getBlockState(new BlockPos(x, y, z)).isAir() && !HullScan.cover(target.getBlockState(new BlockPos(x, y, z))))
+                        if (!arrivalClear(target.getBlockState(new BlockPos(x, y, z))))
                             return TravelService.blocked(target, new BlockPos(x, y, z), "The landing column is obstructed. Clear this block above the destination pad," + " then try landing again.");
         }
         else
@@ -226,7 +225,7 @@ final class ShipTransfer
             target.getChunk(pos);
             if (recall && !actor.mayInteract(target, pos))
                 return Result.rejected("You cannot build on part of this landing pad");
-            if (!target.getBlockState(pos).isAir() && !HullScan.cover(target.getBlockState(pos)))
+            if (!arrivalClear(target.getBlockState(pos)))
                 return TravelService.blocked(target, pos, "The destination area is occupied. Clear this block or choose another landing pad.");
         }
         for (int x = targetMin.getX() >> 4; x <= targetMax.getX() >> 4; x++)
@@ -234,7 +233,7 @@ final class ShipTransfer
                 target.getChunkSource().addTicketWithRadius(net.minecraft.server.level.TicketType.PORTAL, new ChunkPos(x, z), 2);
         if (!HullEntities.loaded(target, new HullScan.Bounds(targetMin, targetMax)))
             return Result.waiting();
-        var blockers = HullEntities.inBounds(target, new HullScan.Bounds(targetMin, targetMax));
+        var blockers = HullEntities.inBounds(target, new HullScan.Bounds(targetMin, targetMax)).stream().filter(e -> landing == null || !(e instanceof net.minecraft.world.entity.item.ItemEntity)).toList();
         if (!blockers.isEmpty())
         {
             var blocker = blockers.getFirst();
@@ -242,6 +241,11 @@ final class ShipTransfer
             return Result.rejected("The destination is occupied. Move this occupant clear or choose another landing pad." + "\nOccupant: " + ShipMessages.entity(blocker) + "\nLocation: " + blocker.blockPosition().toShortString());
         }
         return null;
+    }
+
+    private boolean arrivalClear(net.minecraft.world.level.block.state.BlockState state)
+    {
+        return state.isAir() || HullScan.cover(state) || landing != null && (state.is(net.minecraft.world.level.block.Blocks.LAVA) || state.is(net.minecraft.world.level.block.Blocks.WATER));
     }
 
     /** Crew still match the loading screen, recall moves no one, and launch fuel is paid. */
@@ -306,6 +310,22 @@ final class ShipTransfer
         });
         journal.put("template", saved);
         journal.put("ticks", JournalTicks.capture(source, restored));
+        if (landing != null)
+        {
+            // Fluids/ground cover displaced by arrival must return if this MOVE rolls back.
+            var previous = new StructureTemplate();
+            previous.fillFromWorld(target, targetMin, new Vec3i(targetMax.getX() - targetMin.getX() + 1, targetMax.getY() - targetMin.getY() + 1, targetMax.getZ() - targetMin.getZ() + 1), false, List.of());
+            var region = new CompoundTag();
+            region.putString("source", target.dimension().identifier().toString());
+            region.putLong("min", targetMin.asLong());
+            region.putLong("max", targetMax.asLong());
+            var snapshot = previous.save(new CompoundTag());
+            region.put("template", snapshot);
+            region.put("ticks", JournalTicks.capture(target, TransferReplay.positions(snapshot, targetMin)));
+            var regions = new ListTag();
+            regions.add(region);
+            journal.put("regions", regions);
+        }
         ShipRespawns.captureSurface(source, id, sourceBase, scan.blocks());
         beforeStore = store.snapshot();
     }
@@ -409,7 +429,10 @@ final class ShipTransfer
         next.putString("id", id);
         next.putString("dimension", target.dimension().identifier().toString());
         if (!target.dimension().equals(SPACE))
+        {
             next.remove("journey");
+            next.remove("stored");
+        }
         next.putInt("width", landing == null ? 32 : landing.bounds().width());
         next.putInt("depth", landing == null ? 32 : landing.bounds().depth());
         next.putInt("height", landing == null ? 32 : PadRegistry.buildHeight(target, landing.bounds()));
@@ -533,8 +556,16 @@ final class ShipTransfer
         destinationTemplate.load(target.registryAccess().lookupOrThrow(Registries.BLOCK), destinationSnapshot);
         // Snow or grass on the pad gives way to the landing ship instead of ending up inside it.
         for (var at : BlockPos.betweenClosed(targetMin, targetMax))
-            if (HullScan.cover(target.getBlockState(at)))
+            if (!target.getBlockState(at).isAir() && arrivalClear(target.getBlockState(at)))
                 target.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+        if (landing != null)
+            for (var entity : HullEntities.inBounds(target, new HullScan.Bounds(targetMin, targetMax)))
+                if (entity instanceof net.minecraft.world.entity.item.ItemEntity item)
+                {
+                    // Keep dropped loot at the pad edge, outside the arriving hull and cabin.
+                    item.setPos(landing.bounds().minX() - 1.5, landing.bounds().y() + 2, landing.bounds().minZ() - 1.5);
+                    item.setDeltaMovement(Vec3.ZERO);
+                }
         TransferRecovery.place(target, destinationTemplate, targetMin);
         var area = net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(min, max);
         target.getBlockTicks().copyAreaFrom(source.getBlockTicks(), area, delta);

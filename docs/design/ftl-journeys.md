@@ -17,6 +17,28 @@ Space travel should take time that the player can use. A short loading screen wo
 5. Return aboard and press **Continue journey** in **Trip**. The ship undocks and resumes automatically. The original destination and the time already spent are kept, and the jump fee already paid is not charged again.
 6. Arrival happens automatically when the remaining time runs out. **Land** or **Dock** works for the final pad or port, as it always did.
 
+## Controller states and actions
+
+The Trip page uses current journey, docking and course records. The last button response remains feedback, but does not decide the displayed state. Trip and Manual steps stay in the same controller; encounters remain optional.
+
+| State | What the player sees and does |
+| --- | --- |
+| Ready | Choose a destination and Engage. |
+| Preparing | Launch, landing, docking or FTL preparation; wait without clicking again. |
+| Synchronizing | Entering, resuming or leaving FTL; the existing view handshake completes automatically. |
+| Cruising | Remaining time and automatic arrival; the crew can move around. |
+| Arrival ready | Return everyone to safe cabins, or wait for a current transfer. Arrival retries automatically. |
+| Signal available | The same countdown, plus Visit signal (optional). Ignoring it continues the trip. |
+| Signal resolving | Keep travelling, or wait until Visit signal becomes available. |
+| Approaching | Automatic alignment and docking capture. |
+| Securing connection | The collar is being saved; wait before boarding. |
+| Docked at a signal | Open the dock door to visit. Return aboard and Continue journey. |
+| Paused | Continue journey resumes the paid trip; show any blocker beside the action. |
+| Departing | Automatic undocking or safe stopping; wait for completion. |
+| Arrived | The selected course is complete. Select the next destination to travel onward. |
+
+Engage seals exterior doors. Interior doors may stay open so air can circulate; an exterior breach or unsafe crew position still blocks departure. Close all doors remains available. Each intersystem hop remains a player decision. Automatic routes, new motion effects and replacing the view handshake are deferred features.
+
 ## What a journey is, in the data
 
 Each ship saves a `journey` record: the destination, the region it left, the original destination selection, a private *corridor* region (the FTL space it travels through), the signal's site id, the encounter kind and seed, the total duration, ticks elapsed, the fuel paid and whether the signal was visited. The state is `CRUISE` while travelling and paused otherwise. Because it is part of the ship's saved record, a restart changes nothing.

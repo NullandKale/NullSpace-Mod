@@ -74,7 +74,7 @@ public final class StationDeployment
         for (var room : layout.rooms())
             pieces.putString(room.x() + "_" + room.z(), room.encode());
         result.put("roomPieces", pieces);
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         return result;
     }
 
@@ -91,7 +91,7 @@ public final class StationDeployment
             return old;
         var result = StationBuilds.queue(server, id, "Manufacturer Showcase", address, StationConstruction.constructionSite(server, own), "", ManufacturerStation.build(), false);
         result.putString("template", "manufacturer_showcase_v1");
-        WorldStore.get(server).save();
+        WorldStore.get(server).requestSave();
         return result;
     }
 

@@ -30,6 +30,7 @@ public final class WorldStore
 
     private static final ServerContext.Key<WorldStore> KEY = new ServerContext.Key<>();
     private final ShipRepository repository;
+    private final long loadNanos;
     private CompoundTag lastSaved;
     private boolean requested;
     private StoreSlots.Slot slot;
@@ -43,6 +44,7 @@ public final class WorldStore
 
     private WorldStore(MinecraftServer server)
     {
+        long started = System.nanoTime();
         directory = server.getWorldPath(LevelResource.ROOT).resolve("nullspace");
         StoreSlots.Loaded loaded;
         boolean staleOnDisk = false;
@@ -89,6 +91,13 @@ public final class WorldStore
         // A damaged copy is replaced at once, so the world is never left with a single good copy for long.
         if (!damaged.isEmpty())
             save();
+        loadNanos = System.nanoTime() - started;
+    }
+
+    /** Initial slot selection, decoding, journal replay and damaged-copy repair. */
+    public long loadNanos()
+    {
+        return loadNanos;
     }
 
     /** The file holding the newest saved copy of the store. */
@@ -167,17 +176,28 @@ public final class WorldStore
      */
     public static void worldSaved(MinecraftServer server, boolean force)
     {
+        worldSaved(server, false, force);
+    }
+
+    public static void worldSaved(MinecraftServer server, boolean flush, boolean force)
+    {
         var store = existing(server);
         if (store == null)
             return;
         if (!force && server.getAllLevels() != null && allSavingOff(server))
             return;
         if (force)
+        {
             store.save();
+            if (flush)
+                com.nullandkale.nullspace.gameplay.travel.BuildJournal.worldSaved(server, force);
+        }
         else
             try
             {
                 store.save();
+                if (flush)
+                    com.nullandkale.nullspace.gameplay.travel.BuildJournal.worldSaved(server, force);
             }
             catch (RuntimeException error)
             {
@@ -276,7 +296,9 @@ public final class WorldStore
 
     public static CompoundTag read(Path file) throws java.io.IOException
     {
-        return Files.exists(file) ? NbtIo.readCompressed(file, NbtAccounter.create(64L * 1024 * 1024)) : new CompoundTag();
+        // This quota accounts for decoded objects as well as encoded bytes. A legitimate
+        // 300-ship store exceeds 64 MiB in the reader even when its raw NBT is smaller.
+        return Files.exists(file) ? NbtIo.readCompressed(file, NbtAccounter.create(256L * 1024 * 1024)) : new CompoundTag();
     }
 
     public static void write(Path file, CompoundTag tag)

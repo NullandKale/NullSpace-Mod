@@ -27,6 +27,73 @@ public final class BuildJournal
 {
     private static final ServerContext.Key<Set<Path>> ACTIVE = new ServerContext.Key<>();
     private static final ServerContext.Key<Job> CURRENT = new ServerContext.Key<>();
+    private static final ServerContext.Key<Batch> BATCH = new ServerContext.Key<>();
+
+    private static final class Batch
+    {
+        final Map<Path, Job> jobs = new LinkedHashMap<>();
+        long dueTick;
+        long latestQueuedTick;
+        boolean completing;
+    }
+
+    public static void initialize()
+    {
+        ServerContext.tick(ServerContext.Phase.SAVE, server ->
+        {
+            var batch = ServerContext.get(server).existing(BATCH);
+            long now = server.getTickCount();
+            if (batch == null || batch.jobs.isEmpty() || now < batch.dueTick || now == batch.latestQueuedTick && now < batch.dueTick + 1)
+                return;
+            try
+            {
+                flushPending(server);
+            }
+            catch (RuntimeException error)
+            {
+                // Keep completed hulls, rollback journals and locks intact while a disk failure is retried.
+                batch.dueTick = now + 40;
+                com.nullandkale.nullspace.NullSpace.LOGGER.error("Construction save failed; completed builds stay locked and the shared save will retry", error);
+            }
+        });
+    }
+
+    public static boolean pending(MinecraftServer server, String ship)
+    {
+        var batch = ServerContext.get(server).existing(BATCH);
+        return batch != null && batch.jobs.values().stream().anyMatch(job -> job.journal.getListOrEmpty("ships").stream().anyMatch(id -> id.asString().orElse("").equals(ship)));
+    }
+
+    /** Explicit barriers (including urgent rescue) flush every ready build in the same save. */
+    public static void flushPending(MinecraftServer server)
+    {
+        var batch = ServerContext.get(server).existing(BATCH);
+        if (batch != null && !batch.jobs.isEmpty())
+            server.saveEverything(true, true, true);
+    }
+
+    /** Called only after chunks have been flushed and their matching store copy was written. */
+    public static void worldSaved(MinecraftServer server, boolean force)
+    {
+        var batch = ServerContext.get(server).existing(BATCH);
+        if (batch == null || batch.completing)
+            return;
+        batch.completing = true;
+        try
+        {
+            for (var job : List.copyOf(batch.jobs.values()))
+            {
+                if (!force && !job.savingEnabled())
+                    continue;
+                job.finishSaved();
+                batch.jobs.remove(job.file);
+            }
+        }
+        finally
+        {
+            batch.completing = false;
+        }
+    }
 
     static boolean running(MinecraftServer server, Path file)
     {
@@ -154,14 +221,15 @@ public final class BuildJournal
     public static final class Job
     {
         private final MinecraftServer server;
-        private final WorldStore store;
         private final Path file;
         private final CompoundTag journal;
+        private final List<Runnable> savedCallbacks = new ArrayList<>();
+        private final List<Runnable> committedCallbacks = new ArrayList<>();
+        private boolean finished;
 
         private Job(ServerLevel level, Path file, CompoundTag journal)
         {
             server = level.getServer();
-            store = WorldStore.get(server);
             this.file = file;
             this.journal = journal;
         }
@@ -169,6 +237,16 @@ public final class BuildJournal
         public String fileName()
         {
             return file.getFileName().toString();
+        }
+
+        private boolean savingEnabled()
+        {
+            if (WorldStore.level(server, journal.getStringOr("source", "")).noSave)
+                return false;
+            for (var region : journal.getListOrEmpty("regions"))
+                if (WorldStore.level(server, ((CompoundTag) region).getStringOr("source", "")).noSave)
+                    return false;
+            return true;
         }
 
         public void annotate(String key, Tag value)
@@ -326,6 +404,10 @@ public final class BuildJournal
 
         public <T> T step(Supplier<T> build)
         {
+            var store = WorldStore.get(server);
+            var batch = ServerContext.get(server).existing(BATCH);
+            if (finished || batch != null && batch.jobs.containsKey(file))
+                throw new IllegalStateException("This build is already awaiting or has completed its world save");
             var context = ServerContext.get(server);
             var parent = context.existing(CURRENT);
             context.put(CURRENT, this);
@@ -360,35 +442,87 @@ public final class BuildJournal
 
         public void commit()
         {
-            UnresolvedJournals.remove(server, journal.getStringOr("id", ""));
+            var batch = ServerContext.get(server).service(BATCH, Batch::new);
+            if (finished || batch.jobs.containsKey(file))
+                return;
             try
             {
                 TransferRecovery.checkpoint(file, journal, "PLACED");
-                server.saveEverything(true, true, true);
-                journal.putLong("saveNumber", store.saveNumberCovering());
-                TransferRecovery.checkpoint(file, journal, "COMMITTED");
-                if (journal.contains("rescuedOriginal"))
-                    try
-                    {
-                        JournalRestore.finishOriginal(server, journal, true);
-                    }
-                    catch (java.io.IOException error)
-                    {
-                        throw new UncheckedIOException(error);
-                    }
-                TransferRecovery.finish(file, journal, "COMMITTED");
-                ServerContext.get(server).service(ACTIVE, HashSet::new).remove(file);
+                if (batch.jobs.isEmpty())
+                    batch.dueTick = server.getTickCount() + 20L;
+                batch.latestQueuedTick = server.getTickCount();
+                batch.jobs.put(file, this);
+                UnresolvedJournals.put(server, UnresolvedJournals.describe(journal, UnresolvedJournals.State.BUILDING, "construction awaiting shared world save", server.getTickCount(), file));
+                TravelService.failureInjector.accept("BUILD_QUEUED");
             }
             catch (RuntimeException | Error failure)
             {
-                ServerContext.get(server).service(ACTIVE, HashSet::new).remove(file);
-                TransferRecovery.recover(server);
+                abort();
                 throw failure;
             }
         }
 
+        /** A first arrival or operator rescue must be durable before handing control to its passenger. */
+        public void commitNow()
+        {
+            commit();
+            try
+            {
+                flushPending(server);
+            }
+            catch (RuntimeException | Error failure)
+            {
+                abort();
+                throw failure;
+            }
+        }
+
+        public void onWorldSaved(Runnable callback)
+        {
+            savedCallbacks.add(callback);
+        }
+
+        public void onCommitted(Runnable callback)
+        {
+            committedCallbacks.add(callback);
+        }
+
+        // A failed commit write leaves the saved hull and its lock in the batch for retry.
+        private void finishSaved()
+        {
+            var store = WorldStore.get(server);
+            var callbacks = List.copyOf(savedCallbacks);
+            savedCallbacks.clear();
+            for (var callback : callbacks)
+                callback.run();
+            journal.putLong("saveNumber", store.saveNumberCovering());
+            TransferRecovery.checkpoint(file, journal, "COMMITTED");
+            var committed = List.copyOf(committedCallbacks);
+            committedCallbacks.clear();
+            for (var callback : committed)
+                callback.run();
+            if (journal.contains("rescuedOriginal"))
+                try
+                {
+                    JournalRestore.finishOriginal(server, journal, true);
+                }
+                catch (java.io.IOException error)
+                {
+                    throw new UncheckedIOException(error);
+                }
+            TransferRecovery.finish(file, journal, "COMMITTED");
+            ServerContext.get(server).service(ACTIVE, HashSet::new).remove(file);
+            UnresolvedJournals.remove(server, journal.getStringOr("id", ""));
+            finished = true;
+        }
+
         public void abort()
         {
+            if (finished)
+                return;
+            var batch = ServerContext.get(server).existing(BATCH);
+            if (batch != null)
+                batch.jobs.remove(file);
             ServerContext.get(server).service(ACTIVE, HashSet::new).remove(file);
             TransferRecovery.recover(server);
         }

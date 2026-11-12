@@ -28,6 +28,30 @@ import net.minecraft.world.phys.Vec3;
 public final class SceneFrames
 {
 
+    static ListTag entities(ServerLevel level, BlockPos base, HullScan.Bounds bounds)
+    {
+        var result = new ListTag();
+        for (var entity : com.nullandkale.nullspace.gameplay.ship.structure.HullEntities.inBounds(level, bounds))
+        {
+            if (!(entity instanceof net.minecraft.world.entity.LivingEntity) || entity instanceof net.minecraft.world.entity.player.Player || !entity.isAlive() || entity.isInvisible())
+                continue;
+            if (result.size() >= 32)
+                break;
+            var entry = new CompoundTag();
+            entry.putString("id", entity.getUUID().toString());
+            entry.putString("type", net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString());
+            entry.putDouble("x", entity.getX() - base.getX());
+            entry.putDouble("y", entity.getY() - base.getY());
+            entry.putDouble("z", entity.getZ() - base.getZ());
+            entry.putFloat("yaw", entity.getYRot());
+            entry.putFloat("pitch", entity.getXRot());
+            for (var slot : List.of(net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.OFFHAND))
+                entry.putString(slot.getName(), net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(((net.minecraft.world.entity.LivingEntity) entity).getItemBySlot(slot).getItem()).toString());
+            result.add(entry);
+        }
+        return result;
+    }
+
     static ListTag players(ServerLevel level, BlockPos base, net.minecraft.world.phys.AABB bounds)
     {
         var result = new ListTag();

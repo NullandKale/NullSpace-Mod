@@ -14,6 +14,8 @@
       "com.nullandkale.nullspace.gameplay.start.SpaceStartGameTest",
       "com.nullandkale.nullspace.gameplay.ship.FirstShipGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.StarSystemsGameTest",
+      "com.nullandkale.nullspace.gameplay.navigation.PlanetRestartGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.LandingClearanceGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SpacePopulationGameTest",
       "com.nullandkale.nullspace.gameplay.station.StationRegenerationGameTest",
       "com.nullandkale.nullspace.gameplay.docking.DockingPresetGameTest",

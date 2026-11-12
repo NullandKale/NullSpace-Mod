@@ -18,6 +18,99 @@ import net.minecraft.nbt.StringTag;
  */
 public final class SaveCoordinatorGameTest
 {
+    @GameTest(environment = "nullspace:save_batch", maxTicks = 100)
+    public void readyBuildsShareAFlushedSaveAndStayLockedUntilItCompletes(GameTestHelper ctx) throws Exception
+    {
+        var server = ctx.getLevel().getServer();
+        var level = server.overworld();
+        var store = WorldStore.get(server);
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
+        var a = new net.minecraft.core.BlockPos(144000, 96, 144000);
+        var b = a.offset(64, 0, 0);
+        var c = b.offset(64, 0, 0);
+        for (var at : java.util.List.of(a, b, c))
+        {
+            level.setChunkForced(at.getX() >> 4, at.getZ() >> 4, true);
+            level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+        }
+        long before = store.saveNumber();
+        for (var at : java.util.List.of(a, b))
+        {
+            var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "batch-probe", java.util.List.of(), java.util.List.of(at));
+            build.step(() ->
+            {
+                level.setBlock(at, net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
+                store.document("batchProbe" + at.getX(), StringTag.valueOf("placed"));
+                return null;
+            });
+            build.commit();
+        }
+        ctx.assertTrue(store.saveNumber() == before, "Finishing two builds does not force two store/world saves");
+        ctx.assertTrue(com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, a) && com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, b), "Both placements stay locked until a durable world save");
+        WorldStore.worldSaved(server, false, true);
+        ctx.assertTrue(com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, a), "A metadata save without a chunk flush does not commit construction");
+        boolean previousSaving = level.noSave;
+        try
+        {
+            level.noSave = true;
+            WorldStore.worldSaved(server, true, false);
+            ctx.assertTrue(com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, a) && com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, b), "A flush that skips the build dimension cannot release its construction locks");
+        }
+        finally
+        {
+            level.noSave = previousSaving;
+        }
+        server.saveEverything(true, true, true);
+        ctx.assertTrue(!com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, a) && !com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, b), "One flushed save releases both completed builds");
+        var disk = WorldStore.read(store.storeFile());
+        ctx.assertTrue(disk.getStringOr("batchProbe" + a.getX(), "").equals("placed") && disk.getStringOr("batchProbe" + b.getX(), "").equals("placed"), "The matching store copy includes both placements");
+        var later = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "batch-timer-probe", java.util.List.of(), java.util.List.of(c));
+        later.step(() ->
+        {
+            level.setBlock(c, net.minecraft.world.level.block.Blocks.EMERALD_BLOCK.defaultBlockState(), 18);
+            return null;
+        });
+        later.commit();
+        var previous = WorldStore.writeObserver;
+        var injected = new java.util.concurrent.atomic.AtomicBoolean();
+        try
+        {
+            WorldStore.writeObserver = progress ->
+            {
+                if (progress.file().getFileName().toString().equals(later.fileName()) && progress.stage().equals("COMMITTED") && injected.compareAndSet(false, true))
+                    throw new IllegalStateException("batch commit disk failure");
+            };
+            boolean failed = false;
+            try
+            {
+                com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
+            }
+            catch (IllegalStateException expected)
+            {
+                failed = expected.getMessage().equals("batch commit disk failure");
+            }
+            ctx.assertTrue(failed && injected.get(), "A journal commit failure after the world flush reaches its caller");
+            ctx.assertTrue(com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, c) && level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), "The saved hull and its lock survive a commit-file failure");
+        }
+        finally
+        {
+            WorldStore.writeObserver = previous;
+        }
+        com.nullandkale.nullspace.gameplay.travel.TransferRecovery.recover(server);
+        ctx.assertTrue(level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), "General recovery does not roll back a live batch awaiting its commit retry");
+        ctx.runAfterDelay(35, () ->
+        {
+            ctx.assertTrue(!com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, c), "The ordinary save phase flushes a queued batch without another operator action");
+            ctx.assertTrue(level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), "The timer commits the placed hull rather than rolling it back");
+            for (var at : java.util.List.of(a, b, c))
+                level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
+            store.repository().encoded().remove("batchProbe" + a.getX());
+            store.repository().encoded().remove("batchProbe" + b.getX());
+            store.requestSave();
+            ctx.succeed();
+        });
+    }
+
     private static boolean storeCopy(Path file)
     {
         return file.getFileName().toString().startsWith("ships-");

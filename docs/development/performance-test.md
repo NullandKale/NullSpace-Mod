@@ -1,6 +1,6 @@
 # Save and journal performance test
 
-**Status: completion in progress.** All eight scenarios and the comparison runner are implemented. The representative fixture uses real ship templates, station builds, cargo and mock crew. Focused smoke runs and representative measurements are tracked in [the completion log](journal-completion-work.md); final evidence is still being collected.
+**Status: further performance work deferred by user request.** Preserve the implementation, harness and recorded results. Do not run new benchmarks or tune toward the one-second target in the current batch. The full-size 100/300-ship measurements do not block release. Only demonstrated correctness failures justify changes to this code; save/recovery correctness checks remain in scope. Recorded evidence does not establish a reliable before/after speedup. Historical measurement plans below remain available for a later explicitly resumed effort.
 
 This test measures what saving and journaling cost on a server that looks like a real one: how many ships per second it can move, build and record, and how long the worst tick is while it does. It exists to make the open cost decision in [journals and save recovery](../design/journals-and-save-recovery.md#performance-test) with numbers. Matching runs establish a baseline for subsequent changes. The earlier simple-fixture results cannot establish a before/after comparison for this implementation.
 
@@ -70,7 +70,7 @@ BUILD uses complete station-room jobs, delivery and scrap cycles, and collar ret
 
 Minecraft's GameTest loop runs without ordinary tick pacing. The opt-in phase driver restores the 50 ms budget; it measures work before sleeping. Phase lengths and throughput use monotonic elapsed time. An asynchronous room or transfer counts once, when it finishes. Attempts, completed operations, refusals and scheduling backlog are recorded separately. Pending operations may extend a phase until completion, with a three-minute operation timeout.
 
-Startup uses three separate JVMs per case: construct and save the fixture, seed exactly 0/100/1,000 finished journals and halt, then measure a fresh process. Readiness includes JVM and world startup; recovery time includes store loading and journal recovery. The measured process checks the actual journal population.
+Startup uses three separate JVMs per case: construct and save the fixture, seed exactly 0/100/1,000 finished journals and halt, then measure a fresh process. Readiness includes JVM and world startup. Startup schema 3 reports `storeLoadMs`, `journalRecoveryMs` and their sum, `recoveryMs`. Historical schema-2 `recoveryMs` omitted initialization and is not directly comparable. The measured process checks the actual journal population.
 
 Schema 2 / fixture 2 results cannot be compared with the earlier harness: it divided attempts by simulated ticks and had smaller empty hulls. `-Compare` requires completed runs with matching schema, fixture and phase durations, and matches rows by step name. Shortened smoke phases check behavior; they do not establish steady-state performance.
 
@@ -103,7 +103,9 @@ The first complete full-duration 100-ship BUILD run is retained as [raw results]
 
 The fixture has 85 mobile ships, 15 fixture stations, eight mock crew and 170 cargo animals. Workload and ambient builds bring the final store to 105 records: 16,934,231 raw bytes and 347,390 bytes on disk, with 18,231 loaded chunks. The measured machine uses a Ryzen 9 5900HS, SSD and Java 25.0.2 with a fixed 4 GiB heap.
 
-One operation every four seconds still produces a 1.91-second pause; increasing the offered rate beyond 0.5/s produces a scheduling backlog. The acceptable pause budget and the choice between individual flushes and batching are awaiting a decision. Batching reduces repeated save barriers; it does not by itself guarantee that an individual flushed save fits a tighter budget.
+One operation every four seconds still produces a 1.91-second pause; increasing the offered rate beyond 0.5/s produces a scheduling backlog. The November 11 decision is to batch BUILD saves, targeting pauses under one second at the representative 100-ship workload. Keep each job's locks and journal until the shared flushed save completes, then repeat matching measurements. Batching reduces repeated save barriers; it does not by itself guarantee that an individual flushed save fits the target.
+
+The complete eight-scenario smoke receipt is `build/performance/20261111-084637-scenarios-complete/result.json` (ten cases, including the three startup populations). The 300-ship idle attempt stopped during setup because valid metadata exceeded the current 64 MiB NBT accounting quota. It supplies no idle timing result; the bounded read-quota fix has passed large-slot validation/reopening and that size still needs retrying.
 
 ## Limits
 

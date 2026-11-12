@@ -86,7 +86,7 @@ public final class Claims
         s.putBoolean("claimed", true);
         ShipTitles.ensureHeld(p, s);
         WorldStore.get(server).requestSave();
-        return "You claimed " + name + ". Its fuel, supplies and damage are as you found them; its title is in your inventory";
+        return "You claimed " + name + ". Its title is in your inventory; fuel, cargo and damage are unchanged. Your previous ship stays where you left it. Return through the dock to use it, or recover either ship from a surface Pad Computer's My ships list.";
     }
 
     private Claims()

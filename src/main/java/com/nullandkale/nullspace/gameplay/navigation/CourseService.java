@@ -202,7 +202,7 @@ public final class CourseService
         String blocked = reason(player, ship, target);
         if (!blocked.isEmpty())
             return blocked;
-        var stuck = SystemsConsole.closeDoorsNow(player.level(), ship);
+        var stuck = SystemsConsole.closeExteriorDoorsNow(player.level(), ship);
         if (!stuck.isEmpty())
             return "Engage stopped: the door at " + stuck.getFirst().toShortString() + " will not close (redstone or a block in the way). Close it, then Engage again";
         if (!JourneyService.cruising(ship) && (ShipDestination.selected(ship) == null || !ShipDestination.selected(ship).id().equals(target.id())))
@@ -343,6 +343,12 @@ public final class CourseService
         }
         else
             action = "DOCK";
+        if (action.equals("DOCK") && com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, target.reference()))
+        {
+            course.putString("message", "Waiting for " + target.name() + " to finish construction");
+            WorldStore.get(server).requestSave();
+            return;
+        }
         if (action.equals(course.getStringOr("step", "")))
         {
             finish(server, ship, "PAUSED", action + " did not complete. Check the ship/obstruction, then Engage again.");

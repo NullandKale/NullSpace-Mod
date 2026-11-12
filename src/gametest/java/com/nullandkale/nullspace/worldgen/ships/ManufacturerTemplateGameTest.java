@@ -140,7 +140,7 @@ public final class ManufacturerTemplateGameTest
         ctx.assertTrue(StationDeployment.showcase(p) == station, "Repeated requests keep one station identity");
         ctx.onEachTick(() ->
         {
-            if (!StationAccess.ready(station))
+            if (!StationAccess.ready(station) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, station.getStringOr("id", "")))
                 return;
             var base = WorldStore.pos(station, "base");
             var ports = DockingPorts.ports(space, station);
@@ -158,7 +158,7 @@ public final class ManufacturerTemplateGameTest
                 ctx.assertTrue(WorldStore.bounds(station).contains(at), "Showcase fits one 32-block allocation");
             var edited = base.offset(24, 2, 3);
             space.setBlock(edited, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
-            ctx.assertTrue(StationDeployment.showcase(p) == station && space.getBlockState(edited).is(Blocks.DIAMOND_BLOCK), "Revisiting never regenerates the showroom or erases edits");
+            ctx.assertTrue(StationDeployment.showcase(p).getStringOr("id", "").equals(station.getStringOr("id", "")) && space.getBlockState(edited).is(Blocks.DIAMOND_BLOCK), "Revisiting keeps the saved station identity and never erases edits");
             ctx.succeed();
         });
     }

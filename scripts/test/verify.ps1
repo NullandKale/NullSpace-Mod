@@ -7,8 +7,8 @@ $artifacts = Join-Path $RepoRoot "build/verification/$runId"
 $null = New-Item -ItemType Directory -Path $artifacts
 $manifest = [ordered]@{ version=1; runId=$runId; startedUtc=[DateTime]::UtcNow.ToString('o'); status='running'; suites=[ordered]@{}; jar=$null }
 $manifest.inputsSha256=Get-VerificationFingerprint $RepoRoot
-foreach ($suite in @('unit','server','assets','graphics','multiplayer','crash','build-crash')) {
-    $selected = $suite -in @('unit','server','assets') -or ($suite -eq 'graphics' -and $Graphics) -or ($suite -eq 'multiplayer' -and $Multiplayer) -or ($suite -in @('crash','build-crash') -and $Crash)
+foreach ($suite in @('unit','server','assets','graphics','multiplayer','crash','build-crash','planet-restart')) {
+    $selected = $suite -in @('unit','server','assets') -or ($suite -eq 'graphics' -and $Graphics) -or ($suite -eq 'multiplayer' -and $Multiplayer) -or ($suite -in @('crash','build-crash','planet-restart') -and $Crash)
     $manifest.suites[$suite] = [ordered]@{ selected=[bool]$selected; status=$(if($selected){'pending'}else{'not-selected'}) }
 }
 function Save-Manifest { Write-VerificationJson (Join-Path $artifacts 'manifest.json') $manifest }
@@ -89,9 +89,15 @@ try {
         & "$PSScriptRoot/shipyard-crash-test.ps1" -ArtifactRoot (Join-Path $artifacts 'build-crash') *> (Join-Path $artifacts 'build-crash.log')
         $result=Get-Content -LiteralPath (Join-Path $artifacts 'build-crash/result.json') -Raw | ConvertFrom-Json
         Assert-VerificationFingerprint $RepoRoot $manifest.inputsSha256
-        Assert-VerificationInventory @('INTENT_SAVED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_SAVED','WORLD_SAVED','ORDER_CLEARED','COMMITTED','CORRUPT_COMMITTED') @($result.stages)
+        Assert-VerificationInventory @('PREPARED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_REGISTERED','WORLD_SAVED','ORDER_CLEARED','QUEUED','COMMITTED','CORRUPT_COMMITTED') @($result.stages)
         if($result.status -ne 'passed'){throw 'BUILD crash suite did not finish'}
         $manifest.suites['build-crash'].status='passed';$manifest.suites['build-crash'].result='build-crash/result.json';Save-Manifest
+        & "$PSScriptRoot/planet-restart-test.ps1" -ArtifactRoot (Join-Path $artifacts 'planet-restart') *> (Join-Path $artifacts 'planet-restart.log')
+        $result=Get-Content -LiteralPath (Join-Path $artifacts 'planet-restart/result.json') -Raw | ConvertFrom-Json
+        Assert-VerificationFingerprint $RepoRoot $manifest.inputsSha256
+        Assert-VerificationInventory @('surfaces') @($result.stages)
+        if($result.status -ne 'passed'){throw 'Planet restart suite did not finish'}
+        $manifest.suites['planet-restart'].status='passed';$manifest.suites['planet-restart'].result='planet-restart/result.json';Save-Manifest
     }
     $properties=Get-Content -LiteralPath "$RepoRoot/gradle.properties" -Raw
     $archive=[regex]::Match($properties,'(?m)^archives_base_name=(.+)$').Groups[1].Value.Trim()

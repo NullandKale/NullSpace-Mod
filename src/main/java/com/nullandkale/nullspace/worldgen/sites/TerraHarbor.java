@@ -168,7 +168,8 @@ public final class TerraHarbor
                 level.getChunk(base.offset(x, 0, z));
         if (!site.getBooleanOr("built", false))
         {
-            com.nullandkale.nullspace.gameplay.travel.BuildJournal.run(level, "terra-harbor", List.of(), plan().keySet().stream().map(base::offset).toList(), () ->
+            var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "terra-harbor", List.of(), plan().keySet().stream().map(base::offset).toList());
+            build.step(() ->
             {
                 for (var e : plan().entrySet())
                     level.setBlock(base.offset(e.getKey()), e.getValue(), 3);
@@ -184,9 +185,10 @@ public final class TerraHarbor
                 server.saveEverything(false, true, true);
                 site.putBoolean("built", true);
                 site.putInt("version", VERSION);
-                store.save();
+                store.requestSave();
                 return null;
             });
+            build.commitNow();
         }
         return base;
     }

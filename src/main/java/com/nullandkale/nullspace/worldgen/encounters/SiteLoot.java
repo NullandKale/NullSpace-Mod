@@ -5,7 +5,6 @@ import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -37,7 +36,8 @@ public final class SiteLoot
             return false;
         container.clearContent();
         container.setLootTable(ResourceKey.create(Registries.LOOT_TABLE, Identifier.parse("nullspace:site/" + table)), seed);
-        container.applyComponents(container.collectComponents(), net.minecraft.core.component.DataComponentPatch.builder().set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(name)).build());
+        // Generated room labels must not become custom names on dropped container items.
+        // Existing player-authored names are left intact.
         container.setChanged();
         return true;
     }

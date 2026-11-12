@@ -1,8 +1,10 @@
 # The galaxy
 
-Space in NullSpace is a chart of places connected by jumps. This document describes what is on the chart, how it is generated, and the rules (range, fuel, danger) that make a journey a decision. The code is `model/galaxy/GalaxyPlan` (pure data, no Minecraft), `gameplay/navigation/StarSystems` (saving and queries) and the surface pool in [`PlanetSurfaces`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetSurfaces.java).
+Space in NullSpace is a chart of places connected by jumps. This document describes what is on the chart, how it is generated, and the rules (range, fuel, danger) that make a journey a decision. The code is `model/galaxy/GalaxyPlan` (pure data, no Minecraft), `gameplay/navigation/StarSystems` (saving and queries) and surface lookup in [`PlanetSurfaces`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetSurfaces.java).
 
-Each world gets its own chart the first time the server starts. It is saved once and never rerolled. Changing it needs a new world, because Minecraft creates dimensions only when a world is made.
+Each world gets its own saved chart. Planet identities and existing terrain must survive loading, upgrades and restarts.
+
+**November 11 correction implemented; final integration pending.** The finite surface pool and random landability were bugs, tracked as [PT11-16](../history/playtest-2026-11-11.md). Every nongas planet is landable with its own stable dimension. Existing surface assignments remain intact.
 
 ## What is on the chart
 
@@ -12,7 +14,7 @@ The chart is a 100×100 square of light-years.
 - **Four random systems** at least 18 light-years apart. Planet counts are spread on purpose: one system each draws from the bands 1–2, 3–4, 5–6 and 7–9, in random order, so there is always a sparse system and a crowded one. Gas giants have 1–3 moons, other planets sometimes have one.
 - **Features** that are not stars: nebulae, asteroid fields and rogue planets act as stepping stones (see below), and exactly one oddity, a pulsar or a black hole, is placed within reach of the chart. You can jump to features, but nothing on them can be landed on.
 
-Planets get hotter closer to their star: lava, desert and toxic worlds sit close in, ocean and jungle worlds in the middle, and gas giants, ice and barren worlds further out. About 40% of bodies are landable, and every system has at least one landable body (`guaranteeLanding` converts a body if the dice give none).
+Planets get hotter closer to their star: lava, desert and toxic worlds sit close in, ocean and jungle worlds in the middle, and gas giants, ice and barren worlds further out. All nongas planets are landable; gas giants remain orbit-only. Missing surface identities in saved charts are filled without rerolling their bodies or replacing existing terrain assignments.
 
 ### Zones
 
@@ -55,15 +57,20 @@ Landable bodies use real terrain, with biomes fixed by the body's type:
 | Ocean | deep ocean, warm ocean, rare mushroom islands; high seas | breathable |
 | Jungle | jungle, bamboo jungle, swamp | breathable |
 | Barren | stony peaks, stony shore | none |
+| Toxic | stony peaks, stony shore | none |
 
 Villages and other structures appear only on Terra. A starter landing pad is levelled on the flattest dry spot near each surface's origin the first time a ship goes there ([`PlanetSurfaces.ensureLanding`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetSurfaces.java)).
 
 ## How it is built
 
-- **A fixed dimension pool.** Minecraft cannot add dimensions to an existing world, so landable bodies draw from a fixed pool of surface dimensions per type (`surface_<type>_<slot>`), and each body of a landable type has a 40% chance of being given a free slot. A type whose slots are used up leaves further bodies orbit-only. [`scripts/art/generate_planet_surfaces.py`](../../scripts/art/generate_planet_surfaces.py) generates the pool's biomes, terrain settings and dimensions from the game data and keeps the game-test world preset in sync.
+- **A dedicated dimension for each landable planet.** Dimension identity belongs to the saved planet, independent of discovery order or a type's slot count. Each has separate terrain storage and a generation seed belonging to that planet. Terra retains its Overworld identity, and existing dedicated Sol surfaces remain stable. Any moon marked landable also needs its own dimension. Generated terrain types and biome settings can be shared as definitions; their world instances cannot be shared between planets.
+- **Registration and migration are part of the fix.** Create and restore the required dimension definitions at the appropriate world-load stage. Preserve existing surface assignments and their terrain/builds, and add missing dedicated surfaces without rerolling the chart. Never assign another planet's existing terrain to a new body. A world reset is not a substitute for implementing persistence and migration.
+- **Saved identity and terrain templates.** New surfaces use `nullspace:planet/<body-id>`. [`PlanetDimensions`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/PlanetDimensions.java) creates missing levels during world loading, before recovery and player login. Each uses its saved body's seed. The old `surface_<type>_<slot>` definitions remain terrain templates and retain existing assignments; they no longer limit landability. Toxic terrain currently uses the barren template with nonbreathable air.
 - **Deterministic from the seed.** `GalaxyPlan.generate(worldSeed)` is a pure function. [`StarSystems`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/StarSystems.java) saves the result in the `galaxy` section of `nullspace/ships.nbt` once, so later versions of the generator cannot rewrite an existing world's map.
 - **Zones are the unit of space.** Orbit views, stations, signals and ships all address a zone, which is how two players in the same region find each other.
 
 ## Where this is tested
 
-[`GalaxyPlanTest`](../../src/test/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlanTest.java) checks the generated chart across thousands of seeds: planet-count bands, landable bodies per system, pool capacity, connectivity at the starting range, and danger values. [`StarSystemsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/StarSystemsGameTest.java) covers saving, range refusals and the map payload.
+[`GalaxyPlanTest`](../../src/test/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlanTest.java) checks planet counts, complete nongas coverage, unique/stable identities, deterministic generation, connectivity and danger values. [`StarSystemsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/StarSystemsGameTest.java) covers saving, migration, level isolation, atmosphere, range refusals and map payloads.
+
+The native planet checks, dedicated-dimension graphical visits and [fresh-process restart check](../../scripts/test/planet-restart-test.ps1) pass. The restart check preserves separate builds at matching coordinates, identities, seeds, biomes and pad registrations. Receipts are recorded in [journal completion work](../development/journal-completion-work.md#chunk-2-implementation-and-verification); final integration remains pending.

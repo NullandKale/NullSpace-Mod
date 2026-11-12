@@ -396,8 +396,7 @@ public final class DockingManeuver
         if (d.contains("tunnel"))
         {
             DockingTunnel.retract(server, d);
-            // Flush removed collar blocks while their recovery plan is still in the saved link.
-            server.saveEverything(false, true, true);
+            // The BUILD retains the collar footprint and its rollback plan through the shared save.
         }
         var target = DockingService.find(server, d.getStringOr("target", ""));
         if (target != null)

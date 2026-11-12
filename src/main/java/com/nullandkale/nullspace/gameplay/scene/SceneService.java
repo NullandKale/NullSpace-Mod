@@ -223,6 +223,7 @@ public final class SceneService
         }
         DockingTunnel.render(level, ship, data);
         data.put("players", SceneFrames.players(level, base, WorldStore.bounds(ship).box().inflate(level.dimension().equals(TravelService.SPACE) ? 72 : 2)));
+        data.put("entities", SceneFrames.entities(level, base, WorldStore.bounds(ship)));
         return data;
     }
 

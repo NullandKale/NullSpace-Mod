@@ -33,6 +33,36 @@ class StoreSlotsTest
     }
 
     @Test
+    void aLargeValidStoreSurvivesValidationAndReopening() throws IOException
+    {
+        byte[] cargo = new byte[72 * 1024 * 1024];
+        cargo[0] = 17;
+        cargo[cargo.length - 1] = 91;
+        var document = store("large-world");
+        document.putByteArray("cargo", cargo);
+        StoreSlots.write(directory, null, document, 1);
+        var reopened = StoreSlots.load(directory);
+        assertEquals(1, reopened.saveNumber());
+        assertEquals("large-world", reopened.root().getStringOr("marker", ""));
+        assertArrayEquals(cargo, reopened.root().getByteArray("cargo").orElseThrow());
+    }
+
+    @Test
+    void anOversizedDeclaredArrayStillHitsABoundedReadQuota() throws IOException
+    {
+        var file = directory.resolve("oversized.nbt");
+        try (var output = new java.io.DataOutputStream(new java.util.zip.GZIPOutputStream(Files.newOutputStream(file))))
+        {
+            output.writeByte(10);
+            output.writeUTF("");
+            output.writeByte(7);
+            output.writeUTF("oversized");
+            output.writeInt(257 * 1024 * 1024);
+        }
+        assertThrows(net.minecraft.nbt.NbtAccounterException.class, () -> WorldStore.read(file));
+    }
+
+    @Test
     void savesAlternateSlotsAndTheHighestNumberWins() throws IOException
     {
         var slot = StoreSlots.write(directory, null, store("one"), 1);

@@ -29,6 +29,13 @@ import net.minecraft.world.level.block.*;
 
 public final class ShipYardGameTest
 {
+    private static net.minecraft.nbt.CompoundTag delivered(ServerPlayer player, BlockPos beacon, String preset)
+    {
+        var result = ShipYardService.deliver(player, beacon, preset);
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(player.level().getServer());
+        return result;
+    }
+
     @GameTest(environment = "nullspace:yard_dismantling", maxTicks = 300)
     public void dismantlingShipAndReplacingBeaconFreesPadWithoutReusingItsSavedIdentity(GameTestHelper ctx)
     {
@@ -38,7 +45,7 @@ public final class ShipYardGameTest
             var level = ctx.getLevel();
             var server = level.getServer();
             var store = WorldStore.get(server);
-            var old = ShipYardService.deliver(f.player(), f.beacon(), "rivet_hauler");
+            var old = delivered(f.player(), f.beacon(), "rivet_hauler");
             String id = old.getStringOr("id", "");
             var bounds = WorldStore.bounds(old);
             for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
@@ -65,11 +72,11 @@ public final class ShipYardGameTest
             old.remove("dock");
             ctx.assertTrue(ShipYardService.preview(f.player(), f.beacon(), "rivet_bolt").readiness() == 1, "An entirely dismantled ship no longer occupies its pad, even with its saved record");
             ctx.assertTrue(store.repository().find(id) != null, "Preview does not delete ship records");
-            var replacement = ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+            var replacement = delivered(f.player(), f.beacon(), "rivet_bolt");
             ctx.assertTrue(!replacement.getStringOr("id", "").equals(id) && store.repository().find(id) == null, "Delivery replaces the obsolete assignment with a fresh identity");
             var disk = WorldStore.read(store.storeFile());
             ctx.assertTrue(disk.getListOrEmpty("ships").stream().noneMatch(t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("id", "").equals(id)), "Released assignment stays removed after saving");
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Clear the pad");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Clear the pad");
             ctx.succeed();
         });
     }
@@ -213,7 +220,7 @@ public final class ShipYardGameTest
             var player = f.player();
             var level = player.level();
             var server = level.getServer();
-            var ship = ShipYardService.deliver(player, f.beacon(), "rivet_hauler");
+            var ship = delivered(player, f.beacon(), "rivet_hauler");
             var id = ship.getStringOr("id", "");
             var helm = WorldStore.pos(ship, "controller");
             var savedSystems = ship.getCompoundOrEmpty("systems").copy();
@@ -244,14 +251,14 @@ public final class ShipYardGameTest
         {
             var p = f.player();
             int xp = p.experienceLevel;
-            var ship = ShipYardService.deliver(p, f.beacon(), "rivet_hauler");
+            var ship = delivered(p, f.beacon(), "rivet_hauler");
             ctx.assertTrue(p.experienceLevel == xp && p.getInventory().isEmpty(), "No money, experience or materials are consumed");
             ctx.assertTrue(ShipSystems.enabled(ship), "Delivered ships have finite systems enabled");
             ctx.assertTrue(DockingPorts.firstPort(p.level(), ship).anchors().size() >= 2, "The actual delivered ship has an operational powered docking airlock");
             ctx.assertTrue(ship.getStringOr("blueprint", "").equals("rivet_hauler"), "Selected design is persisted");
             ctx.assertTrue(WorldStore.get(p.level().getServer()).list("shipyardOrders").isEmpty(), "Completed order is cleared after saving terrain");
             var before = ship.copy();
-            rejects(ctx, () -> ShipYardService.deliver(p, f.beacon(), "rivet_bolt"), "clear");
+            rejects(ctx, () -> delivered(p, f.beacon(), "rivet_bolt"), "clear");
             ctx.assertTrue(before.equals(ship), "A second call preserves the delivered ship");
             var saved = WorldStore.read(WorldStore.get(p.level().getServer()).storeFile());
             ctx.assertTrue(saved.getListOrEmpty("ships").stream().anyMatch(tag -> ((net.minecraft.nbt.CompoundTag) tag).getStringOr("id", "").equals(ship.getStringOr("id", ""))), "Ship identity survives real compressed NBT");
@@ -266,20 +273,20 @@ public final class ShipYardGameTest
         var f = fixture(ctx, 11, 22, 32);
         later(ctx, () ->
         {
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_ranger"), "needs");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_ranger"), "needs");
             var obstruction = f.base().offset(4, 60, 4);
             level.setBlock(obstruction, Blocks.GLASS.defaultBlockState(), 18);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Glass");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Glass");
             ctx.assertTrue(level.getBlockState(obstruction).is(Blocks.GLASS), "High glass is preserved");
             level.setBlock(obstruction, Blocks.AIR.defaultBlockState(), 18);
             var wet = f.base().offset(4, 1, 4);
             level.setBlock(wet, Blocks.WATER.defaultBlockState(), 18);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Water");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Water");
             level.setBlock(wet, Blocks.AIR.defaultBlockState(), 18);
             var pig = EntityTypes.PIG.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
             pig.setPos(wet.getX() + .5, wet.getY(), wet.getZ() + .5);
             level.addFreshEntity(pig);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Pig");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Pig");
             pig.discard();
             ctx.assertTrue(level.getBlockState(wet).isAir(), "Rejected deliveries place no hull blocks");
             ctx.succeed();
@@ -302,7 +309,7 @@ public final class ShipYardGameTest
                 };
                 try
                 {
-                    ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+                    delivered(f.player(), f.beacon(), "rivet_bolt");
                     throw new AssertionError("Expected injected interruption");
                 }
                 catch (IllegalStateException expected)
@@ -321,7 +328,7 @@ public final class ShipYardGameTest
             var origin = ShipBlueprints.origin(preset, PadComputers.inspect(f.player().level(), f.beacon()).pad(), 32);
             for (var at : ShipBlueprints.blocks(preset).keySet())
                 ctx.assertTrue(f.player().level().getBlockState(origin.offset(at)).isAir(), "Rollback clears every partially placed hull block");
-            var ship = ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+            var ship = delivered(f.player(), f.beacon(), "rivet_bolt");
             String order = ship.getStringOr("shipyardOrder", "");
             ShipYardService.recover(f.player().level().getServer());
             ctx.assertTrue(store.ships().stream().filter(t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("shipyardOrder", "").equals(order)).count() == 1, "Repeated recovery does not duplicate a completed ship");
@@ -385,10 +392,10 @@ public final class ShipYardGameTest
                 ctx.assertTrue(PadComputers.inspect(level, f.beacon()).pad().equals(bounds), "Beacon facing is cosmetic");
             }
             f.player().teleportTo(level, f.base().getX() + 3.5, f.base().getY() + 1, f.base().getZ() + 3.5, Set.of(), 0, 0, true);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Move");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Move");
             f.player().teleportTo(level, f.base().getX() - 2.5, f.base().getY() + 1, f.base().getZ() + 1.5, Set.of(), 0, 0, true);
             level.setBlock(f.base().offset(-1, 0, 4), Blocks.AIR.defaultBlockState(), 18);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "cobblestone");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "cobblestone");
             ctx.succeed();
         });
     }
@@ -412,7 +419,7 @@ public final class ShipYardGameTest
                 };
                 try
                 {
-                    ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+                    delivered(f.player(), f.beacon(), "rivet_bolt");
                     throw new AssertionError("Delivery must stop when the intent cannot be saved");
                 }
                 catch (IllegalStateException expected)
@@ -429,65 +436,56 @@ public final class ShipYardGameTest
             var origin = ShipBlueprints.origin(preset, PadComputers.inspect(f.player().level(), f.beacon()).pad(), 32);
             for (var at : ShipBlueprints.blocks(preset).keySet())
                 ctx.assertTrue(f.player().level().getBlockState(origin.offset(at)).isAir(), "No ship blocks are placed before a durable intent");
-            var delivered = ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+            var delivered = delivered(f.player(), f.beacon(), "rivet_bolt");
             ctx.assertTrue(delivered.getStringOr("blueprint", "").equals("rivet_bolt"), "Buyer can retry after storage recovers");
             ctx.succeed();
         });
     }
 
     @GameTest(environment = "nullspace:yard_failed_completion", maxTicks = 500)
-    public void failedDeliveryCompletionRollsBackBeforeTheBuyerRetries(GameTestHelper ctx)
+    public void failedSharedSaveKeepsTheHullLockedUntilTheSameDeliveryCanCommit(GameTestHelper ctx)
     {
         var f = fixture(ctx, 17, 22, 32);
         later(ctx, () ->
         {
             var server = f.player().level().getServer();
             var store = WorldStore.get(server);
-            var previousWrite = WorldStore.writeObserver;
-            var previousDelivery = ShipYardService.deliveryObserver;
+            var delivered = ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+            String id = delivered.getStringOr("id", "");
+            var previous = WorldStore.writeObserver;
             var injected = new java.util.concurrent.atomic.AtomicBoolean();
-            var failedId = new String[]{""};
             try
             {
-                ShipYardService.deliveryObserver = stage ->
+                WorldStore.writeObserver = progress ->
                 {
-                    if (stage == ShipYardService.DeliveryStage.WORLD_SAVED)
-                    {
-                        var preset = ShipBlueprints.get("rivet_bolt");
-                        var origin = ShipBlueprints.origin(preset, PadComputers.inspect(f.player().level(), f.beacon()).pad(), 32);
-                        failedId[0] = store.at(f.player().level(), origin.offset(preset.helm())).getStringOr("id", "");
-                        WorldStore.writeObserver = progress ->
-                        {
-                            if (progress.file().getFileName().toString().startsWith("ships-") && injected.compareAndSet(false, true))
-                                throw new IllegalStateException("completion disk failure");
-                        };
-                    }
+                    if (progress.file().getFileName().toString().startsWith("ships-") && injected.compareAndSet(false, true))
+                        throw new IllegalStateException("shared save disk failure");
                 };
                 boolean failed = false;
                 try
                 {
-                    ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
+                    com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
                 }
                 catch (IllegalStateException expected)
                 {
-                    failed = expected.getMessage().equals("completion disk failure");
+                    failed = expected.getMessage().equals("shared save disk failure");
                 }
-                ctx.assertTrue(failed && injected.get(), "The actual completion write failed and reached the buyer");
+                ctx.assertTrue(failed && injected.get(), "The real shared save reports its injected failure");
             }
             finally
             {
-                WorldStore.writeObserver = previousWrite;
-                ShipYardService.deliveryObserver = previousDelivery;
+                WorldStore.writeObserver = previous;
             }
-            ctx.assertTrue(store.list("shipyardOrders").isEmpty() && store.repository().find(failedId[0]) == null, "BUILD rollback removes the failed delivery's order and identity");
-            var disk = WorldStore.read(store.storeFile());
-            ctx.assertTrue(disk.getListOrEmpty("shipyardOrders").isEmpty(), "Rollback is durable before releasing the pad");
+            ctx.assertTrue(store.list("shipyardOrders").isEmpty() && store.repository().find(id) != null, "A failed shared save keeps the delivery without recreating a legacy order");
+            ctx.assertTrue(com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, id), "The uncommitted delivery stays locked for retry");
             var preset = ShipBlueprints.get("rivet_bolt");
             var origin = ShipBlueprints.origin(preset, PadComputers.inspect(f.player().level(), f.beacon()).pad(), 32);
-            for (var at : ShipBlueprints.blocks(preset).keySet())
-                ctx.assertTrue(f.player().level().getBlockState(origin.offset(at)).isAir(), "The failed delivery left no hull behind");
-            var delivered = ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt");
-            ctx.assertTrue(!delivered.getStringOr("id", "").equals(failedId[0]) && store.list("shipyardOrders").isEmpty(), "A retry delivers one fresh complete ship");
+            for (var entry : ShipBlueprints.blocks(preset).entrySet())
+                ctx.assertTrue(f.player().level().getBlockState(origin.offset(entry.getKey())).equals(entry.getValue()), "A temporary save failure never tears down a delivered hull");
+            com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
+            ctx.assertTrue(!com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, id), "A successful retry releases the same delivery");
+            var disk = WorldStore.read(store.storeFile());
+            ctx.assertTrue(disk.getListOrEmpty("ships").stream().anyMatch(t -> ((net.minecraft.nbt.CompoundTag) t).getStringOr("id", "").equals(id)), "The original identity is durable after retry");
             ctx.succeed();
         });
     }
@@ -523,8 +521,8 @@ public final class ShipYardGameTest
             var origin = ShipBlueprints.origin(p, PadComputers.inspect(ctx.getLevel(), f.beacon()).pad(), 32);
             var conflicting = origin.offset(ShipBlueprints.blocks(p).keySet().iterator().next());
             ctx.getLevel().setBlock(conflicting, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "halcyon_swift"), "pending");
-            rejects(ctx, () -> ShipYardService.deliver(f.player(), f.beacon(), "rivet_bolt"), "Diamond");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "halcyon_swift"), "pending");
+            rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_bolt"), "Diamond");
             ctx.assertTrue(ctx.getLevel().getBlockState(conflicting).is(Blocks.DIAMOND_BLOCK), "Resume never erases a player's conflicting build");
             ctx.getLevel().setBlock(conflicting, Blocks.AIR.defaultBlockState(), 18);
             ShipYardService.recover(f.player().level().getServer());

@@ -83,9 +83,9 @@ public final class HullScan
             }
             if (ShipDoors.isDoor(state))
             {
-                if ((state.getBlock() instanceof DoorBlock || ShipDoors.framed(level, pos)) && !ShipDoors.sealed(level, pos))
-                    fail(level, state.getBlock() instanceof TrapDoorBlock ? "Close this trapdoor and frame all four horizontal sides with full blocks. A" + " closed hatch seals a floor or ceiling opening." : "Close both halves of this door and surround its opening with full frame" + " blocks.", pos);
-                if (ShipDoors.root(state) && ShipDoors.sealed(level, pos))
+                // Open interior doors do not breach the pressure hull. The pressure/occupant
+                // checks below still reject an open exterior exit or an unsafe helm cabin.
+                if (ShipDoors.root(state) && ShipDoors.framed(level, pos))
                     doors++;
             }
             for (var offset : ShipTopology.CONNECTIONS)
@@ -104,7 +104,7 @@ public final class HullScan
         if (engines < 1)
             fail(level, "Install at least one engine with its exhaust pointing outside the hull.", controller);
         if (doors < 1)
-            fail(level, "Install a closed, framed door or trapdoor hatch for a usable exit.", controller);
+            fail(level, "Install a framed door or trapdoor hatch for a usable exit.", controller);
         int x0 = Integer.MAX_VALUE, y0 = x0, z0 = x0, x1 = Integer.MIN_VALUE, y1 = x1, z1 = x1;
         for (BlockPos p : blocks)
         {
@@ -212,13 +212,19 @@ public final class HullScan
 
     public static Pressure pressure(ServerLevel level, Bounds ship, Set<BlockPos> captured)
     {
+        return pressure(level, ship, captured, Set.of());
+    }
+
+    /** Classifies door sides without changing blocks, assuming the supplied door cells are closed. */
+    public static Pressure pressure(ServerLevel level, Bounds ship, Set<BlockPos> captured, Set<BlockPos> closedDoors)
+    {
         Bounds bounds = ship.expand();
         Set<BlockPos> seals = new HashSet<>(), outside = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         for (BlockPos cursor : BlockPos.betweenClosed(bounds.min(), bounds.max()))
         {
             BlockPos p = cursor.immutable();
-            if ((captured == null || captured.contains(p)) && seals(level, p))
+            if ((captured == null || captured.contains(p)) && (closedDoors.contains(p) || seals(level, p)))
                 seals.add(p);
         }
         queue.add(bounds.min());

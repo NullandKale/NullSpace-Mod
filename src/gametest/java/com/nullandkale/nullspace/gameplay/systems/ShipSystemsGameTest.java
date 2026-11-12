@@ -299,7 +299,8 @@ public final class ShipSystemsGameTest
             oldCrew.add(oldMember);
             former.put("crew", oldCrew);
             WorldStore.get(server).ships().add(former);
-            TravelService.transfer(player, helm, "", ShipService.preflight(level, helm));
+            var departure = TravelService.transfer(player, helm, "", ShipService.preflight(level, helm));
+            ctx.assertTrue(departure.outcome() == TravelService.Outcome.COMPLETED, "Systems fixture launches: " + departure.message());
             var previous = WorldStore.get(server).ships().stream().map(t -> (net.minecraft.nbt.CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(formerId)).findFirst().orElseThrow();
             ctx.assertTrue(previous.getListOrEmpty("crew").isEmpty(), "Boarding a different ship must clear its stale former crew assignment atomically" + " with transfer");
             var moved = WorldStore.get(server).at(space, player.blockPosition());
