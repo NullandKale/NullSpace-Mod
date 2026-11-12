@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.core;
 
 import com.nullandkale.nullspace.content.ModBlocks;
+import com.nullandkale.nullspace.core.save.StoreSlots;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.computer.ComputerService;
 import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
@@ -168,7 +169,7 @@ public final class ClientLifecycleGameTest implements FabricClientGameTest
             check(!ServerContext.isActive(previous.get()), "Closing the world removes its server context");
             try
             {
-                var saved = WorldStore.read(previous.get().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace/ships.nbt"));
+                var saved = StoreSlots.load(previous.get().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace")).root();
                 check(saved.getStringOr("lifecycle-marker", "").equals("world-" + number), "Server stop flushes pending metadata");
                 var map = saved.getCompoundOrEmpty("standaloneComputers");
                 boolean found = false;

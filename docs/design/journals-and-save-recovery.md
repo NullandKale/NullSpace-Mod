@@ -1,6 +1,6 @@
 # Journals and save recovery
 
-**Status: implementation complete; final integration pending.** Production BUILD and RECORD journals, operator restore and batched BUILD saves are implemented. Focused correctness and crash verification is recorded in [the completion log](../development/journal-completion-work.md). Further performance measurement and tuning are deferred at the user's request; the one-second pause target does not gate this batch.
+**Status: implemented and locally verified.** Production BUILD and RECORD journals, operator restore and batched BUILD saves pass local acceptance, including fresh-process crash recovery. [The completion log](../development/journal-completion-work.md) records the complete verification inventory and release status. Further performance measurement and tuning are deferred at the user's request; the one-second pause target does not gate this batch.
 
 NullSpace keeps one global ship store beside the Minecraft world, and a transfer journal for every move. This document defines what a journal holds, when the store is saved, how a damaged store is recovered without disagreeing with the world, and what happens when a journal cannot be replayed. It answers repository review findings 1 (journals pile up), 2 (one bad journal stops the server), 3 (a waiting journal does not lock its area) and 9 (the store has no second copy).
 

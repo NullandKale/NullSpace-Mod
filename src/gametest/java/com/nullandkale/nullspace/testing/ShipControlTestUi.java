@@ -136,6 +136,21 @@ public final class ShipControlTestUi
             p.teleportTo(scanner.getX() + .5, scanner.getY(), scanner.getZ() + 1.5);
             p.gameMode.useItemOn(p, p.level(), net.minecraft.world.item.ItemStack.EMPTY, net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(scanner), net.minecraft.core.Direction.SOUTH, scanner, false));
         });
+        scannerDestination(c, name, kind);
+        world.getServer().runOnServer(server ->
+        {
+            var p = world.getConnection().getServerPlayer();
+            var ship = WorldStore.get(server).repository().find(shipId[0]);
+            var at = StationGameTest.boardingPoint(p.level(), ship);
+            p.teleportTo(at.x, at.y, at.z);
+            ShipService.open(p, WorldStore.pos(ship, "controller"), "Scanner destination selected");
+        });
+        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
+    }
+
+    /** Selects from the existing Scanner session without toggling the physical block again. */
+    public static void scannerDestination(ClientGameTestContext c, String name, String kind)
+    {
         c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
         c.runOnClient(mc ->
         {
@@ -147,15 +162,6 @@ public final class ShipControlTestUi
             click(screen, 3, 22);
         });
         c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
-        world.getServer().runOnServer(server ->
-        {
-            var p = world.getConnection().getServerPlayer();
-            var ship = WorldStore.get(server).repository().find(shipId[0]);
-            var at = StationGameTest.boardingPoint(p.level(), ship);
-            p.teleportTo(at.x, at.y, at.z);
-            ShipService.open(p, WorldStore.pos(ship, "controller"), "Scanner destination selected");
-        });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
     }
 
     /** Opens the Scanner, backs out to the star map (P9), screenshots it and closes. */

@@ -17,6 +17,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class ShipControlTerminalTest
 {
     @Test
+    void lastActionLabelDoesNotChangeTheStatusValue()
+    {
+        var original = state(false, "region");
+        var trip = new com.nullandkale.nullspace.gameplay.navigation.TripPresentation(com.nullandkale.nullspace.gameplay.navigation.TripPresentation.Phase.READY, "Ready to travel", "Choose a destination");
+        var panel = new ShipControlTerminal(new ControllerPackets.View(SESSION, BlockPos.ZERO, false, true, "Ship", "Ready", "region", "Destination", "", "Ship ready", original.entries(), original.buttons(), 0, "Here", "", "", List.of(), 25, trip));
+        assertEquals("Ship ready", panel.status(), "Consumers read the action result without presentation labels");
+        assertTrue(panel.display().row(20).contains("Last action: Ship ready"));
+    }
+
+    @Test
     void scannerCanSelectAgainAfterARefusalOrMissingSelectionReply()
     {
         var original = state(true, "pad");

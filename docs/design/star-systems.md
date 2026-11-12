@@ -4,7 +4,7 @@ Space in NullSpace is a chart of places connected by jumps. This document descri
 
 Each world gets its own saved chart. Planet identities and existing terrain must survive loading, upgrades and restarts.
 
-**November 11 correction implemented; final integration pending.** The finite surface pool and random landability were bugs, tracked as [PT11-16](../history/playtest-2026-11-11.md). Every nongas planet is landable with its own stable dimension. Existing surface assignments remain intact.
+**November 11 correction implemented and locally verified.** The finite surface pool and random landability were bugs, tracked as [PT11-16](../history/playtest-2026-11-11.md). Every nongas planet is landable with its own stable dimension. Existing surface assignments remain intact.
 
 ## What is on the chart
 
@@ -73,4 +73,4 @@ Villages and other structures appear only on Terra. A starter landing pad is lev
 
 [`GalaxyPlanTest`](../../src/test/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlanTest.java) checks planet counts, complete nongas coverage, unique/stable identities, deterministic generation, connectivity and danger values. [`StarSystemsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/navigation/StarSystemsGameTest.java) covers saving, migration, level isolation, atmosphere, range refusals and map payloads.
 
-The native planet checks, dedicated-dimension graphical visits and [fresh-process restart check](../../scripts/test/planet-restart-test.ps1) pass. The restart check preserves separate builds at matching coordinates, identities, seeds, biomes and pad registrations. Receipts are recorded in [journal completion work](../development/journal-completion-work.md#chunk-2-implementation-and-verification); final integration remains pending.
+The native planet checks, dedicated-dimension graphical visits and [fresh-process restart check](../../scripts/test/planet-restart-test.ps1) pass. The restart check preserves separate builds at matching coordinates, identities, seeds, biomes and pad registrations. Complete local integration also passes. Receipts and release status are recorded in [journal completion work](../development/journal-completion-work.md#chunk-2-implementation-and-verification).

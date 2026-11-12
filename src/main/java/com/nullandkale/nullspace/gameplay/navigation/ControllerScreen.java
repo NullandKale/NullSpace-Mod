@@ -150,7 +150,7 @@ public final class ControllerScreen
         String resources = "Power " + power[0] + " / " + power[1] + " demand | Battery " + power[3] + " | Charging " + power[2] + "\nBow: " + ShipHeading.forward(p.level(), ship).getName() + " (opposite main engine exhaust)";
         var trip = TripPresentation.current(p, ship);
         trip = new TripPresentation(trip.phase(), limit(trip.title(), 160), limit(trip.hint(), 256));
-        String flight = s.message.isBlank() ? "" : "Last action: " + s.message;
+        String flight = s.message;
         String course = CourseService.active(ship) ? CourseService.summary(ship) : connection(p, ship);
         String minimumFuel = "\nMinimum fuel: " + FuelSystem.display(CourseService.minimumFuel(p, ship, target)) + " + docking reserve";
         String fuelAboard = "\nFuel aboard: " + FuelSystem.display(FuelSystem.available(p.level(), ship));

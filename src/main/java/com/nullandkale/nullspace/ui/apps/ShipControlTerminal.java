@@ -93,6 +93,11 @@ public final class ShipControlTerminal implements TerminalDevice
         return notice.isEmpty() ? (details ? view.details() : view.message()) : notice;
     }
 
+    private String statusForDisplay()
+    {
+        return !view.scanner() && !view.trip().title().isEmpty() && !details && notice.isEmpty() && !view.message().isBlank() ? "Last action: " + status() : status();
+    }
+
     public boolean picker()
     {
         return picker;
@@ -187,7 +192,7 @@ public final class ShipControlTerminal implements TerminalDevice
             DestinationPicker.drawPicker(this);
         else
             ControllerPanels.drawController(this);
-        var messages = wrapped(status());
+        var messages = wrapped(statusForDisplay());
         statusScroll = Math.clamp(statusScroll, 0, Math.max(0, messages.size() - 3));
         int first = picker ? 0 : statusScroll;
         if (!picker && messages.size() > 3)
@@ -345,7 +350,7 @@ public final class ShipControlTerminal implements TerminalDevice
                         highlighted = "";
                     }
                     else
-                        statusScroll = Math.min(Math.max(0, wrapped(status()).size() - 3), statusScroll + 3);
+                        statusScroll = Math.min(Math.max(0, wrapped(statusForDisplay()).size() - 3), statusScroll + 3);
                 }
                 default ->
                     {

@@ -6,11 +6,13 @@ import com.nullandkale.nullspace.content.machine.MachineMenu;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
+import com.nullandkale.nullspace.gameplay.navigation.CourseService;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.navigation.ShipDestination;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
@@ -109,55 +111,23 @@ public final class StationClientGameTest implements FabricClientGameTest
                 MachineMenus.open(p, scanner);
             });
             c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 200);
-            String originalDestination = world.getServer().computeOnServer(server ->
-            {
-                var saved = ShipDestination.selected(vessels[0]);
-                return saved == null ? "" : saved.id();
-            });
-            MachineTestUi.click(c, 95, 49);
             c.runOnClient(mc ->
             {
-                var m = (MachineScreen) mc.gui.screen();
-                if (m.getMenu().reading.getListOrEmpty("destinations").size() <= 4)
-                    throw new AssertionError("Tier I scanner must have enough real places for a paging regression");
+                var screen = (MachineScreen) mc.gui.screen();
+                var buttons = screen.children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.Button).map(w -> (net.minecraft.client.gui.components.Button) w).toList();
+                if (buttons.stream().anyMatch(b -> Set.of("Nearby", "Destinations", "Set destination").contains(b.getMessage().getString())))
+                    throw new AssertionError("Equipment upgrades cannot expose the retired destination browser");
+                var open = buttons.stream().filter(b -> b.getMessage().getString().equals("Open scanner")).findFirst().orElseThrow();
+                screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(open.getX() + open.getWidth() / 2.0, open.getY() + open.getHeight() / 2.0, new net.minecraft.client.input.MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
             });
-            MachineTestUi.click(c, 50, 68);
-            MachineTestUi.click(c, 141, 135);
-            c.runOnClient(mc ->
-            {
-                var button = ((MachineScreen) mc.gui.screen()).children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals("Set destination")).map(w -> (net.minecraft.client.gui.components.Button) w).findFirst().orElseThrow();
-                if (button.active)
-                    throw new AssertionError("Paging must clear the hidden destination candidate immediately");
-            });
-            MachineTestUi.click(c, 50, 135);
-            c.waitTicks(4);
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SCANNER"), 100);
+            ShipControlTestUi.scannerDestination(c, "Test station", "Stations");
             world.getServer().runOnServer(server ->
             {
-                var saved = ShipDestination.selected(vessels[0]);
-                if (!originalDestination.equals(saved == null ? "" : saved.id()))
-                    throw new AssertionError("Off-page selection cannot change the saved ship destination");
-                var p = world.getConnection().getServerPlayer();
-                var at = ((MachineMenu) p.containerMenu).at;
-                ShipSystems.setEnabled(p.level(), vessels[0], at, false);
+                var selected = ShipDestination.selected(vessels[0]);
+                if (selected == null || !selected.reference().equals(vessels[1].getStringOr("id", "")))
+                    throw new AssertionError("The unified Scanner must select this station for the real docking course");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && !m.getMenu().reading.getBooleanOr("selectable", true), 100);
-            MachineTestUi.click(c, 40, 24);
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getBooleanOr("selectable", false), 100);
-            MachineTestUi.click(c, 30, 49);
-            int index = c.computeOnClient(mc ->
-            {
-                var data = ((MachineScreen) mc.gui.screen()).getMenu().reading;
-                var rows = data.getListOrEmpty("destinations").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("region", "").equals(data.getStringOr("region", ""))).toList();
-                for (int i = 0; i < rows.size(); i++)
-                    if (rows.get(i).getStringOr("kind", "").equals("VESSEL") && rows.get(i).getStringOr("name", "").contains("Test station"))
-                        return i;
-                throw new AssertionError("Station missing from native scanner");
-            });
-            for (int i = 0; i < index / 4; i++)
-                MachineTestUi.click(c, 141, 135);
-            MachineTestUi.click(c, 50, 68 + (index % 4) * 15);
-            MachineTestUi.click(c, 50, 135);
-            c.waitTicks(10);
             c.takeScreenshot("nullspace-scanner-destination");
             world.getServer().runOnServer(server ->
             {
@@ -169,7 +139,7 @@ public final class StationClientGameTest implements FabricClientGameTest
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(5).contains("Test station"), 200);
             c.takeScreenshot("nullspace-unified-docking");
             ShipControlTestUi.action(c, ShipControl.Action.ENGAGE);
-            world.getServer().waitFor(server -> vessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 1800);
+            world.getServer().waitFor(server -> vessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, vessels[0]) && !CourseService.active(vessels[0]), 1800);
             c.runOnClient(mc ->
             {
                 if (mc.gui.screen() != null)

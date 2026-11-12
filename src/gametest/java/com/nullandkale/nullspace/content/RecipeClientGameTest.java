@@ -46,16 +46,17 @@ public final class RecipeClientGameTest implements FabricClientGameTest
         try (var world = context.worldBuilder().create())
         {
             var gallery = world.getServer().computeOnServer(RecipeLab::ensure);
+            var boardChest = gallery.chest(RecipeLab.RECIPES.indexOf("circuit_board"));
             world.getServer().runOnServer(server ->
             {
-                var at = gallery.chest(1);
+                var at = boardChest;
                 var player = world.getConnection().getServerPlayer();
                 player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
                 player.teleportTo(server.overworld(), at.getX() + .5, at.getY(), at.getZ() - 2.5, Set.of(), 0, 0, true);
             });
             world.getConnection().waitForChunksRender();
             context.waitTicks(10);
-            context.getInput().lookAt(gallery.chest(1));
+            context.getInput().lookAt(boardChest);
             context.waitTicks(2);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
             context.waitFor(c -> c.gui.screen() instanceof ContainerScreen, 200);
@@ -82,7 +83,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                 player.inventoryMenu.broadcastChanges();
             });
             context.waitTicks(5);
-            context.getInput().lookAt(gallery.chest(1).offset(2, 0, 0));
+            context.getInput().lookAt(boardChest.offset(2, 0, 0));
             context.waitTicks(2);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
             context.waitFor(c -> c.gui.screen() instanceof CraftingScreen, 200);
@@ -115,7 +116,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
             var base = world.getServer().computeOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
-                var at = gallery.chest(1).offset(2, 0, 0);
+                var at = boardChest.offset(2, 0, 0);
                 SurvivalCrafting.starter(p, at);
                 var home = ShipLab.ensure(server);
                 var level = server.overworld();

@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.docking.DockingPorts;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.systems.ShipAir;
+import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
@@ -44,7 +45,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 station[0].putBoolean("buildPaid", true);
                 p.getInventory().add(new ItemStack(ModBlocks.STATION_MODULE, 28));
             });
-            world.getServer().waitFor(server -> StationAccess.ready(station[0]), 600);
+            world.getServer().waitFor(server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 600);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -60,7 +61,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 43, 12));
             world.getServer().waitFor(server -> station[0].contains("stationBuild"), 200);
             c.runOnClient(mc -> mc.gui.screen().onClose());
-            world.getServer().waitFor(server -> StationAccess.ready(station[0]), 1600);
+            world.getServer().waitFor(server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 1600);
             world.getServer().runOnServer(server ->
             {
                 if (station[0].getCompoundOrEmpty("roomPieces").size() != 28)
@@ -126,7 +127,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             ShipControlTestUi.destination(c, world, far.getX() + "," + far.getY() + "," + far.getZ(), "Ports");
             c.takeScreenshot("nullspace-far-station-port-discovery");
             ShipControlTestUi.action(c, ShipControl.Action.DOCK);
-            world.getServer().waitFor(server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 1800);
+            world.getServer().waitFor(server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship[0]), 1800);
             StationClientGameTest.walkThrough(c, world, ship[0], doors[0]);
             c.waitFor(mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(far).above()), 200);
             c.waitTicks(12);
