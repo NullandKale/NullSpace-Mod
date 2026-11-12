@@ -4,17 +4,17 @@ This continuation uses the **original** scope of [journals and save recovery](..
 
 ## Current state
 
-The implementation and local verification are complete; release delivery remains. Local checkpoints `49f9670` and `c940571` contain the journal implementation and the save, planet, ship and UI changes, with the final verification corrections following them. The complete selected inventory passes with retained results and affected batch checks. The final receipt is `build/verification/20261111-191029-5d626f/final-result.json`. No CI release or release-asset installation has occurred yet.
+The agreed implementation, verification and release delivery are complete. Checkpoints `49f9670`, `c940571` and `2cdd4b0` contain the journal, save, planet, ship, UI and verification corrections. The complete selected inventory passes with retained results and affected batch checks. The final local receipt is `build/verification/20261111-191029-5d626f/final-result.json`. [Release v0.5.2_rc1](https://github.com/NullandKale/NullSpace-Mod/releases/tag/v0.5.2_rc1) was built and published by CI; its verified asset is installed in the Modrinth testing profile.
 
 **Performance work stopped at the user's request.** Keep the existing implementation, harness and results. Do not run further benchmarks or tune for the one-second target in this batch. The 100-ship remeasurement and 300-ship run are deferred and do not block release. Revisit this code only to address a demonstrated correctness failure; ordinary save/recovery correctness checks remain required. No reliable before/after speedup has been established.
 
 - **Saves/recovery:** production BUILD/RECORD journals, operator restore and batched BUILD completion are implemented. Relevant save, crash, unit and graphical checks pass. Short repeated BUILD cycles and fresh startup cases at 0/100/1,000 journals pass. Further performance measurements are deferred by the decision above. The bounded quota is now 256 MiB, with large-slot unit coverage.
 - **Planets/landing:** dedicated stable dimensions for every nongas body, saved individual terrain seeds, retained legacy assignments, atmosphere and arrival clearance are implemented. Native, fresh-process restart and graphical checks pass. Dropped loot is preserved; lava can permit arrival while remaining a takeoff hazard.
-- **Ships/inventory:** deployment consumes carried matching titles after the move commits; generated supplies no longer add default custom container names; salvage generator stock and container fuel are reduced. Repeated title/storage cycles, container stacking, battery behavior and a face-connected carved fixture pass. The encounter journey regression now passes its focused native flow; graphical and final integration acceptance remain pending.
+- **Ships/inventory:** deployment consumes carried matching titles after the move commits; generated supplies no longer add default custom container names; salvage generator stock and container fuel are reduced. Repeated title/storage cycles, container stacking, battery behavior and a face-connected carved fixture pass. Encounter investigation, boarding, paid resume and arrival also pass native, graphical and integration acceptance.
 - **Carved-wall report:** the user explicitly dropped PT10-7. Do not investigate it further or claim it was reproduced/fixed. The incorrect diagonal-connectivity workaround has been removed; hull connections use full faces again.
 - **UI/player flow:** scanner selection retry, supported living actors in vessel snapshots, interior-door travel, salvage/guide progression, quieter oxygen status and explicit FTL states are implemented and verified. All 611 units, 31 selected graphical entrypoints and multiplayer pass. Status results retain their original API value; presentation labels stay in the renderer.
 - **Starter size:** the two-room starter has not been implemented. New tiny layouts remain deferred under the feature freeze; do not describe the requested smaller starter as delivered.
-- **Delivery:** finish documentation, freeze sources, complete the final integration sweep, publish through release CI/CD and use the exact release asset in the testing profile. New feature requests remain deferred.
+- **Delivery:** complete. Release CI passed, the published JAR and checksum were verified, and the exact asset is in the testing profile. New feature requests and further performance work remain deferred.
 
 ## Implementation chunks
 
@@ -40,7 +40,7 @@ The user replaced the earlier small-slice testing preference with larger chunks.
 - [x] Implement the November 11 bug/usability queue, keeping new features deferred. The user dropped the original carved-wall report. Chunk checks pass; release acceptance remains below.
 - [x] Real crash/restart coverage for BUILD and damaged newest store copies.
 - [x] Complete integration with frozen collection batches, fix the complete failure list together, and retain unaffected passes; update the design documents to match behavior and evidence.
-- [ ] Publish the verified candidate through GitHub release CI/CD and use that release asset in the Modrinth test pack, checking the JAR hash.
+- [x] Publish the verified candidate through GitHub release CI/CD and use that release asset in the Modrinth test pack, checking the JAR hash.
 
 ## Verification record
 
@@ -164,4 +164,6 @@ One combined patch addresses the complete list. The action result remains raw in
 
 The completed affected batch `collection-fixed-20261111-195318/result.json` passes five affected graphical checks and multiplayer. It exposes two fixture errors later in the remaining flows: reopening an already-open Scanner and using an old numeric index after the recipe list was reordered. Both were corrected together. `collection-fixed-20261111-200226/result.json` passes the station and recipe flows; the other passes were retained.
 
-Final local acceptance is complete: **611 unit cases, 270 native cases covered by the broad run and affected corrections, 31 selected graphical entrypoints, multiplayer, all 16 MOVE and ten BUILD crash/restart checkpoints, independent planet restart, asset validation and packaging**. `final-result.json` links the contributing receipts and preserves the original failures. The performance grid demonstration and further measurements remain deferred. Only CI release delivery remains.
+Final local acceptance is complete: **611 unit cases, 270 native cases covered by the broad run and affected corrections, 31 selected graphical entrypoints, multiplayer, all 16 MOVE and ten BUILD crash/restart checkpoints, independent planet restart, asset validation and packaging**. `final-result.json` links the contributing receipts and preserves the original failures. The performance grid demonstration and further measurements remain deferred.
+
+On November 12, [release CI](https://github.com/NullandKale/NullSpace-Mod/actions/runs/43263207272) passed for `2cdd4b0` and published `v0.5.2_rc1`. The downloaded `nullspace-0.5.2_rc1.jar` matches the published SHA-256, `55231ad6de84e6b4d9a9936962f877bc48df62716c4132f7999b95fb323e433a`, and is installed in the testing profile. No new local sweep or performance measurement was needed for delivery.
