@@ -18,9 +18,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import com.google.gson.*;
 
 /**
- * The shipyard designs. Each is a template, {@code structure/ship/<id>.nbt}, edited in game with the
- * authoring tools, plus an entry in {@code catalog/ships.json} with its name, maker, role and room
- * landmarks. Size comes from the template and the helm is its computer.
+ * Catalog designs backed by generated plans or authored templates. An authored
+ * {@code structure/ship/<id>.nbt} overrides the generator for that design.
  */
 public final class ShipBlueprints
 {
@@ -49,6 +48,11 @@ public final class ShipBlueprints
         {
             return "ship/" + id;
         }
+
+        public boolean tiny()
+        {
+            return TINY.contains(id);
+        }
     }
 
     private static final Map<String, BlockPos> HELMS = new java.util.concurrent.ConcurrentHashMap<>();
@@ -57,6 +61,8 @@ public final class ShipBlueprints
 
     /** Designs built by the ship generator; a template saved in game under the same id replaces one. */
     private static final Map<String, ShipGenerator.Ship> GENERATED = new HashMap<>();
+    private static final Set<String> TINY = new HashSet<>();
+    public static final String DEFAULT_STARTER = "rivet_spark";
 
     private static final Map<String, Map<BlockPos, BlockState>> BLOCKS = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -86,7 +92,16 @@ public final class ShipBlueprints
             if (d.has("generate"))
             {
                 var g = d.getAsJsonObject("generate");
-                made = ShipGenerator.build(new Spec(Spec.Maker.valueOf(g.get("maker").getAsString()), Spec.Shape.valueOf(g.get("shape").getAsString()), Spec.Tier.valueOf(g.get("tier").getAsString()), Spec.Role.valueOf(g.get("role").getAsString()), g.get("seed").getAsLong()));
+                var spec = new Spec(Spec.Maker.valueOf(g.get("maker").getAsString()), Spec.Shape.valueOf(g.get("shape").getAsString()), Spec.Tier.valueOf(g.get("tier").getAsString()), Spec.Role.valueOf(g.get("role").getAsString()), g.get("seed").getAsLong());
+                if (d.has("tiny") && d.get("tiny").getAsBoolean())
+                {
+                    if (spec.shape() != Spec.Shape.SPINE || spec.tier() != Spec.Tier.SMALL || spec.role() != Spec.Role.SCOUT)
+                        throw new IllegalStateException("Tiny designs use the two-room small scout program: " + id);
+                    TINY.add(id);
+                    made = TinyShipGenerator.build(spec.maker(), spec.seed());
+                }
+                else
+                    made = ShipGenerator.build(spec);
                 GENERATED.put(id, made);
             }
             var generated = made;

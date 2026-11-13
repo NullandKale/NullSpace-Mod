@@ -10,7 +10,7 @@ import java.util.Properties;
 public record WorldStartSettings(boolean space, String ship)
 {
     public static final String FILE = "nullspace/world-start.properties";
-    public static final WorldStartSettings DEFAULT = new WorldStartSettings(false, "rivet_bolt");
+    public static final WorldStartSettings DEFAULT = new WorldStartSettings(false, ShipBlueprints.DEFAULT_STARTER);
 
     public WorldStartSettings
     {
@@ -32,7 +32,7 @@ public record WorldStartSettings(boolean space, String ship)
 
     public static WorldStartSettings from(Properties properties)
     {
-        return new WorldStartSettings(Boolean.parseBoolean(properties.getProperty("nullspace-space-start", "false").trim()), properties.getProperty("nullspace-starting-ship", "rivet_bolt").trim());
+        return new WorldStartSettings(Boolean.parseBoolean(properties.getProperty("nullspace-space-start", "false").trim()), properties.getProperty("nullspace-starting-ship", ShipBlueprints.DEFAULT_STARTER).trim());
     }
 
     public void write(Path worldRoot) throws IOException

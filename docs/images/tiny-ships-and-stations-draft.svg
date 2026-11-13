@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850" role="img" aria-labelledby="title description">
+<title id="title">Tiny ship and station floor plans — discussion draft</title>
+<desc id="description">A proposed two-room nine-by-fifteen-block tiny ship, and a growing station route concept with an arrival room, service hub, greenhouse bays, stores and engineering. These are unapproved design sketches.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#e5eaf2} .title{font-size:26px;font-weight:650}.sub{font-size:15px;fill:#aebed1}.label{font-size:15px;font-weight:600}.small{font-size:12px}.note{font-size:14px;fill:#bfccdc}.corridor{fill:none;stroke:#8aa2b7;stroke-width:16;stroke-linejoin:round}.room{stroke:#8096ac;stroke-width:2}</style>
+<rect width="1200" height="850" fill="#111a25"/>
+<text x="36" y="44" class="title">Tiny ships and stations</text><text x="36" y="73" class="sub">FLOOR-PLAN DISCUSSION • proposed layouts • not an in-game build or terminal mock</text>
+<rect x="30" y="100" width="440" height="650" rx="9" fill="#192635"/>
+<text x="55" y="133" class="label">TINY STARTER • one deck, two rooms</text>
+<text x="55" y="156" class="sub">9 × 15 outer footprint; each room 7 × 6 inside</text>
+
+<rect x="75" y="215" width="270" height="450" fill="#5d6d7e"/>
+<rect x="105" y="245" width="210" height="180" fill="#244d68"/>
+<rect x="105" y="455" width="210" height="180" fill="#684a30"/>
+<rect x="165" y="245" width="90" height="180" fill="#384d56"/>
+<rect x="165" y="455" width="90" height="180" fill="#384d56"/>
+<path d="M75 215h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 245h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 275h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 305h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 335h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 365h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 395h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 425h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 455h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 485h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 515h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 545h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 575h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 605h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 635h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 665h270" stroke="#d3e2f0" opacity=".09"/>
+<path d="M75 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M105 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M135 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M165 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M195 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M225 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M255 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M285 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M315 215v450" stroke="#d3e2f0" opacity=".09"/>
+<path d="M345 215v450" stroke="#d3e2f0" opacity=".09"/>
+<rect x="197" y="217" width="26" height="26" fill="#6caa94"/>
+<text x="210.0" y="234.0" class="small" text-anchor="middle">D</text>
+<rect x="197" y="427" width="26" height="26" fill="#6caa94"/>
+<text x="210.0" y="444.0" class="small" text-anchor="middle">D</text>
+<rect x="107" y="247" width="26" height="26" fill="#3f7494"/>
+<text x="120.0" y="264.0" class="small" text-anchor="middle">S</text>
+<rect x="287" y="247" width="26" height="26" fill="#3f7494"/>
+<text x="300.0" y="264.0" class="small" text-anchor="middle">C</text>
+<rect x="107" y="307" width="26" height="56" fill="#3f7494"/>
+<text x="120.0" y="339.0" class="small" text-anchor="middle">B</text>
+<rect x="107" y="367" width="26" height="26" fill="#3f7494"/>
+<text x="120.0" y="384.0" class="small" text-anchor="middle">W</text>
+<rect x="287" y="367" width="26" height="26" fill="#3f7494"/>
+<text x="300.0" y="384.0" class="small" text-anchor="middle">L</text>
+<rect x="107" y="487" width="26" height="26" fill="#977044"/>
+<text x="120.0" y="504.0" class="small" text-anchor="middle">G</text>
+<rect x="287" y="487" width="26" height="26" fill="#977044"/>
+<text x="300.0" y="504.0" class="small" text-anchor="middle">G</text>
+<rect x="107" y="547" width="26" height="26" fill="#977044"/>
+<text x="120.0" y="564.0" class="small" text-anchor="middle">P</text>
+<rect x="287" y="547" width="26" height="26" fill="#977044"/>
+<text x="300.0" y="564.0" class="small" text-anchor="middle">A</text>
+<rect x="137" y="637" width="26" height="26" fill="#a16c49"/>
+<text x="150.0" y="654.0" class="small" text-anchor="middle">E</text>
+<rect x="257" y="637" width="26" height="26" fill="#a16c49"/>
+<text x="270.0" y="654.0" class="small" text-anchor="middle">E</text>
+<text x="210.0" y="194" class="label" text-anchor="middle">Dock / main entrance</text>
+<text x="210.0" y="308.0" class="small" text-anchor="middle">BRIDGE</text>
+<text x="210.0" y="518.0" class="small" text-anchor="middle">ENGINEERING</text>
+<text x="365" y="301" class="small" text-anchor="middle">Clear</text>
+<text x="365" y="318" class="small" text-anchor="middle">aisle</text>
+<text x="55" y="690" class="small" text-anchor="start">C controls · S scanner · B bed · W workbench</text>
+<text x="55" y="712" class="small" text-anchor="start">L storage · G generators · P battery · A air</text>
+<text x="55" y="734" class="small" text-anchor="start">D doors · E engines; hardware counts provisional</text>
+<rect x="495" y="100" width="675" height="650" rx="9" fill="#192635"/>
+<text x="520" y="133" class="label">GROWING STATION • first dungeon proposal</text>
+<text x="520" y="156" class="sub">Route concept, not to scale. Vary room sizes and useful heights.</text>
+<path class="corridor" d="M825 570V405 M825 405H610V300 M825 405H610V490 M825 405H1030V300 M825 405V490H1030 M1030 300V490"/>
+
+<rect class="room" x="525.0" y="212.5" width="170" height="135" rx="4" fill="#27564b"/>
+<text x="610" y="276" class="label" text-anchor="middle">GREENHOUSE</text>
+<text x="610" y="299" class="small" text-anchor="middle">breached growing bay</text>
+<rect class="room" x="945.0" y="212.5" width="170" height="135" rx="4" fill="#27564b"/>
+<text x="1030" y="276" class="label" text-anchor="middle">GREENHOUSE</text>
+<text x="1030" y="299" class="small" text-anchor="middle">upper service gallery</text>
+<rect class="room" x="750.0" y="360.0" width="150" height="90" rx="4" fill="#244d68"/>
+<text x="825" y="401" class="label" text-anchor="middle">SERVICE HUB</text>
+<text x="825" y="424" class="small" text-anchor="middle">core and clear routes</text>
+<rect class="room" x="525.0" y="447.5" width="170" height="85" rx="4" fill="#58503b"/>
+<text x="610" y="486" class="label" text-anchor="middle">WORK / STORES</text>
+<text x="610" y="509" class="small" text-anchor="middle">modest finite supplies</text>
+<rect class="room" x="945.0" y="447.5" width="170" height="85" rx="4" fill="#684a30"/>
+<text x="1030" y="486" class="label" text-anchor="middle">ENGINEERING</text>
+<text x="1030" y="509" class="small" text-anchor="middle">optional repairs</text>
+<rect class="room" x="750.0" y="542.5" width="150" height="85" rx="4" fill="#244d68"/>
+<text x="825" y="581" class="label" text-anchor="middle">ARRIVAL</text>
+<text x="825" y="604" class="small" text-anchor="middle">intact boarding space</text>
+<path d="M825 627v48" stroke="#6caa94" stroke-width="18"/><path d="M545 216l16 17-12 17 21 12" fill="none" stroke="#f38b76" stroke-width="4"/>
+<text x="825" y="703" class="label" text-anchor="middle">Dock / your ship</text>
+<text x="520" y="734" class="small" text-anchor="start">One return loop; ordinary mining and building remain valid.</text>
+<text x="36" y="790" class="note" text-anchor="start">CONFIRMED: simple claiming; combat + breaches + optional repairs; mining and building always allowed.</text>
+<text x="36" y="817" class="note" text-anchor="start">TO REVIEW: actual footprints, furniture, exterior, first archetype and content count, rarity, construction and core screens.</text>
+</svg>

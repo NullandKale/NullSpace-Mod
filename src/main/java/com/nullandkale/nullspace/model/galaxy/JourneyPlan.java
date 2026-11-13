@@ -10,8 +10,7 @@ import java.util.UUID;
 public record JourneyPlan(long seed, String site, int seconds, int contactSecond, int kind)
 {
 
-    /** Signal kinds: growing station, damaged freighter, salvage ship, drifting cargo. */
-    public static final int KINDS = 4;
+    public static final int KINDS = EncounterKind.values().length;
 
     /** Most trips stay quiet; mix the nonce independently of encounter kind and arrival timing. */
     public boolean hasSignal()
@@ -38,7 +37,7 @@ public record JourneyPlan(long seed, String site, int seconds, int contactSecond
         // The signal comes in between a quarter and half of the way.
         int quarter = Math.max(1, seconds / 4);
         int contact = Math.max(5, quarter + (int) Math.floorMod(nonce >>> 32, quarter));
-        return new JourneyPlan(nonce, "e_" + id.toString().replace("-", "").substring(0, 24), seconds, contact, (int) Math.floorMod(nonce >>> 16, KINDS));
+        return new JourneyPlan(nonce, "e_" + id.toString().replace("-", "").substring(0, 24), seconds, contact, EncounterKind.select(nonce).id);
     }
 
     static long laneSeed(long worldSeed, String from, String to)
@@ -55,12 +54,6 @@ public record JourneyPlan(long seed, String site, int seconds, int contactSecond
 
     public static String name(int kind)
     {
-        return switch (kind)
-        {
-            case 0 -> "Abandoned growing station";
-            case 1 -> "Damaged freighter";
-            case 2 -> "Salvage ship";
-            default -> "Drifting cargo";
-        };
+        return EncounterKind.saved(kind).label;
     }
 }

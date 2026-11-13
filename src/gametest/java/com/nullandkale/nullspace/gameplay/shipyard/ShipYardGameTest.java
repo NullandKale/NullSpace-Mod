@@ -36,6 +36,116 @@ public final class ShipYardGameTest
         return result;
     }
 
+    @GameTest(maxTicks = 200)
+    public void plantedCatalogRoomsKeepTheirSoilAndWaterAfterFluidTicks(GameTestHelper ctx)
+    {
+        var planted = new LinkedHashMap<BlockPos, Map<BlockPos, net.minecraft.world.level.block.state.BlockState>>();
+        int slot = 160;
+        for (var preset : ShipBlueprints.PRESETS)
+        {
+            var blocks = ShipBlueprints.blocks(preset);
+            if (blocks.values().stream().noneMatch(s -> s.is(Blocks.WATER)))
+                continue;
+            var f = fixture(ctx, slot++, 32, 32);
+            var origin = ShipBlueprints.origin(preset, PadComputers.inspect(ctx.getLevel(), f.beacon()).pad(), 32);
+            planted.put(origin, blocks);
+            for (var entry : blocks.entrySet())
+                ctx.getLevel().setBlock(origin.offset(entry.getKey()), entry.getValue(), 18);
+            for (var entry : blocks.entrySet())
+                if (entry.getValue().is(Blocks.WATER))
+                    ctx.getLevel().scheduleTick(origin.offset(entry.getKey()), net.minecraft.world.level.material.Fluids.WATER, 1);
+        }
+        ctx.assertTrue(!planted.isEmpty(), "Exercise actual fixed catalog designs containing water");
+        ctx.runAtTickTime(80, () ->
+        {
+            for (var ship : planted.entrySet())
+            {
+                var origin = ship.getKey();
+                var blocks = ship.getValue();
+                for (var entry : blocks.entrySet())
+                    if (entry.getValue().is(Blocks.FARMLAND))
+                        ctx.assertTrue(ctx.getLevel().getBlockState(origin.offset(entry.getKey())).is(Blocks.FARMLAND), "Farm soil survives furnishing and native ticks");
+                for (var at : BlockPos.betweenClosed(origin.offset(-1, -1, -1), origin.offset(32, 32, 32)))
+                    if (ctx.getLevel().getFluidState(at).is(net.minecraft.tags.FluidTags.WATER))
+                        ctx.assertTrue(blocks.getOrDefault(at.subtract(origin), Blocks.AIR.defaultBlockState()).is(Blocks.WATER), "Water stays in its planted channel at " + at);
+            }
+            ctx.succeed();
+        });
+    }
+
+    @GameTest(maxTicks = 300)
+    public void tinyCatalogDeliveryFitsSixteenBlockPads(GameTestHelper ctx)
+    {
+        var fixtures = new LinkedHashMap<ShipBlueprints.Preset, Fixture>();
+        int slot = 120;
+        for (var preset : ShipBlueprints.PRESETS.stream().filter(ShipBlueprints.Preset::tiny).toList())
+            fixtures.put(preset, fixture(ctx, slot++, 16, 16));
+        later(ctx, () ->
+        {
+            for (var entry : fixtures.entrySet())
+            {
+                var preset = entry.getKey();
+                var f = entry.getValue();
+                var ship = delivered(f.player(), f.beacon(), preset.id());
+                ctx.assertTrue(ship.getStringOr("blueprint", "").equals(preset.id()), "Beacon delivers the requested tiny design");
+                ctx.assertTrue(FuelSystem.available(ctx.getLevel(), ship) > 0 && ShipSystems.enabled(ship), "Compact delivery is fueled and powered");
+                var scan = ShipService.inspect(ctx.getLevel(), WorldStore.pos(ship, "controller")).scan();
+                ctx.assertTrue(scan.blocks().size() == ShipBlueprints.blocks(preset).size(), "Compact pad does not join the hull to its computer or beacon");
+            }
+            ctx.succeed();
+        });
+    }
+
+    @GameTest(environment = "nullspace:ship_recall", maxTicks = 600)
+    public void tinyShipStorageReturnsCargoAndConsumesItsTitleOnACompactPad(GameTestHelper ctx)
+    {
+        var f = fixture(ctx, 123, 16, 16);
+        var player = com.nullandkale.nullspace.gameplay.ownership.ShipStorageGameTest.player(ctx, 323);
+        var computer = f.base().offset(-1, 1, 8);
+        player.teleportTo(ctx.getLevel(), computer.getX() - .5, computer.getY(), computer.getZ() + .5, Set.of(), -90, 0, true);
+        int[] tick = {0}, phase = {-1};
+        String[] id = {null}, selection = {null};
+        // Register once, before ticking: adding onEachTick tasks from a running task mutates
+        // GameTestInfo's task map while it is being iterated and can repeat the delivery.
+        ctx.onEachTick(() ->
+        {
+            if (++tick[0] < 25)
+                return;
+            if (phase[0] == -1)
+            {
+                var ship = delivered(player, f.beacon(), "rivet_spark");
+                com.nullandkale.nullspace.gameplay.ownership.CrewRelease.authorize(ship, player);
+                id[0] = ship.getStringOr("id", "");
+                selection[0] = com.nullandkale.nullspace.gameplay.ownership.ShipStorage.candidates(player, computer).getFirst().id().replace("-", "");
+                var origin = WorldStore.pos(ship, "controller").subtract(ShipBlueprints.get("rivet_spark").helm());
+                ((net.minecraft.world.Container) ctx.getLevel().getBlockEntity(origin.offset(7, 1, 7))).setItem(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 7));
+                String notice = com.nullandkale.nullspace.gameplay.ownership.ShipStorage.store(player, computer, selection[0], null);
+                ctx.assertTrue(notice.startsWith("Storing"), notice);
+                phase[0] = 0;
+                return;
+            }
+            if (com.nullandkale.nullspace.gameplay.ownership.ShipStorage.active(player))
+                return;
+            var current = WorldStore.get(ctx.getLevel().getServer()).repository().find(id[0]);
+            if (phase[0] == 0)
+            {
+                ctx.assertTrue(com.nullandkale.nullspace.gameplay.ownership.ShipTitles.stored(current), "Tiny ship reaches storage");
+                ctx.assertTrue(com.nullandkale.nullspace.gameplay.ownership.ShipTitles.holds(player, current), "Storage awards its title");
+                String response = com.nullandkale.nullspace.gameplay.ownership.ShipStorage.request(player, computer, selection[0], null);
+                ctx.assertTrue(response.startsWith("Recall requested"), response);
+                phase[0]++;
+                return;
+            }
+            ctx.assertTrue(!com.nullandkale.nullspace.gameplay.ownership.ShipTitles.stored(current), "Deployment returns the same tiny identity");
+            ctx.assertTrue(!com.nullandkale.nullspace.gameplay.ownership.ShipTitles.holds(player, current), "Deployment consumes the carried matching title");
+            ctx.assertTrue(ShipSystems.connected(ctx.getLevel(), current).stream().map(ctx.getLevel()::getBlockEntity).filter(net.minecraft.world.Container.class::isInstance).map(net.minecraft.world.Container.class::cast).anyMatch(c -> c.countItem(net.minecraft.world.item.Items.DIAMOND) == 7), "Cargo survives rotated compact-pad deployment");
+            var port = DockingPorts.firstPort(ctx.getLevel(), current);
+            ctx.assertTrue(port != null && port.facing() == Direction.WEST, "Main entrance faces the west Pad Computer");
+            ctx.getLevel().getServer().getPlayerList().remove(player);
+            ctx.succeed();
+        });
+    }
+
     @GameTest(environment = "nullspace:yard_dismantling", maxTicks = 300)
     public void dismantlingShipAndReplacingBeaconFreesPadWithoutReusingItsSavedIdentity(GameTestHelper ctx)
     {

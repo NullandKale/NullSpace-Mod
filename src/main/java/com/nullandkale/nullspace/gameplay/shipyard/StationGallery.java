@@ -34,6 +34,7 @@ public final class StationGallery
 
     public static void initialize()
     {
+        StationPreview.initialize();
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("stations").executes(ctx ->
         {
             var player = ctx.getSource().getPlayerOrException();

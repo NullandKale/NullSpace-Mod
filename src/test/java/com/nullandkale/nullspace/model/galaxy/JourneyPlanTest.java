@@ -23,7 +23,7 @@ class JourneyPlanTest
             }
         }
         assertTrue(signals > 850 && signals < 1200, "About one trip in four carries a signal");
-        assertEquals(Set.of(0, 1, 2, 3), kinds);
+        assertEquals(Set.of(0, 1, 2, 3, 4), kinds);
     }
 
     @Test
@@ -68,7 +68,7 @@ class JourneyPlanTest
             assertTrue(local.contactSecond() > 0 && local.contactSecond() < local.seconds());
             kinds.add(local.kind());
         }
-        assertEquals(Set.of(0, 1, 2, 3), kinds);
+        assertEquals(Set.of(0, 1, 2, 3, 4), kinds);
     }
 
     @Test
@@ -85,6 +85,6 @@ class JourneyPlanTest
             kinds.add(trip.kind());
         }
         assertEquals(200, sites.size(), "Every journey's signal is a new site");
-        assertEquals(Set.of(0, 1, 2, 3), kinds);
+        assertEquals(Set.of(0, 1, 2, 3, 4), kinds);
     }
 }

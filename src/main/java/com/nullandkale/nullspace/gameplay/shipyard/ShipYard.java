@@ -89,7 +89,7 @@ public final class ShipYard
     public static Yard ensure(MinecraftServer server) throws java.io.IOException
     {
         // A new reserved gallery leaves the earlier galleries and all player edits intact.
-        var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-shipyard-v3.nbt");
+        var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-shipyard-v4.nbt");
         if (Files.exists(marker))
         {
             var saved = WorldStore.read(marker);
@@ -102,7 +102,7 @@ public final class ShipYard
         // Start outside the existing labs, and choose height above every existing block/fluid.
         for (int attempt = 0; attempt < 8 && yard == null; attempt++)
         {
-            int x = 1024 + attempt * 160, z = 512;
+            int x = 2400 + attempt * 160, z = 512;
             var proposed = new PadScanner.Pad(x, x + WIDTH - 1, 0, z, z + DEPTH - 1);
             if (PadRegistry.read(server).stream().anyMatch(p -> p.dimension().equals(level.dimension().identifier().toString()) && proposed.minX() - 1 <= p.bounds().maxX() + 1 && proposed.maxX() + 1 >= p.bounds().minX() - 1 && proposed.minZ() - 1 <= p.bounds().maxZ() + 1 && proposed.maxZ() + 1 >= p.bounds().minZ() - 1))
                 continue;

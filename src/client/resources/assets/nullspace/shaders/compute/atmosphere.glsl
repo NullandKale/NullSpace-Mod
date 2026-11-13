@@ -138,8 +138,13 @@ vec2 atmoSpan(vec3 d, float limit) {
     vec2 span = atmoSphere(p, d, AtmoRadius + AtmoHeight);
     span /= AtmoDistanceScale;
     span.x = max(0., span.x); span.y = min(limit, span.y);
-    vec2 ground = atmoSphere(p, d, AtmoRadius);
-    if (ground.x > .0001) span.y = min(span.y, ground.x / AtmoDistanceScale);
+    // Only unbounded (sky) rays end on the analytic ground sphere. A finite limit comes from real
+    // terrain depth, which must not be cut short by the sphere: flat terrain below the sphere's
+    // horizon dip would otherwise lose its haze and produce a hard line at the horizon.
+    if (limit >= FAR * .99) {
+        vec2 ground = atmoSphere(p, d, AtmoRadius);
+        if (ground.x > .0001) span.y = min(span.y, ground.x / AtmoDistanceScale);
+    }
     return span;
 }
 // Split at cloud-layer boundaries so long horizon/space rays cannot step over thin clouds.

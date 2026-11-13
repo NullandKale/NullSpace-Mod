@@ -30,7 +30,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
         if (System.getProperty("nullspace.local.role") != null)
             return;
         boolean preparing = Boolean.getBoolean("nullspace.dev.prepare");
-        var preset = ShipBlueprints.get(System.getProperty("nullspace.dev.startShip", "halcyon_swift"));
+        var preset = ShipBlueprints.get(System.getProperty("nullspace.dev.startShip", preparing ? "halcyon_swift" : "halcyon_wisp"));
         var failure = new AtomicReference<Throwable>();
         var selected = new AtomicReference<String>();
         var folder = new AtomicReference<String>();
@@ -54,7 +54,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
             click(screen, "Start: On a planet");
             if (!access.nullspace$start().space())
                 throw new AssertionError("Start button did not select space");
-            click(screen, "Starting ship: Rivet Bolt");
+            click(screen, "Starting ship: " + ShipBlueprints.get(WorldStartSettings.DEFAULT.ship()).name());
         });
         c.waitFor(mc -> mc.gui.screen() instanceof StartingShipScreen, 100);
         c.runOnClient(mc ->

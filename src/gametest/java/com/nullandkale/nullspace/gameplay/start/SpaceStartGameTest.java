@@ -20,6 +20,26 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class SpaceStartGameTest
 {
+    @GameTest(environment = "nullspace:space_start", maxTicks = 300)
+    public void tinyStartsHaveTwoBreathableCompartmentsAndKeepTheirIdentity(GameTestHelper ctx)
+    {
+        for (var preset : com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS.stream().filter(com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.Preset::tiny).toList())
+        {
+            var player = ctx.makeMockServerPlayerInLevel();
+            var ship = SpaceStart.start(player, new WorldStartSettings(true, preset.id()));
+            var origin = WorldStore.pos(ship, "controller").subtract(preset.helm());
+            ctx.assertTrue(ShipSystems.enabled(ship) && FuelSystem.available(player.level(), ship) > 0, preset.name() + " starts powered and fueled");
+            for (var room : com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.rooms(preset.id()))
+                ctx.assertTrue(ShipAir.breathable(player.level(), ship, origin.offset(room.walk()).above()), preset.name() + " has air in " + room.name());
+            ctx.assertTrue(DockingPorts.ports(player.level(), ship).size() == 1, "Tiny start has one working dock");
+            ctx.assertTrue(player.level().getBlockState(origin.offset(1, 1, 4)).getBlock() instanceof net.minecraft.world.level.block.BedBlock, "Tiny start includes its actual bed");
+            int bread = player.getInventory().countItem(Items.BREAD);
+            ctx.assertTrue(SpaceStart.start(player, new WorldStartSettings(true, "rivet_bolt")) == ship, "Rejoin preserves the tiny identity");
+            ctx.assertTrue(player.getInventory().countItem(Items.BREAD) == bread, "Rejoin never duplicates supplies");
+        }
+        ctx.succeed();
+    }
+
     @GameTest(environment = "nullspace:space_start")
     public void nativePlayerDataAndBackupsNeverAwardAnotherStartingShip(GameTestHelper ctx) throws Exception
     {

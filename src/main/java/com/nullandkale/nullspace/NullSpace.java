@@ -5,6 +5,7 @@ import com.nullandkale.nullspace.content.guide.FieldGuide;
 import com.nullandkale.nullspace.content.machine.ControllerBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
 import com.nullandkale.nullspace.core.ServerContext;
+import com.nullandkale.nullspace.core.VersionCommand;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.dev.Authoring;
 import com.nullandkale.nullspace.dev.PlaytestWorld;
@@ -59,6 +60,7 @@ public final class NullSpace implements ModInitializer
     public void onInitialize()
     {
         LOGGER.info("Beginning NullSpace Initialization");
+        VersionCommand.initialize();
         ComputerTerminal.initialize();
         ShipControl.initialize();
         PadComputers.initialize();

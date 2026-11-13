@@ -27,7 +27,7 @@ class WorldStartSettingsTest
     {
         var properties = new Properties();
         properties.setProperty("nullspace-space-start", "true");
-        assertEquals(new WorldStartSettings(true, "rivet_bolt"), WorldStartSettings.from(properties));
+        assertEquals(new WorldStartSettings(true, ShipBlueprints.DEFAULT_STARTER), WorldStartSettings.from(properties));
     }
 
     @Test

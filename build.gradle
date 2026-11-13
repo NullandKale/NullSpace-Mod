@@ -134,9 +134,13 @@ tasks.register('prepareCompatMods', Sync) {
 
 processResources {
     def modVersion = project.version.toString()
+    def buildLabel = providers.environmentVariable('GITHUB_REF_TYPE').orElse('').get() == 'tag' ? providers.environmentVariable('GITHUB_REF_NAME').orElse('unknown build').get() : 'development build'
+    def buildCommit = providers.environmentVariable('GITHUB_SHA').orElse('unknown').get()
     inputs.property 'version', modVersion
+    inputs.property 'buildLabel', buildLabel
+    inputs.property 'buildCommit', buildCommit
     filesMatching('fabric.mod.json') {
-        expand version: modVersion
+        expand version: modVersion, buildLabel: buildLabel, buildCommit: buildCommit
     }
 }
 

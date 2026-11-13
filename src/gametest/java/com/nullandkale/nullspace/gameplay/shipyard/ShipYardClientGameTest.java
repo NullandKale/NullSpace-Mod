@@ -69,6 +69,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
         ClientTestEvidence.started(getClass());
         if (System.getProperty("nullspace.local.role") != null)
             return;
+        String design = System.getProperty("nullspace.test.shipyardDesign", "bastion_pioneer");
         try (var world = context.worldBuilder().create())
         {
             var base = new BlockPos(0, -60, 0);
@@ -98,15 +99,15 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             context.waitFor(client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(beacon), 100);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
             context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen, 150);
-            choose(context, ShipBlueprints.PRESETS.size() - 1);
-            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.selected().equals("bastion_pioneer") && t.ready(), 150);
+            choose(context, java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size()).filter(i -> ShipBlueprints.PRESETS.get(i).id().equals(design)).findFirst().orElseThrow());
+            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.selected().equals(design) && t.ready(), 150);
             context.takeScreenshot("nullspace-ship-beacon-catalog");
             context.waitTicks(3);
             choose(context, ShipBlueprints.PRESETS.size());
             context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.status().contains("DELIVERED"), 300);
             world.getServer().runOnServer(server ->
             {
-                purchased[0] = WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getStringOr("blueprint", "").equals("bastion_pioneer")).findFirst().orElseThrow();
+                purchased[0] = WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getStringOr("blueprint", "").equals(design)).findFirst().orElseThrow();
                 if (!WorldStore.get(server).list("shipyardOrders").isEmpty())
                     throw new AssertionError("Delivery order was not committed");
             });
@@ -130,6 +131,8 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             context.waitFor(client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(TravelService.SPACE), 400);
             world.getConnection().waitForChunksRender();
             context.takeScreenshot("nullspace-purchased-ship-in-space");
+            if (ShipBlueprints.get(design).tiny())
+                reviewTiny(context, world, purchased[0], design);
             context.waitTicks(20);
             var dockingVessels = new CompoundTag[2];
             var dockingDoors = new BlockPos[2];
@@ -199,7 +202,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             {
                 var player = world.getConnection().getServerPlayer();
                 var ship = WorldStore.get(server).at(player.level(), player.blockPosition());
-                if (ship == null || !ship.getStringOr("blueprint", "").equals("bastion_pioneer"))
+                if (ship == null || !ship.getStringOr("blueprint", "").equals(design))
                     throw new AssertionError("Purchased ship did not return to its home pad");
             });
             context.waitTicks(10);
@@ -259,6 +262,22 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             {
                 context.runOnClient(client -> client.options.renderDistance().set(oldDistance[0]));
             }
+            if (ShipBlueprints.get(design).tiny())
+                for (int index = 9; index < ShipBlueprints.PRESETS.size(); index++)
+                {
+                    var pad = showroom[0].pad(index);
+                    var preset = ShipBlueprints.PRESETS.get(index);
+                    var origin = pad.offset((32 - preset.width()) / 2, 1, (32 - preset.depth()) / 2);
+                    world.getServer().runOnServer(server ->
+                    {
+                        var player = world.getConnection().getServerPlayer();
+                        player.teleportTo(server.overworld(), origin.getX() - 5, origin.getY() + 8, origin.getZ() - 8, Set.of(), 0, 25, true);
+                    });
+                    context.waitFor(client -> client.player.distanceToSqr(origin.getX() - 5, origin.getY() + 8, origin.getZ() - 8) < 1, 200);
+                    context.getInput().lookAt(origin.offset(4, 2, 6));
+                    context.waitTicks(25);
+                    context.takeScreenshot("nullspace-tiny-" + preset.id() + "-exterior");
+                }
             world.getServer().runOnServer(server ->
             {
                 ComputerService.flush(server);
@@ -266,5 +285,38 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             });
         }
         ClientTestEvidence.passed(getClass());
+    }
+
+    private static void reviewTiny(ClientGameTestContext context, TestSingleplayerContext world, CompoundTag ship, String design)
+    {
+        var preset = ShipBlueprints.get(design);
+        var origin = world.getServer().computeOnServer(server -> WorldStore.pos(WorldStore.get(server).repository().find(ship.getStringOr("id", "")), "controller").subtract(preset.helm()));
+        world.getServer().runOnServer(server ->
+        {
+            var player = world.getConnection().getServerPlayer();
+            player.teleportTo(player.level(), origin.getX() + 4.5, origin.getY() + 1, origin.getZ() + 5.5, Set.of(), 180, 0, true);
+        });
+        context.waitFor(client -> client.player != null && client.player.distanceToSqr(origin.getX() + 4.5, origin.getY() + 1, origin.getZ() + 5.5) < 1, 200);
+        context.getInput().lookAt(origin.offset(5, 2, 2));
+        context.waitTicks(10);
+        context.takeScreenshot("nullspace-tiny-bridge");
+        var door = origin.offset(4, 1, 8);
+        context.getInput().lookAt(door);
+        context.waitFor(client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(door), 100);
+        context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
+        context.waitFor(client -> client.level.getBlockState(door).getValue(net.minecraft.world.level.block.DoorBlock.OPEN), 100);
+        context.getInput().lookAt(0, 0);
+        context.getInput().holdKey(InputConstants.KEY_W);
+        try
+        {
+            context.waitFor(client -> client.player.getZ() > origin.getZ() + 10, 150);
+        }
+        finally
+        {
+            context.getInput().releaseKey(InputConstants.KEY_W);
+        }
+        context.getInput().lookAt(origin.offset(2, 2, 13));
+        context.waitTicks(10);
+        context.takeScreenshot("nullspace-tiny-engineering-walked");
     }
 }

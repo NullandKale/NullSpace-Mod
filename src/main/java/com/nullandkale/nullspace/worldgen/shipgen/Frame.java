@@ -139,7 +139,9 @@ final class Frame
     void floor(int u, int v, Kind kind)
     {
         var at = s.at(u, v, -1);
-        if (s.cells().contains(s.at(u, v, 0)) && g.kind(at) == Kind.FLOOR && !reserved.contains(new BlockPos(at.getX(), s.floorY + 1, at.getZ())))
+        // A lower room may already have lit this shared slab. Functional flooring wins:
+        // otherwise the light prevents soil/water placement beneath the room's crops.
+        if (s.cells().contains(s.at(u, v, 0)) && (g.kind(at) == Kind.FLOOR || g.kind(at) == Kind.LIGHT) && !reserved.contains(new BlockPos(at.getX(), s.floorY + 1, at.getZ())))
             g.set(at, kind);
     }
 

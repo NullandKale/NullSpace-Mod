@@ -65,6 +65,12 @@ public final class Space
         return cells;
     }
 
+    /** Reassigns a room's program without moving its geometry, doors or floor. */
+    Space withUse(RoomUse replacement)
+    {
+        return custom(id, replacement, level, floorY, height, forward, w, d, origin, cells, Program.windows(replacement));
+    }
+
     /** The block at canonical {@code u, v} and {@code row} (0 is the first row above the floor). */
     public BlockPos at(int u, int v, int row)
     {

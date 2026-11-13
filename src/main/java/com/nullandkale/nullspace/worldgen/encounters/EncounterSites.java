@@ -8,11 +8,15 @@ import com.nullandkale.nullspace.gameplay.navigation.JourneyService;
 import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationBuilds;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.model.galaxy.EncounterKind;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
 import com.nullandkale.nullspace.worldgen.blueprint.VesselTemplate;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
+import com.nullandkale.nullspace.worldgen.stations.ExistingStationPlans;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
+import com.nullandkale.nullspace.worldgen.stations.StationLayout;
+import com.nullandkale.nullspace.worldgen.stations.StationSpec;
 
 import java.util.*;
 
@@ -31,6 +35,9 @@ public final class EncounterSites
 
     public static StationBlueprint.Plan plan(int kind, long seed)
     {
+        EncounterKind.saved(kind);
+        if (kind == EncounterKind.ABANDONED_STATION.id)
+            return ExistingStationPlans.build(ExistingStationPlans.encounter(seed));
         if (kind == 0)
             return growing(seed);
         if (kind == 3)
@@ -52,9 +59,10 @@ public final class EncounterSites
 
     public static String design(int kind, long seed)
     {
-        if (kind == 0 || kind == 3)
+        if (kind == 0 || kind == 3 || kind == EncounterKind.ABANDONED_STATION.id)
             return "";
         var designs = kind == 1 ? List.of("rivet_hauler", "halcyon_courier", "bastion_tender") : List.of("rivet_bolt", "halcyon_swift", "bastion_ward", "rivet_ranger", "halcyon_horizon", "bastion_pioneer");
+        designs = designs.stream().filter(id -> !ShipBlueprints.get(id).tiny()).toList();
         return designs.get((int) Math.floorMod(seed, designs.size()));
     }
 
@@ -223,7 +231,17 @@ public final class EncounterSites
                 metadata.putLong("encounterSeed", site.getLongOr("seed", 1));
                 metadata.putInt("encounterDanger", site.getIntOr("danger", 0));
                 metadata.putString("encounterDesign", design(site.getIntOr("kind", 0), site.getLongOr("seed", 1)));
-                var vessel = StationBuilds.queueAmbient(server, id, site.getStringOr("name", "Signal"), address, new Vec3(0, 0, 600), plan(site.getIntOr("kind", 0), site.getLongOr("seed", 1)), metadata);
+                StationBlueprint.Plan blueprint;
+                if (site.getIntOr("kind", 0) == EncounterKind.ABANDONED_STATION.id)
+                {
+                    var spec = site.contains("stationSpec") ? StationSpec.read(site.getCompoundOrEmpty("stationSpec")) : ExistingStationPlans.encounter(site.getLongOr("seed", 1));
+                    blueprint = ExistingStationPlans.build(spec);
+                    metadata.put("stationSpec", spec.save());
+                    metadata.put("roomPieces", StationLayout.pieces(StationLayout.generate(spec.seed())));
+                }
+                else
+                    blueprint = plan(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
+                var vessel = StationBuilds.queueAmbient(server, id, site.getStringOr("name", "Signal"), address, new Vec3(0, 0, 600), blueprint, metadata);
                 if (vessel == null)
                 {
                     retry.put(address, server.getTickCount() + 1200);

@@ -18,7 +18,7 @@ public final class Claims
 {
     public static boolean claimable(CompoundTag s)
     {
-        return s != null && StationAccess.station(s) && s.getBooleanOr("salvage", false) && s.getIntOr("encounterKind", 0) > 0 && s.getStringOr("owner", "").isEmpty() && StationAccess.ready(s);
+        return s != null && StationAccess.station(s) && s.getBooleanOr("salvage", false) && com.nullandkale.nullspace.model.galaxy.EncounterKind.shipSalvage(s.getIntOr("encounterKind", 0)) && s.getStringOr("owner", "").isEmpty() && StationAccess.ready(s);
     }
 
     public static String claim(ServerPlayer p, CompoundTag s)

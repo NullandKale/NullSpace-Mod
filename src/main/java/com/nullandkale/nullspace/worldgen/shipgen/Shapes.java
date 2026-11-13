@@ -19,12 +19,14 @@ final class Shapes
 
     static Layout layout(Spec spec)
     {
-        return switch (spec.shape())
+        var layout = switch (spec.shape())
         {
             case SPINE -> spine(spec, false);
             case TWIN -> spine(spec, true);
             case DOME -> dome(spec);
         };
+        Program.groundWaterRooms(layout);
+        return layout;
     }
 
     private static Link opening(int x, int y, int z, Direction across, int height)

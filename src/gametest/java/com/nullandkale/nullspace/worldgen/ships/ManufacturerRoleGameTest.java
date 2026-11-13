@@ -35,7 +35,7 @@ public final class ManufacturerRoleGameTest
         var floors = new HashSet<Set<BlockPos>>();
         for (var preset : ShipBlueprints.PRESETS)
         {
-            if (preset.role().equals("Scout"))
+            if (preset.role().equals("Scout") || preset.tiny())
                 continue;
             var base = new BlockPos(1500000 + i++ * 4096, 80, 1500000);
             ShipYard.buildPad(level, base, 32, 32, "Role " + preset.id());

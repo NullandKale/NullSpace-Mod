@@ -15,6 +15,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class ShipBlueprintsTest
 {
     @Test
+    void tinyDesignsAreExplicitCatalogChoicesAndNeverRandomSalvage()
+    {
+        assertEquals(Set.of("rivet_spark", "halcyon_wisp", "bastion_dart"), ShipBlueprints.PRESETS.stream().filter(ShipBlueprints.Preset::tiny).map(ShipBlueprints.Preset::id).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(ShipBlueprints.get(ShipBlueprints.DEFAULT_STARTER).tiny());
+        for (int kind : List.of(1, 2))
+            for (long seed = 0; seed < 300; seed++)
+                assertFalse(ShipBlueprints.get(com.nullandkale.nullspace.worldgen.encounters.EncounterSites.design(kind, seed)).tiny());
+    }
+
+    @Test
     void lastCatalogPageKeepsPurchaseVisibleAndBlankRowsCannotBuy()
     {
         var t = new ControllerTerminal("shipyard", "Ready", "rivet_bolt");
@@ -22,16 +32,16 @@ class ShipBlueprintsTest
             t.input(TerminalInput.Key.DOWN);
         int last = -1;
         for (int row = 0; row < 24; row++)
-            if (t.display().row(row).contains("Bastion Pioneer"))
+            if (t.display().row(row).contains("Bastion Dart"))
                 last = row;
         assertTrue(last > 0, "The last design is on screen once it is selected");
-        t.input(new TerminalInput.Pointer(10, last + 1));
+        t.input(new TerminalInput.Pointer(10, 19));
         assertNull(t.pollAction(), "Blank catalog rows cannot trigger a purchase");
         t.input(TerminalInput.Key.ENTER);
-        assertEquals(new ControllerTerminal.Action("ship_quote", "bastion_pioneer"), t.pollAction());
-        t.update("Pioneer details");
+        assertEquals(new ControllerTerminal.Action("ship_quote", "bastion_dart"), t.pollAction());
+        t.update("Dart details");
         t.input(new TerminalInput.Pointer(10, 18));
-        assertEquals(new ControllerTerminal.Action("ship_buy", "bastion_pioneer"), t.pollAction());
+        assertEquals(new ControllerTerminal.Action("ship_buy", "bastion_dart"), t.pollAction());
     }
 
     @Test
@@ -47,8 +57,8 @@ class ShipBlueprintsTest
             assertTrue(p.height() >= p.decks() * 5, "Declared height includes deck headroom and hull");
             assertSame(p, ShipBlueprints.get(p.id()));
         }
-        assertEquals(9, ids.size());
-        assertEquals(List.of("rivet_bolt", "rivet_hauler", "rivet_ranger", "halcyon_swift", "halcyon_courier", "halcyon_horizon", "bastion_ward", "bastion_tender", "bastion_pioneer"), ShipBlueprints.PRESETS.stream().map(ShipBlueprints.Preset::id).toList());
+        assertEquals(12, ids.size());
+        assertEquals(List.of("rivet_bolt", "rivet_hauler", "rivet_ranger", "halcyon_swift", "halcyon_courier", "halcyon_horizon", "bastion_ward", "bastion_tender", "bastion_pioneer", "rivet_spark", "halcyon_wisp", "bastion_dart"), ShipBlueprints.PRESETS.stream().map(ShipBlueprints.Preset::id).toList());
         // Designs retired when ships became generated still resolve, so old saves and settings keep working.
         assertEquals("rivet_bolt", ShipBlueprints.get("sparrow").id());
         assertEquals("rivet_hauler", ShipBlueprints.get("mule").id());

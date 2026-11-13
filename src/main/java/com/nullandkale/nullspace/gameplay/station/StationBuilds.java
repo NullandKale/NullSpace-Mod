@@ -119,6 +119,8 @@ public final class StationBuilds
         if (level == null)
             throw new IllegalArgumentException("Space dimension unavailable");
         var s = metadata.copy();
+        if (!plan.points().isEmpty())
+            com.nullandkale.nullspace.worldgen.encounters.SitePoints.write(s, plan.points());
         s.putString("id", id);
         s.putString("kind", "station");
         s.putString("home", name);

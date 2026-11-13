@@ -82,7 +82,8 @@
       "com.nullandkale.nullspace.perf.PerformanceGameTest",
       "com.nullandkale.nullspace.gameplay.travel.JournalGameTest",
       "com.nullandkale.nullspace.gameplay.ship.ShipIntegrityGameTest",
-      "com.nullandkale.nullspace.core.save.PadRegistryRecoveryGameTest"
+      "com.nullandkale.nullspace.core.save.PadRegistryRecoveryGameTest",
+      "com.nullandkale.nullspace.gameplay.shipyard.StationPreviewGameTest"
     ],
     "fabric-client-gametest": [
       "com.nullandkale.nullspace.ui.screen.EquipmentUiClientGameTest",

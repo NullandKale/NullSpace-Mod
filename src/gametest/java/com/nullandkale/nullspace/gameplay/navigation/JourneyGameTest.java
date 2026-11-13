@@ -341,7 +341,18 @@ public final class JourneyGameTest
     @GameTest(environment = "nullspace:journey_restart_flow", maxTicks = 1600)
     public void savedJourneyCanStopDockCollectFuelAndResumeWithoutPayingAgain(GameTestHelper ctx) throws Exception
     {
-        var c = ConcurrentShipActionsGameTest.client(ctx, 40);
+        journeyFlow(ctx, 1, 40);
+    }
+
+    @GameTest(environment = "nullspace:journey_station_flow", maxTicks = 1600)
+    public void existingStationSignalCanBeBoardedAndResumedAfterReload(GameTestHelper ctx) throws Exception
+    {
+        journeyFlow(ctx, com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id, 44);
+    }
+
+    private static void journeyFlow(GameTestHelper ctx, int encounterKind, int fixture) throws Exception
+    {
+        var c = ConcurrentShipActionsGameTest.client(ctx, fixture);
         var server = ctx.getLevel().getServer();
         var level = c.fixture().space;
         c.board();
@@ -366,10 +377,10 @@ public final class JourneyGameTest
                 ctx.assertTrue(!TransferLocks.locked(level, WorldStore.pos(ship, "controller")), "Cruise releases physical block interaction locks");
                 ctx.assertTrue(Math.abs(ship.getDoubleOr("simYaw", 0) - 37) < 1e-8, "Entering FTL preserves the ship's heading rather than snapping it to zero");
                 var j = ship.getCompoundOrEmpty("journey");
-                j.putInt("kind", 1);
+                j.putInt("kind", encounterKind);
                 siteId[0] = j.getStringOr("encounter", "");
                 var site = WorldStore.get(server).section("encounters").getCompoundOrEmpty(siteId[0]);
-                site.putInt("kind", 1);
+                site.putInt("kind", encounterKind);
                 j.putInt("contactAt", 0);
                 j.putInt("duration", 4000);
                 j.remove("selection"); // Compatibility with the earliest saved journey records.
@@ -385,6 +396,12 @@ public final class JourneyGameTest
                 if (vessel == null || !StationAccess.ready(vessel) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, vessel.getStringOr("id", "")))
                     return;
                 vesselId[0] = vessel.getStringOr("id", "");
+                if (encounterKind == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
+                {
+                    var spec = com.nullandkale.nullspace.worldgen.stations.StationSpec.read(vessel.getCompoundOrEmpty("stationSpec"));
+                    ctx.assertTrue(spec.equals(com.nullandkale.nullspace.worldgen.stations.StationSpec.read(site.getCompoundOrEmpty("stationSpec"))), "Reload preserves the exact planned station brief");
+                    ctx.assertTrue(StationAccess.station(vessel) && !com.nullandkale.nullspace.gameplay.ownership.Claims.claimable(vessel), "The station cannot be converted through salvage-ship claiming");
+                }
                 ctx.assertTrue(JourneyService.stopReason(server, ship).isEmpty(), "Built signal is available to investigate");
                 Jumps.investigate(c.player(), WorldStore.pos(ship, "controller"));
                 phase[0] = 2;
@@ -421,12 +438,19 @@ public final class JourneyGameTest
             else if (phase[0] == 4 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])) && SceneService.observer(c.player()).getStringOr("id", "").equals(vesselId[0]))
             {
                 var vessel = WorldStore.get(server).repository().find(vesselId[0]);
-                var rubble = WorldStore.pos(vessel, "base").offset(12, 1, 10);
-                ctx.assertTrue(StationAccess.mayEdit(c.player(), rubble), "Unclaimed freighter permits cargo access repairs");
-                level.setBlock(rubble, Blocks.AIR.defaultBlockState(), 18);
-                level.setBlock(rubble.above(), Blocks.AIR.defaultBlockState(), 18);
-                var engineering = ShipRooms.rooms(EncounterSites.design(vessel.getIntOr("encounterKind", 1), vessel.getLongOr("encounterSeed", 1))).stream().filter(r -> r.use() == ShipRooms.Use.ENGINEERING).findFirst().orElseThrow();
-                var fuelLocker = WorldStore.pos(vessel, "base").offset(engineering.supplies());
+                if (encounterKind == 1)
+                {
+                    var rubble = WorldStore.pos(vessel, "base").offset(12, 1, 10);
+                    ctx.assertTrue(StationAccess.mayEdit(c.player(), rubble), "Unclaimed freighter permits cargo access repairs");
+                    level.setBlock(rubble, Blocks.AIR.defaultBlockState(), 18);
+                    level.setBlock(rubble.above(), Blocks.AIR.defaultBlockState(), 18);
+                }
+                BlockPos suppliesAt;
+                if (encounterKind == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
+                    suppliesAt = com.nullandkale.nullspace.worldgen.encounters.SitePoints.read(vessel).stream().filter(point -> point.name().equals("loot")).findFirst().orElseThrow().pos();
+                else
+                    suppliesAt = ShipRooms.rooms(EncounterSites.design(vessel.getIntOr("encounterKind", 1), vessel.getLongOr("encounterSeed", 1))).stream().filter(r -> r.use() == ShipRooms.Use.ENGINEERING).findFirst().orElseThrow().supplies();
+                var fuelLocker = WorldStore.pos(vessel, "base").offset(suppliesAt);
                 var supplies = (Container) level.getBlockEntity(fuelLocker);
                 if (supplies instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity r)
                     r.unpackLootTable(c.player());
@@ -455,7 +479,8 @@ public final class JourneyGameTest
             else if (phase[0] == 41 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])))
             {
                 var vessel = WorldStore.get(server).repository().find(vesselId[0]);
-                var port = DockingPorts.ports(level, vessel).getFirst();
+                var connected = WorldStore.pos(vessel, "base").offset(WorldStore.pos(ship.getCompoundOrEmpty("dock"), "targetPort"));
+                var port = DockingPorts.ports(level, vessel).stream().filter(p -> p.controller().equals(connected)).findFirst().orElseThrow(() -> new AssertionError("The ship's connected return berth must remain present"));
                 var at = port.anchors().getFirst();
                 c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
                 DockingService.perform(c.player(), vessel, port.controller(), "DOCK_BOARD");
@@ -502,7 +527,15 @@ public final class JourneyGameTest
         ctx.runAfterDelay(20, () ->
         {
             c.fixture().ship().putDouble("simYaw", 37);
-            c.fixture().ship().putLong("nextSignalNonce", 0);
+            long nonce = 0;
+            while (true)
+            {
+                var planned = JourneyPlan.between(server.overworld().getSeed(), "sol_terra", "sol_luna", 0, 0, nonce);
+                if (planned.kind() == encounterKind && planned.hasSignal())
+                    break;
+                nonce += 0x9e3779b97f4a7c15L;
+            }
+            c.fixture().ship().putLong("nextSignalNonce", nonce);
             Jumps.jump(c.player(), WorldStore.pos(c.fixture().ship(), "controller"), "sol_luna");
             phase[0] = 0;
         });

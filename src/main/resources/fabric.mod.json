@@ -3,6 +3,10 @@
   "id": "nullspace",
   "version": "${version}",
   "name": "NullSpace",
+  "custom": {
+    "nullspace:build": "${buildLabel}",
+    "nullspace:commit": "${buildCommit}"
+  },
   "description": "A Minecraft total conversion, built on vanilla Minecraft and Fabric.",
   "authors": [
     "NullandKale"
