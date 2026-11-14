@@ -1,6 +1,6 @@
 # Orbital population
 
-Space is not empty. Each orbital region holds a few places a player can find: a Waypoint Station, a Manufacturer Exchange, and derelict ships to salvage. This document explains how those places are decided, saved, built and reset. The code is [`worldgen/encounters`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters) ([`SpacePopulationPlan`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlan.java), [`SpacePopulation`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulation.java), [`EncounterSites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java)) and [`GalaxyPlan.population`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlan.java).
+Space is not empty. Each orbital region holds a few places a player can find: a planned orbital station (some zones), and derelict ships to salvage. The old Waypoint Station and Manufacturer Exchange are no longer built. This document explains how those places are decided, saved, built and reset. The code is [`worldgen/encounters`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters) ([`SpacePopulationPlan`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlan.java), [`SpacePopulation`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulation.java), [`EncounterSites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java)) and [`GalaxyPlan.population`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlan.java).
 
 The guiding rule is that **a menu only ever discovers places; it never creates them.** Opening the destination list, the scanner or a station screen changes nothing in the world. Places appear because a player is in the region, and they are the same places whoever arrives first.
 
@@ -10,8 +10,8 @@ The [galaxy chart](star-systems.md) decides, once per world, how many places eac
 
 | Region | Starts with |
 | --- | --- |
-| Sol's home orbit | A Waypoint Station, a Manufacturer Exchange and a derelict |
-| Two or three other zones | A Waypoint *or* an Exchange, alternating. These are orbit-only zones of other systems, or stepping-stone features along long links |
+| Sol's home orbit | An orbital station and a derelict |
+| Two or three other zones | An orbital station. These are orbit-only zones of other systems, or stepping-stone features along long links |
 | One or two features | Derelicts |
 | Every other zone | Nothing |
 
@@ -21,8 +21,7 @@ Zones you cannot land in are good places to put your own station. The chart pick
 
 | Place | Purpose |
 | --- | --- |
-| Waypoint Station | Arrival, living space, a workshop and engineering, with two exterior berths. The layout comes from `StationLayout.generate(seed)` (see [stations](stations.md)) |
-| Manufacturer Exchange | Three wings that show the Rivet, Halcyon and Bastion design styles, with berths on opposite sides. A fixed layout |
+| Orbital station | A planned, furnished station (see [tiny ships and stations](tiny-ships-and-stations.md)) |
 | Derelict ship | An uncrewed, salvageable ship from the ship catalog. One is an *abandoned freighter* (Rivet Hauler, Halcyon Courier or Bastion Tender, with its interior cargo door blocked by cobblestone that a pickaxe clears). The other is a *silent survey ship* (one of the six smaller designs) |
 
 Derelicts keep their controller as a station core until a player claims them (see [ship ownership](ship-recall.md)). They hold finite supplies, so salvaging them is a one-time gain.
@@ -32,7 +31,7 @@ Derelicts keep their controller as a station core until a player claims them (se
 World seed and region address determine every site's identity and seed independently of the player. [`SpacePopulationPlan.sites`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulationPlan.java) derives:
 
 - a stable id for each role by hashing the world seed, region and role, so the same place has the same identity in every save of that world;
-- a position candidate in a ring around the arrival origin, at 640 blocks for a Waypoint, 1,100 for an Exchange and 1,600 for a derelict. Each retry rotates the angle by 45° and, every eight attempts, pushes the ring out by 384 blocks. Sites therefore sit outside the area where ships arrive.
+- a position candidate in a ring around the arrival origin, at 900 blocks for an orbital station and 1,600 for a derelict. Each retry rotates the angle by 45° and, every eight attempts, pushes the ring out by 384 blocks. Sites therefore sit outside the area where ships arrive.
 
 The first time a player is in a region (`discover`, checked once a second for every region occupied by a player in space), the plan is written to the `spacePopulation` section of `nullspace/ships.nbt` before any block exists. Each site starts as `planned`. Later visits never replan, so reloading, restarting or changing which places a version of the mod would choose cannot reroll a region's inventory. Plans are versioned, and regions saved by a newer version are left alone.
 

@@ -4,14 +4,13 @@
     "name": "Rivet Bolt",
     "manufacturer": "Rivet Works",
     "role": "Scout",
-    "description": "Compact scout with bridge, engineering and practical side rooms.",
+    "description": "One-deck scout: a bridge, engineering and two pairs of side rooms, one large and one small.",
     "color": "orange",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "RIVET",
-      "shape": "SPINE",
-      "tier": "SMALL",
+      "size": "SMALL",
       "role": "SCOUT",
       "seed": 616632870
     }
@@ -21,14 +20,13 @@
     "name": "Rivet Hauler",
     "manufacturer": "Rivet Works",
     "role": "Freighter",
-    "description": "Two-deck freighter with cargo-focused room selection and connected stairs.",
+    "description": "Two-deck freighter: a cargo hold and workshop space off a stair hall, with stores and bunks.",
     "color": "orange",
     "armed": false,
     "cargo": true,
     "generate": {
       "maker": "RIVET",
-      "shape": "SPINE",
-      "tier": "MEDIUM",
+      "size": "MEDIUM",
       "role": "FREIGHTER",
       "seed": 37810510
     }
@@ -38,14 +36,13 @@
     "name": "Rivet Ranger",
     "manufacturer": "Rivet Works",
     "role": "Explorer",
-    "description": "Three-deck explorer with exploration-focused rooms and a top-deck bridge.",
+    "description": "Tall explorer on three or four decks: laboratories, observation and gardens around a stair hall.",
     "color": "orange",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "RIVET",
-      "shape": "SPINE",
-      "tier": "LARGE",
+      "size": "LARGE",
       "role": "EXPLORER",
       "seed": 323888678
     }
@@ -55,14 +52,13 @@
     "name": "Halcyon Swift",
     "manufacturer": "Halcyon Aerospace",
     "role": "Scout",
-    "description": "Round scout with a central commons and practical side rooms.",
+    "description": "One-deck scout: a bridge, engineering and two pairs of side rooms, one large and one small.",
     "color": "cyan",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "HALCYON",
-      "shape": "DOME",
-      "tier": "SMALL",
+      "size": "SMALL",
       "role": "SCOUT",
       "seed": 2600302844
     }
@@ -72,14 +68,13 @@
     "name": "Halcyon Courier",
     "manufacturer": "Halcyon Aerospace",
     "role": "Freighter",
-    "description": "Twin-hull freighter with cargo-focused rooms and cross-hall connections.",
+    "description": "Two-deck freighter: a cargo hold and workshop space off a stair hall, with stores and bunks.",
     "color": "cyan",
     "armed": false,
     "cargo": true,
     "generate": {
       "maker": "HALCYON",
-      "shape": "TWIN",
-      "tier": "MEDIUM",
+      "size": "MEDIUM",
       "role": "FREIGHTER",
       "seed": 1982276310
     }
@@ -89,14 +84,13 @@
     "name": "Halcyon Horizon",
     "manufacturer": "Halcyon Aerospace",
     "role": "Explorer",
-    "description": "Round exploration ship with a central commons and stacked rooms.",
+    "description": "Tall explorer on three or four decks: laboratories, observation and gardens around a stair hall.",
     "color": "cyan",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "HALCYON",
-      "shape": "DOME",
-      "tier": "LARGE",
+      "size": "LARGE",
       "role": "EXPLORER",
       "seed": 2121805380
     }
@@ -106,14 +100,13 @@
     "name": "Bastion Ward",
     "manufacturer": "Bastion Shipbuilding",
     "role": "Scout",
-    "description": "Compact twin-hull scout with bridge, engineering and practical side rooms.",
+    "description": "One-deck scout: a bridge, engineering and two pairs of side rooms, one large and one small.",
     "color": "red",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "BASTION",
-      "shape": "TWIN",
-      "tier": "SMALL",
+      "size": "SMALL",
       "role": "SCOUT",
       "seed": 2499780403
     }
@@ -123,14 +116,13 @@
     "name": "Bastion Tender",
     "manufacturer": "Bastion Shipbuilding",
     "role": "Freighter",
-    "description": "Round freighter with a central commons and cargo-focused rooms.",
+    "description": "Two-deck freighter: a cargo hold and workshop space off a stair hall, with stores and bunks.",
     "color": "red",
     "armed": false,
     "cargo": true,
     "generate": {
       "maker": "BASTION",
-      "shape": "DOME",
-      "tier": "MEDIUM",
+      "size": "MEDIUM",
       "role": "FREIGHTER",
       "seed": 1319939531
     }
@@ -140,14 +132,13 @@
     "name": "Bastion Pioneer",
     "manufacturer": "Bastion Shipbuilding",
     "role": "Explorer",
-    "description": "Twin-hull explorer with exploration-focused rooms and connected decks.",
+    "description": "Tall explorer on three or four decks: laboratories, observation and gardens around a stair hall.",
     "color": "red",
     "armed": false,
     "cargo": false,
     "generate": {
       "maker": "BASTION",
-      "shape": "TWIN",
-      "tier": "LARGE",
+      "size": "LARGE",
       "role": "EXPLORER",
       "seed": 3124110115
     }

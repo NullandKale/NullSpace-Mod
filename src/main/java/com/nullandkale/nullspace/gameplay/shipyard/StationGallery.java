@@ -4,7 +4,6 @@ import com.nullandkale.nullspace.content.guide.FieldGuide;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.dev.ShipGallery;
 import com.nullandkale.nullspace.gameplay.ship.ShipMessages;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 import com.nullandkale.nullspace.worldgen.stations.StationPieces;
@@ -35,6 +34,7 @@ public final class StationGallery
     public static void initialize()
     {
         StationPreview.initialize();
+        RoomGallery.initialize();
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("stations").executes(ctx ->
         {
             var player = ctx.getSource().getPlayerOrException();
@@ -102,13 +102,6 @@ public final class StationGallery
                 ShipGallery.label(level, at.offset(slot0(), 2, 17), DyeColor.GREEN, piece.name(), piece.windows() == 1 ? "few windows" : "many windows", piece.kit().name().toLowerCase(Locale.ROOT), piece.id());
             }
         }
-        var waypoint = origin.offset(MARGIN, -1, MARGIN + 2 * PITCH + 4);
-        place(level, waypoint, StationBlueprint.build(StationLayout.waypoint()).blocks());
-        ShipGallery.label(level, waypoint.offset(slot0(), 2, 34), DyeColor.GREEN, "Waypoint", "Four tiles in a ring", "Berths west and east", "");
-        var exchange = origin.offset(MARGIN + 2 * PITCH + 8, -1, MARGIN + 2 * PITCH + 4);
-        place(level, exchange, ManufacturerStation.build().blocks());
-        ManufacturerStation.label(level, exchange);
-        ShipGallery.label(level, exchange.offset(slot0(), 2, 34), DyeColor.GREEN, "Manufacturer Exchange", "Rivet, Halcyon, Bastion", "Berths west and east", "");
         server.saveEverything(true, true, true);
         return origin;
     }

@@ -40,10 +40,13 @@ public final class ModBlocks
     /** Needs netherite scrap or an echo shard: lets a machine reach upgrade tier 3. */
     public static final Item EXOTIC_UPGRADE = component("exotic_system_upgrade");
 
-    /** 0 for anything that is not an upgrade; 1 plain, 2 advanced, 3 exotic. */
+    /** No recipe: for creative play. Installed in a Scanner it makes it tier 4 and unlocks the spawn tools. */
+    public static final Item CREATIVE_UPGRADE = component("creative_system_upgrade");
+
+    /** 0 for anything that is not an upgrade; 1 plain, 2 advanced, 3 exotic, 4 creative. */
     public static int upgradeRank(net.minecraft.world.item.ItemStack stack)
     {
-        return stack.is(EXOTIC_UPGRADE) ? 3 : stack.is(ADVANCED_UPGRADE) ? 2 : stack.is(SYSTEM_UPGRADE) ? 1 : 0;
+        return stack.is(CREATIVE_UPGRADE) ? 4 : stack.is(EXOTIC_UPGRADE) ? 3 : stack.is(ADVANCED_UPGRADE) ? 2 : stack.is(SYSTEM_UPGRADE) ? 1 : 0;
     }
 
     public static final Item STATION_MODULE = component("station_module");
@@ -119,6 +122,8 @@ public final class ModBlocks
             properties.stacksTo(1);
         if (name.equals("air_canister"))
             properties.durability(LifeSupport.CANISTER_TICKS).component(DataComponents.LORE, new ItemLore(java.util.List.of(Component.literal("Suit air away from the ship: 2 minutes when full"), Component.literal("Refill: use on a powered Air Supply"))));
+        if (name.equals("creative_system_upgrade"))
+            properties.stacksTo(1).component(DataComponents.LORE, new ItemLore(java.util.List.of(Component.literal("Creative only: install in a Scanner"), Component.literal("Scanner tier 4, and it can spawn encounters and star systems"))));
         if (name.equals("system_upgrade"))
             properties.component(DataComponents.LORE, new ItemLore(java.util.List.of(Component.literal("Install in Engine, Generator, Battery or Scanner"), Component.literal("1 / 2 / 3 modules: Tier I / II / III"))));
         return Registry.register(BuiltInRegistries.ITEM, id, new Item(properties));

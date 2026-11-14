@@ -5,8 +5,11 @@ import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.worldgen.blueprint.BlueprintOrientation;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
+import com.nullandkale.nullspace.worldgen.piece.Piece;
 import com.nullandkale.nullspace.worldgen.piece.PieceLibrary;
 import com.nullandkale.nullspace.worldgen.shipgen.*;
+import com.nullandkale.nullspace.worldgen.stations.ShipSpec;
+import com.nullandkale.nullspace.worldgen.stations.ShipStructure;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -36,12 +39,19 @@ public final class ShipBlueprints
             {
                 var made = GENERATED.get(id);
                 if (made != null && PieceLibrary.size(template()).isEmpty())
-                    return made.helm();
+                    return made.data().helm();
                 var computers = blocks(this).entrySet().stream().filter(e -> e.getValue().is(ModBlocks.COMPUTER)).map(Map.Entry::getKey).toList();
                 if (computers.size() != 1)
                     throw new IllegalStateException(id + " needs exactly one computer for its helm; found " + computers.size());
                 return computers.getFirst();
             });
+        }
+
+        /** True for a ship planned from its rooms: the room designs, their entities and a power plant that serves doors before air. */
+        public boolean planned()
+        {
+            var made = GENERATED.get(id);
+            return made != null && made.planned && PieceLibrary.size(template()).isEmpty();
         }
 
         public String template()
@@ -60,7 +70,38 @@ public final class ShipBlueprints
     private static final Map<String, List<ShipRooms.Room>> ROOMS = new LinkedHashMap<>();
 
     /** Designs built by the ship generator; a template saved in game under the same id replaces one. */
-    private static final Map<String, ShipGenerator.Ship> GENERATED = new HashMap<>();
+    private static final Map<String, Made> GENERATED = new HashMap<>();
+
+    /** A generated design's blocks, helm, size, room landmarks and the points its entities are spawned from. */
+    private static final class Made
+    {
+        final int width, height, depth, decks;
+        final boolean planned;
+        private final java.util.function.Supplier<Data> source;
+        private Data data;
+
+        Made(int width, int height, int depth, int decks, boolean planned, java.util.function.Supplier<Data> source)
+        {
+            this.width = width;
+            this.height = height;
+            this.depth = depth;
+            this.decks = decks;
+            this.planned = planned;
+            this.source = source;
+        }
+
+        /** The blocks and landmarks need the game's block registry, so they are built on first use, not when the catalog loads. */
+        synchronized Data data()
+        {
+            if (data == null)
+                data = source.get();
+            return data;
+        }
+    }
+
+    private record Data(Map<BlockPos, BlockState> blocks, BlockPos helm, List<ShipRooms.Room> rooms, List<Piece.Point> points)
+    {}
+
     private static final Set<String> TINY = new HashSet<>();
     public static final String DEFAULT_STARTER = "rivet_spark";
 
@@ -88,20 +129,45 @@ public final class ShipBlueprints
             String id = d.get("id").getAsString();
             if (!id.matches("[a-z_]{1,32}") || presets.stream().anyMatch(p -> p.id().equals(id)))
                 throw new IllegalStateException("Invalid or duplicate ship design id " + id);
-            ShipGenerator.Ship made = null;
+            Made made = null;
             if (d.has("generate"))
             {
                 var g = d.getAsJsonObject("generate");
-                var spec = new Spec(Spec.Maker.valueOf(g.get("maker").getAsString()), Spec.Shape.valueOf(g.get("shape").getAsString()), Spec.Tier.valueOf(g.get("tier").getAsString()), Spec.Role.valueOf(g.get("role").getAsString()), g.get("seed").getAsLong());
+                var maker = Spec.Maker.valueOf(g.get("maker").getAsString());
+                var role = Spec.Role.valueOf(g.get("role").getAsString());
+                long seed = g.get("seed").getAsLong();
                 if (d.has("tiny") && d.get("tiny").getAsBoolean())
                 {
-                    if (spec.shape() != Spec.Shape.SPINE || spec.tier() != Spec.Tier.SMALL || spec.role() != Spec.Role.SCOUT)
+                    if (!g.has("shape") || !g.get("shape").getAsString().equals("SPINE") || role != Spec.Role.SCOUT)
                         throw new IllegalStateException("Tiny designs use the two-room small scout program: " + id);
                     TINY.add(id);
-                    made = TinyShipGenerator.build(spec.maker(), spec.seed());
+                    var tiny = TinyShipGenerator.build(maker, seed);
+                    made = new Made(tiny.width(), tiny.height(), tiny.depth(), tiny.decks(), false, () ->
+                    {
+                        var landmarks = new ArrayList<ShipRooms.Room>();
+                        for (var landmark : tiny.rooms())
+                            landmarks.add(new ShipRooms.Room(landmark.name(), use(landmark.use()), landmark.walk(), landmark.supplies()));
+                        var blocks = new LinkedHashMap<BlockPos, BlockState>(ShipBlocks.blocks(tiny));
+                        BlueprintOrientation.fix(blocks);
+                        return new Data(Collections.unmodifiableMap(blocks), tiny.helm(), List.copyOf(landmarks), List.of());
+                    });
                 }
                 else
-                    made = ShipGenerator.build(spec);
+                {
+                    var ship = new ShipSpec(maker, ShipSpec.Size.valueOf(g.get("size").getAsString()), role, seed);
+                    // The plan is pure geometry, so the catalog knows each ship's size and decks without touching blocks.
+                    var plan = com.nullandkale.nullspace.worldgen.stations.ShipPlanner.generate(ship);
+                    made = new Made(plan.width(), plan.height(), plan.depth() + com.nullandkale.nullspace.worldgen.stations.ShipPlanner.RAMP, plan.levels(), true, () ->
+                    {
+                        var built = ShipStructure.build(ship);
+                        var landmarks = new ArrayList<ShipRooms.Room>();
+                        for (var landmark : built.rooms())
+                            landmarks.add(new ShipRooms.Room(landmark.name(), station(landmark.use()), landmark.walk(), landmark.supplies()));
+                        var blocks = new LinkedHashMap<BlockPos, BlockState>(built.blueprint().blocks());
+                        BlueprintOrientation.fix(blocks);
+                        return new Data(Collections.unmodifiableMap(blocks), built.helm(), List.copyOf(landmarks), List.copyOf(built.blueprint().points()));
+                    });
+                }
                 GENERATED.put(id, made);
             }
             var generated = made;
@@ -109,21 +175,20 @@ public final class ShipBlueprints
             {
                 if (generated == null)
                     throw new IllegalStateException("Ship design " + id + " has no template structure/ship/" + id + ".nbt and no generator spec");
-                return new Vec3i(generated.width(), generated.height(), generated.depth());
+                return new Vec3i(generated.width, generated.height, generated.depth);
             });
-            int decks = d.has("decks") ? d.get("decks").getAsInt() : generated.decks();
+            int decks = d.has("decks") ? d.get("decks").getAsInt() : generated.decks;
             presets.add(new Preset(id, d.get("name").getAsString(), size.getX(), size.getY(), size.getZ(), decks, d.get("description").getAsString(), d.get("color").getAsString(), d.get("armed").getAsBoolean(), d.get("cargo").getAsBoolean(), d.get("manufacturer").getAsString(), d.get("role").getAsString()));
-            var rooms = new ArrayList<ShipRooms.Room>();
-            if (generated != null)
-                for (var landmark : generated.rooms())
-                    rooms.add(new ShipRooms.Room(landmark.name(), use(landmark.use()), landmark.walk(), landmark.supplies()));
-            else
+            if (generated == null)
+            {
+                var rooms = new ArrayList<ShipRooms.Room>();
                 for (var r : d.getAsJsonArray("rooms"))
                 {
                     var room = r.getAsJsonObject();
                     rooms.add(new ShipRooms.Room(room.get("name").getAsString(), ShipRooms.Use.valueOf(room.get("use").getAsString().toUpperCase(Locale.ROOT)), pos(room.getAsJsonArray("walk")), room.has("supplies") ? pos(room.getAsJsonArray("supplies")) : null));
                 }
-            ROOMS.put(id, List.copyOf(rooms));
+                ROOMS.put(id, List.copyOf(rooms));
+            }
         }
         return List.copyOf(presets);
     }
@@ -142,6 +207,28 @@ public final class ShipBlueprints
         };
     }
 
+    private static ShipRooms.Use station(com.nullandkale.nullspace.worldgen.stations.StationPlan.Use use)
+    {
+        return switch (use)
+        {
+            case BRIDGE -> ShipRooms.Use.BRIDGE;
+            case ENGINEERING -> ShipRooms.Use.ENGINEERING;
+            case CARGO_HOLD, STORES, RECEIVING_BAY, MAINTENANCE, EVA_PREP -> ShipRooms.Use.CARGO;
+            case WORKSHOP, FOUNDRY, ARMORY -> ShipRooms.Use.WORKSHOP;
+            case KITCHEN, GROWING_BAY, GARDEN -> ShipRooms.Use.GALLEY;
+            case LAB, OBSERVATION, ARCHIVE, LOOKOUT, OPERATIONS -> ShipRooms.Use.LAB;
+            case INFIRMARY -> ShipRooms.Use.INFIRMARY;
+            default -> ShipRooms.Use.CREW;
+        };
+    }
+
+    /** The entity points (frames, stands, paintings, animals) of a planned design, in ship coordinates; empty for the rest. */
+    public static List<Piece.Point> points(Preset preset)
+    {
+        var made = GENERATED.get(preset.id());
+        return made != null && preset.planned() ? made.data().points() : List.of();
+    }
+
     private static BlockPos pos(JsonArray xyz)
     {
         return new BlockPos(xyz.get(0).getAsInt(), xyz.get(1).getAsInt(), xyz.get(2).getAsInt());
@@ -150,7 +237,8 @@ public final class ShipBlueprints
     /** Room landmarks (walking spot, supply container) for a design; empty for unknown ids. */
     public static List<ShipRooms.Room> rooms(String id)
     {
-        return ROOMS.getOrDefault(id, List.of());
+        var made = GENERATED.get(id);
+        return made != null ? made.data().rooms() : ROOMS.getOrDefault(id, List.of());
     }
 
     /** Air request (power per Air Supply) for a delivered ship: normal output. */
@@ -184,12 +272,7 @@ public final class ShipBlueprints
     {
         var made = GENERATED.get(p.id());
         if (made != null && PieceLibrary.size(p.template()).isEmpty())
-            return BLOCKS.computeIfAbsent(p.id(), id ->
-            {
-                var out = new LinkedHashMap<BlockPos, BlockState>(ShipBlocks.blocks(made));
-                BlueprintOrientation.fix(out);
-                return Collections.unmodifiableMap(out);
-            });
+            return made.data().blocks();
         var template = PieceLibrary.template(p.template()).orElseThrow(() -> new IllegalStateException("Missing template for " + p.id()));
         var out = new LinkedHashMap<BlockPos, BlockState>();
         template.blocks().forEach((at, state) ->

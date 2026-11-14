@@ -9,7 +9,6 @@ import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.station.StationAccess;
-import com.nullandkale.nullspace.gameplay.station.StationDeployment;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.station.StationGraph;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
@@ -19,7 +18,6 @@ import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.flight.ShipHeading;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 
 import java.util.*;
 
@@ -123,44 +121,6 @@ public final class ManufacturerTemplateGameTest
         }
         ctx.assertTrue(index == 3, "One review scout per manufacturer");
         ctx.succeed();
-    }
-
-    @GameTest(environment = "nullspace:manufacturer_showcase", maxTicks = 300)
-    public void compactShowcaseBuildsOnceAndConnectsBothBerthsToAllManufacturerRooms(GameTestHelper ctx)
-    {
-        var server = ctx.getLevel().getServer();
-        var space = server.getLevel(TravelService.SPACE);
-        var source = StationGameTest.fixture(space, new BlockPos(950000, 96, 950000), true);
-        source.putDouble("simX", 4000);
-        source.putDouble("simZ", 4000);
-        var p = ctx.makeMockServerPlayerInLevel();
-        var boarding = StationGameTest.boardingPoint(space, source);
-        p.teleportTo(space, boarding.x, boarding.y, boarding.z, Set.of(), 0, 0, true);
-        var station = StationDeployment.showcase(p);
-        ctx.assertTrue(StationDeployment.showcase(p) == station, "Repeated requests keep one station identity");
-        ctx.onEachTick(() ->
-        {
-            if (!StationAccess.ready(station) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, station.getStringOr("id", "")))
-                return;
-            var base = WorldStore.pos(station, "base");
-            var ports = DockingPorts.ports(space, station);
-            ctx.assertTrue(ports.size() == 2, "Compact station has two opposite usable berths");
-            var graph = StationGraph.inspect(space, station);
-            ctx.assertTrue(graph.nodes().size() == 18, "Sixteen room doors and two dock nodes come from physical blocks: " + graph.nodes().size());
-            for (var port : ports)
-                for (var room : ManufacturerStation.ROOMS.entrySet())
-                {
-                    var at = base.offset(room.getValue());
-                    ctx.assertTrue(reachable(space, port.anchors().getFirst(), at), "Berth reaches " + room.getKey());
-                    ctx.assertTrue(ShipAir.breathable(space, station, at.above()), "Room is sealed and supplied: " + room.getKey());
-                }
-            for (var at : ShipSystems.connected(space, station))
-                ctx.assertTrue(WorldStore.bounds(station).contains(at), "Showcase fits one 32-block allocation");
-            var edited = base.offset(24, 2, 3);
-            space.setBlock(edited, Blocks.DIAMOND_BLOCK.defaultBlockState(), 18);
-            ctx.assertTrue(StationDeployment.showcase(p).getStringOr("id", "").equals(station.getStringOr("id", "")) && space.getBlockState(edited).is(Blocks.DIAMOND_BLOCK), "Revisiting keeps the saved station identity and never erases edits");
-            ctx.succeed();
-        });
     }
 
     private static boolean reachable(net.minecraft.server.level.ServerLevel level, BlockPos from, BlockPos to)

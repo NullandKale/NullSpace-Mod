@@ -5,7 +5,6 @@ import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.NavigationService;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 
@@ -97,9 +96,10 @@ public final class StationRegeneration
                 var bounds = WorldStore.bounds(s);
                 if (s.getIntOr("width", 32) < 32 || s.getIntOr("depth", 32) < 32)
                     throw new IllegalArgumentException("Station build area is smaller than the current starter template");
-                boolean showcase = s.getStringOr("template", "").equals("manufacturer_showcase_v1");
+                if (s.getBooleanOr("generatedRooms", false))
+                    throw new IllegalArgumentException("A planned station is not rebuilt from the starter template");
                 var layout = s.getIntOr("width", 32) >= 128 && s.getIntOr("depth", 32) >= 128 ? StationLayout.harbor() : StationLayout.waypoint();
-                var plan = showcase ? ManufacturerStation.build() : StationBlueprint.build(layout);
+                var plan = StationBlueprint.build(layout);
                 var clear = new LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
                 for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
                     if (!level.getBlockState(at).isAir())
@@ -115,9 +115,8 @@ public final class StationRegeneration
                 s.putString("stationRegenerationRequest", job);
                 s.put("stationBuild", blocks);
                 var pieces = new CompoundTag();
-                if (!showcase)
-                    for (var room : layout.rooms())
-                        pieces.putString(room.x() + "_" + room.z(), room.encode());
+                for (var room : layout.rooms())
+                    pieces.putString(room.x() + "_" + room.z(), room.encode());
                 s.put("roomPieces", pieces);
                 var footprint = blocks.stream().map(t -> base.offset(WorldStore.pos((CompoundTag) t, "pos"))).toList();
                 var build = com.nullandkale.nullspace.gameplay.travel.BuildJournal.begin(level, "station-regeneration", List.of(s.getStringOr("id", "")), footprint);

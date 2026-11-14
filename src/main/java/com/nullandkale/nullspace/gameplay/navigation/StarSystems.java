@@ -144,9 +144,41 @@ public final class StarSystems
         return galaxy.place(LocalSpaces.get(server, zone).system());
     }
 
-    /** How dangerous a zone is, 0-3; journey zones take the danger of the place they left from. */
+    /** Adds a generated star system within one hop of {@code zone}'s place and lists its zones as destinations. Returns the new system. */
+    public static StarSystem addSystem(MinecraftServer server, String zone, long seed)
+    {
+        var next = GalaxyPlan.withSystem(galaxy(server), placeOf(server, zone).id(), seed);
+        replace(server, next);
+        return next.systems().getLast();
+    }
+
+    /** Adds one feature zone within one hop of {@code zone}'s place and lists it as a destination. Returns the new feature. */
+    public static Feature addFeature(MinecraftServer server, String zone, FeatureType type, String name, long seed)
+    {
+        var next = GalaxyPlan.withFeature(galaxy(server), placeOf(server, zone).id(), type, name, seed);
+        replace(server, next);
+        return next.features().getLast();
+    }
+
+    /** Saves {@code galaxy} as the chart; package-visible so a test can put the chart back after spawning. */
+    static void replace(MinecraftServer server, Galaxy galaxy)
+    {
+        var store = WorldStore.get(server);
+        var document = store.section("galaxy");
+        document.merge(encode(galaxy));
+        var catalog = new Catalog(document, galaxy, destinations(galaxy));
+        ServerContext.get(server).put(CACHE, catalog);
+        for (var region : catalog.destinations())
+            SceneCatalog.region(server, region.id());
+        store.requestSave();
+    }
+
+    /** How dangerous a zone is, 0-3; journey zones take the danger of the place they left from, and a spawned encounter the danger it was spawned at. */
     public static int danger(MinecraftServer server, String zone)
     {
+        var spawned = WorldStore.get(server).section("creativeSites").getCompoundOrEmpty(zone);
+        if (spawned.contains("danger"))
+            return spawned.getIntOr("danger", 0);
         var galaxy = galaxy(server);
         var place = placeOf(server, zone);
         String chartZone = place instanceof StarSystem s ? s.bodies().getFirst().id() : place.id();

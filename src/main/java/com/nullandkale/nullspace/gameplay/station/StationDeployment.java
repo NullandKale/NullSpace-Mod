@@ -8,7 +8,6 @@ import com.nullandkale.nullspace.gameplay.docking.StationConstruction;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 
@@ -50,49 +49,6 @@ public final class StationDeployment
         USABLE.add(RespawnAnchorBlock.class);
         USABLE.add(DaylightDetectorBlock.class);
         USABLE.add(FlowerPotBlock.class);
-    }
-
-    public static CompoundTag waypoint(ServerPlayer p, boolean random)
-    {
-        var own = SceneService.observer(p);
-        if (own == null)
-            throw new IllegalArgumentException("Use your helm in space");
-        var server = p.level().getServer();
-        String address = LocalSpaces.address(own);
-        String id = UUID.nameUUIDFromBytes(("nullspace:waypoint:" + address + (random ? ":generated" : "")).getBytes(StandardCharsets.UTF_8)).toString();
-        var old = WorldStore.get(server).repository().find(id);
-        if (old != null)
-            return old;
-        var probe = new CompoundTag();
-        probe.putString("id", id);
-        probe.putString("localSpace", address);
-        probe.putLong("base", StationBuilds.reserve(server).asLong());
-        Vec3 position = StationConstruction.constructionSite(server, own);
-        var layout = random ? StationLayout.generate(server.overworld().getSeed() ^ address.hashCode()) : StationLayout.waypoint();
-        var result = StationBuilds.queue(server, id, random ? "Survey Station" : "Waypoint Station", address, position, "", StationBlueprint.build(layout), false);
-        var pieces = new CompoundTag();
-        for (var room : layout.rooms())
-            pieces.putString(room.x() + "_" + room.z(), room.encode());
-        result.put("roomPieces", pieces);
-        WorldStore.get(server).requestSave();
-        return result;
-    }
-
-    public static CompoundTag showcase(ServerPlayer p)
-    {
-        var own = SceneService.observer(p);
-        if (own == null || !p.level().dimension().equals(TravelService.SPACE))
-            throw new IllegalArgumentException("Use your Ship Controller in space to find the showcase");
-        var server = p.level().getServer();
-        String address = LocalSpaces.address(own);
-        String id = UUID.nameUUIDFromBytes(("nullspace:manufacturer-showcase:v1:" + address).getBytes(StandardCharsets.UTF_8)).toString();
-        var old = WorldStore.get(server).repository().find(id);
-        if (old != null)
-            return old;
-        var result = StationBuilds.queue(server, id, "Manufacturer Showcase", address, StationConstruction.constructionSite(server, own), "", ManufacturerStation.build(), false);
-        result.putString("template", "manufacturer_showcase_v1");
-        WorldStore.get(server).requestSave();
-        return result;
     }
 
     public static CompoundTag start(ServerPlayer p, CompoundTag own)

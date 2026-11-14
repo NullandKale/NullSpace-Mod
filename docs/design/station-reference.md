@@ -89,7 +89,7 @@ On the next server start ([`StationRegeneration.applyPending`](../../src/main/ja
 
 Regeneration replaces the selected stations' blocks, containers and equipment with the *current* template. It keeps the station's identity, name, access, ownership, region and position, and keeps every other ship record. Crew and visiting ships must be returned before it is queued. A player who enters the rebuild area pauses the clearing until they leave, and an interrupted rebuild resumes through the same build journal.
 
-Compact Waypoints regenerate with two current Docking Bases under ordinary doors. Expanded ring stations keep their larger envelope and regenerate with eight berths. The Manufacturer Exchange uses its own template.
+Compact Waypoints regenerate with two current Docking Bases under ordinary doors. Expanded ring stations keep their larger envelope and regenerate with eight berths.
 
 ## Where this is tested
 

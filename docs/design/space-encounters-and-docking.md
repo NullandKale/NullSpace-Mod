@@ -64,7 +64,7 @@ Ordinary undocking refuses while boarders or crew remain on the other vessel. Th
 
 Encounters are the reasons to dock. Two sources make them, both described elsewhere:
 
-- **Seeded regional sites**: a Waypoint, a Manufacturer Exchange and derelicts, derived from the world seed and region, saved once and built incrementally ([orbital population](space-world-generation.md)).
+- **Seeded regional sites**: planned orbital stations and derelicts, derived from the world seed and region, saved once and built incrementally ([orbital population](space-world-generation.md)).
 - **Journey signals**: a signal during an FTL trip resolves into a vessel, a growing station, a freighter, a salvage ship or drifting cargo, which can be docked with and salvaged ([FTL journeys](ftl-journeys.md)).
 
 Both follow the same rules. Repeating a scan reveals the same objects, and closing a screen, reconnecting or jumping away and back does not reroll loot or create another freighter. Once built, blocks and inventories are authoritative, and updating a template never repairs or refills an existing site. Different players find the same objects. Ships and stations are persistent objects with stable ids, their own storage slots and simulated poses. A station is anchored and needs no engines, pad or launch inspection, and launch and landing menus reject stationary objects explicitly. A wreck stays discoverable after losing its controller or seal, and a derelict that nobody visits can be claimed (see [ship ownership](ship-recall.md)).

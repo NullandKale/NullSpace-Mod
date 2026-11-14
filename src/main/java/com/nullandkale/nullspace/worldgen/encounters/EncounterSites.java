@@ -12,10 +12,10 @@ import com.nullandkale.nullspace.model.galaxy.EncounterKind;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
 import com.nullandkale.nullspace.worldgen.blueprint.VesselTemplate;
+import com.nullandkale.nullspace.worldgen.piece.Piece;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
-import com.nullandkale.nullspace.worldgen.stations.ExistingStationPlans;
+import com.nullandkale.nullspace.worldgen.stations.EncounterStations;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
-import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 import com.nullandkale.nullspace.worldgen.stations.StationSpec;
 
 import java.util.*;
@@ -37,7 +37,7 @@ public final class EncounterSites
     {
         EncounterKind.saved(kind);
         if (kind == EncounterKind.ABANDONED_STATION.id)
-            return ExistingStationPlans.build(ExistingStationPlans.encounter(seed));
+            return EncounterStations.build(EncounterStations.encounter(seed));
         if (kind == 0)
             return growing(seed);
         if (kind == 3)
@@ -47,14 +47,34 @@ public final class EncounterSites
         var blocks = new LinkedHashMap<>(ShipBlueprints.blocks(preset));
         var controller = preset.helm();
         blocks.put(controller, ModBlocks.STATION_CORE.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, blocks.get(controller).getValue(HorizontalDirectionalBlock.FACING)));
-        if (kind == 1)
+        var points = new ArrayList<Piece.Point>();
+        if (preset.planned())
+        {
+            // A planned ship keeps its rooms' frames and stands and one marked loot chest per room.
+            points.addAll(ShipBlueprints.points(preset));
+            var hoard = DerelictLoot.hoard(DerelictLoot.spots(points));
+            if (kind == 1 && hoard != null)
+            {
+                // The hoard room is shut behind a blocked door, repairable with an ordinary pickaxe. The dock stays intact.
+                BlockPos nearest = null;
+                for (var e : blocks.entrySet())
+                    if (e.getValue().getBlock() instanceof DoorBlock && e.getValue().getValue(DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER && !blocks.getOrDefault(e.getKey().below(), Blocks.AIR.defaultBlockState()).is(ModBlocks.DOCKING_BASE) && (nearest == null || e.getKey().distManhattan(hoard.pos()) < nearest.distManhattan(hoard.pos())))
+                        nearest = e.getKey();
+                if (nearest != null)
+                {
+                    blocks.put(nearest, Blocks.COBBLESTONE.defaultBlockState());
+                    blocks.put(nearest.above(), Blocks.COBBLESTONE.defaultBlockState());
+                }
+            }
+        }
+        else if (kind == 1)
         {
             // A blocked interior cargo door is repairable with an ordinary pickaxe. The dock stays
             // intact.
             blocks.put(new BlockPos(12, 1, 10), Blocks.COBBLESTONE.defaultBlockState());
             blocks.put(new BlockPos(12, 2, 10), Blocks.COBBLESTONE.defaultBlockState());
         }
-        return new StationBlueprint.Plan(blocks, controller, docks(blocks));
+        return new StationBlueprint.Plan(blocks, controller, docks(blocks), points);
     }
 
     public static String design(int kind, long seed)
@@ -230,14 +250,19 @@ public final class EncounterSites
                 metadata.putInt("encounterKind", site.getIntOr("kind", 0));
                 metadata.putLong("encounterSeed", site.getLongOr("seed", 1));
                 metadata.putInt("encounterDanger", site.getIntOr("danger", 0));
-                metadata.putString("encounterDesign", design(site.getIntOr("kind", 0), site.getLongOr("seed", 1)));
+                String shipDesign = design(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
+                metadata.putString("encounterDesign", shipDesign);
+                // A planned ship's rooms show their frames and stands once it is built.
+                if (!shipDesign.isEmpty() && ShipBlueprints.get(shipDesign).planned())
+                    metadata.putBoolean("generatedRooms", true);
                 StationBlueprint.Plan blueprint;
                 if (site.getIntOr("kind", 0) == EncounterKind.ABANDONED_STATION.id)
                 {
-                    var spec = site.contains("stationSpec") ? StationSpec.read(site.getCompoundOrEmpty("stationSpec")) : ExistingStationPlans.encounter(site.getLongOr("seed", 1));
-                    blueprint = ExistingStationPlans.build(spec);
+                    var spec = site.contains("stationSpec") ? StationSpec.read(site.getCompoundOrEmpty("stationSpec")) : EncounterStations.encounter(site.getLongOr("seed", 1));
+                    blueprint = EncounterStations.build(spec);
+                    // Designed rooms keep their containers empty; their frames, stands and animals appear once the build finishes.
+                    metadata.putBoolean("generatedRooms", true);
                     metadata.put("stationSpec", spec.save());
-                    metadata.put("roomPieces", StationLayout.pieces(StationLayout.generate(spec.seed())));
                 }
                 else
                     blueprint = plan(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
@@ -275,7 +300,9 @@ public final class EncounterSites
         long seed = ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 0x9e3779b97f4a7c15L;
         String treasure = SiteLoot.treasure(level.getServer(), LocalSpaces.address(ship));
         var points = SitePoints.read(ship);
-        if (!points.isEmpty())
+        if (DerelictLoot.has(points))
+            DerelictLoot.stock(level, base, points, treasure, com.nullandkale.nullspace.gameplay.navigation.StarSystems.danger(level.getServer(), LocalSpaces.address(ship)), seed, ship.getStringOr("name", "Salvage") + " supplies");
+        else if (!points.isEmpty())
             SitePoints.stock(level, base, points, treasure, seed, ship.getStringOr("name", "Salvage") + " supplies");
         else if (kind == 3)
         {

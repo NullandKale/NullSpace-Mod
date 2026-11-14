@@ -100,8 +100,8 @@ public final class LooseBlocksGameTest
         var boarding = StationGameTest.boardingPoint(f.surface, ship);
         f.player.teleportTo(f.surface, boarding.x, boarding.y, boarding.z, Set.of(), 0, 0, true);
         // Beside the hull on the pad: touching nothing, and a second block further along.
-        var loose = origin.offset(21, 2, 12);
-        var extra = origin.offset(21, 2, 16);
+        var loose = origin.offset(ShipBlueprints.get("rivet_bolt").width() + 1, 2, 12);
+        var extra = origin.offset(ShipBlueprints.get("rivet_bolt").width() + 1, 2, 16);
         var obstruction = controller.above(33);
         f.surface.setBlock(loose, Blocks.CHEST.defaultBlockState(), 18);
         ((ChestBlockEntity) f.surface.getBlockEntity(loose)).setItem(0, new ItemStack(Items.EMERALD, 9));

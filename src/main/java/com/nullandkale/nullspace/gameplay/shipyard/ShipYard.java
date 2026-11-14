@@ -159,6 +159,11 @@ public final class ShipYard
             var ship = ShipTopology.resolve(level, at.offset(preset.helm()));
             ship.putString("blueprint", preset.id());
             ship.putString("name", preset.name());
+            if (preset.planned())
+            {
+                ship.putBoolean("generatedRooms", true);
+                RoomEntities.spawn(level, at, ShipBlueprints.points(preset));
+            }
             SystemsUpgrade.upgrade(level, ship);
             ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
             ShipGallery.label(level, base.offset(1, 1, -3), DyeColor.GREEN, preset.name(), preset.size(), preset.decks() + " DECKS", "FREE at beacon");

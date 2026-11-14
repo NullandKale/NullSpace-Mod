@@ -122,7 +122,7 @@ public final class JourneyService
             site.putString("name", j.getStringOr("contact", "Signal"));
             site.putInt("danger", j.getIntOr("danger", 0));
             if (j.getIntOr("kind", 0) == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
-                site.put("stationSpec", com.nullandkale.nullspace.worldgen.stations.ExistingStationPlans.encounter(j.getLongOr("seed", 1)).save());
+                site.put("stationSpec", com.nullandkale.nullspace.worldgen.stations.EncounterStations.encounter(j.getLongOr("seed", 1)).save());
             sites.put(id, site);
         }
     }

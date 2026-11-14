@@ -14,10 +14,10 @@ import net.minecraft.world.level.block.state.properties.*;
 public final class ShipBlocks
 {
     /** One maker's materials: three or four cheap blocks and one accent colour. */
-    private record Palette(Block hull, Block frame, Block wall, Block floor, Block ceiling, Block trim, Block accent, Block stairs, Block bed, Block carpet)
+    public record Palette(Block hull, Block frame, Block wall, Block floor, Block ceiling, Block trim, Block accent, Block stairs, Block bed, Block carpet)
     {}
 
-    private static Palette palette(Spec.Maker maker)
+    public static Palette palette(Spec.Maker maker)
     {
         return switch (maker)
         {

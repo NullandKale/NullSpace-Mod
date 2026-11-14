@@ -15,7 +15,6 @@ import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 import com.nullandkale.nullspace.worldgen.stations.StationPieces;
@@ -412,8 +411,6 @@ public final class StationBuilds
                             container.clearContent();
                         level.setBlock(at, state, 18);
                     }
-                    if (index == blocks.size() && !s.getBooleanOr("stationInitialized", false) && s.getStringOr("template", "").equals("manufacturer_showcase_v1"))
-                        ManufacturerStation.label(level, base);
                 }
                 finally
                 {
@@ -448,9 +445,12 @@ public final class StationBuilds
                         if (d.getStringOr("type", "").equals("nullspace:battery"))
                             d.putInt("energy", 1200);
                     }
+                    // Designed rooms keep their containers empty (only a salvage site marks some to stock); their frames, stands, paintings and animals appear once, here.
+                    if (s.getBooleanOr("generatedRooms", false))
+                        com.nullandkale.nullspace.gameplay.shipyard.RoomEntities.spawn(level, base, com.nullandkale.nullspace.worldgen.encounters.SitePoints.read(s));
                     if (s.contains("encounterKind"))
                         EncounterSites.stock(level, s);
-                    else if (s.getStringOr("owner", "").isEmpty())
+                    else if (!s.getBooleanOr("generatedRooms", false) && s.getStringOr("owner", "").isEmpty())
                     {
                         for (var at : BlockPos.betweenClosed(WorldStore.bounds(s).min(), WorldStore.bounds(s).max()))
                             if ((level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.BarrelBlockEntity || level.getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity) && level.getBlockEntity(at) instanceof net.minecraft.world.Container container)

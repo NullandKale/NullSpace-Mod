@@ -349,8 +349,14 @@ public final class StationService
             }
             if (player instanceof ServerPlayer p && (!StationAccess.mayUse(p, hit.getBlockPos()) || p.getItemInHand(hand).getItem() instanceof BlockItem && !StationAccess.mayEdit(p, hit.getBlockPos().relative(hit.getDirection()))))
                 return InteractionResult.FAIL;
-            if (player instanceof ServerPlayer p && StationAccess.useDoor(p, hit.getBlockPos()))
+            // A click fires once per hand when the client predicts no result, as it does for an iron door with an empty hand.
+            // Toggle on the main hand only; the off-hand event on a door is consumed so it cannot toggle the door back.
+            if (player instanceof ServerPlayer p && world.getBlockState(hit.getBlockPos()).getBlock() instanceof net.minecraft.world.level.block.DoorBlock && StationAccess.station(WorldStore.get(p.level().getServer()).at(p.level(), hit.getBlockPos())))
+            {
+                if (hand == InteractionHand.MAIN_HAND)
+                    return StationAccess.useDoor(p, hit.getBlockPos()) ? InteractionResult.SUCCESS : InteractionResult.PASS;
                 return InteractionResult.SUCCESS;
+            }
             return InteractionResult.PASS;
         });
         UseItemCallback.EVENT.register((player, world, hand) ->
@@ -362,23 +368,7 @@ public final class StationService
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, be) -> !(player instanceof ServerPlayer p) || StationAccess.mayEdit(p, pos));
         UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> player instanceof ServerPlayer p && !StationAccess.mayEdit(p, entity.blockPosition()) ? InteractionResult.FAIL : InteractionResult.PASS);
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> player instanceof ServerPlayer p && !StationAccess.mayEdit(p, entity.blockPosition()) ? InteractionResult.FAIL : InteractionResult.PASS);
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("station").then(Commands.literal("showcase").executes(ctx ->
-        {
-            StationDeployment.showcase(ctx.getSource().getPlayerOrException());
-            ctx.getSource().sendSuccess(() -> Component.literal("Manufacturer Showcase prepared; select" + " its port as Destination when" + " ready."), false);
-            return 1;
-        })).then(Commands.literal("waypoint").executes(ctx ->
-        {
-            var p = ctx.getSource().getPlayerOrException();
-            StationDeployment.waypoint(p, false);
-            p.sendSystemMessage(Component.literal("Waypoint Station prepared; use Docking at the" + " helm."));
-            return 1;
-        })).then(Commands.literal("generate").executes(ctx ->
-        {
-            var p = ctx.getSource().getPlayerOrException();
-            StationDeployment.waypoint(p, true);
-            return 1;
-        })))));
+        GeneratedStations.initialize();
     }
 
     private StationService()

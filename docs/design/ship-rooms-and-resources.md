@@ -27,6 +27,8 @@ Maker (Rivet Works, Halcyon Aerospace, Bastion Shipbuilding) changes materials a
 
 ## Searching a derelict
 
+Planned ships and stations now stock one chest in every room from that room's own derelict table, tiered by danger, with the hoard room taking the treasure table; see [loot](tiny-ships-and-stations.md#loot-built-november-14). The six-table list below describes the older catalog ships.
+
 A derelict from an [encounter](ftl-journeys.md) or [orbital population](space-world-generation.md) is a real catalog ship with its controller replaced by a station core. Its supplies are stored in **real containers placed in the rooms**, and each room's contents follow what that room is:
 
 | Room | Loot table | Typical contents |

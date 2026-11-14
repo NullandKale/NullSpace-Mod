@@ -130,12 +130,12 @@ public final class ShipStorageGameTest
             padBase = ctx.absolutePos(new BlockPos(120000 + index * 4096, 70, 120000));
             // Keep this rectangular recall pad aligned with the generated north entrance.
             computer = padBase.offset(3, 1, -1);
-            // Big enough for the smallest generated ship (19 x 30), with a clear strip beside it.
-            for (int x = -1; x <= 22; x++)
+            // Big enough for the smallest generated ship (23 x 29), with room for loose blocks beside it.
+            for (int x = -1; x <= 26; x++)
                 for (int z = -1; z <= 32; z++)
-                    surface.setBlock(padBase.offset(x, 0, z), (x == -1 || z == -1 || x == 22 || z == 32 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
+                    surface.setBlock(padBase.offset(x, 0, z), (x == -1 || z == -1 || x == 26 || z == 32 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
             surface.setBlock(computer, PadComputers.BLOCK.defaultBlockState(), 18);
-            PadComputers.register(surface, computer, new PadScanner.Pad(padBase.getX(), padBase.getX() + 21, padBase.getY(), padBase.getZ(), padBase.getZ() + 31), "Recall " + index);
+            PadComputers.register(surface, computer, new PadScanner.Pad(padBase.getX(), padBase.getX() + 25, padBase.getY(), padBase.getZ(), padBase.getZ() + 31), "Recall " + index);
             var ship = StationGameTest.fixture(space, base, true);
             ship.putDouble("simX", 10000000 + index * 1000);
             ship.putDouble("simZ", 10000000);

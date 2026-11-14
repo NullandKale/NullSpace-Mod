@@ -64,13 +64,16 @@ public final class ManufacturerRoleGameTest
             ctx.assertTrue(ShipSensors.installed(level, ship, false) && NavigationService.propulsion(level, ship) > 0, "Navigation sensors stay powered while propulsion uses the remaining output");
             ship.putInt("thrustDemand", 0);
             var port = DockingPorts.firstPort(level, ship);
+            var unreachable = new ArrayList<String>();
             for (var room : ShipRooms.rooms(preset.id()))
             {
                 var target = origin.offset(room.walk());
                 ctx.assertTrue(scan.pressure().breathable(target.above()), preset.name() + " seals " + room.name());
                 ctx.assertTrue(ShipAir.breathable(level, ship, target.above()), "Finite air is retained in " + room.name());
-                ctx.assertTrue(reachable(level, WorldStore.bounds(ship), port.anchors().getFirst(), target), preset.name() + " has a walking route from dock to " + room.name());
+                if (!reachable(level, WorldStore.bounds(ship), port.anchors().getFirst(), target))
+                    unreachable.add(room.name() + " at " + room.walk().toShortString() + " of " + preset.decks() + " decks");
             }
+            ctx.assertTrue(unreachable.isEmpty(), preset.name() + " has a walking route from the dock to every room, but not to " + unreachable);
             var rooms = ShipRooms.rooms(preset.id());
             ctx.assertTrue(rooms.size() >= 5 && rooms.stream().map(ShipRooms.Room::use).distinct().count() >= 3, "Role layouts have distinct working and living spaces");
             for (var room : rooms)
@@ -83,8 +86,8 @@ public final class ManufacturerRoleGameTest
             }
             int air = (int) plan.values().stream().filter(s -> s.is(ModBlocks.AIR_SUPPLY)).count();
             ctx.assertTrue(ShipSystems.power(level, ship, PowerBus.System.AIR) == air * SpatialAir.SUPPLY_POWER, "Every separated room's pump has normal power, not just the first two: " + ShipSystems.power(level, ship, PowerBus.System.AIR) + " for " + air);
-            if (!preset.role().equals("Explorer"))
-                ctx.assertTrue(plan.values().stream().filter(s -> s.is(Blocks.BARREL)).count() >= 20, "Freighter role has a real hold with twenty accessible storage barrels");
+            if (preset.role().equals("Freighter"))
+                ctx.assertTrue(plan.values().stream().filter(s -> s.is(Blocks.BARREL)).count() >= 6 && ShipRooms.rooms(preset.id()).stream().anyMatch(r -> r.use() == ShipRooms.Use.CARGO), "Freighter role has a real hold of storage barrels: " + plan.values().stream().filter(s -> s.is(Blocks.BARREL)).count());
             if (preset.decks() > 1)
                 ctx.assertTrue(plan.values().stream().anyMatch(s -> s.getBlock() instanceof StairBlock), preset.name() + " has a stairwell to its upper decks");
         }
@@ -113,7 +116,8 @@ public final class ManufacturerRoleGameTest
                     var low = level.getBlockState(n);
                     var high = level.getBlockState(n.above());
                     var support = level.getBlockState(n.below());
-                    boolean floor = support.isCollisionShapeFullBlock(level, n.below()) || support.getBlock() instanceof StairBlock;
+                    // A garden path is a little lower than a full block, and still a floor.
+                    boolean floor = !support.getCollisionShape(level, n.below()).isEmpty() && support.getCollisionShape(level, n.below()).max(net.minecraft.core.Direction.Axis.Y) >= .9 || support.getBlock() instanceof StairBlock;
                     boolean door = low.getBlock() instanceof DoorBlock && ShipDoors.framed(level, n);
                     boolean clearance = high.getCollisionShape(level, n.above()).isEmpty() && (low.getCollisionShape(level, n).isEmpty() || low.getBlock() instanceof StairBlock);
                     if ((floor && clearance || floor && door) && (dy <= 0 || level.getBlockState(at.above(2)).getCollisionShape(level, at.above(2)).isEmpty()))

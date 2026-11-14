@@ -1,7 +1,6 @@
 package com.nullandkale.nullspace.worldgen.ships;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 
 import java.util.*;
 
@@ -50,10 +49,6 @@ public final class ManufacturerClientGameTest implements FabricClientGameTest
                     for (var e : ShipBlueprints.blocks(preset).entrySet())
                         level.setBlock(base.offset(e.getKey()), e.getValue(), 18);
                 }
-                var station = new BlockPos(120, -59, 0);
-                for (var e : ManufacturerStation.build().blocks().entrySet())
-                    level.setBlock(station.offset(e.getKey()), e.getValue(), 18);
-                ManufacturerStation.label(level, station);
                 world.getConnection().getServerPlayer().setGameMode(GameType.SPECTATOR);
             });
             for (int i = 0; i < presets.size(); i++)
@@ -62,11 +57,6 @@ public final class ManufacturerClientGameTest implements FabricClientGameTest
                 var base = new BlockPos(i * 40, -59, 0);
                 view(c, world, base.offset(-12, 16, -12), base.offset(p.width() / 2, 1, p.depth() / 2), "nullspace-" + p.id());
             }
-            var base = new BlockPos(120, -59, 0);
-            view(c, world, base.offset(-13, 24, -14), base.offset(15, 3, 15), "nullspace-manufacturer-station");
-            view(c, world, base.offset(8, 3, 15), base.offset(3, 4, 17), "nullspace-rivet-workshop");
-            view(c, world, base.offset(23, 3, 15), base.offset(29, 4, 15), "nullspace-halcyon-observation");
-            view(c, world, base.offset(15, 3, 28), base.offset(13, 4, 24), "nullspace-bastion-operations");
             ClientTestEvidence.passed(getClass());
         }
     }

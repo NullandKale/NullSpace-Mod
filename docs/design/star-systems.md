@@ -18,7 +18,7 @@ Planets get hotter closer to their star: lava, desert and toxic worlds sit close
 
 ### Zones
 
-Every body and feature has a **zone**: the orbit where you fly and meet other players. Stations, whether generated or built by a player, sit in a zone. Few are generated (see [orbital population](space-world-generation.md)): Sol's home orbit has a Waypoint Station, a Manufacturer Exchange and a derelict; two or three other stations sit in orbit-only zones; one or two derelicts drift at features. Zones where nothing can land make good places to build your own station.
+Every body and feature has a **zone**: the orbit where you fly and meet other players. Stations, whether generated or built by a player, sit in a zone. Few are generated (see [orbital population](space-world-generation.md)): Sol's home orbit has a planned orbital station and a derelict; two or three other stations sit in orbit-only zones; one or two derelicts drift at features. Zones where nothing can land make good places to build your own station.
 
 ### Danger
 

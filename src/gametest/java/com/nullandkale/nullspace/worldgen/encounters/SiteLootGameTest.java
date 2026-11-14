@@ -61,4 +61,46 @@ public final class SiteLootGameTest
         }
         ctx.succeed();
     }
+
+    private static final List<String> ROOMS = List.of("bridge", "engineering", "stores_0", "stores_1", "stores_2", "maintenance", "commons", "kitchen", "observation", "archive", "workshop", "foundry", "cargo_hold", "receiving_bay", "growing_bay_0", "growing_bay_1", "garden_0", "garden_1", "lab", "cabin", "bunk_room", "operations", "armory", "lookout", "eva_prep", "infirmary", "brig");
+
+    /** Every room's normal table and four derelict tiers load and fill a chest; a derelict room is always worth opening. */
+    @GameTest(maxTicks = 200)
+    public void roomTablesLoadAndEveryDerelictRoomHoldsSomethingWorthTaking(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var at = ctx.absolutePos(new BlockPos(1, 1, 1));
+        ctx.getLevel().setBlock(at, Blocks.CHEST.defaultBlockState(), 3);
+        var names = new ArrayList<String>();
+        for (var room : ROOMS)
+        {
+            names.add("normal/" + room);
+            for (int tier = 0; tier <= 3; tier++)
+            {
+                names.add("derelict/" + room + "_" + tier);
+                if (List.of("bridge", "engineering", "maintenance", "operations").contains(room))
+                    names.add("derelict/" + room + "_dead_" + tier);
+            }
+        }
+        for (var name : names)
+        {
+            var key = ResourceKey.create(Registries.LOOT_TABLE, Identifier.parse("nullspace:site/" + name));
+            ctx.assertTrue(server.reloadableRegistries().getLootTable(key) != LootTable.EMPTY, "Loot table loads: " + name);
+            int most = 0;
+            for (long seed = 0; seed < 6; seed++)
+            {
+                ctx.assertTrue(SiteLoot.assign(ctx.getLevel(), at, name, seed, "Test"), "A chest takes " + name);
+                var chest = (ChestBlockEntity) ctx.getLevel().getBlockEntity(at);
+                chest.unpackLootTable(null);
+                int stacks = 0;
+                for (int i = 0; i < chest.getContainerSize(); i++)
+                    stacks += chest.getItem(i).isEmpty() ? 0 : 1;
+                most = Math.max(most, stacks);
+                if (name.startsWith("derelict/"))
+                    ctx.assertTrue(stacks >= 2, name + " always holds something: " + stacks + " stacks, seed " + seed);
+            }
+            ctx.assertTrue(most >= 2, name + " gives a few stacks");
+        }
+        ctx.succeed();
+    }
 }

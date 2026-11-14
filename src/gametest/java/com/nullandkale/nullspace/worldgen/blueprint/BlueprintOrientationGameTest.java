@@ -3,7 +3,6 @@ package com.nullandkale.nullspace.worldgen.blueprint;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 import com.nullandkale.nullspace.worldgen.stations.StationLayout;
 
@@ -26,7 +25,6 @@ public final class BlueprintOrientationGameTest
         plans.put("waypoint", StationBlueprint.build(StationLayout.waypoint()).blocks());
         for (long seed = 1; seed <= 6; seed++)
             plans.put("station-" + seed, StationBlueprint.build(StationLayout.generate(seed)).blocks());
-        plans.put("manufacturer-station", ManufacturerStation.build().blocks());
         for (int kind = 0; kind < JourneyPlan.KINDS; kind++)
             for (long seed = 0; seed < 6; seed++)
                 plans.put("encounter-" + kind + "-" + seed, EncounterSites.plan(kind, seed).blocks());

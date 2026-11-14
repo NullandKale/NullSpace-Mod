@@ -97,7 +97,7 @@ public final class StationGameTest
         return player;
     }
 
-    private static void cleanup(ServerLevel level, CompoundTag s)
+    public static void cleanup(ServerLevel level, CompoundTag s)
     {
         // A docked ship's boarding collar stands outside both vessels' bounds: take it down first, or it outlives them.
         if (s.contains("dock"))
@@ -305,6 +305,12 @@ public final class StationGameTest
             ctx.assertTrue(StationAccess.mayUse(other, port.controller()) && StationAccess.mayUse(other, port.outer()), "Public visitors can inspect and operate compact ports");
             var bulkhead = StationGraph.inspect(level, s).nodes().stream().filter(n -> !n.dock()).findFirst().orElseThrow().door();
             ctx.assertTrue(StationAccess.useDoor(other, bulkhead) && ShipDoors.open(level.getBlockState(bulkhead)), "Ordinary station iron doors operate directly without buttons");
+            ShipDoors.setOpen(level, bulkhead, false);
+            // One empty-handed click arrives once per hand; the door must end open, not toggle twice.
+            var click = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(bulkhead), net.minecraft.core.Direction.UP, bulkhead, false);
+            for (var hand : net.minecraft.world.InteractionHand.values())
+                net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(other, level, hand, click);
+            ctx.assertTrue(ShipDoors.open(level.getBlockState(bulkhead)), "A click that reaches both hands leaves an iron station door open");
             ShipDoors.setOpen(level, bulkhead, false);
             var visitor = new CompoundTag();
             visitor.putString("id", other.getUUID().toString());

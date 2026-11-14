@@ -357,6 +357,71 @@ public final class GalaxyPlan
         return new Galaxy(worldSeed, systems, features);
     }
 
+    /**
+     * A copy of the chart with one more generated star system, within one hop of the place {@code near} so it can be
+     * reached at the starting engine range. Systems are numbered after Sol as {@code sys_a} to {@code sys_z}.
+     */
+    public static Galaxy withSystem(Galaxy galaxy, String near, long seed)
+    {
+        int count = galaxy.systems().size() - 1;
+        if (count >= 26)
+            throw new IllegalArgumentException("The chart cannot hold another star system");
+        var random = new Random(seed ^ 0x5eed5a17L);
+        double[] at = spot(galaxy, galaxy.place(near), random, SYSTEM_SPACING);
+        long systemSeed = random.nextLong();
+        var rng = new Random(systemSeed);
+        var systems = new ArrayList<>(galaxy.systems());
+        systems.add(system("sys_" + (char) ('a' + count), freshName(galaxy, random), at, 1 + rng.nextInt(9), systemSeed, rng, false));
+        return new Galaxy(galaxy.seed(), systems, galaxy.features());
+    }
+
+    /** A copy of the chart with one more feature of {@code type} within one hop of {@code near}, as {@code feature_a} to {@code feature_z}. */
+    public static Galaxy withFeature(Galaxy galaxy, String near, FeatureType type, String name, long seed)
+    {
+        var used = new HashSet<String>();
+        for (var f : galaxy.features())
+            used.add(f.id());
+        char letter = 'a';
+        while (letter <= 'z' && used.contains("feature_" + letter))
+            letter++;
+        if (letter > 'z')
+            throw new IllegalArgumentException("The chart cannot hold another feature");
+        var random = new Random(seed ^ 0xfea7a11L);
+        double[] at = spot(galaxy, galaxy.place(near), random, 4);
+        var features = new ArrayList<>(galaxy.features());
+        features.add(new Feature("feature_" + letter, name, type, at[0], at[1], false, random.nextLong()));
+        return new Galaxy(galaxy.seed(), galaxy.systems(), features);
+    }
+
+    /** A free spot on the chart 8 to 20 light years from {@code origin}, at least {@code spacing} from every place. */
+    private static double[] spot(Galaxy galaxy, Place origin, Random random, double spacing)
+    {
+        for (int attempt = 0; attempt < 400; attempt++)
+        {
+            double angle = random.nextDouble() * Math.PI * 2, radius = 8 + random.nextDouble() * 12;
+            double x = origin.x() + Math.cos(angle) * radius, y = origin.y() + Math.sin(angle) * radius;
+            if (x < 4 || y < 4 || x > SIZE - 4 || y > SIZE - 4)
+                continue;
+            if (galaxy.places().stream().allMatch(p -> Math.hypot(p.x() - x, p.y() - y) >= spacing))
+                return new double[]{x, y};
+        }
+        throw new IllegalArgumentException("There is no clear space on the chart near " + origin.name());
+    }
+
+    private static String freshName(Galaxy galaxy, Random random)
+    {
+        var taken = new HashSet<String>();
+        for (var p : galaxy.places())
+            taken.add(p.name());
+        for (int attempt = 0; attempt < 200; attempt++)
+        {
+            String name = PREFIXES.get(random.nextInt(PREFIXES.size())) + SUFFIXES.get(random.nextInt(SUFFIXES.size()));
+            if (!taken.contains(name))
+                return name;
+        }
+        return "Nova " + (galaxy.systems().size() + 1);
+    }
+
     /** Repair older saved charts without rerolling their systems or replacing an assigned surface. */
     public static Galaxy repairMissingLandings(Galaxy galaxy)
     {

@@ -257,6 +257,15 @@ public final class SpaceStart
         for (var entry : plan.entrySet())
             if (entry.getValue().is(ModBlocks.GENERATOR))
                 FuelSystem.provision(level, base.offset(entry.getKey()), 32);
+        if (preset.planned())
+        {
+            ship.putBoolean("generatedRooms", true);
+            if (!ship.getBooleanOr("roomEntities", false))
+            {
+                com.nullandkale.nullspace.gameplay.shipyard.RoomEntities.spawn(level, base, ShipBlueprints.points(preset));
+                ship.putBoolean("roomEntities", true);
+            }
+        }
         SystemsUpgrade.upgrade(level, ship);
         ship.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
         var controller = WorldStore.pos(ship, "controller");

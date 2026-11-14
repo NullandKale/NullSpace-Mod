@@ -57,9 +57,9 @@ Screens: [expanded core](../images/expanded-station-core.png), [complete ring](.
 
 ## The places you will find
 
-- **Waypoint Station**: a ring of four generated tiles (an entrance, a workshop, a bedroom and a power room, each two stories) with two opposite berths. A good first stop for supplies and for learning to dock.
-- **Manufacturer Exchange**: three wings in the Rivet, Halcyon and Bastion styles, with berths on opposite sides. Look at how each maker builds.
+- **Orbital stations**: planned, furnished stations by Rivet, Halcyon or Bastion, in Sol's home orbit and some other zones, with berths for visiting ships. The old Waypoint Station and Manufacturer Exchange are no longer built.
+- **Abandoned stations**: the same planner, found through FTL journey contacts.
 
-Both are saved once and persist. Visiting never repairs, restocks or refills. If you break something, it stays broken until someone fixes it. See [orbital population](space-world-generation.md) for where they are.
+They are saved once and persist. Visiting never repairs, restocks or refills. If you break something, it stays broken until someone fixes it. See [orbital population](space-world-generation.md) for where they are.
 
 For each block's screen see [equipment controls](ship-block-ui-design.md).

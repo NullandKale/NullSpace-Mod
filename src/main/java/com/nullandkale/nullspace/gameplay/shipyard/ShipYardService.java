@@ -364,6 +364,16 @@ public final class ShipYardService
         ship.putString("shipyardOrder", order.getStringOr("id", ""));
         ship.putString("blueprint", preset.id());
         ship.putString("name", preset.name());
+        if (preset.planned())
+        {
+            // Every room has its own Air Supply, so the doors are served before the air; the rooms show their frames and stands once.
+            ship.putBoolean("generatedRooms", true);
+            if (!ship.getBooleanOr("roomEntities", false))
+            {
+                RoomEntities.spawn(level, origin, ShipBlueprints.points(preset));
+                ship.putBoolean("roomEntities", true);
+            }
+        }
         boolean initializeSystems = !ShipSystems.enabled(ship);
         SystemsUpgrade.upgrade(level, ship);
         if (initializeSystems)

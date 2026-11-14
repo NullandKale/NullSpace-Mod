@@ -128,13 +128,13 @@ Vary cluster shape, arrangement, elevation and links. Compartmentalization must 
 
 Capacity is a functional brief, not a room-size multiplier. Harbors name visiting ship sizes/counts; agriculture names growing area; habitation names useful living capacity. Required rooms and circulation get space before optional content.
 
-**Proposed defaults**, inside supported station bounds:
+**Defaults** (raised on November 14 after playtest: the first caps of 32, 64 and 128 produced stations barely bigger than a ship), inside supported station bounds:
 
 | Band | Built footprint budget | Typical occupied levels | Initial berth target |
 | --- | --- | --- | --- |
-| Compact | Up to 32 by 32 | 1–2 | 1–2 |
-| Standard | Up to 64 by 64 | 2–3 | 2–4 |
-| Large | Up to 128 by 128 | 2–4 | 4–8 |
+| Compact | Up to 64 by 64, typically about 45 by 30 with 15–20 rooms | 1–2 | 1–2 |
+| Standard | Up to 96 by 96, typically about 55 by 50 with 28–35 rooms | 2–3 | 2–4 |
+| Large | Up to 128 by 128, typically about 95 by 100 with 45–65 rooms | 3–4 | 4–8 |
 
 These are budgets, not filled rectangular boxes or guaranteed berth counts. Whole-ship clearance can reduce the mix. Non-harbor types need not maximize docks. Approaches may extend beyond the built footprint and must be reserved when placing the site. Larger harbor aspirations remain separate from these initial defaults.
 
@@ -145,6 +145,28 @@ Allocate vertical volumes before furnishings. Reserve stairs, landings, headroom
 **Proposed geometry defaults:** main routes aim for three clear blocks of width; secondary routes and stairs aim for two. Existing framed doors can narrow locally to their hardware width. Normal rooms target three to five clear blocks of height; tall bays span multiple level bands. Exact rises/landings follow actual block collision and normal player headroom throughout.
 
 Floors can differ in footprint, elevation and room mix. Exterior gaps between rings, arms and piers are intentional silhouette. Inaccessible enclosed volumes inside occupied hulls need a reason.
+
+### Decisions from the November 12 implementation review
+
+- **Berths serve full-size ships.** Assume ships up to 32 by 32 by 32 dock, several at once. Docking mates a ship's port to a station port with the hull outside the station, so the station reserves clear space rather than containing the ship. Each berth reserves a clear box about 34 blocks wide, 34 high and 34 deep outside its port, centered on the port axis. Spacing keeps adjacent boxes from overlapping, so large stations use piers, arms and several faces instead of one crowded wall. Hulls with an off-center port can still fail the live occupancy check, which reports a busy berth. Berth counts in the capacity table remain targets that this clearance can reduce.
+- **Geometry only for concurrent docking.** Batch 4 lays out ports, berths and approach envelopes and checks that the boxes do not overlap. Autopilot routing, berth reservation and traffic queues are unchanged and stay in the separate harbor proposal. Two large ships docking at once is verified at the integration stage.
+- **Batch 4 is layout only.** Rooms are labelled empty shells with saved room IDs, plus the Station Core, docks, doors, stairs and minimum utilities. No room contents or purpose furnishing yet. Purpose still decides which dominant rooms are allocated and how large they are.
+- **Room size classes.** Large rooms go up to 16 by 16 by 16 and small rooms up to 8 by 8 by 8. The batch 5 room generators accept arbitrary sizes, so the planner does not assume these classes.
+- **Verification.** Pure plan checks, then one graphical gallery review of the three makers and several seeds of one brief.
+
+### Room set (decided November 13)
+
+Each room was judged on three questions: what it is for and what it looks like abandoned, what can be generated in a varied but pleasing way with the existing blocks, and what a player does or finds there. A room stays only if it adds a distinct activity or story.
+
+- **Rooms to design properly:** engineering, commons, kitchen, workshop, foundry, cargo hold, receiving bay, stores, maintenance bay, growing bay, garden, lab, archive, observation, lookout, operations, armory, cabin, bunk room, plus three additions: EVA prep, infirmary and brig.
+- **Merged or cut:** the seed store becomes a stores variant (stores has general, seed and spares variants). Crew quarters and barracks become one bunk room with a habitation or security character. The office is cut; its desks become a zone inside operations. The transfer bay is renamed the receiving bay.
+- **Distinct roles that keep similar rooms apart:** the lab does brewing and analysis; the archive is the enchanting library and holds the written logs; observation is for viewing and the lookout is a small defensive watch post; the maintenance bay is where repair bots live.
+- **EVA prep** is a suit locker room near the docks for expedition and harbor stations. The **infirmary** and **brig** are additions whose gameplay is still open: beds, cauldrons and chests give the infirmary no healing mechanic, and the brig is cells and loot. They stay only if they earn a function in review.
+- **Trees and animals are wanted.** Trees are placed as blocks (logs and leaves, with leaves set not to decay) since the generator writes blocks, so a tree is a design question rather than a growth system. Animals are persistent creatures spawned once, the way lost crew already are, from marked animal points in sealed pens and gardens. Gardens, growing bays and habitation stations are where they appear. Both are new content and need their own checks.
+- **Containers are generated empty; wall displays show a room's purpose.** Room generation puts no items in chests or barrels (stocking is the later provisioning pass). A wall item frame holds one handy item, hung where someone would grab it: a sword by the armory rack, a hoe by the growing beds, a potion in the lab, an emergency air canister at every dock and exit. Never seeds, ingots or other bulk materials. Space suits stand on armor stands (plain suits in EVA prep, an armored suit in the armory), and cabins and commons may hang paintings. Not every room has a display. Frames, stands and paintings are entities, so a room writes them as marked points (`frame` with the item, `stand`, `painting`) and a spawn-once pass places them on first visit, as lost crew are. Existing transfer code already carries item frames with a moving ship, so placed frames persist.
+- **Interior doors open on pressure plates.** Stations have many doors, so every interior door has a stone pressure plate on each side, in the cell directly in front of it. A person walking up opens it, and it closes when nobody stands on either plate, which also keeps rooms sealed by default. Stone plates react to players and mobs but not to dropped items, so lost crew and repair bots can open them. Docking-port doors stay with the docking system. Clicking a door by hand still works while nothing powers it. Doors rely on the existing neighbour-signal rule, and the console's close-all cannot override a door a plate is holding open. The later damage pass may knock plates and doors out, so a derelict's doors stick open or shut.
+- **Floors are two blocks thick.** Between levels there is a structural block and a floor-surface block above it, so a room can sink water, soil or a pond into its floor without opening the room below. A level is seven blocks: the two-block slab and five clear. Rooms should try for a custom floor.
+- **Operational rooms first.** Derelict hazards and damage are designed after the operational rooms work. The existing threats (lost crew and repair bots, no turrets, danger 0 to 3) are the baseline for that later pass.
 
 ## Shared room construction
 
@@ -189,6 +211,10 @@ Population chooses rare sites independently of building generation. Most regions
 **Proposed defaults:** one or two fixed dungeon stations across the initial galaxy; stations around one in ten encounter signals. The latter is a signal share, not a chance per jump, and does not raise overall encounter frequency. Fixed sites can include operational public places and derelicts; journey signals default to derelicts. Exact weights and size distribution remain reviewable tuning values.
 
 Choose fitting places, save fixed identities/plans once, and reserve full approach/ship envelopes clear of arrival zones, other sites and player builds. Menus and revisits never roll new stations. Review the existing unclaimed fixed-site reset policy and its removal of edits within site bounds before applying it to new types; communicate it clearly. Claimed/player stations never enter cleanup lists.
+
+### Orbital stations (decided November 13)
+
+Besides the sparse sites the chart already allocates, a planned station can sit in orbit of a zone: **a tenth of the bodies in star systems, and half of the features** (nebulae, black holes, rogue planets, pulsars and asteroid fields). Sol's home orbit always has one, and so does every zone that used to get an old Waypoint or Exchange: those old stations are no longer built, and a region recorded earlier loses its unclaimed ones the next time it is entered. Each zone has one roll, fixed by the world seed and the zone, so it never depends on who arrives first or on reloads. The same roll gives the station's brief: any maker, any purpose, and a size weighted toward small (45 percent compact, 40 standard, 15 large). These stations are operational and public, with no derelict damage yet. They are built on first arrival like every other place, once, and a region recorded before this existed gets its roll the next time it is entered.
 
 ### Simple claiming
 
@@ -332,3 +358,154 @@ These are bounded review items. The manufacturer methods and multi-floor model a
 | [Station reference](station-reference.md) | Current access, construction, rendering and system rules, not completion of this design |
 
 The growing-station drawing is only a route illustration. Purpose, manufacturer, capacity and condition stay independent throughout generation and play.
+
+## Porting the station generator to ships (built, November 14)
+
+Ships are still built by the older [`ShipGenerator`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/ShipGenerator.java): three fixed shapes (spine, dome, twin hull), three tiers with room depths of 5 to 9, a 32 by 32 by 32 limit, a one-of-each room bag and its own [`Furnishings`](../../src/main/java/com/nullandkale/nullspace/worldgen/shipgen/Furnishings.java). Compared with the planned stations, the rooms are small and thin, floors and ceilings are one block, doors are plain, and none of the station room designs, entities, palette rules or floors exist on ships.
+
+**Agreed scope:** room designs, floors/doors/palette and the layout planner all go to ships. **The catalog changes too (decided November 14):** the six full-size catalog designs are now planned ships, so purchases, derelicts and journey encounters all use the new generator. The three tiny ships keep their two-room generator, and the old generator remains only for the room gallery's ship rooms.
+
+### Approach: a ship is a small station with a helm and engines
+
+The station pipeline already separates a pure planner (`StationPlan`: rooms, doors, berths) from a renderer (`StationStructure`) and the room designs (`StationRooms`, `RoomKit`). Rather than rewriting the room designs for the ship's `Kind` grid, the new ship generator reuses that pipeline:
+
+| Part | Plan |
+| --- | --- |
+| Room uses | Ship rooms map onto the station uses: cargo to cargo hold, storage to stores, crew to bunk room, workshop and smelting to workshop and foundry, galley to kitchen, viewing to observation, enchanting to archive, brewing and science to lab, hydroponics to growing bay, lounge and commons to commons, plus cabin, engineering and arrival. New uses: **bridge** (helm, terminal, scanner, monitors, camera) and an **airlock** room as the ship's arrival. Mining and the second crafting room reuse workshop and foundry variants. |
+| Layout | A ship planner with a room program per role (scout, freighter, explorer) and a footprint budget of 32 by 32 by 32. It reuses the builder's placement, doors, stairs and atrium code with ship methods: the spine, dome and twin shapes redone as ordered halls with the bridge at the nose and engineering at the tail, a docking door on one hall, and mirrored rooms. Decks follow the station level rule: a two-block floor and five clear rows, so a ship holds at most four decks inside the limit. |
+| Rendering | `StationStructure` supplies shell, two-block floors, windows, pressure-plate doors, log piers and the palette rules. Ship-only additions: the hull skin and engine pods, the ramp, exhaust runs, the helm in front of the docking door, engines in the stern wall, and the ship's single docking base instead of berths. |
+| Furnishing | The station room designs, with their rules, entities and empty containers. Rooms get the ship's smaller sizes through the same size-aware builders; a room that cannot be furnished well at a given size is not offered, as on the old ship generator. |
+
+### What stays and what is new
+
+- Stays: the spec shape (maker, role, seed), the old `ShipGenerator` for the catalog, `TinyShipGenerator`, docking, power, air and storage behaviour, the 32-block limit.
+- New: a `ShipPlan`/`ShipPlanner` on the station planner's machinery, ship methods, ship-only rendering, and a new spec path used by `RandomYard`, generated derelicts and the room gallery.
+- Open for review: how many ship sizes there should be, since the old three tiers were room sizes rather than ship sizes; whether a ship gets a purpose-style brief like stations; and whether the existing shape names survive.
+
+### What was built
+
+[`ShipSpec`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/ShipSpec.java) is maker, **size** (small, medium, large), role and seed. [`ShipPlanner`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/ShipPlanner.java) lays a ship on one straight spine, nose to tail, in mirrored pairs, and [`ShipStructure`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/ShipStructure.java) renders it through the station pipeline, so ships get the station shell, two-block floors, pressure-plate doors, log piers, palette and every room design.
+
+- **Bridge** at the nose, 13 wide, with the docking door in its nose wall, the helm a few steps in with a walkway either side, forward screens, a terminal, a scanner and two pilot seats. A camera looks out over the door, and a three-wide ramp climbs from the ground to the door.
+- **Engineering** at the stern with four engines in the stern wall behind two clear rows, and four generators with batteries down the side walls.
+- **Small** ships have one deck and two pairs of side rooms: a large pair (12 deep) and a small pair (8 deep), in either order.
+- **Medium** and **large** ships have two to four decks around a stair hall behind the bridge. Every deck has a hall with a mirrored pair of side rooms, alternating large and small down the ship, and the upper decks add a room at the nose above the bridge and one at the stern above engineering.
+- **Roles** pick the rooms: a freighter always carries a cargo hold, an explorer a lab, a scout a commons; the rest come from weighted pools that avoid repeating a room.
+- Ships keep the 32 by 32 by 32 limit with the ramp included. A planned ship sets the `generatedRooms` flag, so its doors are powered before its Air Supplies.
+- The six full-size catalog designs (Rivet Bolt, Hauler and Ranger, Halcyon Swift, Courier and Horizon, Bastion Ward, Tender and Pioneer) are planned ships, one small, medium and large per maker, recorded as maker, size, role and seed in `catalog/ships.json`. Tiny ships keep the old two-room generator. `/nullspace shipyard random` builds planned ships, one row per size and one column per role, plus a wildcard.
+- **Sizes:** small ships are about 23 wide and 29 long on one deck, medium about 25 by 31 on two, and large about 27 by 32 on three or four, with the ramp included. Halcyon ships have a wider bridge and engineering, and Bastion ships a broader hall, so the makers differ in outline.
+- **Power:** every room has an Air Supply, so engineering grows with the ship: four generators and batteries on a small ship, up to eight on a large one.
+- **Derelicts and encounters:** a derelict planned ship keeps its frames and stands, a few containers are marked to hold supplies (the hoard first), and a blocked freighter door is the door of the hoard room.
+- **Delivery:** a delivered planned ship spawns its frames and stands once and serves doors before air.
+
+## The derelict state (design in progress, November 14)
+
+**Decided with the owner:** the same pass applies to planned ships and planned stations; four histories (evacuated, breach, power failure, interrupted work); danger sets how severe the wreck is; the dock must be usable so the dungeon can be played, but **the rest of the vessel is destroyed**. Overrun and stripped are left for later.
+
+### Story first
+
+A derelict is a place where something happened, and the damage should let a player read it. Each history is a few coherent patterns, not random holes.
+
+| History | What happened | What you see |
+| --- | --- | --- |
+| Evacuated | The crew left in an orderly way before the end. | Suit stands empty, doors propped open, stores stripped, empty frames, a quiet ruin with dust, cobwebs and dead lights. Little loot, little danger beyond the dark. |
+| Breach | A wing ruptured and vented. | A cluster of rooms with the hull torn open, scorched and cracked walls, collapsed ceilings and decks, goods scattered across the wreck, and vacuum between you and the loot. |
+| Power failure | Engineering died and the lights went out. | Generators gone or smashed, batteries empty, air supplies stripped so rooms are stale, every light out, cold. The repair target is the power plant. |
+| Interrupted work | The crew vanished mid-task. | Furnaces and benches left with work on them, growing bays gone wild, tables laid. Richest ordinary loot, with wreckage elsewhere. |
+
+### Generation
+
+A separate seeded pass over the finished working design, so changing the damage never rearranges the building or its rooms. It chooses a history from the site seed, then spends a damage budget by danger. It never touches the dock port, its two standing cells or the doorway into the first room, and the Station Core or helm survives.
+
+| Tool | What it does |
+| --- | --- |
+| Hull breaches | Clusters of exterior wall, window and roof removed, worse near the history's wound room; they vent through the real air system. |
+| Collapse | Interior wall sections and ceiling spans removed, rubble of the maker's own blocks left below. |
+| Broken decks | Holes in floors between decks; the stair hall keeps one climbable route. |
+| Wrecked rooms | Fixtures removed or cracked, shelves and benches toppled, cobwebs, scorch; the marked loot containers are kept. |
+| Dead lights | Torches and lanterns removed or unlit. |
+| Doors | Left open, jammed shut or knocked out; pressure plates removed. |
+| Power | Generators and batteries missing or drained, air supplies removed (the real power and air budgets change). |
+
+Severity is the **share of rooms that are damaged**, not the share of blocks: **danger 0 about a third of the rooms, danger 1 about half, danger 2 about two thirds, danger 3 about 80 percent**. A damaged room is properly wrecked; the rooms left alone stay whole, so the player hops from one intact bubble to the next across the ruin. Danger 0 and 1 draw evacuated or interrupted work; 2 draws breach, power failure or interrupted work; 3 draws breach or power failure at full strength.
+
+### Gameplay
+
+Loot, lost crew and repair bots follow the existing danger tables. Claiming keeps the damage. Repairs are ordinary building: place blocks to close a breach, restore a generator and fuel it. No new repair system.
+
+### Open
+
+- None on the route: **decided, the route from the dock to the Station Core or helm may be broken.** A breach or collapse can cut it, and the player bridges, mines through or builds around it with ordinary blocks. Every room stays reachable by ordinary building, and claiming works once the core is reached.
+
+## Loot (built, November 14)
+
+**Decided with the owner:** a normal and a derelict table for every room type; the normal table is the base of the derelict one; **one chest per room holds loot**; found vessels are worth looting; ships given or bought from the shipyard, the starter ship, player-built places and operational planned stations stay empty.
+
+### Rules
+
+- **Only found vessels hold loot.** A derelict ship or station stocks one chest in every room that has a chest (a barrel only if the room has no chest) from that room's derelict table, rolled when a player first opens it, as now. Every other container in the room stays empty. The hoard room's chest also takes the site's treasure table by danger.
+- **Normal table = a working room.** It says what a working room of that use would hold: its everyday stock, its tools and its parts. Nothing rolls it by itself; it is the source the derelict table is built from.
+- **Derelict table = the normal table, worn, plus finds.** Each derelict table has two parts. *Salvage* is the normal items in a worse state: food spoiled, tools and armor damaged, canisters part empty, counts lower. *Finds* is a short list of things worth the trip for that room, rarer and better with danger. A derelict room is never just dust: the chest always has fuel or a useful part, and at higher danger a find.
+- **Danger tiers.** Each derelict table comes in four tiers by danger (0 to 3). Tier 0 gives usable fuel and parts and the odd find; tier 3 gives rare finds (advanced upgrades, echo shards, netherite scrap, armored suits, strong potions). Fuel stays the main reward everywhere.
+- **History nudges the stocking, gently, and never empties a room.** Every room keeps its loot chest and a chest is always worth opening; the history only tilts what is in it, by at most one tier:
+  - *Evacuated*: about half the rooms, chosen by the seed, sit one tier lower (the crew took the best); the archive and the hoard room are untouched.
+  - *Interrupted work*: the work rooms (workshop, foundry, kitchen, growing bay, lab, receiving bay, cargo hold) sit one tier higher.
+  - *Breach*: the wound rooms keep their chests and sit one tier higher, so the vented, scorched rooms are the risky, better-paying ones. A breached room is never emptier than an intact one.
+  - *Power failure*: engineering, operations, bridge and maintenance use a *dead* variant that swaps part of the electronics (circuit boards, casings) for extra fuel and raw materials, so they still pay.
+- **Authoring.** The tables are generated from one short spec per room (a script writes the JSON), so the themes, tiers and the shared spoiled/damaged rules stay consistent.
+
+### How it is built
+
+- [`generate_room_loot.py`](../../scripts/art/generate_room_loot.py) writes `site/normal/<room>.json` and `site/derelict/<room>_<tier>.json` (plus `_dead_` variants for engineering, operations, bridge and maintenance), 151 tables in all. Edit the spec there and rerun it.
+- The planner marks one `roomloot` point per room in every vessel: the room's first single chest, else a double chest, else a barrel. A working station never reads them.
+- [`DerelictHistory`](../../src/main/java/com/nullandkale/nullspace/worldgen/condition/DerelictHistory.java) picks the history from the site seed and danger and shifts a room's tier by at most one; [`DerelictLoot`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/DerelictLoot.java) gives each marked chest its table and the hoard room the treasure table. The hoard is a cargo hold, else a workshop, foundry or lab, else a store or living room, so galleys and gardens keep their food.
+- Fuel is rationed to engineering, the cargo hold, the foundry, the receiving bay, maintenance and spares stores, so a whole vessel holds about a stack.
+- The damage pass will reuse the same history and the same wound rooms.
+
+### Room by room (proposal)
+
+Normal is what a working room holds. The derelict salvage is that stock worn; finds are the extras, shown with the tier they start at.
+
+| Room | Normal | Derelict salvage | Finds |
+| --- | --- | --- | --- |
+| Bridge | Maps, compass, clock, spyglass, paper | Cracked compass and spyglass, faded charts | Circuit boards, local scanner part (1+), System Upgrade (2+), Advanced System Upgrade (3) |
+| Engineering | Coal, charcoal, redstone, circuit boards, machine casings, copper | Drained batteries, scorched casings, coal | Fuel stacks, circuit boards (1+), System Upgrade (2+), Advanced (3) |
+| Stores (general) | Paper, string, wool, candles, nuggets | Spoiled bundles, string, nuggets | Iron and copper ingots, gold nuggets (1+) |
+| Stores (seed) | Seeds, bone meal, a hoe | Dry seeds, bone meal | Rare seeds and cocoa (1+), golden carrots (2+) |
+| Stores (spares) | Casings, circuit boards, iron nuggets, tools | Bent parts, nuggets | Machine casings, circuit boards (1+), damaged diamond tool (3) |
+| Maintenance | Iron, redstone, circuit boards, a damaged pickaxe, air canister | Worn tools, loose iron, repair bot scrap | Machine casings, System Upgrade (2+) |
+| Commons | Books, paper, cake, flowers, bottles | Stale cake, torn books | Music disc (2+), golden apple (2+) |
+| Kitchen | Bread, cooked meat, carrots, potatoes, apples, honey | Rotten flesh, poisonous potato, spoiled bread | Sealed honey, golden carrots (1+), cooked meat stacks |
+| Observation | Spyglass, maps, amethyst shards, books | Cracked spyglass, shards | Amethyst clusters (1+), echo shard (3) |
+| Archive | Books, paper, ink, bookshelves | Water-stained books and paper | Enchanted books (1+, stronger with danger), lapis (2+) |
+| Workshop | Iron, copper, redstone, circuit boards, tools, air canisters | Damaged tools, loose metal | Diamond tool, armor trim template (2+), System Upgrade (2+) |
+| Foundry | Ingots, coal, charcoal | Cold slag, raw ore, coal | Gold and diamonds (2+), netherite scrap (3) |
+| Cargo hold | Coal, copper, iron, glass, string | Spilled crates of fuel and metal | Manifest valuables: emerald and diamond (1+), gold blocks (2+) |
+| Receiving bay | Mixed parcels | Torn parcels of bulk goods | A sealed shulker box (2+), emeralds |
+| Growing bay (crops) | Seeds, bone meal, wheat, carrots | Wilted seeds, bone meal | Golden carrots, pumpkin and melon seeds (1+), sweet berries |
+| Growing bay (orchard) | Saplings, apples, cocoa | Spoiled apples, saplings | Golden apples (2+), rare saplings |
+| Garden (pen) | Seeds, shears, wool, leads | Seeds, wool | Honeycomb, name tags and leads (1+) |
+| Garden (grove) | Saplings, flowers, moss | Saplings, withered flowers | Glow berries, spore blossom (1+), honeycomb |
+| Lab | Bottles, potion ingredients, samples | Stale potions, spider eyes | Healing and regeneration potions (1+), strong potions (3) |
+| Cabin | Clothes, books, clock, compass, gold nuggets | Worn leather, nuggets | The captain's valuables: emeralds, gold (1+), trim template (2+) |
+| Bunk room | Wool, paper, leather, snacks | Moth-eaten wool, snacks | Lost belongings: gold nuggets, an apple, a disc (3) |
+| Operations | Maps, books, redstone, comparators | Dead consoles' parts | Circuit boards, local scanner part (1+), System Upgrade (2+) |
+| Armory | Arrows, bows, iron and chain gear, shields | Damaged iron and chain gear, arrows | Armored space suit pieces (2+), diamond gear (3) |
+| Lookout | Spyglass, arrows, fireworks, maps | Spyglass, arrows | Fireworks stacks, a bow (1+) |
+| EVA prep | Space suits, air canisters, rope | Damaged suit pieces, part-empty canisters | Armored suit pieces (2+), full canisters (1+) |
+| Infirmary | Bandages (paper, string), milk, honey, healing potions | Spoiled supplies, stale potions | Regeneration potions (1+), golden apple (2+) |
+| Brig | Iron bars, leads, name tags | Bent bars, leads | Confiscated valuables: diamonds, enchanted gear (2+) |
+
+Docks, halls and the stair hall hold nothing.
+
+### Worth and vanilla blocks
+
+**Decided:** a derelict pays for the trip and its finds climb with danger. Tier 0 gives enough fuel for a jump plus a few parts, tiers 1 and 2 add a useful find in most rooms (circuit boards, golden carrots, enchanted books, a System Upgrade at 2), and tier 3 adds rare finds in most rooms (advanced upgrades, echo shards, netherite scrap, armored suits, strong potions). Fuel stays the main reward.
+
+**Vanilla blocks are loot too.** Every table also rolls ordinary building and crafting blocks, so a wreck is worth stripping:
+
+- Bulk rooms (cargo hold, receiving bay, stores, maintenance, workshop, foundry) carry stacks of the vessel's own building blocks (stone bricks, polished deepslate, quartz, glass, copper, planks and logs, concrete), and iron, copper or gold blocks from tier 1, with diamond or netherite blocks only at tier 3.
+- Other rooms carry their own themed blocks in small amounts: glass and bottles in the lab, wool and carpet in bunk rooms and cabins, bookshelves in the archive, lanterns and chains in the commons and observation room, iron bars in the brig, planks and logs in the garden.
+- Blocks are salvage, not finds: they stay at any tier, and the tier changes how many and how good.
+
+**No generated logs:** the archive holds books and enchanted books, with no written history.

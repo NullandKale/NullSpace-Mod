@@ -1,6 +1,6 @@
 # Station pieces, doorway graph and systems
 
-A station is a set of room pieces on a grid, joined by doors, running on the same power, air and door systems as a ship. This document explains how a station is described and generated, how its doors form a graph, and how its systems share that structure. The player's view is in [stations](stations.md), and the rules for access, building and regeneration are in [the station reference](station-reference.md). The code is [`worldgen/stations`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations) ([`StationLayout`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationLayout.java), [`StationPieces`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationPieces.java), [`StationBlueprint`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationBlueprint.java), [`ManufacturerStation`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/ManufacturerStation.java)), `worldgen/shipgen/StationGenerator` and [`gameplay/station`](../../src/main/java/com/nullandkale/nullspace/gameplay/station) ([`StationGraph`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationGraph.java), [`StationSpace`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationSpace.java)).
+A station is a set of room pieces on a grid, joined by doors, running on the same power, air and door systems as a ship. This document explains how a station is described and generated, how its doors form a graph, and how its systems share that structure. The player's view is in [stations](stations.md), and the rules for access, building and regeneration are in [the station reference](station-reference.md). The code is [`worldgen/stations`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations) ([`StationLayout`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationLayout.java), [`StationPieces`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationPieces.java), [`StationBlueprint`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationBlueprint.java)), `worldgen/shipgen/StationGenerator` and [`gameplay/station`](../../src/main/java/com/nullandkale/nullspace/gameplay/station) ([`StationGraph`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationGraph.java), [`StationSpace`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationSpace.java)).
 
 ## The idea
 
@@ -43,7 +43,6 @@ When two tiles join, the shared wall is cut open ([`StationBlueprint.connect`](.
 - **Waypoint**: four tiles in a ring, one of each of the four room types.
 - **Generated starter** (`StationLayout.generate`): the same four room types in shuffled order, each in a seeded few-windows or many-windows form, with one of the four links removed at random, so some starters are a ring and some a chain.
 - **Harbor**: a walkable perimeter ring of 28 pieces on an 8 × 8 grid, with eight outward-facing berths spread around it.
-- **Manufacturer Exchange**: a fixed layout with Rivet, Halcyon and Bastion wings.
 
 ## Doorway nodes and the graph
 

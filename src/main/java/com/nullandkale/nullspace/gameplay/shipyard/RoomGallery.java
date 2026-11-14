@@ -11,7 +11,9 @@ import java.nio.file.Files;
 import java.util.*;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -21,8 +23,12 @@ import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.LevelResource;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+
 /**
- * A gallery of every room kit for auditing: one row per use, one column per tier (the piece size)
+ * The room galleries. {@code /nullspace shipyard rooms} builds both: the station rooms ({@link StationRoomGallery}), then this gallery of the ship room kits.
+ * The ship gallery is every room kit for auditing: one row per use, one column per tier (the piece size)
  * and window level. Each room is built on its own behind a short corridor with an open doorway, so
  * you can walk in and judge the room by itself. Every visit builds a new gallery.
  */
@@ -44,27 +50,52 @@ public final class RoomGallery
 
     public static void initialize()
     {
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(Commands.literal("rooms").executes(ctx ->
+        var station = Commands.literal("station").executes(ctx -> run(ctx, true, false, null)).then(Commands.argument("maker", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(Arrays.stream(Spec.Maker.values()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), builder)).executes(ctx -> run(ctx, true, false, StringArgumentType.getString(ctx, "maker"))));
+        var ship = Commands.literal("ship").executes(ctx -> run(ctx, false, true, null));
+        var rooms = Commands.literal("rooms").executes(ctx -> run(ctx, true, true, null)).then(station).then(ship);
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(Commands.literal("nullspace").then(Commands.literal("shipyard").requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)).then(rooms))));
+    }
+
+    /**
+     * Builds the station room gallery, the ship room gallery or both, and stands the player at the
+     * first. {@code maker} narrows the station rooms to one maker.
+     */
+    private static int run(CommandContext<CommandSourceStack> ctx, boolean stations, boolean ships, String maker) throws com.mojang.brigadier.exceptions.CommandSyntaxException
+    {
+        var player = ctx.getSource().getPlayerOrException();
+        try
         {
-            var player = ctx.getSource().getPlayerOrException();
-            try
+            var server = player.level().getServer();
+            var makers = new ArrayList<Spec.Maker>();
+            for (var m : Spec.Maker.values())
+                if (maker == null || maker.equalsIgnoreCase("all") || m.name().equalsIgnoreCase(maker))
+                    makers.add(m);
+            if (stations && makers.isEmpty())
+                throw new IllegalArgumentException("Unknown maker: " + maker);
+            BlockPos stand = null;
+            if (stations)
             {
-                var server = player.level().getServer();
+                var placed = StationRoomGallery.build(server, makers);
+                stand = placed.start();
+                player.sendSystemMessage(Component.literal("Station room gallery: %d rooms (small and large, one row of six per three uses, a section per maker) with %d frames, stands, paintings and animals, starting at %s. Each room's sign is by its door, and every door opens on a pressure plate.".formatted(StationRoomGallery.rooms(makers), placed.entities(), stand.toShortString())));
+            }
+            if (ships)
+            {
                 var origin = build(server);
-                player.teleportTo(server.overworld(), origin.getX() + MARGIN + 8.5, origin.getY() + 1, origin.getZ() + 1.5, Set.of(), 0, 10, true);
-                FieldGuide.supply(player);
+                if (stand == null)
+                    stand = origin.offset(MARGIN + 8, 1, 1);
                 player.sendSystemMessage(Component.literal("""
-                    Room kit gallery: %d rooms, one row per use going south. Columns going east: small, medium and \
-                    large pieces, each with few and then many windows. Each room opens north; a sign by the door \
-                    names it. A blank cell means the room does not fit that size.""".formatted(USES.size())));
-                return 1;
+                    Ship room gallery: %d rooms, one row per use going south from %s. Columns going east: small, medium and                     large ship pieces, each with few and then many windows. A blank cell means the room does not fit that size.""".formatted(USES.size(), origin.toShortString())));
+                FieldGuide.supply(player);
             }
-            catch (Exception error)
-            {
-                player.sendSystemMessage(Component.literal("Could not build the room gallery: " + ShipMessages.failure(error)));
-                return 0;
-            }
-        })))));
+            player.teleportTo(server.overworld(), stand.getX() + .5, stand.getY(), stand.getZ() + .5, Set.of(), 0, 10, true);
+            return 1;
+        }
+        catch (Exception error)
+        {
+            player.sendSystemMessage(Component.literal("Could not build the room gallery: " + ShipMessages.failure(error)));
+            return 0;
+        }
     }
 
     public static BlockPos build(MinecraftServer server) throws java.io.IOException

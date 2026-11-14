@@ -223,9 +223,9 @@ public final class JourneyGameTest
                 {
                     if (level.getBlockState(at).is(Blocks.WHEAT))
                         crops++;
-                    if (!level.getBlockState(at).is(Blocks.BARREL))
+                    // Found vessels keep one loot chest per room; barrels and the other chests stay empty.
+                    if (!(level.getBlockEntity(at) instanceof Container chest))
                         continue;
-                    var chest = (Container) level.getBlockEntity(at);
                     // Loot tables roll when a player first opens the container.
                     if (chest instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity r)
                         r.unpackLootTable(c.player());
@@ -266,7 +266,12 @@ public final class JourneyGameTest
                         if (room.use() == ShipRooms.Use.ENGINEERING)
                             ctx.assertTrue(hasFuel, "Fuel belongs beside engineering");
                         if (room.use() == ShipRooms.Use.GALLEY)
-                            ctx.assertTrue(hasFood, "Food belongs in the galley");
+                        {
+                            var held = new java.util.ArrayList<String>();
+                            for (int i = 0; i < supplies.getContainerSize(); i++)
+                                held.add(supplies.getItem(i).toString());
+                            ctx.assertTrue(hasFood, "Food belongs in the galley, " + room.name() + " holds " + held);
+                        }
                         supplies.clearContent();
                     }
                     ctx.assertTrue(stocked >= 3, "Exploration rewards are spread across useful rooms");
@@ -447,7 +452,7 @@ public final class JourneyGameTest
                 }
                 BlockPos suppliesAt;
                 if (encounterKind == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
-                    suppliesAt = com.nullandkale.nullspace.worldgen.encounters.SitePoints.read(vessel).stream().filter(point -> point.name().equals("loot")).findFirst().orElseThrow().pos();
+                    suppliesAt = com.nullandkale.nullspace.worldgen.encounters.DerelictLoot.spots(com.nullandkale.nullspace.worldgen.encounters.SitePoints.read(vessel)).stream().filter(spot -> spot.use().equals("engineering")).findFirst().orElseThrow().pos();
                 else
                     suppliesAt = ShipRooms.rooms(EncounterSites.design(vessel.getIntOr("encounterKind", 1), vessel.getLongOr("encounterSeed", 1))).stream().filter(r -> r.use() == ShipRooms.Use.ENGINEERING).findFirst().orElseThrow().supplies();
                 var fuelLocker = WorldStore.pos(vessel, "base").offset(suppliesAt);

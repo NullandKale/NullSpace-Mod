@@ -40,6 +40,10 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
     private Button enabledButton, saveName, editName;
     private Button accept, decline, cancel, undock;
     private Button lessPower, morePower;
+    /** The creative Scanner's spawn tools: which encounter and how dangerous, chosen by cycling. */
+    private Button spawnKind, spawnDanger;
+    private int kindChoice = 2, dangerChoice = 1;
+    private final java.util.List<Button> creativeButtons = new java.util.ArrayList<>();
     private boolean refreshPreview;
 
     private java.util.List<CompoundTag> rows()
@@ -172,6 +176,26 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         morePower = button("+", videoMode() ? 288 : 80, 220, 24, () -> send(15, "1"));
         if (mode.contains("scanner"))
             button("Open scanner", 8, 44, 120, () -> send(8, ""));
+        creativeButtons.clear();
+        if (mode.contains("scanner"))
+        {
+            var kinds = com.nullandkale.nullspace.model.galaxy.EncounterKind.values();
+            // The tools stack in the left column, so the status text on the right stays clear.
+            String[] names = {"Growing station", "Freighter", "Salvage ship", "Cargo", "Station"};
+            spawnKind = button(names[kindChoice], 8, 66, 120, () ->
+            {
+                kindChoice = (kindChoice + 1) % kinds.length;
+                spawnKind.setMessage(Component.literal(names[kindChoice]));
+            });
+            spawnDanger = button("Danger " + dangerChoice, 8, 86, 120, () ->
+            {
+                dangerChoice = (dangerChoice + 1) % 4;
+                spawnDanger.setMessage(Component.literal("Danger " + dangerChoice));
+            });
+            var spawn = button("Spawn encounter", 8, 106, 120, () -> send(16, kinds[kindChoice].id + " " + dangerChoice));
+            var system = button("Spawn star system", 8, 126, 120, () -> send(17, ""));
+            creativeButtons.addAll(java.util.List.of(spawnKind, spawnDanger, spawn, system));
+        }
         else if (mode.equals("monitor"))
         {
             previous = button("Previous camera", 64, 160, 90, () -> changeMonitorCamera(-1));
@@ -276,6 +300,12 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         {
             enabledButton.active = canConfigure && !pending && menu.reading.getBooleanOr("connected", false);
             enabledButton.setMessage(Component.literal(menu.reading.getBooleanOr("enabled", true) ? "On" : "Off"));
+        }
+        // The spawn tools show once a Creative System Upgrade makes this Scanner tier 4.
+        for (var tool : creativeButtons)
+        {
+            tool.visible = menu.reading.getBooleanOr("creative", false);
+            tool.active = canConfigure && !pending;
         }
         if (restart != null)
         {

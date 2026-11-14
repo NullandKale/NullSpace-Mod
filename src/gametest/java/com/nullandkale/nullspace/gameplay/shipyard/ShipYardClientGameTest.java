@@ -145,15 +145,23 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                 ShipService.open(player, WorldStore.pos(dockingVessels[0], "controller"), "Choose a station from the destination picker");
             });
             context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
-            world.getServer().waitFor(server -> WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).anyMatch(s -> s.getBooleanOr("worldGenerated", false) && s.getStringOr("populationRole", "").equals("waypoint") && StationAccess.ready(s)), 1000);
+            // Sol's home orbit always has a planned orbital station (the old Waypoint is gone); the picker lists it by name.
+            var station = new String[1];
+            world.getServer().waitFor(server ->
+            {
+                var found = WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getBooleanOr("worldGenerated", false) && s.getStringOr("populationRole", "").equals("orbital") && StationAccess.ready(s)).findFirst();
+                found.ifPresent(s -> station[0] = s.getStringOr("home", ""));
+                return found.isPresent();
+            }, 1000);
             // No generator call or Find button: entering the region creates its persistent places.
             // Stations are chosen at the ship's Scanner block; the controller then shows the course.
             ShipControlTestUi.ensureScanner(world);
-            ShipControlTestUi.destination(context, world, "Waypoint Station", "Stations");
+            ShipControlTestUi.destination(context, world, station[0], "Stations");
             context.takeScreenshot("nullspace-discovered-waypoint-ports");
             // Engage carries out the whole trip; the berth is assigned on final approach.
             ShipControlTestUi.action(context, ShipControl.Action.ENGAGE);
-            world.getServer().waitFor(server -> dockingVessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 2000);
+            // The orbital station sits 900 blocks out (the old Waypoint was 640), so the autopilot needs about twice as long to arrive.
+            world.getServer().waitFor(server -> dockingVessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 4000);
             world.getServer().runOnServer(server ->
             {
                 var dock = dockingVessels[0].getCompoundOrEmpty("dock");

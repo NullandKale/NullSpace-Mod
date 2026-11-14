@@ -40,13 +40,13 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
             world.getServer().runOnServer(server ->
             {
                 var level = server.overworld();
-                for (int x = -1; x <= 22; x++)
+                for (int x = -1; x <= 26; x++)
                     for (int z = -1; z <= 32; z++)
-                        level.setBlock(pad.offset(x, 0, z), (x == -1 || z == -1 || x == 22 || z == 32 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
+                        level.setBlock(pad.offset(x, 0, z), (x == -1 || z == -1 || x == 26 || z == 32 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
                 level.setBlock(computer, PadComputers.BLOCK.defaultBlockState(), 18);
                 try
                 {
-                    PadComputers.register(level, computer, new PadScanner.Pad(0, 21, 90, 0, 31), "Recovery pad");
+                    PadComputers.register(level, computer, new PadScanner.Pad(0, 25, 90, 0, 31), "Recovery pad");
                 }
                 catch (java.io.IOException e)
                 {

@@ -77,3 +77,6 @@ id_ed25519
 Thumbs.db
 Desktop.ini
 
+
+# Python bytecode
+__pycache__/

@@ -44,7 +44,7 @@ final class PowerSystem
         // What the installed hardware can take, in the order of PowerBus.System: controls, air, doors, engines, cameras, weapons.
         int[] caps = {controls, air * SpatialAir.MAX_SUPPLY_POWER, doors, engines, cameras, weapons};
         var loads = new ArrayList<PowerBus.Load>();
-        int[] order = s.getIntArray("order").orElse(s.getBooleanOr("airFirst", false) ? new int[]{1, 0, 2, 4, 3, 5} : new int[]{0, 1, 2, 4, 3, 5});
+        int[] order = s.getIntArray("order").orElse(s.getBooleanOr("airFirst", false) ? new int[]{1, 0, 2, 4, 3, 5} : ship.getBooleanOr("generatedRooms", false) ? new int[]{0, 2, 1, 4, 3, 5} : new int[]{0, 1, 2, 4, 3, 5});
         for (int i : order)
             loads.add(new PowerBus.Load(PowerBus.System.values()[i], i == 3 && requests[i] > 0
                 ? requests[i] + r.equipment.stream().filter(p -> level.getBlockState(p).is(ModBlocks.ENGINE) && active(r, p)).mapToInt(p -> 2 * FuelSystem.tier(level, p)).sum()

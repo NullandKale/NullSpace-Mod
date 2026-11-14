@@ -282,6 +282,7 @@ public final class MachineMenu extends AbstractContainerMenu
             {
                 boolean powered = ShipSensors.powered(p.level(), ship, at);
                 data.putInt("range", 1024 << entity.tier());
+                data.putBoolean("creative", entity.tier() >= 4);
                 String scannerStatus;
                 if (powered)
                     scannerStatus = "Scanner online";
@@ -375,6 +376,7 @@ public final class MachineMenu extends AbstractContainerMenu
             case 6, 9 -> block.is(ModBlocks.CAMERA) || block.is(ModBlocks.MONITOR);
             case 7 -> block.is(ModBlocks.MONITOR);
             case 8 -> block.is(ModBlocks.LOCAL_SCANNER);
+            case 16, 17 -> block.is(ModBlocks.LOCAL_SCANNER) && entity.tier() >= 4;
             case 10, 11, 12, 13 -> block.is(ModBlocks.DOCKING_BASE);
             case 14 -> block.is(ModBlocks.GENERATOR) || block.is(ModBlocks.BATTERY);
             case 15 -> EquipmentPanel.requestedAllocation(p.level(), at) >= 0;
@@ -480,6 +482,16 @@ public final class MachineMenu extends AbstractContainerMenu
                     return;
                 }
                 case 9 -> SceneService.preview(p, at);
+                case 16 ->
+                {
+                    // "<encounter kind id> <danger>": the creative Scanner spawns that encounter as a destination.
+                    var words = value.strip().split(" +");
+                    if (ship == null || words.length != 2)
+                        notice = ship == null ? "Connect this scanner to a ship first" : "Choose an encounter and a danger";
+                    else
+                        notice = com.nullandkale.nullspace.gameplay.navigation.CreativeSpawns.encounter(p.level().getServer(), ship, Integer.parseInt(words[0]), Integer.parseInt(words[1]));
+                }
+                case 17 -> notice = ship == null ? "Connect this scanner to a ship first" : com.nullandkale.nullspace.gameplay.navigation.CreativeSpawns.system(p.level().getServer(), ship);
                 case 14 ->
                 {
                     if (ship == null)

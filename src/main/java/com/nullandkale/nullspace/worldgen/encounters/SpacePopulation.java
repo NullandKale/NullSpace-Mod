@@ -15,9 +15,9 @@ import com.nullandkale.nullspace.model.docking.DockingMotion;
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.model.space.SpaceDefinitionCodec;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
-import com.nullandkale.nullspace.worldgen.stations.StationLayout;
+import com.nullandkale.nullspace.worldgen.stations.StationPlanner;
+import com.nullandkale.nullspace.worldgen.stations.StationStructure;
 
 import java.util.*;
 
@@ -29,6 +29,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SpacePopulation
 {
     private static final ServerContext.Key<Map<String, Integer>> RETRY = new ServerContext.Key<>();
+    private static final ServerContext.Key<Map<String, java.util.concurrent.CompletableFuture<StationBlueprint.Plan>>> PLANNED = new ServerContext.Key<>();
 
     public static void initialize()
     {
@@ -160,8 +161,17 @@ public final class SpacePopulation
     /** The places this region starts with, as the galaxy chart allocates them (P9). */
     public static List<SpacePopulationPlan.Site> plan(MinecraftServer server, String address)
     {
-        var population = GalaxyPlan.population(StarSystems.galaxy(server)).getOrDefault(address, GalaxyPlan.Population.NONE);
-        return SpacePopulationPlan.sites(server.overworld().getSeed(), LocalSpaces.get(server, address), population);
+        var galaxy = StarSystems.galaxy(server);
+        var population = GalaxyPlan.population(galaxy).getOrDefault(address, GalaxyPlan.Population.NONE);
+        var region = LocalSpaces.get(server, address);
+        // A zone spawned from a creative Scanner holds the one encounter it was spawned for, and nothing else.
+        var spawned = WorldStore.get(server).section("creativeSites").getCompoundOrEmpty(address);
+        if (!spawned.isEmpty())
+            return List.of(SpacePopulationPlan.creative(server.overworld().getSeed(), region, spawned));
+        var sites = new ArrayList<>(SpacePopulationPlan.sites(server.overworld().getSeed(), region, population));
+        sites.removeIf(site -> retired(site.role()));
+        SpacePopulationPlan.orbital(server.overworld().getSeed(), region, galaxy).ifPresent(sites::add);
+        return List.copyOf(sites);
     }
 
     /** Record the region before reserving storage, so reloads cannot reroll its inventory. */
@@ -173,7 +183,46 @@ public final class SpacePopulation
         var ledger = store.section("spacePopulation");
         // The first visit records the region's plan; later visits keep it, including removals.
         if (ledger.contains(address))
+        {
+            // A region recorded before orbital stations existed gets its one roll, once; the old stations go.
+            var saved = ledger.getCompoundOrEmpty(address);
+            if (saved.getIntOr("version", 0) < SpacePopulationPlan.VERSION && saved.getIntOr("version", 0) >= 1)
+            {
+                var list = new ListTag();
+                boolean hasOrbital = false;
+                for (var tag : saved.getListOrEmpty("sites"))
+                {
+                    var entry = (CompoundTag) tag;
+                    if (retired(entry.getStringOr("role", "")))
+                    {
+                        var old = store.repository().find(entry.getStringOr("id", ""));
+                        if (old != null && old.getStringOr("owner", "").isEmpty())
+                            dispose(server, old);
+                        continue;
+                    }
+                    hasOrbital |= entry.getStringOr("role", "").equals("orbital");
+                    list.add(entry);
+                }
+                if (!hasOrbital)
+                {
+                    var galaxy = StarSystems.galaxy(server);
+                    SpacePopulationPlan.orbital(server.overworld().getSeed(), LocalSpaces.get(server, address), galaxy).ifPresent(site ->
+                    {
+                        var entry = new CompoundTag();
+                        entry.putString("id", site.id());
+                        entry.putString("role", site.role());
+                        entry.putString("name", site.name());
+                        entry.putLong("seed", site.seed());
+                        entry.putString("state", "planned");
+                        list.add(entry);
+                    });
+                }
+                saved.put("sites", list);
+                saved.putInt("version", SpacePopulationPlan.VERSION);
+                store.requestSave();
+            }
             return;
+        }
         var region = new CompoundTag();
         var sites = new ListTag();
         region.putInt("version", SpacePopulationPlan.VERSION);
@@ -192,6 +241,12 @@ public final class SpacePopulation
         store.requestSave();
     }
 
+    /** The old Waypoint and Exchange stations are no longer built; planned orbital stations replace them. */
+    private static boolean retired(String role)
+    {
+        return role.equals("waypoint") || role.equals("exchange");
+    }
+
     private static boolean populate(MinecraftServer server, String address, CompoundTag region)
     {
         if (region.getIntOr("version", 0) < 1 || region.getIntOr("version", 0) > SpacePopulationPlan.VERSION)
@@ -200,6 +255,8 @@ public final class SpacePopulation
         for (var tag : region.getListOrEmpty("sites"))
         {
             var site = (CompoundTag) tag;
+            if (retired(site.getStringOr("role", "")))
+                continue;
             var existing = store.repository().find(site.getStringOr("id", ""));
             if (existing != null)
             {
@@ -234,11 +291,36 @@ public final class SpacePopulation
                     obstacles.add(new DockingMotion.Obstacle(SceneService.pose(ship).toUniverse(new Vec3(ship.getIntOr("width", 32) / 2., 16, ship.getIntOr("depth", 32) / 2.)), StationSpace.radius(ship) + 64));
             }
             var plan = new SpacePopulationPlan.Site(site.getStringOr("role", ""), site.getStringOr("id", ""), site.getStringOr("name", "Station"), site.getLongOr("seed", 0));
+            // A planned station is built once and kept while it waits for clear space; a big one needs a wide berth.
+            StationBlueprint.Plan orbital = null;
+            double clearance = 64;
+            if (plan.role().equals("orbital"))
+            {
+                // Planning a big station takes seconds, so it runs in the background and this checks back next cycle.
+                var spec = OrbitalStations.spec(server.overworld().getSeed(), address);
+                var planning = ServerContext.get(server).service(PLANNED, HashMap::new).computeIfAbsent(plan.id(), id -> java.util.concurrent.CompletableFuture.supplyAsync(() -> StationStructure.build(StationPlanner.generate(spec))));
+                if (!planning.isDone())
+                    continue;
+                try
+                {
+                    orbital = planning.join();
+                }
+                catch (java.util.concurrent.CompletionException failure)
+                {
+                    // A brief that cannot be planned is given up on for good, not retried every minute.
+                    NullSpace.LOGGER.warn("Orbital station {} in {} could not be planned and is dropped", plan.name(), address, failure.getCause());
+                    ServerContext.get(server).service(PLANNED, HashMap::new).remove(plan.id());
+                    site.putString("state", "removed");
+                    store.requestSave();
+                    continue;
+                }
+                clearance = Math.sqrt(Math.pow(StationSpace.extent(orbital, true), 2) + 32 * 32 + Math.pow(StationSpace.extent(orbital, false), 2)) / 2 + 64;
+            }
             Vec3 position = null;
             for (int attempt = 0; attempt < 32; attempt++)
             {
                 var candidate = plan.candidate(attempt);
-                if (DockingMotion.clear(candidate.add(16, 16, 16), candidate.add(16, 16, 16), obstacles, 64))
+                if (DockingMotion.clear(candidate.add(16, 16, 16), candidate.add(16, 16, 16), obstacles, clearance))
                 {
                     position = candidate;
                     break;
@@ -252,33 +334,42 @@ public final class SpacePopulation
             metadata.putInt("populationVersion", SpacePopulationPlan.VERSION);
             metadata.putString("populationRole", plan.role());
             StationBlueprint.Plan blocks;
-            if (plan.role().equals("exchange"))
+            if (plan.role().equals("orbital"))
             {
-                blocks = ManufacturerStation.build();
-                metadata.putString("template", "manufacturer_showcase_v1");
+                // Designed rooms keep their containers empty; their frames, stands and animals appear once the build finishes.
+                blocks = orbital;
+                metadata.putBoolean("generatedRooms", true);
+                metadata.put("stationSpec", OrbitalStations.spec(server.overworld().getSeed(), address).save());
             }
-            else if (plan.role().startsWith("salvage-"))
+            else if (plan.role().startsWith("salvage-") || plan.role().equals("creative"))
             {
-                int kind = SpacePopulationPlan.salvageKind(plan.seed());
+                var creative = store.section("creativeSites").getCompoundOrEmpty(address);
+                boolean spawned = plan.role().equals("creative");
+                int kind = spawned ? creative.getIntOr("kind", 2) : SpacePopulationPlan.salvageKind(plan.seed());
+                if (spawned)
+                {
+                    metadata.putInt("encounterDanger", creative.getIntOr("danger", 0));
+                    if (kind == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
+                    {
+                        metadata.putBoolean("generatedRooms", true);
+                        metadata.put("stationSpec", com.nullandkale.nullspace.worldgen.stations.EncounterStations.encounter(plan.seed()).save());
+                    }
+                }
                 String design = EncounterSites.design(kind, plan.seed());
                 blocks = EncounterSites.plan(kind, plan.seed());
                 metadata.putBoolean("salvage", true);
                 metadata.putInt("encounterKind", kind);
                 metadata.putLong("encounterSeed", plan.seed());
                 metadata.putString("encounterDesign", design);
+                if (!design.isEmpty() && com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.get(design).planned())
+                    metadata.putBoolean("generatedRooms", true);
             }
             else
-            {
-                var layout = StationLayout.generate(plan.seed());
-                blocks = StationBlueprint.build(layout);
-                var pieces = new CompoundTag();
-                for (var room : layout.rooms())
-                    pieces.putString(room.x() + "_" + room.z(), room.encode());
-                metadata.put("roomPieces", pieces);
-            }
+                continue; // Only orbital stations and salvage ships are built; no other role exists.
             var station = StationBuilds.queueAmbient(server, plan.id(), plan.name(), address, position, blocks, metadata);
             if (station == null)
                 return false; // No clear storage section yet; never throw for this.
+            ServerContext.get(server).service(PLANNED, HashMap::new).remove(plan.id());
             site.putString("state", "placed");
             store.requestSave();
             NullSpace.LOGGER.info("Orbital place registered: {} in {} at {}", plan.name(), address, position);

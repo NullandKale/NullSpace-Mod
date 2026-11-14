@@ -11,7 +11,9 @@ import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.worldgen.blueprint.BlueprintOrientation;
-import com.nullandkale.nullspace.worldgen.shipgen.*;
+import com.nullandkale.nullspace.worldgen.shipgen.Spec;
+import com.nullandkale.nullspace.worldgen.stations.ShipSpec;
+import com.nullandkale.nullspace.worldgen.stations.ShipStructure;
 
 import java.nio.file.Files;
 import java.util.*;
@@ -31,14 +33,14 @@ import net.minecraft.world.level.storage.LevelResource;
 import com.mojang.brigadier.arguments.LongArgumentType;
 
 /**
- * A big walk-through gallery of randomly generated ships: one row per shape and tier, one column
+ * A big walk-through gallery of randomly generated ships: one row per size, one column
  * per role, plus a wild card. Every ship stands on its own registered pad (the ship's own ramp climbs to its
  * docking door). Each visit builds a new gallery at a new site, so earlier ones are never touched.
  */
 public final class RandomYard
 {
     public static final int COLUMNS = 4, PITCH = 40, MARGIN = 6;
-    public static final int ROWS = Spec.Shape.values().length * Spec.Tier.values().length;
+    public static final int ROWS = ShipSpec.Size.values().length;
 
     public record Gallery(BlockPos origin, int number)
     {
@@ -73,8 +75,8 @@ public final class RandomYard
             player.teleportTo(server.overworld(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), -45, 10, true);
             FieldGuide.supply(player);
             player.sendSystemMessage(Component.literal("""
-                Random ship gallery %d: %d generated ships, one row per shape and tier (spine, dome, twin; small \
-                to large), one column per role, plus a wild card. Seed %d. Walk up each ramp to the docking \
+                Random ship gallery %d: %d generated ships, one row per size (small, medium, large), \
+                one column per role (scout, freighter, explorer), plus a wild card. Seed %d. Walk up each ramp to the docking \
                 door. Run the command again for a new gallery.""".formatted(gallery.number(), ROWS * COLUMNS, seed)));
             return 1;
         }
@@ -85,16 +87,15 @@ public final class RandomYard
         }
     }
 
-    /** The spec for a gallery slot: row picks shape and tier, column picks the role; the rest is random. */
-    public static Spec spec(int index, Random random)
+    /** The spec for a gallery slot: the row picks the size, the column the role; the rest is random. */
+    public static ShipSpec spec(int index, Random random)
     {
         int row = index / COLUMNS, column = index % COLUMNS;
-        var shape = Spec.Shape.values()[row / Spec.Tier.values().length];
-        var tier = Spec.Tier.values()[row % Spec.Tier.values().length];
+        var size = ShipSpec.Size.values()[row];
         var roles = Spec.Role.values();
         var role = column < roles.length ? roles[column] : roles[random.nextInt(roles.length)];
         var maker = Spec.Maker.values()[random.nextInt(Spec.Maker.values().length)];
-        return new Spec(maker, shape, tier, role, random.nextInt(1_000_000));
+        return new ShipSpec(maker, size, role, random.nextInt(1_000_000));
     }
 
     public static Gallery build(MinecraftServer server, long seed) throws java.io.IOException
@@ -129,18 +130,19 @@ public final class RandomYard
         return gallery;
     }
 
-    private static void place(ServerLevel level, Gallery gallery, int index, Spec spec) throws java.io.IOException
+    private static void place(ServerLevel level, Gallery gallery, int index, ShipSpec spec) throws java.io.IOException
     {
         var base = gallery.pad(index);
-        var ship = ShipGenerator.build(spec);
-        String title = spec.shape().name().charAt(0) + spec.shape().name().substring(1).toLowerCase(Locale.ROOT) + " " + spec.tier().name().charAt(0) + spec.tier().name().substring(1).toLowerCase(Locale.ROOT);
+        var ship = ShipStructure.build(spec);
+        String title = spec.size().name().charAt(0) + spec.size().name().substring(1).toLowerCase(Locale.ROOT);
         String padName = "Gal" + gallery.number() + " " + (index + 1) + " " + title;
         ShipYard.buildPad(level, base, 32, 32, padName.length() > 32 ? padName.substring(0, 32).strip() : padName);
         var pad = new PadScanner.Pad(base.getX(), base.getX() + 31, base.getY(), base.getZ(), base.getZ() + 31);
         var at = new BlockPos(pad.minX() + (32 - ship.width()) / 2, pad.y() + 1, pad.minZ() + (32 - ship.depth()) / 2);
-        var blocks = new LinkedHashMap<>(ShipBlocks.blocks(ship));
+        var blocks = new LinkedHashMap<>(ship.blueprint().blocks());
         BlueprintOrientation.fix(blocks);
         blocks.forEach((pos, state) -> level.setBlock(at.offset(pos), state, 18));
+        RoomEntities.spawn(level, at, ship.blueprint().points());
         blocks.forEach((pos, state) ->
         {
             if (state.is(ModBlocks.GENERATOR))
@@ -148,6 +150,8 @@ public final class RandomYard
         });
         var tag = ShipTopology.resolve(level, at.offset(ship.helm()));
         tag.putString("name", title + " " + spec.role().name().toLowerCase(Locale.ROOT));
+        // Every room has its own Air Supply, so the doors are served before the air.
+        tag.putBoolean("generatedRooms", true);
         SystemsUpgrade.upgrade(level, tag);
         tag.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, com.nullandkale.nullspace.model.air.SpatialAir.SUPPLY_POWER, 1, 3, 2, 0});
         ShipGallery.label(level, base.offset(1, 1, -3), DyeColor.GREEN, "%02d %s".formatted(index + 1, title), spec.role().name() + " / " + spec.maker().label, ship.width() + " x " + ship.height() + " x " + ship.depth(), "seed " + spec.seed());

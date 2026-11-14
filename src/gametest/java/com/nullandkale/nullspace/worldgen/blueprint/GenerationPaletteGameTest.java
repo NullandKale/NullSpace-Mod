@@ -3,7 +3,6 @@ package com.nullandkale.nullspace.worldgen.blueprint;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
-import com.nullandkale.nullspace.worldgen.stations.ManufacturerStation;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
 
 import java.util.*;
@@ -39,7 +38,6 @@ public final class GenerationPaletteGameTest
             ctx.assertTrue(GenerationPalette.allowed(block(ctx, id)), "Allowed: " + id);
         for (var preset : ShipBlueprints.PRESETS)
             cheap(ctx, preset.id(), ShipBlueprints.blocks(preset));
-        cheap(ctx, "Manufacturer Exchange", ManufacturerStation.build().blocks());
         cheap(ctx, "Station foundation", StationBlueprint.foundation().blocks());
         for (int kind = 0; kind < JourneyPlan.KINDS; kind++)
             for (long seed = 0; seed < 8; seed++)

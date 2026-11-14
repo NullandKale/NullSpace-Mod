@@ -12,14 +12,14 @@ import net.minecraft.world.phys.Vec3;
 /** One seeded inventory of places per orbital region, independent of who arrives first. */
 public final class SpacePopulationPlan
 {
-    public static final int VERSION = 2;
+    public static final int VERSION = 4;
 
     public record Site(String role, String id, String name, long seed)
     {
         public Vec3 candidate(int attempt)
         {
             double angle = new Random(seed).nextDouble() * Math.PI * 2 + attempt * Math.PI / 4;
-            double radius = (role.equals("waypoint") ? 640 : role.equals("exchange") ? 1100 : 1600) + attempt / 8 * 384;
+            double radius = (role.equals("waypoint") ? 640 : role.equals("exchange") ? 1100 : role.equals("orbital") ? 900 : 1600) + attempt / 8 * 384;
             return new Vec3(Math.cos(angle) * radius, 48 + Math.floorMod(seed, 96), Math.sin(angle) * radius);
         }
     }
@@ -54,6 +54,25 @@ public final class SpacePopulationPlan
             sites.add(site(worldSeed, region, "salvage-" + i, ShipBlueprints.get(design).name() + (kind == 1 ? " - abandoned freighter" : " - silent survey ship"), seed));
         }
         return List.copyOf(sites);
+    }
+
+    /** The one encounter a creative Scanner spawned in a zone of its own; its identity depends on the zone alone. */
+    public static Site creative(long worldSeed, LocalSpaces.Destination region, net.minecraft.nbt.CompoundTag spawned)
+    {
+        return site(worldSeed, region, "creative", spawned.getStringOr("name", "Signal"), spawned.getLongOr("seed", 1));
+    }
+
+    /**
+     * The planned station in orbit of this zone, when the zone has one (see {@link OrbitalStations}). Its
+     * identity depends only on the world and the zone, like every other site.
+     */
+    public static Optional<Site> orbital(long worldSeed, LocalSpaces.Destination region, GalaxyPlan.Galaxy galaxy)
+    {
+        if (!OrbitalStations.placed(worldSeed, galaxy, region.id()))
+            return Optional.empty();
+        var spec = OrbitalStations.spec(worldSeed, region.id());
+        String purpose = spec.purpose().name().charAt(0) + spec.purpose().name().substring(1).toLowerCase(Locale.ROOT);
+        return Optional.of(site(worldSeed, region, "orbital", region.name() + " " + spec.maker().label + " " + purpose + " Station", spec.seed()));
     }
 
     public static int salvageKind(long seed)

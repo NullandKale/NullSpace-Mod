@@ -149,7 +149,7 @@ public final class ShipYardGameTest
     @GameTest(environment = "nullspace:yard_dismantling", maxTicks = 300)
     public void dismantlingShipAndReplacingBeaconFreesPadWithoutReusingItsSavedIdentity(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 19, 24, 32);
+        var f = fixture(ctx, 19, HAULER, 32);
         later(ctx, () ->
         {
             var level = ctx.getLevel();
@@ -163,6 +163,9 @@ public final class ShipYardGameTest
                 level.removeBlockEntity(at);
                 level.setBlock(at, Blocks.AIR.defaultBlockState(), 18);
             }
+            // The item frames of a designed ship come off with its walls.
+            for (var entity : level.getEntities((net.minecraft.world.entity.Entity) null, bounds.box(), e -> !(e instanceof net.minecraft.world.entity.player.Player)))
+                entity.discard();
             level.setBlock(f.beacon(), Blocks.AIR.defaultBlockState(), 18);
             level.setBlock(f.beacon(), ModBlocks.SHIP_BEACON.defaultBlockState(), 18);
             // A remnant outside the smaller replacement blueprint still prevents wiping the old
@@ -175,7 +178,8 @@ public final class ShipYardGameTest
             var offline = new net.minecraft.nbt.CompoundTag();
             offline.putString("id", UUID.randomUUID().toString());
             old.getListOrEmpty("crew").add(offline);
-            ctx.assertTrue(ShipYardService.preview(f.player(), f.beacon(), "rivet_bolt").message().contains("offline crew"), "An offline passenger is never silently evicted");
+            var offlineMessage = ShipYardService.preview(f.player(), f.beacon(), "rivet_bolt").message();
+            ctx.assertTrue(offlineMessage.contains("offline crew"), "An offline passenger is never silently evicted: " + offlineMessage);
             old.getListOrEmpty("crew").clear();
             old.put("dock", new net.minecraft.nbt.CompoundTag());
             ctx.assertTrue(ShipYardService.preview(f.player(), f.beacon(), "rivet_bolt").readiness() == 0, "A docking connection is never erased by delivery");
@@ -193,6 +197,9 @@ public final class ShipYardGameTest
 
     private record Fixture(BlockPos base, BlockPos beacon, ServerPlayer player)
     {}
+
+    /** The pad widths the two designs these tests deliver need. */
+    private static final int BOLT = ShipBlueprints.get("rivet_bolt").width(), HAULER = ShipBlueprints.get("rivet_hauler").width();
 
     private static Fixture fixture(GameTestHelper ctx, int slot, int width, int depth)
     {
@@ -269,12 +276,14 @@ public final class ShipYardGameTest
             for (var entry : plan.entrySet())
                 level.setBlock(at.offset(entry.getKey()), entry.getValue(), 18);
             var scan = HullScan.inspect(level, at.offset(p.helm()), pad, true);
-            ctx.assertTrue(scan.blocks().size() == plan.size(), "Every block is attached on " + p.name());
+            var attached = new java.util.HashSet<>(scan.blocks());
+            var loose = plan.entrySet().stream().filter(e -> !attached.contains(at.offset(e.getKey()))).limit(6).map(e -> e.getKey().toShortString() + " " + e.getValue().getBlock().getName().getString()).toList();
+            ctx.assertTrue(scan.blocks().size() == plan.size(), "Every block is attached on " + p.name() + ": " + (plan.size() - scan.blocks().size()) + " loose, such as " + loose);
             for (var supplyAt : scan.blocks())
                 if (level.getBlockState(supplyAt).is(ModBlocks.AIR_SUPPLY))
                 {
                     var outlet = supplyAt.relative(level.getBlockState(supplyAt).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING));
-                    ctx.assertTrue(level.getBlockState(outlet).isAir(), "Air supply outlet is clear on " + p.name() + " at " + supplyAt + " -> " + outlet);
+                    ctx.assertTrue(level.getBlockState(outlet).isAir(), "Air supply outlet is clear on " + p.name() + " at " + supplyAt + " -> " + outlet + ": " + level.getBlockState(outlet));
                 }
             ctx.assertTrue(scan.pressure().breathable(scan.boarding()), "Bridge has sealed standing room on " + p.name());
             ctx.assertTrue(scan.blocks().stream().filter(pos -> ModBlocks.navigation(level.getBlockState(pos))).count() == 1, "Each preset has exactly one helm");
@@ -324,7 +333,7 @@ public final class ShipYardGameTest
     @GameTest(maxTicks = 500)
     public void reregisteredPadRetainsUpgradedShipIdentityAndPreflightState(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 18, 24, 32);
+        var f = fixture(ctx, 18, HAULER, 32);
         later(ctx, () ->
         {
             var player = f.player();
@@ -356,7 +365,7 @@ public final class ShipYardGameTest
     @GameTest(maxTicks = 500)
     public void freeDeliveryCreatesOnePersistentPoweredShipAndNeverReplacesIt(GameTestHelper ctx) throws java.io.IOException
     {
-        var f = fixture(ctx, 10, 24, 32);
+        var f = fixture(ctx, 10, HAULER, 32);
         later(ctx, () ->
         {
             var p = f.player();
@@ -380,7 +389,7 @@ public final class ShipYardGameTest
     public void obstructionsFluidsEntitiesAndBadSizesRejectBeforeAnyConstruction(GameTestHelper ctx)
     {
         var level = ctx.getLevel();
-        var f = fixture(ctx, 11, 22, 32);
+        var f = fixture(ctx, 11, BOLT, 32);
         later(ctx, () ->
         {
             rejects(ctx, () -> delivered(f.player(), f.beacon(), "rivet_ranger"), "needs");
@@ -406,7 +415,7 @@ public final class ShipYardGameTest
     @GameTest(maxTicks = 500)
     public void interruptedDeliveryRollsBackItsHullAndRecordsWithoutDuplicateShips(GameTestHelper ctx) throws java.io.IOException
     {
-        var f = fixture(ctx, 12, 22, 32);
+        var f = fixture(ctx, 12, BOLT, 32);
         later(ctx, () ->
         {
             var old = ShipYardService.placementObserver;
@@ -449,7 +458,7 @@ public final class ShipYardGameTest
     @GameTest
     public void beaconSessionsRejectForgedCatalogsCrossPlayerUseAndHelmActions(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 13, 22, 32);
+        var f = fixture(ctx, 13, BOLT, 32);
         var opened = ComputerTerminal.issue(f.player(), f.beacon(), "Ready", "shipyard", "rivet_bolt");
         ctx.assertTrue(opened.destinations().size() == ShipBlueprints.PRESETS.size(), "Server owns all offered designs");
         rejects(ctx, () -> ComputerTerminal.authorize(f.player(), new TerminalPackets.Request(opened.session(), ComputerTerminal.Action.LAUNCH, "", "", -1)), "controller");
@@ -491,7 +500,7 @@ public final class ShipYardGameTest
     @GameTest(maxTicks = 100)
     public void facingNeverChangesThePadAndStandingInsidePreventsDelivery(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 14, 22, 32);
+        var f = fixture(ctx, 14, BOLT, 32);
         later(ctx, () ->
         {
             var level = ctx.getLevel();
@@ -513,7 +522,7 @@ public final class ShipYardGameTest
     @GameTest(environment = "nullspace:yard_failed_intent", maxTicks = 500)
     public void failedIntentSaveNeverStartsBuildingAndCanBeRetried(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 16, 22, 32);
+        var f = fixture(ctx, 16, BOLT, 32);
         later(ctx, () ->
         {
             var store = WorldStore.get(f.player().level().getServer());
@@ -555,7 +564,7 @@ public final class ShipYardGameTest
     @GameTest(environment = "nullspace:yard_failed_completion", maxTicks = 500)
     public void failedSharedSaveKeepsTheHullLockedUntilTheSameDeliveryCanCommit(GameTestHelper ctx)
     {
-        var f = fixture(ctx, 17, 22, 32);
+        var f = fixture(ctx, 17, BOLT, 32);
         later(ctx, () ->
         {
             var server = f.player().level().getServer();

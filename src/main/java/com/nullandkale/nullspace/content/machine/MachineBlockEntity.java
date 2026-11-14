@@ -53,6 +53,9 @@ public final class MachineBlockEntity extends BaseContainerBlockEntity implement
         for (int i = 0; i < 3; i++)
         {
             int rank = ModBlocks.upgradeRank(items.get(i));
+            // The creative upgrade alone makes a Scanner tier 4.
+            if (rank == 4 && getBlockState().is(ModBlocks.LOCAL_SCANNER))
+                return 4;
             if (rank > 0)
                 tier++;
             best = Math.max(best, rank);
@@ -200,7 +203,7 @@ public final class MachineBlockEntity extends BaseContainerBlockEntity implement
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack)
     {
-        return slot < 3 ? upgrades() && ModBlocks.upgradeRank(stack) > 0 : generator() && slot < RETURN && duration(stack) > 0;
+        return slot < 3 ? upgrades() && ModBlocks.upgradeRank(stack) > 0 && (ModBlocks.upgradeRank(stack) < 4 || getBlockState().is(ModBlocks.LOCAL_SCANNER)) : generator() && slot < RETURN && duration(stack) > 0;
     }
 
     @Override

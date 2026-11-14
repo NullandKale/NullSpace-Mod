@@ -29,6 +29,16 @@ A Scanner has three System Upgrade slots and uses the cameras and sensors bus. E
 
 The local scan reports the current region, celestial bodies and bounded nearby ship contacts. With a System Upgrade it also lists other regions. `ship.contacts()` and `ship.targets()` give scripts structured data, and `ship.scan("local")` and `ship.scan("long")` give readable reports. A scanner never exposes another ship's private interior and never force-loads distant ships. Destinations the controller already knows remain available, and the scanner supplies the sensor interface without hiding them.
 
+
+### Creative upgrade: tier 4 and the spawn tools
+
+The **Creative System Upgrade** (`nullspace:creative_system_upgrade`) has no recipe; take it with `/give`. One in a Scanner makes it tier 4 (range 16,384) and nothing else accepts it. It works for anyone, with no creative-mode check. A tier 4 Scanner's screen shows spawn tools:
+
+- **Spawn star system** adds a generated star system (star, one to nine planets, moons) to the saved chart within one hop of your ship's place, so it is reachable at the starting engine range, and lists its zones as destinations. The chart holds at most 26 systems after Sol.
+- **Encounter and Danger**, then **Spawn encounter**, adds a zone of its own near you holding one encounter of the kind you picked (abandoned growing station, damaged freighter, salvage ship, drifting cargo or abandoned station) at the danger you picked, 0 to 3. Jump there with Engage; the site is built when a ship arrives and keeps that danger for its threats and loot.
+
+Code: [`CreativeSpawns`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/CreativeSpawns.java), [`GalaxyPlan.withSystem`](../../src/main/java/com/nullandkale/nullspace/model/galaxy/GalaxyPlan.java) and `withFeature`, and the zone's saved `creativeSites` entry read by [`SpacePopulation`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SpacePopulation.java).
+
 ## Terrain cameras
 
 A camera on a ship can look at a place the player is not standing in, such as a pad on the planet below. The player's ordinary chunk cache is not used for this, because it would force-load and simulate the remote area.
