@@ -1,0 +1,179 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NullSpace loot</title>
+<style>
+:root { --bg: #14161a; --card: #1c2027; --line: #2a2e36; --text: #dde; --muted: #889; --accent: #5aa; }
+* { box-sizing: border-box; }
+body { font: 14px system-ui, sans-serif; margin: 0; padding: 12px 14px 40px; background: var(--bg); color: var(--text); }
+h1 { font-size: 18px; margin: 6px 0; }
+h2 { font-size: 15px; margin: 22px 0 8px; }
+.note { max-width: 860px; color: var(--muted); margin: 4px 0 10px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+input, select, button { background: #20242b; color: var(--text); border: 1px solid #444; padding: 6px 9px; border-radius: 6px; font: inherit; }
+button.on { background: #2b4a4a; border-color: var(--accent); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.muted { color: var(--muted); }
+.icon { width: 32px; height: 32px; image-rendering: pixelated; background-repeat: no-repeat; background-size: 100% auto; background-position: 0 0; display: inline-block; flex: none; }
+.icon.none { background: #2c313a; border-radius: 4px; text-align: center; line-height: 32px; font-size: 12px; color: var(--muted); }
+.icon.small { width: 20px; height: 20px; line-height: 20px; font-size: 10px; }
+.grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.slot { position: relative; width: 44px; height: 44px; background: #2a2f38; border: 1px solid #3a404b; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.slot b { position: absolute; right: 2px; bottom: 0; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 3px #000; font-weight: 600; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.card h3 { margin: 0 0 2px; font-size: 14px; }
+.card .sub { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.card details { margin-top: 8px; }
+.card summary { cursor: pointer; color: var(--accent); }
+.chest { margin: 6px 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.chest .name { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th { cursor: pointer; position: sticky; top: 0; background: #1d2128; }
+td.name, th.name { text-align: left; }
+td.name { display: flex; align-items: center; gap: 8px; }
+tr.item:hover { background: #1e2229; cursor: pointer; }
+.bar { display: inline-block; height: 8px; background: var(--accent); vertical-align: middle; margin-left: 6px; }
+.detail td { text-align: left; vertical-align: top; background: #181b21; white-space: normal; }
+.detail table { width: auto; margin: 0 20px 10px 0; display: inline-table; }
+@media (max-width: 700px) {
+  .wide { display: none; }
+  .cards { grid-template-columns: 1fr; }
+  body { padding: 10px; }
+}
+</style>
+<h1>NullSpace loot</h1>
+<p class="note">Built from <span id="count"></span> simulated encounters rolled with the real loot tables. Filler items (planks, wool, glass and the like)
+are left out. Counts are items per encounter, weighted by how often each encounter kind appears.</p>
+
+<h2>Loot sets: what someone leaves with</h2>
+<div class="controls">
+  <div class="seg" id="kinds"></div>
+</div>
+<div class="controls">
+  <span class="muted">Danger</span>
+  <div class="seg" id="dangers"></div>
+  <button id="reroll" onclick="reroll()">Show different ones</button>
+</div>
+<div class="cards" id="cards"></div>
+
+<h2>By item</h2>
+<div class="controls">
+  <input id="q" placeholder="filter items" oninput="drawItems()">
+  <select id="c" onchange="drawItems()"></select>
+</div>
+<div class="tablewrap"><table id="t"></table></div>
+
+<script>
+const D = __DATA__;
+const cols = D.dangers;
+const ICONS = D.icons;
+
+function pretty(id) { return id.replace(/_/g, " "); }
+function icon(id, small) {
+  const src = ICONS[id];
+  const cls = "icon" + (small ? " small" : "");
+  return src ? `<span class="${cls}" style="background-image:url(${src})"></span>` : `<span class="${cls} none">${id[0].toUpperCase()}</span>`;
+}
+function f(x) { return x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2); }
+function tableName(t) {
+  if (t.startsWith("treasure")) return "Treasure chest (" + t.replace("treasure_", "danger ") + ")";
+  const m = t.match(/^derelict\/(.+?)(_dead)?_(\d)$/);
+  if (m) return pretty(m[1]) + (m[2] ? " (power failed)" : "") + ", tier " + m[3];
+  return pretty(t.replace("normal/", ""));
+}
+function worthOf(items) { let w = 0; for (const [k, n] of Object.entries(items)) w += (D.worth[k] ?? 0.25) * n; return w; }
+function merge(into, items) { for (const [k, n] of Object.entries(items)) into[k] = (into[k] || 0) + n; }
+function slots(items) {
+  const entries = Object.entries(items).sort((a, b) => (D.worth[b[0]] ?? .25) * b[1] - (D.worth[a[0]] ?? .25) * a[1]);
+  return `<div class="grid">` + entries.map(([k, n]) => `<div class="slot" title="${pretty(k)} x${n}">${icon(k)}${n > 1 ? `<b>${n}</b>` : ""}</div>`).join("") + "</div>";
+}
+
+// ---- loot sets ----
+let kind = D.kindList[0], danger = "3", offset = 0;
+function seg(el, values, current, handler, label) {
+  document.getElementById(el).innerHTML = values.map(v => `<button class="${v == current ? "on" : ""}" onclick="${handler}('${v}')">${label ? label(v) : v}</button>`).join("");
+}
+function setKind(v) { kind = v; offset = 0; drawSets(); }
+function setDanger(v) { danger = v; drawSets(); }
+function reroll() { offset += 6; drawSets(); }
+function drawSets() {
+  seg("kinds", D.kindList, kind, "setKind");
+  seg("dangers", cols, danger, "setDanger", v => v == "S" ? "singularity" : v);
+  const pool = D.sites.filter(s => s.label == kind);
+  const picks = [];
+  for (let i = 0; i < Math.min(6, pool.length); i++) picks.push(pool[(offset + i) % pool.length]);
+  document.getElementById("cards").innerHTML = picks.map(card).join("");
+}
+function card(s) {
+  const chests = s.loot[danger];
+  const haul = {};
+  let chestWorth = 0;
+  for (const c of chests) { merge(haul, c.items); chestWorth += worthOf(c.items); }
+  merge(haul, s.frames);
+  const frameCount = Object.values(s.frames).reduce((a, b) => a + b, 0);
+  const total = chestWorth + worthOf(s.frames);
+  const title = s.stationSize ? `${s.stationSize[0] + s.stationSize.slice(1).toLowerCase()} station` : s.design ? pretty(s.design) : s.label;
+  const sub = [s.rooms ? s.rooms + " rooms" : null, chests.length + " loot chests", frameCount + " item frames", s.suits + s.armoredSuits ? (s.suits + s.armoredSuits) + " space suit" + (s.suits + s.armoredSuits > 1 ? "s" : "") : null].filter(Boolean).join(" · ");
+  let h = `<div class="card"><h3>${title}</h3><div class="sub">${sub}<br>worth about ${Math.round(total)} iron ingots</div>`;
+  h += slots(haul);
+  h += `<details><summary>Chest by chest</summary>`;
+  for (const c of chests) {
+    const items = c.items;
+    h += `<div class="chest"><div class="name">${tableName(c.table)}${Object.keys(items).length ? "" : " (nothing useful)"}</div>${slots(items)}</div>`;
+  }
+  if (frameCount) h += `<div class="chest"><div class="name">Item frames</div>${slots(s.frames)}</div>`;
+  return h + `</details></div>`;
+}
+
+// ---- by item ----
+let sort = "3", desc = true;
+const open = new Set();
+const cats = ["all", ...new Set(D.rows.map(r => r.category))].sort();
+document.getElementById("c").innerHTML = cats.map(x => `<option>${x}</option>`).join("");
+function srcSum(r, d) {
+  let total = 0;
+  for (const k in r.source) { const [danger, source] = k.split("|"); if (danger == d && source != "placed blocks") total += r.source[k]; }
+  return total;
+}
+function val(r, k) { return k == "item" ? r.item : k == "category" ? r.category : k == "worth" ? r.worth : srcSum(r, k); }
+function th(k, label, cls) { return `<th class="${cls || ""}" onclick="setSort('${k}')">${label}${sort == k ? (desc ? " v" : " ^") : ""}</th>`; }
+function setSort(k) { desc = sort == k ? !desc : k != "item" && k != "category"; sort = k; drawItems(); }
+function toggle(item) { open.has(item) ? open.delete(item) : open.add(item); drawItems(); }
+function detail(r) {
+  const head = first => `<tr><th>${first}</th>` + cols.map(d => `<th>${d}</th>`).join("") + "</tr>";
+  let h = `<tr class="detail"><td colspan="${cols.length * 2 + 3}">`;
+  h += "<table>" + head("kind");
+  for (const k of D.kindList) h += `<tr><td>${k}</td>` + cols.map(d => `<td>${f(r.kind[k + "|" + d] || 0)}</td>`).join("") + "</tr>";
+  h += "</table><table>" + head("source");
+  for (const s of ["chests", "frames"]) h += `<tr><td>${s}</td>` + cols.map(d => `<td>${f(r.source[d + "|" + s] || 0)}</td>`).join("") + "</tr>";
+  h += "</table><table><tr><th>table</th><th>danger 0</th><th>danger 3</th></tr>";
+  const names = [...new Set(Object.keys(r.table).map(k => k.split("|")[0]))].sort((a, b) => (r.table[b + "|3"] || 0) - (r.table[a + "|3"] || 0)).slice(0, 12);
+  for (const t of names) h += `<tr><td>${tableName(t)}</td><td>${f(r.table[t + "|0"] || 0)}</td><td>${f(r.table[t + "|3"] || 0)}</td></tr>`;
+  return h + "</table></td></tr>";
+}
+function drawItems() {
+  const q = document.getElementById("q").value.toLowerCase(), cat = document.getElementById("c").value;
+  let rows = D.rows.filter(r => (cat == "all" || r.category == cat) && r.item.includes(q) && srcSum(r, "0") + srcSum(r, "3") > 0);
+  rows.sort((x, y) => {
+    const a = val(x, sort), z = val(y, sort);
+    return (typeof a == "string" ? a.localeCompare(z) : a - z) * (desc ? -1 : 1);
+  });
+  const max = Math.max(...rows.map(r => srcSum(r, "3")), 1);
+  let h = "<tr>" + th("item", "item", "name") + th("category", "category", "wide") + th("worth", "worth each", "wide");
+  h += cols.map(d => th(d, d == "S" ? "sing." : "danger " + d, d == "1" || d == "2" || d == "S" ? "wide" : "")).join("");
+  h += cols.map(d => `<th class="${d == "0" || d == "3" ? "" : "wide"}">chance ${d}</th>`).join("") + "</tr>";
+  for (const r of rows) {
+    h += `<tr class="item" onclick="toggle('${r.item}')"><td class="name">${icon(r.item, true)}${pretty(r.item)}</td><td class="muted wide">${r.category}</td><td class="wide">${r.worth}</td>`;
+    h += cols.map(d => `<td class="${d == "1" || d == "2" || d == "S" ? "wide" : ""}">${f(srcSum(r, d))}` + (d == "3" ? `<span class="bar" style="width:${Math.round(50 * srcSum(r, d) / max)}px"></span>` : "") + "</td>").join("");
+    h += cols.map(d => `<td class="muted ${d == "0" || d == "3" ? "" : "wide"}">${Math.round(100 * r.any[d])}%</td>`).join("") + "</tr>";
+    if (open.has(r.item)) h += detail(r);
+  }
+  document.getElementById("t").innerHTML = h;
+}
+document.getElementById("count").textContent = D.siteCount;
+drawSets();
+drawItems();
+</script>

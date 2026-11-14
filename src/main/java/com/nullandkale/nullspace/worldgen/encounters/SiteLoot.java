@@ -3,6 +3,8 @@ package com.nullandkale.nullspace.worldgen.encounters;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 
+import java.util.List;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.*;
@@ -24,6 +26,20 @@ public final class SiteLoot
         if (place instanceof GalaxyPlan.Feature f && (f.type() == GalaxyPlan.FeatureType.BLACK_HOLE || f.type() == GalaxyPlan.FeatureType.PULSAR))
             return "treasure_singularity";
         return "treasure_" + StarSystems.danger(server, zone);
+    }
+
+    /** One container's stocking: where it is, which table it takes, the roll's seed and the label it carries. */
+    public record Assignment(BlockPos pos, String table, long seed, String name)
+    {}
+
+    /** Applies each assignment; returns how many containers took their table. */
+    public static int apply(ServerLevel level, List<Assignment> assignments)
+    {
+        int stocked = 0;
+        for (var a : assignments)
+            if (assign(level, a.pos(), a.table(), a.seed(), a.name()))
+                stocked++;
+        return stocked;
     }
 
     /**

@@ -298,28 +298,38 @@ public final class EncounterSites
         int kind = ship.getIntOr("encounterKind", 0);
         var base = WorldStore.pos(ship, "base");
         long seed = ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 0x9e3779b97f4a7c15L;
-        String treasure = SiteLoot.treasure(level.getServer(), LocalSpaces.address(ship));
-        var points = SitePoints.read(ship);
+        String address = LocalSpaces.address(ship);
+        String treasure = SiteLoot.treasure(level.getServer(), address);
+        int danger = com.nullandkale.nullspace.gameplay.navigation.StarSystems.danger(level.getServer(), address);
+        SiteLoot.apply(level, assignments(kind, ship.getStringOr("encounterDesign", design(kind, seed)), base, SitePoints.read(ship), treasure, danger, seed, ship.getStringOr("name", "Salvage") + " supplies"));
+        ship.putBoolean("encounterStocked", true);
+    }
+
+    /**
+     * Which table each of a site's containers takes. The same decision stocks the game and the loot survey, so the
+     * survey measures what players actually find.
+     */
+    public static List<SiteLoot.Assignment> assignments(int kind, String design, BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, String name)
+    {
         if (DerelictLoot.has(points))
-            DerelictLoot.stock(level, base, points, treasure, com.nullandkale.nullspace.gameplay.navigation.StarSystems.danger(level.getServer(), LocalSpaces.address(ship)), seed, ship.getStringOr("name", "Salvage") + " supplies");
-        else if (!points.isEmpty())
-            SitePoints.stock(level, base, points, treasure, seed, ship.getStringOr("name", "Salvage") + " supplies");
-        else if (kind == 3)
+            return DerelictLoot.assignments(base, points, treasure, danger, seed, name);
+        if (!points.isEmpty())
+            return SitePoints.assignments(base, points, treasure, seed, name);
+        var out = new ArrayList<SiteLoot.Assignment>();
+        if (kind == 3)
         {
-            int index = 0;
             for (var crate : POD_CRATES)
-                SiteLoot.assign(level, base.offset(crate), index == 0 ? treasure : "cargo", seed + index++, "Drifting cargo");
+                out.add(new SiteLoot.Assignment(base.offset(crate), out.isEmpty() ? treasure : "cargo", seed + out.size(), "Drifting cargo"));
         }
         else if (kind == 0)
         {
-            SiteLoot.assign(level, base.offset(15, 2, 5), treasure.equals("treasure_0") ? "garden" : treasure, seed, "Growing station supplies");
+            out.add(new SiteLoot.Assignment(base.offset(15, 2, 5), treasure.equals("treasure_0") ? "garden" : treasure, seed, "Growing station supplies"));
         }
         else
         {
-            var rooms = ShipRooms.rooms(ship.getStringOr("encounterDesign", design(kind, seed)));
+            var rooms = ShipRooms.rooms(design);
             var supplied = rooms.stream().filter(r -> r.supplies() != null).toList();
             var hoard = supplied.stream().filter(r -> r.use() == ShipRooms.Use.CARGO).findFirst().or(() -> supplied.stream().filter(r -> r.use() == ShipRooms.Use.WORKSHOP || r.use() == ShipRooms.Use.LAB).findFirst()).or(() -> supplied.stream().findFirst()).orElse(null);
-            int index = 0;
             for (var room : supplied)
             {
                 String table = room == hoard ? treasure : switch (room.use())
@@ -330,10 +340,10 @@ public final class EncounterSites
                     case WORKSHOP, LAB -> "workshop";
                     default -> "crew";
                 };
-                SiteLoot.assign(level, base.offset(room.supplies()), table, seed + index++, room.name() + " supplies");
+                out.add(new SiteLoot.Assignment(base.offset(room.supplies()), table, seed + out.size(), room.name() + " supplies"));
             }
         }
-        ship.putBoolean("encounterStocked", true);
+        return out;
     }
 
     private EncounterSites()

@@ -46,16 +46,21 @@ public final class SitePoints
      */
     public static int stock(ServerLevel level, BlockPos base, List<Piece.Point> points, String treasure, long seed, String name)
     {
-        int stocked = 0;
+        return SiteLoot.apply(level, assignments(base, points, treasure, seed, name));
+    }
+
+    /** Which table each {@code loot} point takes. */
+    public static List<SiteLoot.Assignment> assignments(BlockPos base, List<Piece.Point> points, String treasure, long seed, String name)
+    {
+        var out = new ArrayList<SiteLoot.Assignment>();
         for (var point : points)
         {
             if (!point.name().equals("loot"))
                 continue;
-            String table = stocked == 0 ? treasure : point.argument().isEmpty() ? "cargo" : point.argument();
-            if (SiteLoot.assign(level, base.offset(point.pos()), table, seed + stocked, name))
-                stocked++;
+            String table = out.isEmpty() ? treasure : point.argument().isEmpty() ? "cargo" : point.argument();
+            out.add(new SiteLoot.Assignment(base.offset(point.pos()), table, seed + out.size(), name));
         }
-        return stocked;
+        return out;
     }
 
     /** World positions of a saved site's {@code mob} points; empty for hand-built sites. */

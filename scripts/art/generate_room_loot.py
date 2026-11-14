@@ -83,13 +83,13 @@ ROOMS = {
     "bridge": dict(
         normal=[("map", 3, 1, 2), ("compass", 2, 1, 1), ("clock", 2, 1, 1), ("spyglass", 1, 1, 1), ("paper", 4, 2, 6), ("book", 2, 1, 2)],
         blocks=[block("glass", 4, 4, 12), block("iron_bars", 2, 4, 10), block("quartz_block", 2, 4, 10, 1)],
-        finds=[(("nullspace:circuit_board", 4, 1, 2), 0), (("nullspace:local_scanner", 2, 1, 1), 1), (("nullspace:system_upgrade", 3, 1, 1), 2), (("nullspace:advanced_system_upgrade", 2, 1, 1), 3)],
+        finds=[(("nullspace:circuit_board", 4, 1, 2), 0), (("nullspace:local_scanner", 2, 1, 1), 1)],
         dead=True),
     "engineering": dict(
         normal=[("redstone", 4, 2, 8), ("nullspace:circuit_board", 2, 1, 2), ("nullspace:machine_casing", 2, 1, 2), ("copper_ingot", 2, 2, 6), ("nullspace:battery", 1, 1, 1)],
         blocks=[block("copper_block", 2, 1, 3), block("iron_block", 1, 1, 2, 1), block("polished_andesite", 3, 8, 24)],
         fuel=(1, 2, 2, 6),
-        finds=[(("nullspace:circuit_board", 4, 1, 3), 0), (("nullspace:system_upgrade", 3, 1, 1), 2), (("nullspace:advanced_system_upgrade", 2, 1, 1), 3), (("nullspace:air_canister", 2, 1, 2), 0)],
+        finds=[(("nullspace:circuit_board", 4, 1, 3), 0), (("nullspace:air_canister", 2, 1, 2), 0)],
         dead=True),
     "stores_0": dict(
         normal=[("paper", 3, 2, 6), ("string", 3, 2, 6), ("white_wool", 2, 2, 6), ("candle", 1, 1, 3), ("iron_nugget", 2, 3, 9)],
@@ -103,12 +103,12 @@ ROOMS = {
         normal=[("nullspace:machine_casing", 2, 1, 2), ("nullspace:circuit_board", 2, 1, 2), ("iron_nugget", 3, 3, 9), ("iron_pickaxe", 1, 1, 1), ("redstone", 3, 2, 6)],
         blocks=[block("polished_andesite", 3, 8, 24), block("iron_block", 1, 1, 2, 1), block("copper_block", 1, 1, 3, 1)],
         fuel=(1, 1, 2, 4),
-        finds=[(("nullspace:machine_casing", 3, 1, 3), 0), (("nullspace:circuit_board", 3, 1, 3), 1), (("nullspace:system_upgrade", 2, 1, 1), 2), ("damaged", "diamond_pickaxe", 1, 1, 1)]),
+        finds=[(("nullspace:machine_casing", 3, 1, 3), 0), (("nullspace:circuit_board", 3, 1, 3), 1), ("damaged", "diamond_pickaxe", 1, 1, 1)]),
     "maintenance": dict(
         normal=[("iron_ingot", 3, 2, 6), ("redstone", 3, 2, 8), ("nullspace:circuit_board", 2, 1, 2), ("iron_pickaxe", 1, 1, 1), ("nullspace:air_canister", 1, 1, 1), ("iron_nugget", 3, 3, 9)],
         blocks=[block("polished_andesite", 3, 8, 24), block("iron_bars", 2, 4, 10), block("iron_block", 1, 1, 2, 1)],
         fuel=(1, 1, 2, 4),
-        finds=[(("nullspace:machine_casing", 3, 1, 3), 0), (("copper_ingot", 2, 3, 8), 0), (("nullspace:system_upgrade", 3, 1, 1), 2), (("nullspace:advanced_system_upgrade", 1, 1, 1), 3)],
+        finds=[(("nullspace:machine_casing", 3, 1, 3), 0), (("copper_ingot", 2, 3, 8), 0)],
         dead=True),
     "commons": dict(
         normal=[("book", 3, 1, 2), ("paper", 3, 2, 6), ("cake", 1, 1, 1), ("poppy", 2, 1, 3), ("glass_bottle", 2, 1, 3)],
@@ -122,7 +122,7 @@ ROOMS = {
     "observation": dict(
         normal=[("spyglass", 1, 1, 1), ("map", 3, 1, 2), ("amethyst_shard", 2, 2, 6), ("book", 2, 1, 2)],
         blocks=[block("glass", 4, 8, 24), block("quartz_block", 2, 4, 12), block("lantern", 2, 2, 6), block("sea_lantern", 1, 1, 3, 2)],
-        finds=[(("amethyst_cluster", 3, 1, 2), 1), (("spyglass", 2, 1, 1), 0), (("echo_shard", 2, 1, 1), 3), (("nullspace:local_scanner", 1, 1, 1), 2)]),
+        finds=[(("amethyst_cluster", 3, 1, 2), 1), (("spyglass", 2, 1, 1), 0), (("nullspace:local_scanner", 1, 1, 1), 2)]),
     "archive": dict(
         normal=[("book", 4, 2, 5), ("paper", 4, 3, 8), ("ink_sac", 2, 1, 4), ("writable_book", 1, 1, 1)],
         blocks=[block("bookshelf", 4, 3, 9), block("oak_planks", 2, 8, 16), block("lantern", 1, 1, 3)],
@@ -130,12 +130,12 @@ ROOMS = {
     "workshop": dict(
         normal=[("iron_ingot", 3, 2, 6), ("copper_ingot", 2, 2, 6), ("redstone", 3, 2, 10), ("nullspace:circuit_board", 2, 1, 2), ("iron_axe", 1, 1, 1), ("nullspace:air_canister", 1, 1, 1)],
         blocks=[block("oak_planks", 3, 8, 24), block("stone_bricks", 3, 8, 24), block("copper_block", 1, 1, 3, 1), block("iron_block", 1, 1, 2, 1)],
-        finds=[(("iron_ingot", 3, 2, 6), 0), ("damaged", "diamond_pickaxe", 2, 1, 1), (("sentry_armor_trim_smithing_template", 1, 1, 1), 2), (("nullspace:system_upgrade", 3, 1, 1), 2), (("nullspace:circuit_board", 3, 1, 3), 1)]),
+        finds=[(("iron_ingot", 3, 2, 6), 0), ("damaged", "diamond_pickaxe", 2, 1, 1), (("sentry_armor_trim_smithing_template", 1, 1, 1), 2), (("nullspace:circuit_board", 3, 1, 3), 1)]),
     "foundry": dict(
         normal=[("iron_ingot", 4, 2, 8), ("copper_ingot", 3, 2, 8), ("gold_ingot", 2, 1, 3), ("raw_iron", 2, 2, 6)],
         blocks=[block("stone_bricks", 3, 8, 24), block("polished_blackstone", 2, 8, 24), block("iron_block", 1, 1, 3, 1), block("gold_block", 1, 1, 2, 2)],
         fuel=(1, 1, 2, 6),
-        finds=[(("diamond", 3, 1, 2), 2), (("gold_ingot", 3, 2, 6), 1), (("raw_gold", 2, 2, 6), 0), (("netherite_scrap", 2, 1, 2), 3)]),
+        finds=[(("diamond", 3, 1, 2), 2), (("gold_ingot", 3, 2, 6), 1), (("raw_gold", 2, 2, 6), 0)]),
     "cargo_hold": dict(
         normal=[("copper_ingot", 3, 2, 8), ("iron_ingot", 2, 1, 4), ("glass", 2, 2, 6), ("string", 1, 2, 6), ("paper", 1, 2, 6)],
         blocks=[block("stone_bricks", 3, 8, 32), block("oak_planks", 3, 8, 32), block("polished_deepslate", 2, 8, 24), block("copper_block", 1, 2, 4, 1), block("iron_block", 1, 1, 3, 1)],
@@ -181,7 +181,7 @@ ROOMS = {
     "operations": dict(
         normal=[("map", 3, 1, 2), ("book", 2, 1, 2), ("redstone", 3, 2, 8), ("comparator", 1, 1, 2), ("repeater", 1, 1, 2)],
         blocks=[block("polished_andesite", 3, 8, 24), block("glass", 3, 8, 16), block("iron_bars", 2, 4, 10), block("quartz_block", 2, 4, 10, 1)],
-        finds=[(("nullspace:circuit_board", 4, 1, 3), 0), (("nullspace:local_scanner", 2, 1, 1), 1), (("nullspace:system_upgrade", 3, 1, 1), 2), (("nullspace:advanced_system_upgrade", 2, 1, 1), 3)],
+        finds=[(("nullspace:circuit_board", 4, 1, 3), 0), (("nullspace:local_scanner", 2, 1, 1), 1)],
         dead=True),
     "armory": dict(
         normal=[("arrow", 4, 4, 16), ("bow", 1, 1, 1), ("iron_chestplate", 1, 1, 1), ("shield", 1, 1, 1), ("chainmail_helmet", 1, 1, 1)],
@@ -190,7 +190,7 @@ ROOMS = {
     "lookout": dict(
         normal=[("spyglass", 1, 1, 1), ("arrow", 3, 4, 16), ("firework_rocket", 3, 2, 6), ("map", 2, 1, 2), ("bow", 1, 1, 1)],
         blocks=[block("glass", 3, 8, 24), block("oak_planks", 2, 8, 16), block("lantern", 2, 2, 4)],
-        finds=[(("firework_rocket", 3, 4, 12), 0), (("bow", 1, 1, 1), 1), (("spyglass", 2, 1, 1), 0), (("echo_shard", 1, 1, 1), 3)]),
+        finds=[(("firework_rocket", 3, 4, 12), 0), (("bow", 1, 1, 1), 1), (("spyglass", 2, 1, 1), 0)]),
     "eva_prep": dict(
         normal=[("nullspace:space_helmet", 1, 1, 1), ("nullspace:space_chestplate", 1, 1, 1), ("nullspace:air_canister", 3, 1, 3), ("string", 2, 2, 6)],
         blocks=[block("iron_bars", 2, 4, 10), block("polished_andesite", 2, 8, 24), block("white_concrete", 2, 8, 16)],
@@ -202,8 +202,17 @@ ROOMS = {
     "brig": dict(
         normal=[("iron_bars", 3, 4, 10), ("lead", 2, 1, 3), ("name_tag", 1, 1, 1), ("iron_nugget", 3, 3, 9)],
         blocks=[block("polished_blackstone", 3, 8, 24), block("iron_bars", 3, 4, 12), block("stone_bricks", 2, 8, 24), block("iron_chain", 1, 2, 6)],
-        finds=[(("iron_ingot", 3, 2, 6), 0), (("diamond", 2, 1, 2), 2), (("emerald", 3, 1, 3), 1), (("gold_ingot", 3, 2, 5), 1), (("__enchanted__", 2, 10, 25), 2), (("netherite_scrap", 1, 1, 1), 3)]),
+        finds=[(("iron_ingot", 3, 2, 6), 0), (("diamond", 2, 1, 2), 2), (("emerald", 3, 1, 3), 1), (("gold_ingot", 3, 2, 5), 1), (("__enchanted__", 2, 10, 25), 2)]),
 }
+
+# Mid-tier finds every found room can give (the range of the End city and Nether fortress chests): gold, iron, emeralds,
+# obsidian, worn gear. Tier 1 and up. The top-end items (upgrades, totems, netherite, echo shards) are only ever in the
+# vessel's one treasure chest.
+MID = [(("gold_ingot", 3, 2, 5), 1), (("iron_ingot", 3, 2, 6), 1), (("emerald", 2, 1, 3), 1), (("nether_wart", 2, 2, 5), 1),
+       (("obsidian", 2, 2, 4), 2), (("experience_bottle", 2, 1, 3), 2), (("saddle", 1, 1, 1), 2),
+       ("damaged", "iron_chestplate", 1, 1, 1), ("damaged", "iron_sword", 1, 1, 1), ("damaged", "flint_and_steel", 1, 1, 1)]
+# What a high-tier room adds at tier 3: a few diamonds and a golden apple.
+HIGH = [(("diamond", 2, 1, 2), 3), (("golden_apple", 1, 1, 1), 3)]
 
 DEAD_ROOMS = {key for key, spec in ROOMS.items() if spec.get("dead")}
 FIND_ROLLS = {0: (0, 1), 1: (1, 1), 2: (1, 2), 3: (2, 3)}
@@ -225,7 +234,7 @@ def finds(spec, tier, dead):
     """The finds a room can give at this tier. Potions are ("__potion__", kind, weight[, first tier]), worn tools
     ("damaged", item, weight, low, high) start at tier 2, and the rest are ((item, weight, low, high), first tier)."""
     out = []
-    for find in spec["finds"]:
+    for find in list(spec["finds"]) + MID + HIGH:
         if find[0] == "__potion__":
             if tier >= (find[3] if len(find) > 3 else 0):
                 out.append(find_entry(find, tier))

@@ -112,4 +112,30 @@ class RoomLootTablesTest
         assertTrue(sum <= 64, "All rooms together hold at most a stack of fuel: " + sum);
         assertTrue(most(read("derelict/engineering_0"), fuel) >= 2, "Engineering always has fuel");
     }
+
+    private static final Set<String> TOP_END = Set.of("nullspace:system_upgrade", "nullspace:advanced_system_upgrade", "minecraft:totem_of_undying", "minecraft:netherite_scrap", "minecraft:echo_shard", "minecraft:enchanted_golden_apple", "minecraft:netherite_upgrade_smithing_template", "minecraft:nether_star", "minecraft:elytra");
+
+    @Test
+    void theTopEndItemsAreOnlyInATreasureChestAndAtMostOneRollOfThem() throws Exception
+    {
+        try (var files = Files.walk(SITE))
+        {
+            for (var file : files.filter(f -> f.toString().endsWith(".json")).toList())
+            {
+                String name = SITE.relativize(file).toString().replace('\\', '/');
+                boolean treasure = name.startsWith("treasure_");
+                for (var pool : JsonParser.parseString(Files.readString(file)).getAsJsonObject().getAsJsonArray("pools"))
+                {
+                    boolean top = false;
+                    for (var entry : pool.getAsJsonObject().getAsJsonArray("entries"))
+                        top |= entry.getAsJsonObject().has("name") && TOP_END.contains(entry.getAsJsonObject().get("name").getAsString());
+                    if (!top)
+                        continue;
+                    assertTrue(treasure, name + " is not a treasure chest but holds a top-end item");
+                    if (!name.equals("treasure_singularity"))
+                        assertEquals(1, pool.getAsJsonObject().getAsJsonObject("rolls").get("max").getAsInt(), name + " rolls its top-end pool once");
+                }
+            }
+        }
+    }
 }

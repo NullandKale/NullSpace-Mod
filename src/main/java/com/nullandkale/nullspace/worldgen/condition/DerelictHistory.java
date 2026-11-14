@@ -12,9 +12,6 @@ public enum DerelictHistory
 {
     EVACUATED, BREACH, POWER_FAILURE, INTERRUPTED_WORK;
 
-    /** The rooms where work was under way. */
-    private static final Set<String> WORK = Set.of("workshop", "foundry", "kitchen", "growing_bay", "lab", "receiving_bay", "cargo_hold");
-
     /** The rooms whose electronics a power failure takes. */
     private static final Set<String> ELECTRIC = Set.of("bridge", "engineering", "operations", "maintenance");
 
@@ -53,22 +50,5 @@ public enum DerelictHistory
     public boolean dead(String use)
     {
         return this == POWER_FAILURE && ELECTRIC.contains(use);
-    }
-
-    /**
-     * The loot tier of a room: the danger, nudged by at most one by the history. Evacuated rooms are about
-     * half a tier lower (never the archive or the hoard), the work rooms of interrupted work are one higher,
-     * and so are the rooms a breach opened, so a wrecked room is never emptier than an intact one.
-     */
-    public int tier(int danger, long seed, String room, String use, boolean hoard)
-    {
-        int shift = switch (this)
-        {
-            case EVACUATED -> !hoard && !use.equals("archive") && roll(seed, room, 2) ? -1 : 0;
-            case INTERRUPTED_WORK -> WORK.contains(use) ? 1 : 0;
-            case BREACH -> wound(seed, room) ? 1 : 0;
-            case POWER_FAILURE -> 0;
-        };
-        return Math.max(0, Math.min(3, danger + shift));
     }
 }

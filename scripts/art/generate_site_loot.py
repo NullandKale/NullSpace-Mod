@@ -62,8 +62,7 @@ ROOMS = {
                                            2, 3)),
     "workshop": table(pool([item("iron_ingot", 3, 2, 6), item("redstone", 3, 2, 10),
                             item("nullspace:circuit_board", 2, 1, 2),
-                            item("nullspace:air_canister", 1),
-                            item("nullspace:system_upgrade", 1)], 2, 3)),
+                            item("nullspace:air_canister", 1)], 2, 3)),
     "crew": table(pool([item("paper", 3, 2, 6), item("white_wool", 2, 1, 3),
                         item("book", 2, 1, 2), item("leather", 2, 1, 3),
                         item("compass", 1), item("clock", 1)], 1, 3)),
@@ -74,30 +73,36 @@ ROOMS = {
 
 TRIMS = ["coast", "dune", "sentry", "wild", "vex", "tide", "wayfinder", "raiser", "shaper", "host"]
 
-RARE = {
-    1: [book(4, 5, 20), item("golden_apple", 3), item("diamond", 2, 1, 2),
-        item("shulker_shell", 1), item("nullspace:system_upgrade", 2)]
+# The good pool of a treasure chest: what the zone's danger makes worth the trip, with nothing of the top end.
+GOOD = {
+    1: [book(4, 5, 20), item("golden_apple", 3), item("diamond", 2, 1, 2), item("gold_ingot", 3, 2, 5),
+        item("emerald", 2, 1, 3), item("shulker_shell", 1)]
        + [item(t + "_armor_trim_smithing_template", 1) for t in TRIMS[:5]],
-    2: [book(4, 15, 30), item("golden_apple", 3, 1, 2), item("diamond", 3, 1, 3),
-        item("shulker_shell", 2, 1, 2), item("nullspace:system_upgrade", 3, 1, 2),
-        item("amethyst_shard", 2, 2, 8)]
+    2: [book(4, 15, 30), item("golden_apple", 3, 1, 2), item("diamond", 3, 1, 3), item("gold_ingot", 3, 3, 6),
+        item("emerald", 2, 2, 4), item("obsidian", 2, 2, 5), item("amethyst_shard", 2, 2, 8)]
        + [item(t + "_armor_trim_smithing_template", 1) for t in TRIMS],
-    3: [book(3, 25, 39), item("echo_shard", 3, 1, 3), item("totem_of_undying", 2),
-        item("netherite_upgrade_smithing_template", 2), item("enchanted_golden_apple", 1),
-        item("music_disc_otherside", 1), item("music_disc_pigstep", 1),
-        item("diamond", 3, 2, 4), item("netherite_scrap", 2, 1, 2)],
+    3: [book(3, 25, 39), item("diamond", 4, 2, 4), item("golden_apple", 3, 1, 2), item("gold_ingot", 3, 4, 8),
+        item("emerald", 2, 2, 5), item("obsidian", 2, 3, 6), item("shulker_shell", 2, 1, 2),
+        item("music_disc_otherside", 1), item("music_disc_pigstep", 1)]
+       + [item(t + "_armor_trim_smithing_template", 1) for t in TRIMS],
+}
+
+# The top-end items. A vessel has one treasure chest and this pool is rolled once, so no vessel holds more than one of
+# them, and only the treasure chest ever holds any. The weights are the chance of each: the rest is empty.
+TOP = {
+    1: [item("nullspace:system_upgrade", 15), {"type": "minecraft:empty", "weight": 85}],
+    2: [item("nullspace:system_upgrade", 28), item("shulker_shell", 8), {"type": "minecraft:empty", "weight": 64}],
+    3: [item("nullspace:advanced_system_upgrade", 22), item("totem_of_undying", 7), item("netherite_scrap", 6),
+        item("echo_shard", 6), item("enchanted_golden_apple", 3), item("netherite_upgrade_smithing_template", 3),
+        {"type": "minecraft:empty", "weight": 53}],
 }
 
 
 def treasure(danger):
     pools = [pool(FUEL, 2, 3), pool(ROOMS["cargo"]["pools"][1]["entries"], 1, 2)]
     if danger >= 1:
-        entries = list(RARE[1])
-        if danger >= 2:
-            entries = list(RARE[2])
-        if danger >= 3:
-            entries = list(RARE[2]) + list(RARE[3])
-        pools.append(pool(entries, 1, danger))
+        pools.append(pool(GOOD[danger], 1, 2 if danger == 3 else danger))
+        pools.append(pool(TOP[danger], 1, 1))
     return table(*pools)
 
 

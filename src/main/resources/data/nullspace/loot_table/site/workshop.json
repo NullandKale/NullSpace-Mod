@@ -50,10 +50,6 @@
         {
           "type": "minecraft:item",
           "name": "nullspace:air_canister"
-        },
-        {
-          "type": "minecraft:item",
-          "name": "nullspace:system_upgrade"
         }
       ]
     }
