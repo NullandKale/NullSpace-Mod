@@ -13,12 +13,35 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
  * Taking over a derelict: an unclaimed salvage vessel becomes the claimant's ship. Its identity,
  * blocks and depleted supplies are kept, so its generation site never produces a fresh copy;
  * claiming refills no fuel, hull or cargo. Public service stations are never claimable.
+ *
+ * <p>Claiming is switched off in the game: derelicts are places to explore and strip, not ships to keep. The code stays
+ * so it can return; {@link #enable} turns it back on, which only the claim tests do.
  */
 public final class Claims
 {
-    public static boolean claimable(CompoundTag s)
+    private static final java.util.concurrent.atomic.AtomicInteger HOLDERS = new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * Turns claiming on for a test and back off again: every {@code enable(true)} is paired with an {@code enable(false)},
+     * and claiming stays on while any test still holds it, since tests run side by side. Off in the game.
+     */
+    public static void enable(boolean on)
+    {
+        if (on)
+            HOLDERS.incrementAndGet();
+        else
+            HOLDERS.updateAndGet(n -> Math.max(0, n - 1));
+    }
+
+    /** An unowned, found salvage vessel, whether or not claiming is switched on. */
+    public static boolean derelict(CompoundTag s)
     {
         return s != null && StationAccess.station(s) && s.getBooleanOr("salvage", false) && com.nullandkale.nullspace.model.galaxy.EncounterKind.shipSalvage(s.getIntOr("encounterKind", 0)) && s.getStringOr("owner", "").isEmpty() && StationAccess.ready(s);
+    }
+
+    public static boolean claimable(CompoundTag s)
+    {
+        return HOLDERS.get() > 0 && derelict(s);
     }
 
     public static String claim(ServerPlayer p, CompoundTag s)

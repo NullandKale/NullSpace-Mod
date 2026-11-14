@@ -74,6 +74,8 @@ public final class ClaimsGameTest
                 ctx.runAfterDelay(5, () -> poll[0].run());
                 return;
             }
+            ctx.assertTrue(Claims.derelict(current) && !Claims.claimable(current) && Claims.claim(f.player, current).startsWith("This vessel is not"), "Claiming is switched off in the game");
+            Claims.enable(true);
             ctx.assertTrue(Claims.claimable(current), "An unclaimed derelict can be claimed");
             // A world-generated service station is an ownerless record without the salvage flag.
             // Check the record only: a second physical station would share other tests' space.
@@ -93,6 +95,7 @@ public final class ClaimsGameTest
             ctx.assertTrue(ShipTitles.holds(f.player, claimed), "The claimant receives its title");
             ctx.assertTrue(items(space, claimed) == supplies, "Claiming refills nothing: supplies are exactly as found");
             ctx.assertTrue(!Claims.claimable(claimed) && Claims.claim(f.player, claimed).startsWith("This vessel is not"), "A claimed ship cannot be claimed again");
+            Claims.enable(false);
             f.close();
             ctx.succeed();
         };

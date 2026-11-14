@@ -27,10 +27,11 @@ import com.mojang.brigadier.context.CommandContext;
  * each berth's full approach box above the terrain. They add no population entries and no loot.
  *
  * <pre>
- * /nullspace shipyard stations preview  &lt;maker&gt; &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed]
- * /nullspace shipyard stations compare  &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed]       the three makers, one seed
- * /nullspace shipyard stations variants &lt;maker&gt; &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed]  four seeds of one brief
+ * /nullspace shipyard stations preview  &lt;maker&gt; &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed [danger]]
+ * /nullspace shipyard stations compare  &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed [danger]]       the three makers, one seed
+ * /nullspace shipyard stations variants &lt;maker&gt; &lt;purpose&gt; &lt;size&gt; &lt;condition&gt; [seed [danger]]  four seeds of one brief
  * </pre>
+ * A danger from 0 to 3 builds each station as a wreck, the way a found vessel in a zone of that danger is built.
  */
 public final class StationPreview
 {
@@ -75,7 +76,8 @@ public final class StationPreview
     /** purpose, size, condition and an optional seed, running {@code specs}. */
     private static RequiredArgumentBuilder<CommandSourceStack, String> brief(Specs specs)
     {
-        var seeded = Commands.argument("seed", LongArgumentType.longArg()).executes(ctx -> run(ctx, specs));
+        var wrecked = Commands.argument("danger", IntegerArgumentType.integer(0, 3)).executes(ctx -> run(ctx, specs));
+        var seeded = Commands.argument("seed", LongArgumentType.longArg()).executes(ctx -> run(ctx, specs)).then(wrecked);
         var condition = Commands.argument("condition", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ids(StationSpec.Condition.values()), builder)).executes(ctx -> run(ctx, specs)).then(seeded);
         var size = Commands.argument("size", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ids(StationSpec.Size.values()), builder)).then(condition);
         return Commands.argument("purpose", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ids(StationSpec.Purpose.values()), builder)).then(size);
@@ -109,7 +111,16 @@ public final class StationPreview
         try
         {
             var all = specs.specs(ctx);
-            var placed = build(player.level().getServer(), all);
+            int danger;
+            try
+            {
+                danger = IntegerArgumentType.getInteger(ctx, "danger");
+            }
+            catch (IllegalArgumentException whole)
+            {
+                danger = -1;
+            }
+            var placed = build(player.level().getServer(), all, danger);
             var first = placed.getFirst();
             var arrival = first.plan().points().stream().filter(p -> p.name().equals("room") && p.argument().startsWith(first.arrival() + ":")).findFirst().orElseThrow().pos();
             var at = first.origin().offset(arrival);
@@ -145,13 +156,20 @@ public final class StationPreview
     /** Generates and places each station in a clear row; every plan is generated before any space is reserved or any block placed. */
     public static List<Placed> build(MinecraftServer server, List<StationSpec> specs) throws java.io.IOException
     {
+        return build(server, specs, -1);
+    }
+
+    /** As above; a danger from 0 to 3 builds each station as a wreck of that danger, a negative one builds it whole. */
+    public static List<Placed> build(MinecraftServer server, List<StationSpec> specs, int danger) throws java.io.IOException
+    {
         var plans = new ArrayList<StationPlan>();
         var blueprints = new ArrayList<StationBlueprint.Plan>();
         for (var spec : specs)
         {
             var planned = StationPlanner.generate(spec);
             plans.add(planned);
-            blueprints.add(StationStructure.build(planned));
+            var whole = StationStructure.build(planned);
+            blueprints.add(danger < 0 ? whole : com.nullandkale.nullspace.worldgen.condition.DerelictDamage.apply(planned, 0, whole, spec.seed(), danger).plan());
         }
         var marker = server.getWorldPath(LevelResource.ROOT).resolve("nullspace-station-preview.nbt");
         int count = Files.exists(marker) ? Math.addExact(WorldStore.read(marker).getIntOr("count", 0), 1) : 1;

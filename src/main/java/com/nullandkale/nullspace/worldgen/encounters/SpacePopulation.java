@@ -356,7 +356,8 @@ public final class SpacePopulation
                     }
                 }
                 String design = EncounterSites.design(kind, plan.seed());
-                blocks = EncounterSites.plan(kind, plan.seed());
+                // A found vessel is a wreck: the zone's danger sets how much of it is destroyed.
+                blocks = EncounterSites.plan(kind, plan.seed(), spawned ? creative.getIntOr("danger", 0) : StarSystems.danger(server, address));
                 metadata.putBoolean("salvage", true);
                 metadata.putInt("encounterKind", kind);
                 metadata.putLong("encounterSeed", plan.seed());

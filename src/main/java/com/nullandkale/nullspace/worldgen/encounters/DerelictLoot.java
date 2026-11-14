@@ -111,9 +111,23 @@ public final class DerelictLoot
     /** Which table each marked chest takes, with the roll seeds the game uses. */
     public static List<SiteLoot.Assignment> assignments(BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, String name)
     {
+        return assignments(base, points, treasure, danger, seed, seed, name);
+    }
+
+    /**
+     * As above, with the history read from {@code historySeed}: the site's own seed, the one the damage pass used, so a
+     * power-failure vessel gives its dead variants even after the site has reset and its roll seeds have changed.
+     */
+    public static List<SiteLoot.Assignment> assignments(BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, long historySeed, String name)
+    {
+        return assignments(base, points, treasure, danger, seed, DerelictHistory.of(historySeed, danger), name);
+    }
+
+    /** As above, with the history itself, for a site whose history was chosen rather than drawn. */
+    public static List<SiteLoot.Assignment> assignments(BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, DerelictHistory history, String name)
+    {
         var spots = spots(points);
         var hoard = hoard(spots);
-        var history = DerelictHistory.of(seed, danger);
         var tiers = tiers(spots, hoard, danger, seed);
         var out = new ArrayList<SiteLoot.Assignment>();
         for (var spot : spots)

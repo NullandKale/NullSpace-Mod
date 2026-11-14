@@ -236,6 +236,19 @@ public final class StationClientGameTest implements FabricClientGameTest
                 vessels[1].putInt("encounterKind", 1);
                 StationService.open(world.getConnection().getServerPlayer(), WorldStore.pos(vessels[1], "controller"), "");
             });
+            // Claiming is off in the game: a derelict is a wreck with no claim button.
+            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("DERELICT VESSEL"), 100);
+            c.runOnClient(mc ->
+            {
+                if (ShipControlTestUi.clickLabel((TerminalScreen) mc.gui.screen(), "[ Claim vessel ]"))
+                    throw new AssertionError("A derelict must not offer claiming while it is switched off");
+            });
+            c.takeScreenshot("nullspace-derelict-no-claim");
+            world.getServer().runOnServer(server ->
+            {
+                com.nullandkale.nullspace.gameplay.ownership.Claims.enable(true);
+                StationService.open(world.getConnection().getServerPlayer(), WorldStore.pos(vessels[1], "controller"), "");
+            });
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("UNCLAIMED VESSEL"), 100);
             c.takeScreenshot("nullspace-derelict-claim-explanation");
             c.runOnClient(mc ->
@@ -245,6 +258,7 @@ public final class StationClientGameTest implements FabricClientGameTest
             });
             world.getServer().waitFor(server -> vessels[1].getStringOr("owner", "").equals(world.getConnection().getServerPlayer().getUUID().toString()) && server.getLevel(TravelService.SPACE).getBlockState(WorldStore.pos(vessels[1], "controller")).is(ModBlocks.COMPUTER), 100);
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER"), 100);
+            world.getServer().runOnServer(server -> com.nullandkale.nullspace.gameplay.ownership.Claims.enable(false));
             world.getServer().waitFor(server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);

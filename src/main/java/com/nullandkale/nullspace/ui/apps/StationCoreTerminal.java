@@ -289,7 +289,7 @@ public final class StationCoreTerminal implements ControllerApplication
     private TerminalBuffer visit()
     {
         boolean claimable = catalog.stream().anyMatch(d -> d.id().equals("station_claim"));
-        text(2, 1, claimable ? "UNCLAIMED VESSEL" : "STATION VISITOR", TerminalTheme.BLUE);
+        text(2, 1, claimable ? "UNCLAIMED VESSEL" : setting("station_view", "").equals("Derelict") ? "DERELICT VESSEL" : "STATION VISITOR", TerminalTheme.BLUE);
         text(2, 3, setting("station_name", "Vessel"), TerminalTheme.TEXT);
         if (claimable)
         {
@@ -301,6 +301,13 @@ public final class StationCoreTerminal implements ControllerApplication
             text(2, 12, "A surface Pad Computer's My ships list can recover either ship.", TerminalTheme.MUTED);
             control("claim", 2, 15, 30, "[ Claim vessel ]", () -> send("station_claim", ""));
             text(2, 17, "Check its hull, engines and supplies before trying to fly.", TerminalTheme.AMBER);
+        }
+        else if (setting("station_view", "").equals("Derelict"))
+        {
+            text(2, 5, "Nobody can take command of this wreck.", TerminalTheme.TEXT);
+            text(2, 7, "Explore it and take what you find.", TerminalTheme.MUTED);
+            text(2, 8, "Return to your ship through the dock when you are done.", TerminalTheme.MUTED);
+            text(2, 10, "Use your Ship Controller to continue your journey.", TerminalTheme.MUTED);
         }
         else
         {

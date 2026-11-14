@@ -33,16 +33,38 @@ public final class EncounterSites
 {
     private static final ServerContext.Key<Map<String, Integer>> RETRY = new ServerContext.Key<>();
 
+    /** The vessel as built, whole. A found vessel is built with {@link #plan(int, long, int)}, which wrecks it. */
     public static StationBlueprint.Plan plan(int kind, long seed)
+    {
+        return plan(kind, seed, -1);
+    }
+
+    /**
+     * The vessel for a site at a danger: planned ships and stations are wrecked by their history, the legacy growing
+     * station and cargo pod are not. A negative danger gives the whole vessel.
+     */
+    public static StationBlueprint.Plan plan(int kind, long seed, int danger)
+    {
+        return plan(kind, seed, danger, "", null, null);
+    }
+
+    /**
+     * As above, for a site whose settings were chosen: {@code design} names the ship (empty for the seed's own pick),
+     * {@code spec} is the station's brief (null for the seed's own) and {@code history} the wreck's story (null to draw it).
+     */
+    public static StationBlueprint.Plan plan(int kind, long seed, int danger, String design, StationSpec spec, com.nullandkale.nullspace.worldgen.condition.DerelictHistory history)
     {
         EncounterKind.saved(kind);
         if (kind == EncounterKind.ABANDONED_STATION.id)
-            return EncounterStations.build(EncounterStations.encounter(seed));
+        {
+            var brief = spec != null ? spec : EncounterStations.encounter(seed);
+            return danger < 0 ? EncounterStations.build(brief) : EncounterStations.build(brief, danger, history);
+        }
         if (kind == 0)
             return growing(seed);
         if (kind == 3)
             return cargoPod(seed);
-        String design = design(kind, seed);
+        design = design == null || design.isEmpty() ? design(kind, seed) : design;
         var preset = ShipBlueprints.get(design);
         var blocks = new LinkedHashMap<>(ShipBlueprints.blocks(preset));
         var controller = preset.helm();
@@ -74,7 +96,9 @@ public final class EncounterSites
             blocks.put(new BlockPos(12, 1, 10), Blocks.COBBLESTONE.defaultBlockState());
             blocks.put(new BlockPos(12, 2, 10), Blocks.COBBLESTONE.defaultBlockState());
         }
-        return new StationBlueprint.Plan(blocks, controller, docks(blocks), points);
+        var whole = new StationBlueprint.Plan(blocks, controller, docks(blocks), points);
+        var layout = danger < 0 ? null : ShipBlueprints.layout(preset);
+        return layout == null ? whole : com.nullandkale.nullspace.worldgen.condition.DerelictDamage.apply(layout, com.nullandkale.nullspace.worldgen.stations.ShipPlanner.RAMP, whole, seed, danger, history).plan();
     }
 
     public static String design(int kind, long seed)
@@ -250,7 +274,11 @@ public final class EncounterSites
                 metadata.putInt("encounterKind", site.getIntOr("kind", 0));
                 metadata.putLong("encounterSeed", site.getLongOr("seed", 1));
                 metadata.putInt("encounterDanger", site.getIntOr("danger", 0));
-                String shipDesign = design(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
+                // A site made by the creative Scanner carries its own design and history; every other site draws them from its seed.
+                String shipDesign = site.contains("design") ? site.getStringOr("design", "") : design(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
+                var history = site.contains("history") ? com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values()[Math.floorMod(site.getIntOr("history", 0), com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values().length)] : null;
+                if (history != null)
+                    metadata.putInt("encounterHistory", history.ordinal());
                 metadata.putString("encounterDesign", shipDesign);
                 // A planned ship's rooms show their frames and stands once it is built.
                 if (!shipDesign.isEmpty() && ShipBlueprints.get(shipDesign).planned())
@@ -259,13 +287,13 @@ public final class EncounterSites
                 if (site.getIntOr("kind", 0) == EncounterKind.ABANDONED_STATION.id)
                 {
                     var spec = site.contains("stationSpec") ? StationSpec.read(site.getCompoundOrEmpty("stationSpec")) : EncounterStations.encounter(site.getLongOr("seed", 1));
-                    blueprint = EncounterStations.build(spec);
+                    blueprint = EncounterStations.build(spec, site.getIntOr("danger", 0), history);
                     // Designed rooms keep their containers empty; their frames, stands and animals appear once the build finishes.
                     metadata.putBoolean("generatedRooms", true);
                     metadata.put("stationSpec", spec.save());
                 }
                 else
-                    blueprint = plan(site.getIntOr("kind", 0), site.getLongOr("seed", 1));
+                    blueprint = plan(site.getIntOr("kind", 0), site.getLongOr("seed", 1), site.getIntOr("danger", 0), shipDesign, null, history);
                 var vessel = StationBuilds.queueAmbient(server, id, site.getStringOr("name", "Signal"), address, new Vec3(0, 0, 600), blueprint, metadata);
                 if (vessel == null)
                 {
@@ -300,8 +328,11 @@ public final class EncounterSites
         long seed = ship.getLongOr("encounterSeed", 1) ^ ship.getLongOr("resets", 0) * 0x9e3779b97f4a7c15L;
         String address = LocalSpaces.address(ship);
         String treasure = SiteLoot.treasure(level.getServer(), address);
-        int danger = com.nullandkale.nullspace.gameplay.navigation.StarSystems.danger(level.getServer(), address);
-        SiteLoot.apply(level, assignments(kind, ship.getStringOr("encounterDesign", design(kind, seed)), base, SitePoints.read(ship), treasure, danger, seed, ship.getStringOr("name", "Salvage") + " supplies"));
+        // The site's own danger, as the wreck was built with, not the danger of the zone it sits in.
+        int danger = ship.contains("encounterDanger") ? ship.getIntOr("encounterDanger", 0) : com.nullandkale.nullspace.gameplay.navigation.StarSystems.danger(level.getServer(), address);
+        long historySeed = ship.getLongOr("encounterSeed", 1);
+        var history = ship.contains("encounterHistory") ? com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values()[Math.floorMod(ship.getIntOr("encounterHistory", 0), com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values().length)] : com.nullandkale.nullspace.worldgen.condition.DerelictHistory.of(historySeed, danger);
+        SiteLoot.apply(level, assignments(kind, ship.getStringOr("encounterDesign", design(kind, seed)), base, SitePoints.read(ship), treasure, danger, seed, history, ship.getStringOr("name", "Salvage") + " supplies"));
         ship.putBoolean("encounterStocked", true);
     }
 
@@ -311,8 +342,14 @@ public final class EncounterSites
      */
     public static List<SiteLoot.Assignment> assignments(int kind, String design, BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, String name)
     {
+        return assignments(kind, design, base, points, treasure, danger, seed, com.nullandkale.nullspace.worldgen.condition.DerelictHistory.of(seed, danger), name);
+    }
+
+    /** As above, with the derelict's history: the one its damage was made from, drawn from the site's own seed or chosen. */
+    public static List<SiteLoot.Assignment> assignments(int kind, String design, BlockPos base, List<Piece.Point> points, String treasure, int danger, long seed, com.nullandkale.nullspace.worldgen.condition.DerelictHistory history, String name)
+    {
         if (DerelictLoot.has(points))
-            return DerelictLoot.assignments(base, points, treasure, danger, seed, name);
+            return DerelictLoot.assignments(base, points, treasure, danger, seed, history, name);
         if (!points.isEmpty())
             return SitePoints.assignments(base, points, treasure, seed, name);
         var out = new ArrayList<SiteLoot.Assignment>();

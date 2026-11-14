@@ -22,6 +22,19 @@ public final class EncounterStations
         return StationStructure.build(StationPlanner.generate(spec));
     }
 
+    /** The same station as a wreck: the zone's danger sets how much of it is destroyed, the seed which story it tells. */
+    public static StationBlueprint.Plan build(StationSpec spec, int danger)
+    {
+        return build(spec, danger, null);
+    }
+
+    /** As above, telling the story of {@code history} when it is not null. */
+    public static StationBlueprint.Plan build(StationSpec spec, int danger, com.nullandkale.nullspace.worldgen.condition.DerelictHistory history)
+    {
+        var layout = StationPlanner.generate(spec);
+        return com.nullandkale.nullspace.worldgen.condition.DerelictDamage.apply(layout, 0, StationStructure.build(layout), spec.seed(), danger, history).plan();
+    }
+
     private EncounterStations()
     {
     }

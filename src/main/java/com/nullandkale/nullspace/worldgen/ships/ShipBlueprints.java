@@ -99,7 +99,7 @@ public final class ShipBlueprints
         }
     }
 
-    private record Data(Map<BlockPos, BlockState> blocks, BlockPos helm, List<ShipRooms.Room> rooms, List<Piece.Point> points)
+    private record Data(Map<BlockPos, BlockState> blocks, BlockPos helm, List<ShipRooms.Room> rooms, List<Piece.Point> points, com.nullandkale.nullspace.worldgen.stations.StationPlan layout)
     {}
 
     private static final Set<String> TINY = new HashSet<>();
@@ -149,7 +149,7 @@ public final class ShipBlueprints
                             landmarks.add(new ShipRooms.Room(landmark.name(), use(landmark.use()), landmark.walk(), landmark.supplies()));
                         var blocks = new LinkedHashMap<BlockPos, BlockState>(ShipBlocks.blocks(tiny));
                         BlueprintOrientation.fix(blocks);
-                        return new Data(Collections.unmodifiableMap(blocks), tiny.helm(), List.copyOf(landmarks), List.of());
+                        return new Data(Collections.unmodifiableMap(blocks), tiny.helm(), List.copyOf(landmarks), List.of(), null);
                     });
                 }
                 else
@@ -165,7 +165,7 @@ public final class ShipBlueprints
                             landmarks.add(new ShipRooms.Room(landmark.name(), station(landmark.use()), landmark.walk(), landmark.supplies()));
                         var blocks = new LinkedHashMap<BlockPos, BlockState>(built.blueprint().blocks());
                         BlueprintOrientation.fix(blocks);
-                        return new Data(Collections.unmodifiableMap(blocks), built.helm(), List.copyOf(landmarks), List.copyOf(built.blueprint().points()));
+                        return new Data(Collections.unmodifiableMap(blocks), built.helm(), List.copyOf(landmarks), List.copyOf(built.blueprint().points()), built.plan());
                     });
                 }
                 GENERATED.put(id, made);
@@ -227,6 +227,16 @@ public final class ShipBlueprints
     {
         var made = GENERATED.get(preset.id());
         return made != null && preset.planned() ? made.data().points() : List.of();
+    }
+
+    /**
+     * The room layout of a planned design, in plan coordinates: the blocks are shifted along z by {@link ShipPlanner#RAMP}.
+     * Null for a design that is not planned.
+     */
+    public static com.nullandkale.nullspace.worldgen.stations.StationPlan layout(Preset preset)
+    {
+        var made = GENERATED.get(preset.id());
+        return made != null && preset.planned() ? made.data().layout() : null;
     }
 
     private static BlockPos pos(JsonArray xyz)

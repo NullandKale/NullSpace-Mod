@@ -359,6 +359,7 @@ public final class StationGameTest
         for (var s : List.of(ship, wreck))
             s.putDouble("simY", s.getDoubleOr("simY", 0) + 3000);
         var wreckBase = WorldStore.pos(wreck, "base");
+        Claims.enable(true);
         var p = ctx.makeMockServerPlayerInLevel();
         var start = boardingPoint(level, ship);
         p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
@@ -387,6 +388,7 @@ public final class StationGameTest
                 }
                 finally
                 {
+                    Claims.enable(false);
                     server.getPlayerList().remove(p);
                     cleanup(level, ship);
                     cleanup(level, wreck);
@@ -402,6 +404,7 @@ public final class StationGameTest
         var level = server.getLevel(TravelService.SPACE);
         var wreck = derelict(level, new BlockPos(288000, 96, 280000));
         var p = survivalPlayer(ctx);
+        Claims.enable(true);
         try
         {
             var core = WorldStore.pos(wreck, "controller");
@@ -418,6 +421,7 @@ public final class StationGameTest
         }
         finally
         {
+            Claims.enable(false);
             server.getPlayerList().remove(p);
             cleanup(level, wreck);
         }

@@ -90,6 +90,36 @@ public final class JourneyService
         return j;
     }
 
+    /**
+     * A journey made by a creative Scanner: it leaves the ship's own place, carries one signal with the chosen
+     * settings, and returns to the same place. The signal is in contact from the start, the trip costs nothing, and
+     * the ship goes to the signal by itself as soon as the site is built.
+     */
+    public static CompoundTag creative(MinecraftServer server, CompoundTag ship, CreativeEncounter c)
+    {
+        var from = LocalSpaces.get(server, LocalSpaces.address(ship));
+        long nonce = java.util.concurrent.ThreadLocalRandom.current().nextLong();
+        var id = UUID.nameUUIDFromBytes(("nullspace:creative:" + c.seed() + ":" + nonce).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var j = new CompoundTag();
+        j.putInt("version", 1);
+        j.putString("destination", from.id());
+        j.putString("from", from.id());
+        j.putString("corridor", "j_" + id.toString().replace("-", "").substring(0, 24));
+        j.putString("encounter", "e_" + id.toString().replace("-", "").substring(0, 24));
+        j.putString("contact", "Creative: " + JourneyPlan.name(c.kind()));
+        j.putInt("danger", c.danger());
+        j.putLong("seed", c.seed());
+        j.putInt("kind", c.kind());
+        j.putInt("duration", 120 * 20);
+        j.putInt("contactAt", 0);
+        j.putInt("elapsed", 0);
+        j.putInt("paid", 0);
+        j.putString("state", "CRUISE");
+        j.putBoolean("autoVisit", true);
+        j.put("custom", c.save());
+        return j;
+    }
+
     public static JourneyPlan preview(MinecraftServer server, CompoundTag ship, String destination)
     {
         return preview(server, ship, destination, null);
@@ -121,7 +151,15 @@ public final class JourneyService
             site.putLong("seed", j.getLongOr("seed", 1));
             site.putString("name", j.getStringOr("contact", "Signal"));
             site.putInt("danger", j.getIntOr("danger", 0));
-            if (j.getIntOr("kind", 0) == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
+            // A creative Scanner's journey carries the settings it was made with; they are the site's own.
+            var custom = j.getCompoundOrEmpty("custom");
+            if (custom.contains("history"))
+                site.putInt("history", custom.getIntOr("history", 0));
+            if (!custom.getStringOr("design", "").isEmpty())
+                site.putString("design", custom.getStringOr("design", ""));
+            if (custom.contains("stationSpec"))
+                site.put("stationSpec", custom.getCompoundOrEmpty("stationSpec").copy());
+            else if (j.getIntOr("kind", 0) == com.nullandkale.nullspace.model.galaxy.EncounterKind.ABANDONED_STATION.id)
                 site.put("stationSpec", com.nullandkale.nullspace.worldgen.stations.EncounterStations.encounter(j.getLongOr("seed", 1)).save());
             sites.put(id, site);
         }
@@ -206,7 +244,9 @@ public final class JourneyService
                     for (var p : crew)
                         p.sendSystemMessage(Component.literal("Signal: " + j.getStringOr("contact", "") + ". In the ship controller's Trip panel, choose Visit signal, or keep travelling."));
                 }
-                if (elapsed >= j.getIntOr("duration", 0))
+                if (j.getBooleanOr("autoVisit", false) && contact(ship) && stopReason(server, ship).isEmpty())
+                    Jumps.autoVisit(crew.getFirst(), ship);
+                else if (elapsed >= j.getIntOr("duration", 0))
                     Jumps.arrive(crew.getFirst(), ship);
                 WorldStore.get(server).requestSave();
             }

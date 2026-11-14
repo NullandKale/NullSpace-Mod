@@ -13,6 +13,7 @@ The manufacturer methods and treatment of floors were discussed together. Values
 | Confirmed | Floors are part of those methods, including stairs, landings, galleries and tall rooms. Floors need not extend across the entire station. |
 | Confirmed | Every station type has an operational and a derelict version. Derelict is a condition applied to a station with an original purpose. |
 | Confirmed | Dungeons combine combat, breaches and optional repairs. Ordinary mining and building remain allowed. |
+| Changed November 14 | Claiming is switched off in the game: a derelict is a place to explore and strip, not a ship to keep. The code stays (`Claims.enable`), so it may return. The row below records the earlier decision. |
 | Confirmed | Keep claiming simple. Claim an unowned derelict at its core and preserve its damage, supplies and threats. The wider claiming system will have a separate feature design. |
 | Confirmed | Stations occur rarely as journey encounters and rarely as fixed places. Preserve room for player construction. |
 | Confirmed | The tiny starter has only a bridge and engineering. Tiny ships are available for starts and through beacons, and excluded from ordinary random population. |
@@ -398,7 +399,7 @@ The station pipeline already separates a pure planner (`StationPlan`: rooms, doo
 - **Derelicts and encounters:** a derelict planned ship keeps its frames and stands, a few containers are marked to hold supplies (the hoard first), and a blocked freighter door is the door of the hoard room.
 - **Delivery:** a delivered planned ship spawns its frames and stands once and serves doors before air.
 
-## The derelict state (design in progress, November 14)
+## The derelict state (built, November 14)
 
 **Decided with the owner:** the same pass applies to planned ships and planned stations; four histories (evacuated, breach, power failure, interrupted work); danger sets how severe the wreck is; the dock must be usable so the dungeon can be played, but **the rest of the vessel is destroyed**. Overrun and stripped are left for later.
 
@@ -415,7 +416,7 @@ A derelict is a place where something happened, and the damage should let a play
 
 ### Generation
 
-A separate seeded pass over the finished working design, so changing the damage never rearranges the building or its rooms. It chooses a history from the site seed, then spends a damage budget by danger. It never touches the dock port, its two standing cells or the doorway into the first room, and the Station Core or helm survives.
+A separate seeded pass over the finished working design ([`DerelictDamage`](../../src/main/java/com/nullandkale/nullspace/worldgen/condition/DerelictDamage.java)), so changing the damage never rearranges the building or its rooms. [`EncounterSites.plan(kind, seed, danger)`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/EncounterSites.java) runs it for a found planned ship or station, with the zone's danger; the history is [`DerelictHistory.of(seed, danger)`](../../src/main/java/com/nullandkale/nullspace/worldgen/condition/DerelictHistory.java) from the site's own seed, the same history the loot reads, so a power-failure wreck gives its dead loot variants even after a site reset. The growing station and the cargo pod are not wrecked. It never touches the dock room, its port and the two cells inside it, the doorways out of the dock room, the controller or the marked loot chests, and removed blocks stay as air entries so the vessel keeps its extent.
 
 | Tool | What it does |
 | --- | --- |
@@ -429,13 +430,17 @@ A separate seeded pass over the finished working design, so changing the damage 
 
 Severity is the **share of rooms that are damaged**, not the share of blocks: **danger 0 about a third of the rooms, danger 1 about half, danger 2 about two thirds, danger 3 about 80 percent**. A damaged room is properly wrecked; the rooms left alone stay whole, so the player hops from one intact bubble to the next across the ruin. Danger 0 and 1 draw evacuated or interrupted work; 2 draws breach, power failure or interrupted work; 3 draws breach or power failure at full strength.
 
+**How the tools are used.** The dock room and the arrival hall are never damaged; halls take only dust, rubble and dead lights. A breach starts from the history's wound rooms and spreads through the doors to the rooms around them; a power failure starts in engineering. A breach tears a ball of exposed hull, window and roof out of each wound room (one or two, larger with danger) and scorches its edge with blackstone and cracked bricks; it never opens a wall the room shares with its neighbour. A collapse brings down a patch of roof where nothing is above it and leaves cobblestone rubble on the floor; a broken deck opens the slab between two stacked rooms. Fixtures are stripped by a share that grows with danger, and whatever hung on or stood on a removed block goes with it. Doors: only a door between two wrecked rooms is knocked out or propped open, so a wrecked room never vents a whole one; a door to a whole room is at most jammed, its plates removed. A power failure removes every generator and battery on the vessel and strips the damaged rooms' Air Supplies; every light but the dock room's goes out. Frames are emptied, stands bared, animals removed and paintings dropped where the wreck took their wall.
+
+**Not modelled.** Interrupted work leaves the workrooms whole and puts the wreckage elsewhere, but does not show work in progress (lit furnaces, wild growing bays).
+
 ### Gameplay
 
-Loot, lost crew and repair bots follow the existing danger tables. Claiming keeps the damage. Repairs are ordinary building: place blocks to close a breach, restore a generator and fuel it. No new repair system.
+Loot, lost crew and repair bots follow the existing danger tables. Repairs are ordinary building: place blocks to close a breach, restore a generator and fuel it. No new repair system. Review a wreck with `/nullspace shipyard stations preview <maker> <purpose> <size> derelict <seed> <danger>` (the danger argument is the new part).
 
 ### Open
 
-- None on the route: **decided, the route from the dock to the Station Core or helm may be broken.** A breach or collapse can cut it, and the player bridges, mines through or builds around it with ordinary blocks. Every room stays reachable by ordinary building, and claiming works once the core is reached.
+- None on the route: **decided, the route from the dock to the Station Core or helm may be broken.** A breach or collapse can cut it, and the player bridges, mines through or builds around it with ordinary blocks. Every room stays reachable by ordinary building. The core and helm are still kept, but with claiming off they are no longer a goal.
 
 ## Loot (built, November 14)
 

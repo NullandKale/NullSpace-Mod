@@ -26,6 +26,12 @@ public enum DerelictHistory
         };
     }
 
+    /** Spreads nearby values apart, for the damage pass's choices. */
+    public static long scatter(long value)
+    {
+        return mix(value);
+    }
+
     /** Spreads nearby seeds apart, since Java's generator gives similar first values to similar seeds. */
     private static long mix(long seed)
     {

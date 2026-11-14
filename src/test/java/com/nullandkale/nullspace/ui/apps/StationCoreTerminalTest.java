@@ -25,6 +25,17 @@ class StationCoreTerminalTest
     }
 
     @Test
+    void aDerelictWithClaimingOffIsAWreckWithNoClaimButton()
+    {
+        var terminal = new StationCoreTerminal("Derelict", List.of(new TerminalPackets.Destination("station_view", "Derelict", "SETTING")));
+        var display = terminal.display();
+        assertTrue(display.row(1).contains("DERELICT VESSEL"));
+        assertTrue(display.row(5).contains("Nobody can take command"));
+        for (int row = 0; row < 25; row++)
+            assertFalse(display.row(row).contains("Claim"), "row " + row);
+    }
+
+    @Test
     void stationNameAndInvitedPlayerRemainSeparateAcrossLiveReadings()
     {
         var terminal = new StationCoreTerminal("Station", List.of());

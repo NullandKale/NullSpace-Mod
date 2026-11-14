@@ -26,6 +26,24 @@ public final class CreativeSpawns
     }
 
     /**
+     * Starts FTL to a temporary encounter with every setting chosen (see {@link CreativeEncounter#parse}). Nothing joins the
+     * chart: the site is an ordinary journey signal, built when the ship reaches it and forgotten when the journey ends.
+     */
+    public static String journey(net.minecraft.server.level.ServerPlayer p, CompoundTag ship, String settings)
+    {
+        try
+        {
+            var chosen = CreativeEncounter.parse(settings, new Random().nextLong());
+            Jumps.creativeJourney(p, ship, chosen);
+            return "Starting FTL to a " + chosen.describe() + ". It goes to the signal by itself.";
+        }
+        catch (IllegalArgumentException failure)
+        {
+            return failure.getMessage() == null ? "Could not start the journey" : failure.getMessage();
+        }
+    }
+
+    /**
      * Adds an encounter of {@code kind} (an {@link EncounterKind} id) at {@code danger} (0 to 3) as a zone of its own near the
      * ship's place. The site is planned like any other and built when a ship arrives.
      */

@@ -91,6 +91,59 @@ public final class JourneyGameTest
         Jumps.investigate(c.player(), WorldStore.pos(own, "controller"));
     }
 
+    /** A creative Scanner starts real FTL to a temporary signal made with every chosen setting, and the ship goes to it by itself. */
+    @GameTest(environment = "nullspace:creative_journey", maxTicks = 2400)
+    public void aCreativeJourneyGoesToATemporarySignalMadeWithEveryChosenSetting(GameTestHelper ctx) throws Exception
+    {
+        var c = ConcurrentShipActionsGameTest.client(ctx, 60);
+        c.board();
+        var server = ctx.getLevel().getServer();
+        var own = c.fixture().ship();
+        boolean[] started = {false};
+        ctx.onEachTick(() ->
+        {
+            acknowledge(c);
+            if (!started[0])
+            {
+                // The ship's passengers load over the first ticks; the Scanner's request is refused with a reason until they have.
+                String notice = CreativeSpawns.journey(c.player(), own, "2 3 power_failure halcyon_swift auto auto auto 777");
+                started[0] = notice.startsWith("Starting FTL");
+                ctx.assertTrue(started[0] || notice.contains("still loading") || ctx.getTick() < 100, notice);
+                return;
+            }
+            var ship = c.fixture().ship();
+            var journey = ship.getCompoundOrEmpty("journey");
+            String siteId = journey.getStringOr("encounter", "");
+            if (siteId.isEmpty() || !LocalSpaces.address(ship).equals(siteId) || NavigationService.pending(server, c.fixture().id))
+                return;
+            var record = WorldStore.get(server).section("encounters").getCompoundOrEmpty(siteId);
+            var vessel = WorldStore.get(server).repository().find(record.getStringOr("vessel", ""));
+            try
+            {
+                ctx.assertTrue(vessel != null && StationAccess.ready(vessel), "The signal's vessel is built before the ship arrives");
+                ctx.assertTrue(record.getIntOr("danger", -1) == 3 && record.getIntOr("kind", -1) == 2 && record.getLongOr("seed", 0) == 777 && record.getStringOr("design", "").equals("halcyon_swift") && record.getIntOr("history", -1) == com.nullandkale.nullspace.worldgen.condition.DerelictHistory.POWER_FAILURE.ordinal(), "The site keeps every chosen setting: " + record);
+                ctx.assertTrue(vessel.getIntOr("encounterDanger", -1) == 3 && vessel.getStringOr("encounterDesign", "").equals("halcyon_swift") && vessel.getIntOr("encounterHistory", -1) == com.nullandkale.nullspace.worldgen.condition.DerelictHistory.POWER_FAILURE.ordinal(), "The vessel is built from them");
+                var level = c.fixture().space;
+                int power = 0;
+                for (var at : BlockPos.betweenClosed(WorldStore.bounds(vessel).min(), WorldStore.bounds(vessel).max()))
+                    if (level.getBlockState(at).is(ModBlocks.GENERATOR) || level.getBlockState(at).is(ModBlocks.BATTERY))
+                        power++;
+                ctx.assertTrue(power == 0, "A power-failure wreck has no generator or battery left, found " + power);
+                ctx.assertTrue(journey.getBooleanOr("visited", false) && journey.getBooleanOr("autoVisit", false), "The ship went to the signal by itself");
+                ctx.assertTrue(!WorldStore.get(server).section("creativeSites").contains(siteId), "The encounter is not a permanent zone");
+                ctx.succeed();
+            }
+            finally
+            {
+                WorldStore.get(server).ships().removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(c.fixture().id) || ((CompoundTag) t).getStringOr("id", "").equals(record.getStringOr("vessel", "")));
+                WorldStore.get(server).section("encounters").remove(siteId);
+                WorldStore.get(server).section("journeyRegions").remove(siteId);
+                WorldStore.get(server).section("journeyRegions").remove(journey.getStringOr("corridor", ""));
+                c.close();
+            }
+        });
+    }
+
     @GameTest(environment = "nullspace:encounter_retry", maxTicks = 300)
     public void encounterSaveFailureKeepsThePlanAndBacksOffWithoutCrashingTheServer(GameTestHelper ctx) throws Exception
     {

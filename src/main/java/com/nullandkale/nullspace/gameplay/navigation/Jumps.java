@@ -182,6 +182,45 @@ public final class Jumps
         return j.token;
     }
 
+    /**
+     * Starts a creative journey: the same fast travel as any trip, with the signal the Scanner chose. It asks for the
+     * same safe cabin and crew as a jump, but no fuel, and it needs no destination and no free Scanner range.
+     */
+    public static UUID creativeJourney(ServerPlayer p, CompoundTag s, CreativeEncounter settings)
+    {
+        var server = p.level().getServer();
+        var at = WorldStore.pos(s, "controller");
+        if (JourneyService.active(s))
+            throw new IllegalArgumentException("Finish or resume the current journey first");
+        if (ShipStorage.active(p))
+            throw new IllegalArgumentException("Finish or cancel your recall before fast travel");
+        if (DockingService.motionLocked(s))
+            throw new IllegalArgumentException("Undock before fast travel; stations are anchored");
+        if (TransferLocks.busy(p) || TransferLocks.busy(server, s))
+            throw new IllegalArgumentException("This ship or its crew is already travelling or boarding");
+        jumpInspection(p, at);
+        var plan = JourneyService.creative(server, s, settings);
+        SceneCatalog.region(server, plan.getStringOr("destination", ""));
+        var j = new Jump(p, s, at, plan.getStringOr("corridor", ""));
+        j.journey = plan;
+        return begin(p, s, j);
+    }
+
+    /** A creative journey goes to its signal by itself, with automatic docking as for Visit signal; if it cannot, the Trip panel still can. */
+    static void autoVisit(ServerPlayer p, CompoundTag s)
+    {
+        try
+        {
+            journeyTransition(p, s, Mode.INVESTIGATE);
+            CourseService.investigate(p, s);
+        }
+        catch (RuntimeException failure)
+        {
+            s.getCompoundOrEmpty("journey").putBoolean("autoVisit", false);
+            p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Could not go to the signal by itself: " + failure.getMessage() + ". Use Visit signal in the Trip panel."));
+        }
+    }
+
     public static UUID investigate(ServerPlayer p, BlockPos at)
     {
         var s = Piloting.helm(p, at);

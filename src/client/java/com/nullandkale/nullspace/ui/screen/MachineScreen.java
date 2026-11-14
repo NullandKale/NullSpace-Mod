@@ -40,9 +40,16 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
     private Button enabledButton, saveName, editName;
     private Button accept, decline, cancel, undock;
     private Button lessPower, morePower;
-    /** The creative Scanner's spawn tools: which encounter and how dangerous, chosen by cycling. */
-    private Button spawnKind, spawnDanger;
-    private int kindChoice = 2, dangerChoice = 1;
+    /**
+     * The creative Scanner's encounter builder: every setting of the encounter, each chosen by cycling its button. The
+     * ship and the station's brief only apply to their own kinds.
+     */
+    private Button spawnKind, spawnDanger, spawnHistory, spawnDesign, spawnMaker, spawnPurpose, spawnSize;
+    private EditBox spawnSeed;
+    private int kindChoice = 2, dangerChoice = 1, historyChoice, designChoice, makerChoice, purposeChoice, sizeChoice;
+    private static final String[] KIND_NAMES = {"Growing station", "Freighter", "Salvage ship", "Cargo", "Station"};
+    private static final String[] HISTORY_IDS = {"auto", "evacuated", "breach", "power_failure", "interrupted_work"};
+    private static final String[] HISTORY_NAMES = {"Story: by seed", "Evacuated", "Breach", "Power failure", "Interrupted work"};
     private final java.util.List<Button> creativeButtons = new java.util.ArrayList<>();
     private boolean refreshPreview;
 
@@ -177,24 +184,61 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         if (mode.contains("scanner"))
             button("Open scanner", 8, 44, 120, () -> send(8, ""));
         creativeButtons.clear();
+        spawnSeed = null;
         if (mode.contains("scanner"))
         {
             var kinds = com.nullandkale.nullspace.model.galaxy.EncounterKind.values();
-            // The tools stack in the left column, so the status text on the right stays clear.
-            String[] names = {"Growing station", "Freighter", "Salvage ship", "Cargo", "Station"};
-            spawnKind = button(names[kindChoice], 8, 66, 120, () ->
+            var ships = com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS.stream().filter(p -> !p.tiny()).toList();
+            var makers = com.nullandkale.nullspace.worldgen.shipgen.Spec.Maker.values();
+            var purposes = com.nullandkale.nullspace.worldgen.stations.StationSpec.Purpose.values();
+            var sizes = com.nullandkale.nullspace.worldgen.stations.StationSpec.Size.values();
+            // Three columns below the upgrade panel: the encounter, its ship or station, and the actions.
+            spawnKind = button("", 8, 66, 112, () ->
             {
                 kindChoice = (kindChoice + 1) % kinds.length;
-                spawnKind.setMessage(Component.literal(names[kindChoice]));
+                creativeLabels(ships, makers, purposes, sizes);
             });
-            spawnDanger = button("Danger " + dangerChoice, 8, 86, 120, () ->
+            spawnDanger = button("", 8, 86, 112, () ->
             {
                 dangerChoice = (dangerChoice + 1) % 4;
-                spawnDanger.setMessage(Component.literal("Danger " + dangerChoice));
+                creativeLabels(ships, makers, purposes, sizes);
             });
-            var spawn = button("Spawn encounter", 8, 106, 120, () -> send(16, kinds[kindChoice].id + " " + dangerChoice));
-            var system = button("Spawn star system", 8, 126, 120, () -> send(17, ""));
-            creativeButtons.addAll(java.util.List.of(spawnKind, spawnDanger, spawn, system));
+            spawnHistory = button("", 8, 106, 112, () ->
+            {
+                historyChoice = (historyChoice + 1) % HISTORY_IDS.length;
+                creativeLabels(ships, makers, purposes, sizes);
+            });
+            spawnDesign = button("", 124, 66, 116, () ->
+            {
+                designChoice = (designChoice + 1) % (ships.size() + 1);
+                creativeLabels(ships, makers, purposes, sizes);
+            });
+            spawnMaker = button("", 124, 86, 116, () ->
+            {
+                makerChoice = (makerChoice + 1) % (makers.length + 1);
+                creativeLabels(ships, makers, purposes, sizes);
+            });
+            spawnPurpose = button("", 124, 106, 116, () ->
+            {
+                purposeChoice = (purposeChoice + 1) % (purposes.length + 1);
+                creativeLabels(ships, makers, purposes, sizes);
+            });
+            spawnSize = button("", 124, 126, 116, () ->
+            {
+                sizeChoice = (sizeChoice + 1) % (sizes.length + 1);
+                creativeLabels(ships, makers, purposes, sizes);
+            });
+            var go = button("Start FTL", 244, 66, 72, () ->
+            {
+                String seed = spawnSeed.getValue().strip().replace(' ', '_');
+                send(16, kinds[kindChoice].id + " " + dangerChoice + " " + HISTORY_IDS[historyChoice] + " " + (designChoice == 0 || kindChoice != 1 && kindChoice != 2 ? "auto" : ships.get(designChoice - 1).id()) + " " + (makerChoice == 0 ? "auto" : makers[makerChoice - 1].name().toLowerCase(java.util.Locale.ROOT)) + " " + (purposeChoice == 0 ? "auto" : purposes[purposeChoice - 1].name().toLowerCase(java.util.Locale.ROOT)) + " " + (sizeChoice == 0 ? "auto" : sizes[sizeChoice - 1].name().toLowerCase(java.util.Locale.ROOT)) + " " + (seed.isEmpty() ? "random" : seed));
+            });
+            var system = button("New system", 244, 126, 72, () -> send(17, ""));
+            spawnSeed = addRenderableWidget(new EditBox(font, leftPos + 8, topPos + 126, 112, 18, Component.literal("Seed")));
+            spawnSeed.setMaxLength(24);
+            spawnSeed.setHint(Component.literal("Seed: random"));
+            creativeButtons.addAll(java.util.List.of(spawnKind, spawnDanger, spawnHistory, spawnDesign, spawnMaker, spawnPurpose, spawnSize, go, system));
+            creativeLabels(ships, makers, purposes, sizes);
         }
         else if (mode.equals("monitor"))
         {
@@ -268,6 +312,18 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         updateControls();
     }
 
+    private void creativeLabels(java.util.List<com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.Preset> ships, com.nullandkale.nullspace.worldgen.shipgen.Spec.Maker[] makers, com.nullandkale.nullspace.worldgen.stations.StationSpec.Purpose[] purposes, com.nullandkale.nullspace.worldgen.stations.StationSpec.Size[] sizes)
+    {
+        spawnKind.setMessage(Component.literal(KIND_NAMES[kindChoice]));
+        spawnDanger.setMessage(Component.literal("Danger " + dangerChoice));
+        spawnHistory.setMessage(Component.literal(HISTORY_NAMES[historyChoice]));
+        spawnDesign.setMessage(Component.literal(designChoice == 0 ? "Ship: by seed" : ships.get(designChoice - 1).name()));
+        spawnMaker.setMessage(Component.literal(makerChoice == 0 ? "Maker: by seed" : makers[makerChoice - 1].name().charAt(0) + makers[makerChoice - 1].name().substring(1).toLowerCase(java.util.Locale.ROOT)));
+        spawnPurpose.setMessage(Component.literal(purposeChoice == 0 ? "Purpose: by seed" : purposes[purposeChoice - 1].name().charAt(0) + purposes[purposeChoice - 1].name().substring(1).toLowerCase(java.util.Locale.ROOT)));
+        spawnSize.setMessage(Component.literal(sizeChoice == 0 ? "Size: by seed" : sizes[sizeChoice - 1].name().charAt(0) + sizes[sizeChoice - 1].name().substring(1).toLowerCase(java.util.Locale.ROOT)));
+        updateControls();
+    }
+
     private void updateControls()
     {
         if (pending && menu.reading.getIntOr("response", 0) > pendingResponse)
@@ -306,6 +362,18 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
         {
             tool.visible = menu.reading.getBooleanOr("creative", false);
             tool.active = canConfigure && !pending;
+        }
+        if (spawnSeed != null)
+        {
+            spawnSeed.visible = menu.reading.getBooleanOr("creative", false);
+            spawnSeed.active = canConfigure && !pending;
+        }
+        // A ship's design and a station's brief only mean something for their own kind.
+        if (spawnDesign != null)
+        {
+            spawnDesign.active = canConfigure && !pending && (kindChoice == 1 || kindChoice == 2);
+            spawnMaker.active = spawnPurpose.active = spawnSize.active = canConfigure && !pending && kindChoice == 4;
+            spawnHistory.active = canConfigure && !pending && kindChoice != 0 && kindChoice != 3;
         }
         if (restart != null)
         {
@@ -389,7 +457,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
             status = frame.scene().getStringOr("status", status);
         if (videoMode())
             text(g, status.replace('\n', ' '), 8, 208, mode.equals("camera") ? 204 : 304);
-        else
+        else if (!(mode.contains("scanner") && data.getBooleanOr("creative", false)))
         {
             int sy = 68;
             for (var line : font.split(Component.literal(status.replace('\n', ' ')), 176))
@@ -483,7 +551,7 @@ public final class MachineScreen extends AbstractContainerScreen<MachineMenu> im
             text(g, "Connected to: " + data.getStringOr("partner", "None"), 8, 48, 304);
             text(g, data.getBooleanOr("clamped", false) ? "Docked: open the door and walk through" : "Dock at a port using your Ship Controller", 8, 108, 304);
         }
-        if (mode.contains("scanner"))
+        if (mode.contains("scanner") && !data.getBooleanOr("creative", false))
         {
             int y = 108;
             for (var line : font.split(Component.literal("Browse destinations with Open scanner."), 176))

@@ -484,12 +484,8 @@ public final class MachineMenu extends AbstractContainerMenu
                 case 9 -> SceneService.preview(p, at);
                 case 16 ->
                 {
-                    // "<encounter kind id> <danger>": the creative Scanner spawns that encounter as a destination.
-                    var words = value.strip().split(" +");
-                    if (ship == null || words.length != 2)
-                        notice = ship == null ? "Connect this scanner to a ship first" : "Choose an encounter and a danger";
-                    else
-                        notice = com.nullandkale.nullspace.gameplay.navigation.CreativeSpawns.encounter(p.level().getServer(), ship, Integer.parseInt(words[0]), Integer.parseInt(words[1]));
+                    // Every setting of the encounter: the creative Scanner starts FTL to a temporary one.
+                    notice = ship == null ? "Connect this scanner to a ship first" : com.nullandkale.nullspace.gameplay.navigation.CreativeSpawns.journey(p, ship, value);
                 }
                 case 17 -> notice = ship == null ? "Connect this scanner to a ship first" : com.nullandkale.nullspace.gameplay.navigation.CreativeSpawns.system(p.level().getServer(), ship);
                 case 14 ->
