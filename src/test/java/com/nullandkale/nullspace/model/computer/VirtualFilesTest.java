@@ -33,7 +33,7 @@ class VirtualFilesTest
     @Test
     void pathsRejectUnsafeOrOversizedNames()
     {
-        for (String bad : new String[]{"a b", "a\\b", "a\0b", "a:b", "é", "a*", "x".repeat(257), "a/b c", "~"})
+        for (String bad : new String[]{"a b", "a\\b", "a\0b", "\0a", "\\a", "a\0", "a\\", "a:b", "é", "a*", "x".repeat(257), "a/b c", "~"})
             assertThrows(IllegalArgumentException.class, () -> VirtualFiles.path(CWD, bad), bad);
         VirtualFiles.path(CWD, "x".repeat(256));
         VirtualFiles.path(CWD, "dot.name-with_chars.9");

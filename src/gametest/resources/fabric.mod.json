@@ -89,7 +89,9 @@
       "com.nullandkale.nullspace.gameplay.station.GeneratedStationGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.OrbitalStationGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.CreativeSpawnsGameTest",
-      "com.nullandkale.nullspace.worldgen.condition.DerelictDamageGameTest"
+      "com.nullandkale.nullspace.worldgen.condition.DerelictDamageGameTest",
+      "com.nullandkale.nullspace.worldgen.encounters.LootSurveyGameTest",
+      "com.nullandkale.nullspace.worldgen.encounters.LiveStationSurveyGameTest"
     ],
     "fabric-client-gametest": [
       "com.nullandkale.nullspace.ui.screen.EquipmentUiClientGameTest",
@@ -115,6 +117,7 @@
       "com.nullandkale.nullspace.dev.ShipGalleryClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StationGalleryClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.DerelictGalleryClientGameTest",
+      "com.nullandkale.nullspace.gameplay.navigation.CreativeScannerClientGameTest",
       "com.nullandkale.nullspace.dev.SphereClientGameTest",
       "com.nullandkale.nullspace.gameplay.systems.SystemsClientGameTest",
       "com.nullandkale.nullspace.dev.LabArrivalClientGameTest",

@@ -3,7 +3,6 @@ package com.nullandkale.nullspace.worldgen.shipgen;
 import com.nullandkale.nullspace.worldgen.shipgen.ShipGenerator.Ship;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import net.minecraft.core.*;
@@ -286,40 +285,6 @@ class ShipGeneratorTest
                 var large = ShipGenerator.build(new Spec(Spec.Maker.RIVET, shape, Spec.Tier.LARGE, role, 1));
                 assertTrue(large.interior().size() > small.interior().size(), shape + " " + role + ": a large ship has more room inside than a small one");
             }
-    }
-
-    /** Writes every ship's floor plans to the file named by -Dshipgen.dump, for looking at. */
-    @Test
-    void dumpForReview() throws IOException
-    {
-        var path = System.getenv("SHIPGEN_DUMP");
-        if (path == null)
-            return;
-        try (var out = new PrintWriter(new File(path), StandardCharsets.UTF_8))
-        {
-            for (var spec : specs())
-                dump(out, ShipGenerator.build(spec));
-        }
-    }
-
-    static void dump(PrintWriter out, Ship ship)
-    {
-        out.println("=== " + label(ship.spec()) + "  " + ship.width() + " x " + ship.height() + " x " + ship.depth() + "  rooms " + ship.rooms().stream().map(r -> r.use().name()).toList());
-        for (int y = 0; y < ship.height(); y++)
-        {
-            out.println("-- y=" + y);
-            for (int z = 0; z < ship.depth(); z++)
-            {
-                var row = new StringBuilder();
-                for (int x = 0; x < ship.width(); x++)
-                {
-                    var at = new BlockPos(x, y, z);
-                    var v = ship.voxels().get(at);
-                    row.append(v == null ? (ship.interior().contains(at) ? '.' : ' ') : symbol(v.kind()));
-                }
-                out.println(row);
-            }
-        }
     }
 
     static char symbolOf(Kind k)

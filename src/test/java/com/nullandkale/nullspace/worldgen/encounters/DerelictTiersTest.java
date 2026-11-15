@@ -21,6 +21,26 @@ class DerelictTiersTest
     }
 
     @Test
+    void theHoardRoomTakesTheTreasureAndEveryOtherRoomItsOwnTierOfTable()
+    {
+        var points = new ArrayList<com.nullandkale.nullspace.worldgen.piece.Piece.Point>();
+        points.add(new com.nullandkale.nullspace.worldgen.piece.Piece.Point(new BlockPos(1, 0, 0), "roomloot", "kitchen_1 kitchen 0"));
+        points.add(new com.nullandkale.nullspace.worldgen.piece.Piece.Point(new BlockPos(2, 0, 0), "roomloot", "hold_1 cargo_hold 0"));
+        points.add(new com.nullandkale.nullspace.worldgen.piece.Piece.Point(new BlockPos(3, 0, 0), "roomloot", "engine_1 engineering 0"));
+        var base = new BlockPos(100, 64, 100);
+        var out = DerelictLoot.assignments(base, points, "treasure_2", 2, 5, "Test");
+        assertEquals(3, out.size(), "one chest per marked room");
+        var byPos = new HashMap<BlockPos, String>();
+        for (var a : out)
+            byPos.put(a.pos(), a.table());
+        assertEquals("treasure_2", byPos.get(base.offset(2, 0, 0)), "the cargo hold is the hoard");
+        assertEquals("derelict/kitchen_2", byPos.get(base.offset(1, 0, 0)));
+        // Engineering has a power-failure variant; which one depends on the site's history.
+        var engineering = byPos.get(base.offset(3, 0, 0));
+        assertTrue(engineering.equals("derelict/engineering_2") || engineering.equals("derelict/engineering_dead_2"), engineering);
+    }
+
+    @Test
     void belowDangerThreeEveryRoomGivesTheZonesOwnTier()
     {
         var spots = rooms(14);

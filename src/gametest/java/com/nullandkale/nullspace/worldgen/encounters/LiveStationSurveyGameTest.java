@@ -36,6 +36,12 @@ public final class LiveStationSurveyGameTest
     @GameTest(environment = "nullspace:station_building", maxTicks = 200000)
     public void liveStationLoot(GameTestHelper ctx)
     {
+        // A tool, not a check: the sweep runs it as an empty pass unless a survey is asked for.
+        if (System.getProperty("nullspace.survey.sites") == null)
+        {
+            ctx.succeed();
+            return;
+        }
         var server = ctx.getLevel().getServer();
         int count = Integer.getInteger("nullspace.survey.sites", 20);
         var out = Path.of(System.getProperty("nullspace.survey.out", "build/loot-live.json"));

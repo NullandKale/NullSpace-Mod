@@ -30,6 +30,12 @@ public final class LootSurveyGameTest
     @GameTest(maxTicks = 6000)
     public void surveyEncounterLoot(GameTestHelper ctx)
     {
+        // A tool, not a check: the sweep runs it as an empty pass unless a survey is asked for.
+        if (System.getProperty("nullspace.survey.sites") == null)
+        {
+            ctx.succeed();
+            return;
+        }
         int sites = Integer.getInteger("nullspace.survey.sites", 20);
         var out = Path.of(System.getProperty("nullspace.survey.out", "build/loot-survey.json"));
         var level = ctx.getLevel();
