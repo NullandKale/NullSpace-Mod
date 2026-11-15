@@ -86,7 +86,15 @@ Places have a danger level from 0 to 3 ([`StarSystems.danger`](../../src/main/ja
 | 2 | 2 | 1 | 1 |
 | 3 | 3 | 2 | 2 |
 
-Lost crew wear spacesuits, and repair bots are a custom hostile entity. Threats do not respawn, which is the other half of "supplies do not refill".
+Lost crew wear spacesuits (no name tags), and repair bots are a custom hostile entity. Threats do not respawn, which is the other half of "supplies do not refill".
+
+**Ranks.** At danger 3 the first zombie is a zombie villager and the first skeleton a wither skeleton (only where its height fits); a skeleton in a room with no air is a stray. They are the same suited crew, told apart by gear.
+
+**Vanilla's spawn upgrades.** Each crew member goes through vanilla's own spawn step with a difficulty built from the site's danger (plus up to a quarter more for time aboard), so armor chance and tiers, enchantments, weapon enchantments, health and speed bonuses, and zombie leaders all apply. Wherever vanilla would give a piece of armor the mob wears the armored suit with the same enchantments; otherwise the plain suit. There are no babies, no jockeys, and no door breaking (a mob would vent the rooms).
+
+**Stowaways.** Besides crew and bots a site gets stowaways, planetside animals that came aboard in cargo and adapted: one at danger 1, two at 2, three at 3, placed with the crew and as one reinforcement in three. Each is the vanilla creature under its own entity type ([`Stowaways`](../../src/main/java/com/nullandkale/nullspace/content/entity/Stowaways.java)), so its look belongs to the ship and the vanilla creatures keep their vanilla textures on planets. Pale spiders, pale cave spiders and pale silverfish (white, the spiders' eyes blended into the skin) from danger 1; the ghost creeper (grey, half transparent) from danger 2; and the violet slime and violet blaze at danger 3, the deepest sites' own. Textures come from [`recolor_mobs.py`](../../scripts/art/recolor_mobs.py) and are drawn by [`StowawayRenderers`](../../src/client/java/com/nullandkale/nullspace/render/entity/StowawayRenderers.java). The violet pair is also meant for the warp core, which is not designed yet.
+
+**Time aboard.** While a player is aboard, one more crew member turns up out of sight (at least 16 blocks from every player) every two minutes, up to two per danger level and never more than six plus the danger live at once. Nothing is shown to the player.
 
 ### How a signal exists
 

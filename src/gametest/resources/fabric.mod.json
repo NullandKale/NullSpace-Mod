@@ -76,6 +76,8 @@
       "com.nullandkale.nullspace.gameplay.shipyard.ShipYardGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.RandomYardGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.RoomGalleryGameTest",
+      "com.nullandkale.nullspace.gameplay.shipyard.EnemyGalleryGameTest",
+      "com.nullandkale.nullspace.gameplay.shipyard.EnemyGalleryClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StationGalleryGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StairWalkGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.ShipYardCrashGameTest",

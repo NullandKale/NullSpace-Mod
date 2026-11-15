@@ -102,6 +102,7 @@ public final class NullSpace implements ModInitializer
         RandomYard.initialize();
         RoomGallery.initialize();
         StationGallery.initialize();
+        com.nullandkale.nullspace.gameplay.shipyard.EnemyGallery.initialize();
         SpaceStart.initialize();
         ServerContext.initialize();
         LOGGER.info("NullSpace Initialized");

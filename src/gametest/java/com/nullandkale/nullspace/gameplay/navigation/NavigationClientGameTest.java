@@ -218,7 +218,8 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                         var ship = SceneService.observer(world.getConnection().getServerPlayer());
                         if (ship.getCompoundOrEmpty("course").getStringOr("state", "").equals("PAUSED"))
                             throw new AssertionError("Encounter approach paused: " + CourseService.summary(ship));
-                        return ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship) && !CourseService.active(ship);
+                        // Resume is refused while the docking tunnel is still being built or crew are boarding, which starts just after the clamp.
+                        return ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && ship.getCompoundOrEmpty("dock").contains("tunnel") && !TransferLocks.busy(server, ship) && !NavigationService.pending(server, ship.getStringOr("id", "")) && !CourseService.active(ship);
                     }, 1600);
                     world.getServer().runOnServer(server ->
                     {

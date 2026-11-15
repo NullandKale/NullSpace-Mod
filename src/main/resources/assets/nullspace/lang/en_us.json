@@ -33,5 +33,11 @@
   "item.nullspace.armored_space_chestplate": "Armored Space Chestplate",
   "item.nullspace.armored_space_leggings": "Armored Space Leggings",
   "item.nullspace.armored_space_boots": "Armored Space Boots",
-  "entity.nullspace.repair_bot": "Repair Bot"
+  "entity.nullspace.repair_bot": "Repair Bot",
+  "entity.nullspace.ghost_creeper": "Ghost Creeper",
+  "entity.nullspace.pale_spider": "Pale Spider",
+  "entity.nullspace.pale_cave_spider": "Pale Cave Spider",
+  "entity.nullspace.pale_silverfish": "Pale Silverfish",
+  "entity.nullspace.violet_slime": "Violet Slime",
+  "entity.nullspace.violet_blaze": "Violet Blaze"
 }

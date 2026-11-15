@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.gameplay.navigation;
 
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.entity.RepairBot;
+import com.nullandkale.nullspace.content.entity.Stowaways;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
@@ -16,8 +17,10 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.monster.skeleton.Skeleton;
+import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton;
 import net.minecraft.world.entity.monster.zombie.Zombie;
+import net.minecraft.world.entity.monster.zombie.ZombieVillager;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 
@@ -165,7 +168,7 @@ public final class JourneySignalGameTest
         try
         {
             long zombies = spawned.stream().filter(m -> m instanceof Zombie).count();
-            long skeletons = spawned.stream().filter(m -> m instanceof Skeleton).count();
+            long skeletons = spawned.stream().filter(m -> m instanceof AbstractSkeleton).count();
             long bots = spawned.stream().filter(m -> m instanceof RepairBot).count();
             ctx.assertTrue(zombies == 3 && skeletons == 2 && bots == 2, "Danger 3: three lost crew zombies, two skeletons and two repair bots, got " + zombies + "/" + skeletons + "/" + bots);
             ctx.assertTrue(none.isEmpty(), "A danger 0 site has no threats");
@@ -175,10 +178,11 @@ public final class JourneySignalGameTest
             {
                 ctx.assertTrue(bounds.contains(mob.position()), "Threats start inside the site");
                 ctx.assertTrue(mob.isPersistenceRequired(), "Threats do not despawn");
-                if (!(mob instanceof RepairBot))
-                    ctx.assertTrue(mob.getItemBySlot(EquipmentSlot.HEAD).is(ModBlocks.HELMET) && mob.getItemBySlot(EquipmentSlot.FEET).is(ModBlocks.BOOTS) && mob.getCustomName() != null && mob.getCustomName().getString().startsWith("Lost crew "), "Lost crew wear space suits and carry a crew name");
+                if (mob instanceof Zombie || mob instanceof AbstractSkeleton)
+                    ctx.assertTrue((mob.getItemBySlot(EquipmentSlot.HEAD).is(ModBlocks.HELMET) || mob.getItemBySlot(EquipmentSlot.HEAD).is(ModBlocks.ARMORED_HELMET)) && (mob.getItemBySlot(EquipmentSlot.FEET).is(ModBlocks.BOOTS) || mob.getItemBySlot(EquipmentSlot.FEET).is(ModBlocks.ARMORED_BOOTS)) && mob.getCustomName() == null, "Lost crew wear space suits and carry no name tag");
             }
-            ctx.assertTrue(spawned.stream().filter(m -> m instanceof Skeleton).allMatch(m -> m.getMainHandItem().is(Items.BOW)), "Lost crew skeletons carry bows");
+            ctx.assertTrue(spawned.stream().filter(m -> m instanceof AbstractSkeleton && !(m instanceof WitherSkeleton)).allMatch(m -> m.getMainHandItem().is(Items.BOW)), "Lost crew skeletons carry bows");
+            ctx.assertTrue(spawned.stream().anyMatch(m -> m instanceof ZombieVillager), "Danger 3 has the hard zombie rank");
             var bot = (RepairBot) spawned.stream().filter(m -> m instanceof RepairBot).findFirst().get();
             ctx.assertTrue(bot.isNoGravity(), "Repair bots hover");
             var patient = spawned.stream().filter(m -> m instanceof Zombie).findFirst().get();
@@ -196,6 +200,106 @@ public final class JourneySignalGameTest
             finish(ctx, store, far, home, base, safeBase, spawned);
             throw e;
         }
+    }
+
+    @GameTest(maxTicks = 200)
+    public void crewGetVanillasSpawnUpgradesInTheSpaceSuitAndHigherDangerGetsMore(GameTestHelper ctx)
+    {
+        var space = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
+        int[] armored = new int[2], enchanted = new int[2];
+        var dangers = new int[]{1, 3};
+        for (int d = 0; d < 2; d++)
+            for (int i = 0; i < 150; i++)
+            {
+                var mob = SiteThreats.crew(space, i % 2 == 0 ? net.minecraft.world.entity.EntityTypes.ZOMBIE : net.minecraft.world.entity.EntityTypes.SKELETON, SiteThreats.difficulty(dangers[d], d == 1 ? SiteThreats.FULL_HEAT : 0));
+                ctx.assertTrue(mob.getCustomName() == null && !mob.isBaby() && !mob.isPassenger() && !mob.isVehicle(), "Crew carry no tag and are never a baby or a jockey");
+                if (mob instanceof Zombie zombie)
+                    ctx.assertTrue(!zombie.canBreakDoors(), "Crew never break doors, which would vent the rooms");
+                for (var slot : List.of(EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET))
+                {
+                    var piece = mob.getItemBySlot(slot);
+                    ctx.assertTrue(!piece.isEmpty() && !piece.is(Items.IRON_HELMET) && !piece.is(Items.DIAMOND_HELMET), "Every piece is a space suit piece");
+                    armored[d] += piece.is(ModBlocks.ARMORED_HELMET) || piece.is(ModBlocks.ARMORED_CHEST) || piece.is(ModBlocks.ARMORED_LEGS) || piece.is(ModBlocks.ARMORED_BOOTS) ? 1 : 0;
+                    enchanted[d] += piece.isEnchanted() ? 1 : 0;
+                }
+            }
+        // 150 crew with four pieces each: about 20 percent armored at danger 1, about 75 at danger 3.
+        ctx.assertTrue(armored[1] > armored[0] * 2 && armored[1] > 300 && armored[0] < 300, "Danger 3 crew wear far more of the armored suit: " + armored[0] + " against " + armored[1]);
+        ctx.assertTrue(enchanted[1] > enchanted[0] && enchanted[1] > 0, "Danger 3 suits carry enchantments: " + enchanted[0] + " against " + enchanted[1]);
+        ctx.succeed();
+    }
+
+    @GameTest(maxTicks = 200)
+    public void pestsJoinTheCrewByDangerAndTheCreeperOnlyFromDangerTwo(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var space = server.getLevel(TravelService.SPACE);
+        var store = WorldStore.get(server);
+        var base = new BlockPos(1_960_192, 96, 1_960_000);
+        space.setChunkForced(base.getX() >> 4, base.getZ() >> 4, true);
+        var ship = site(ctx, "e_threat_pests", base);
+        ship.putInt("encounterDanger", 3);
+        var spawned = new ArrayList<>(SiteThreats.populate(space, ship));
+        try
+        {
+            var pests = spawned.stream().filter(m -> !(m instanceof Zombie) && !(m instanceof AbstractSkeleton) && !(m instanceof RepairBot)).toList();
+            ctx.assertTrue(pests.size() == SiteThreats.pests(3) && SiteThreats.pests(3) == 3 && SiteThreats.pests(1) == 1 && SiteThreats.pests(0) == 0, "Danger 3 has three pests: " + pests.size());
+            var allowed = Set.of(Stowaways.PALE_SPIDER, Stowaways.PALE_CAVE_SPIDER, Stowaways.PALE_SILVERFISH, Stowaways.GHOST_CREEPER, Stowaways.VIOLET_SLIME, Stowaways.VIOLET_BLAZE);
+            ctx.assertTrue(pests.stream().allMatch(m -> allowed.contains(m.getType())), "Pests are only the stowaways");
+            var random = net.minecraft.util.RandomSource.create(7);
+            var seen = new HashSet<net.minecraft.world.entity.EntityType<?>>();
+            for (int i = 0; i < 300; i++)
+            {
+                ctx.assertTrue(SiteThreats.pest(1, random) != Stowaways.GHOST_CREEPER && SiteThreats.pest(2, random) != Stowaways.VIOLET_SLIME && SiteThreats.pest(2, random) != Stowaways.VIOLET_BLAZE, "No creeper below danger 2, and the violet pair only at danger 3");
+                seen.add(SiteThreats.pest(3, random));
+            }
+            ctx.assertTrue(seen.equals(allowed), "Danger 3 draws all six stowaways: " + seen);
+        }
+        finally
+        {
+            spawned.forEach(Mob::discard);
+            store.ships().remove(ship);
+            clear(ctx, base);
+        }
+        ctx.succeed();
+    }
+
+    @GameTest(maxTicks = 200)
+    public void timeAboardBringsReinforcementsOutOfSightUpToTwoPerDanger(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var space = server.getLevel(TravelService.SPACE);
+        var store = WorldStore.get(server);
+        var base = new BlockPos(1_960_128, 96, 1_960_000);
+        space.setChunkForced(base.getX() >> 4, base.getZ() >> 4, true);
+        var ship = site(ctx, "e_threat_wait", base);
+        ship.putInt("encounterDanger", 2);
+        var spawned = new ArrayList<>(SiteThreats.populate(space, ship));
+        try
+        {
+            var box = WorldStore.bounds(ship).box();
+            ctx.assertTrue(SiteThreats.reinforce(space, ship) == null && ship.getIntOr("reinforcements", 0) == 0, "Nobody comes before the time is up");
+            int arrived = 0;
+            for (int round = 1; round <= 5; round++)
+            {
+                ship.putInt("siteHeat", round * SiteThreats.REINFORCE_TICKS - 20);
+                var mob = SiteThreats.reinforce(space, ship);
+                if (mob != null)
+                {
+                    arrived++;
+                    spawned.add(mob);
+                    ctx.assertTrue(box.contains(mob.position()), "A reinforcement turns up inside the site");
+                }
+            }
+            ctx.assertTrue(arrived == 4 && ship.getIntOr("reinforcements", 0) == 4, "Danger 2 gets two reinforcements per danger level and no more: " + arrived);
+        }
+        finally
+        {
+            spawned.forEach(Mob::discard);
+            store.ships().remove(ship);
+            clear(ctx, base);
+        }
+        ctx.succeed();
     }
 
     private static void finish(GameTestHelper ctx, WorldStore store, CompoundTag far, CompoundTag home, BlockPos base, BlockPos safeBase, List<Mob> spawned)

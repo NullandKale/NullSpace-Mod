@@ -72,6 +72,7 @@ public final class NullSpaceClient implements ClientModInitializer
     {
         DevWorldCreation.initialize();
         RepairBotRenderer.register();
+        com.nullandkale.nullspace.render.entity.StowawayRenderers.register();
         net.minecraft.client.gui.screens.MenuScreens.register(MachineMenus.MENU, MachineScreen::new);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(MachineMenus.View.TYPE, (packet, context) -> context.client().execute(() ->
         {

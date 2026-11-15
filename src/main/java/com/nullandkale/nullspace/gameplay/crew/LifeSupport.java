@@ -122,6 +122,16 @@ public final class LifeSupport
         return tethered ? Math.max(local, SUIT_TETHER_FLOOR) : local;
     }
 
+    /**
+     * Standing inside a found wreck other than the player's own ship. The ship's air line does not reach through a wreck's
+     * hull, so the tether floor does not hold there: a breached room is dangerous, and only a canister helps.
+     */
+    static boolean insideWreck(WorldStore store, ServerPlayer player, CompoundTag own)
+    {
+        var here = store.at(player.level(), player.blockPosition());
+        return here != null && !here.getStringOr("id", "").equals(own.getStringOr("id", "")) && com.nullandkale.nullspace.gameplay.ownership.Claims.derelict(here);
+    }
+
     /** Refills a held canister from a powered Air Supply. */
     public static net.minecraft.world.InteractionResult fillCanister(ServerPlayer player, net.minecraft.world.InteractionHand hand, BlockPos at)
     {
@@ -278,7 +288,7 @@ public final class LifeSupport
                 if (ShipSystems.enabled(vessel))
                 {
                     cabin = ShipAir.breathable(player.level(), vessel, BlockPos.containing(player.getEyePosition()));
-                    source = !cabin && suited(player) && ShipAir.tether(player.level(), vessel);
+                    source = !cabin && suited(player) && !insideWreck(store, player, vessel) && ShipAir.tether(player.level(), vessel);
                 }
                 boolean construction = StationConstruction.constructionAir(player, vessel);
                 if (!player.isSpectator())

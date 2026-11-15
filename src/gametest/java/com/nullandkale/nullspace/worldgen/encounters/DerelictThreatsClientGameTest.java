@@ -15,7 +15,6 @@ import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -56,11 +55,10 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                 for (int x = -4; x <= 12; x++)
                     for (int z = -6; z <= 6; z++)
                         level.setBlock(floor.offset(x, 0, z), Blocks.SMOOTH_STONE.defaultBlockState(), 18);
-                var random = RandomSource.create(5);
                 var lineup = new ArrayList<Mob>();
                 lineup.add(SiteThreats.REPAIR_BOT.create(level, EntitySpawnReason.COMMAND));
-                lineup.add(SiteThreats.crew(level, EntityTypes.ZOMBIE, random));
-                lineup.add(SiteThreats.crew(level, EntityTypes.SKELETON, random));
+                lineup.add(SiteThreats.crew(level, EntityTypes.ZOMBIE));
+                lineup.add(SiteThreats.crew(level, EntityTypes.SKELETON));
                 double x = floor.getX() - 2.5;
                 for (var mob : lineup)
                 {
