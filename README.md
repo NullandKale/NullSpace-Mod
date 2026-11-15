@@ -21,7 +21,7 @@ New to it? Read the [first ship walkthrough](docs/player/first-ship-walkthrough.
 - **A galaxy per world.** Sol and four random star systems, with nebulae, asteroid fields and a black hole or pulsar. Landable planets each have their own terrain. A star map plans hops within your engine's range.
 - **Journeys.** Interstellar trips take time, and signals along the way lead to derelicts, drifting cargo and ambushes.
 - **Stations and docking.** Dock automatically at stations and other ships, then walk through. You can also build your own station in space, room by room.
-- **Derelicts.** Claim abandoned ships as your own. Lost crew and repair bots defend them, and loot gets better the farther you go.
+- **Derelicts.** Wrecked ships and stations are places to explore and strip: hulls torn open, power gone, lost crew and repair bots defending them, and loot that gets better the farther you go.
 - **Pads, storage and titles.** Register landing pads, store ships, recall them, and hand ships over with a Ship Title.
 
 ## Develop

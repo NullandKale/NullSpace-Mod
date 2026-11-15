@@ -90,6 +90,8 @@
       "com.nullandkale.nullspace.worldgen.encounters.OrbitalStationGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.CreativeSpawnsGameTest",
       "com.nullandkale.nullspace.worldgen.condition.DerelictDamageGameTest",
+      "com.nullandkale.nullspace.worldgen.condition.DerelictScenarioGameTest",
+      "com.nullandkale.nullspace.worldgen.encounters.LootBudgetGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.LootSurveyGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.LiveStationSurveyGameTest"
     ],
