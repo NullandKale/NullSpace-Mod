@@ -2,7 +2,7 @@
 
 All harnesses use development/test dependencies. None opens `run/saves/NullSpace-Dev` or `run-lab/saves/NullSpace-Lab`. The multiplayer and physical-crash scripts are opt-in and are not dependencies of build/check or CI.
 
-The combined runner `.\scripts\test\verify.ps1 -Graphics -Multiplayer -Crash` runs the complete matrix sequentially and preserves receipts, reports, logs, screenshots and the built JAR digest under `build/verification/<run>/`. Omit optional switches to run only the ordinary unit/native/assets/build suites; omitted suites are explicitly marked not-selected.
+The full check is [`parallel-test.ps1`](../../scripts/test/parallel-test.ps1), described below. There is no sequential runner: one that stops at the first failed stage hides every later failure and invites one-fix-one-run loops. The multiplayer, physical-crash, build-crash and planet-restart scripts are separate and opt-in ([`multiplayer-test.ps1`](../../scripts/test/multiplayer-test.ps1), [`crash-test.ps1`](../../scripts/test/crash-test.ps1), [`shipyard-crash-test.ps1`](../../scripts/test/shipyard-crash-test.ps1), [`planet-restart-test.ps1`](../../scripts/test/planet-restart-test.ps1)); run each on its own and collect every result before fixing.
 
 For the ordinary unit/server/assets suites and graphical coverage, run `.\scripts\test\parallel-test.ps1 -Graphics`. It compiles and packages once, then launches the server tests alongside six graphical workers by default. Set `-GraphicsWorkers 8` for eight, or choose any count from one to eight. `-ServerWorkers 2` splits native tests across two JVMs; the default is one and the supported range is also one through eight. Each worker has its own world root, working directory, resource manifest and logs under `build/parallel-verification/<run>/`.
 
@@ -106,7 +106,7 @@ The two-client script also requires `shipyard-race-passed`: each actual client b
 
 ## Save and journal performance test
 
-[`scripts/test/performance-test.ps1`](../../scripts/test/performance-test.ps1) measures what saving and journaling cost on a generated world of real ships: one dedicated-server JVM per scenario, a one-minute warm-up, a stepped ramp, then flat out. It is opt-in and never part of `check`, `verify.ps1` or CI. The design and the scenarios are in the [performance test](performance-test.md). [`scripts/test/compare-performance.py`](../../scripts/test/compare-performance.py) prints two runs side by side:
+[`scripts/test/performance-test.ps1`](../../scripts/test/performance-test.ps1) measures what saving and journaling cost on a generated world of real ships: one dedicated-server JVM per scenario, a one-minute warm-up, a stepped ramp, then flat out. It is opt-in and never part of `check`, `parallel-test.ps1` or CI. The design and the scenarios are in the [performance test](performance-test.md). [`scripts/test/compare-performance.py`](../../scripts/test/compare-performance.py) prints two runs side by side:
 
 ```powershell
 .\scripts	est\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label before

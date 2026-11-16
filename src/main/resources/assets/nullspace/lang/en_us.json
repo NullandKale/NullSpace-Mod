@@ -39,5 +39,9 @@
   "entity.nullspace.pale_cave_spider": "Pale Cave Spider",
   "entity.nullspace.pale_silverfish": "Pale Silverfish",
   "entity.nullspace.violet_slime": "Violet Slime",
-  "entity.nullspace.violet_blaze": "Violet Blaze"
+  "entity.nullspace.violet_blaze": "Violet Blaze",
+  "block.nullspace.broken_engine": "Broken Ship Engine",
+  "block.nullspace.broken_generator": "Broken Generator",
+  "block.nullspace.broken_air_supply": "Broken Air Supply",
+  "block.nullspace.broken_pad_computer": "Broken Pad Computer"
 }

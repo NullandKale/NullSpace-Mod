@@ -46,6 +46,11 @@ final class VolumePass
             var b = stack.malloc(64);
             new Matrix4f(depthProjection).invert().get(0, b);
             RenderSystem.getDevice().createCommandEncoder().writeToBuffer(o.viewBuffer.slice(160, 64), b);
+            // Where far terrain starts and finishes fading into the sky (no fade for monitors and other viewports).
+            var fade = com.nullandkale.nullspace.render.scene.SpaceSceneRenderer.chunkFadeFor(o);
+            var f = stack.malloc(16);
+            f.putFloat(0, fade[0]).putFloat(4, fade[1]).putFloat(8, 0).putFloat(12, 0);
+            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(o.viewBuffer.slice(224, 16), f);
         }
         try (var state = new ComputeStateScope())
         {

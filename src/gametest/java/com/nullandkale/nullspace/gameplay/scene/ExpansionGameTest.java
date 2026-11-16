@@ -217,16 +217,24 @@ public final class ExpansionGameTest
         {
             int started = level.getServer().getTickCount();
             Piloting.automate(level, current.get(), terminal, "native-script-test", FlightDynamics.FORWARD, 4);
-            ctx.runAfterDelay(2, () -> ctx.assertTrue(SceneService.pose(current.get()).position().x > -2499.99, "Script thrust must use real flight dynamics"));
+            double[] peak = {0}, before = {0};
+            java.util.function.ToDoubleFunction<CompoundTag> speed = t -> Math.sqrt(Math.pow(t.getDoubleOr("simVX", 0), 2) + Math.pow(t.getDoubleOr("simVY", 0), 2) + Math.pow(t.getDoubleOr("simVZ", 0), 2));
+            ctx.runAfterDelay(2, () ->
+            {
+                ctx.assertTrue(SceneService.pose(current.get()).position().x > -2499.99, "Script thrust must use real flight dynamics");
+                peak[0] = speed.applyAsDouble(current.get());
+            });
+            ctx.runAfterDelay(4, () -> peak[0] = Math.max(peak[0], speed.applyAsDouble(current.get())));
             ctx.runAfterDelay(6, () ->
             {
-                ctx.assertTrue(current.get().getDoubleOr("simVX", 1) == 0, "Expired commands must stop motion (server elapsed=" + (level.getServer().getTickCount() - started) + ", velocity=" + current.get().getDoubleOr("simVX", 1) + ")");
+                ctx.assertTrue(speed.applyAsDouble(current.get()) <= peak[0] + 1e-9, "Expired commands stop pushing, and assist brakes the ship: it is no faster than it was (server elapsed=" + (level.getServer().getTickCount() - started) + ", velocity=" + current.get().getDoubleOr("simVX", 1) + ")");
                 Piloting.automate(level, current.get(), terminal, "native-script-test", FlightDynamics.FORWARD, 20);
                 level.setBlock(terminal, Blocks.AIR.defaultBlockState(), 18);
+                before[0] = speed.applyAsDouble(current.get());
             });
             ctx.runAfterDelay(9, () ->
             {
-                ctx.assertTrue(current.get().getDoubleOr("simVX", 1) == 0, "Removing a computer must revoke its flight command");
+                ctx.assertTrue(speed.applyAsDouble(current.get()) <= before[0] + 1e-9, "Removing a computer must revoke its flight command: the ship keeps no thrust");
                 WorldStore.get(level.getServer()).ships().removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(shipId));
                 ctx.succeed();
             });

@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Replace environmental haze, preserving chunk-edge fading, fluids, effects and boss fog. */
+/** Replace environmental haze, preserving fluids, effects and boss fog. The chunk-edge fade is {@link PlanetChunkFogMixin}. */
 @Mixin(AtmosphericFogEnvironment.class)
 public abstract class PlanetFogMixin
 {

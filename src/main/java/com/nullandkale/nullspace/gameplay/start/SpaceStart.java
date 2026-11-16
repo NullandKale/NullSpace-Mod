@@ -40,6 +40,7 @@ public final class SpaceStart
 {
     private static final ServerContext.Key<WorldStartSettings> SETTINGS = new ServerContext.Key<>();
     private static final ServerContext.Key<Map<UUID, Integer>> ARRIVALS = new ServerContext.Key<>();
+    private static final ServerContext.Key<Map<UUID, Integer>> FAILURES = new ServerContext.Key<>();
     private static final String SUPPLIES = "nullspace_start_supplies";
 
     public static void initialize()
@@ -89,7 +90,22 @@ public final class SpaceStart
                 }
                 catch (RuntimeException failure)
                 {
-                    waiting.put(id, server.getTickCount() + 1200);
+                    var failures = ServerContext.get(server).service(FAILURES, HashMap::new);
+                    if (failures.merge(id, 1, Integer::sum) >= 3 && settings(server).crash())
+                    {
+                        // Joining must never fail: after three tries, the player is put on the surface with their supplies.
+                        try
+                        {
+                            CrashStart.fallback(player, settings(server), failure);
+                            waiting.remove(id);
+                            continue;
+                        }
+                        catch (RuntimeException last)
+                        {
+                            NullSpace.LOGGER.error("The crash start fallback failed for {}", id, last);
+                        }
+                    }
+                    waiting.put(id, server.getTickCount() + 200);
                     NullSpace.LOGGER.error("Space start failed for {}; the saved starting ship will be retried", id, failure);
                     player.sendSystemMessage(Component.literal("Your starting ship could not finish setting up. The server will retry. See" + " the server log for details."));
                 }
@@ -136,6 +152,8 @@ public final class SpaceStart
         var starts = store.section("spaceStarts");
         String key = player.getUUID().toString();
         var record = starts.getCompoundOrEmpty(key);
+        if (settings.crash() || record.getBooleanOr("crash", false))
+            return CrashStart.start(player, settings);
         if (record.getBooleanOr("completed", false))
             return store.repository().find(record.getStringOr("ship", ""));
         var level = server.getLevel(TravelService.SPACE);
@@ -146,7 +164,7 @@ public final class SpaceStart
             var before = store.snapshot();
             record.putString("ship", UUID.randomUUID().toString());
             record.putString("preset", settings.ship());
-            record.putString("planet", planet(server, player.getUUID()));
+            record.putString("planet", orbitPlanet(server, player.getUUID(), settings));
             starts.put(key, record);
             store.requestSave();
             com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(server, "prepare-space-start", before);
@@ -214,6 +232,20 @@ public final class SpaceStart
         var controller = WorldStore.pos(ship, "controller");
         var facing = level.getBlockState(controller).getValue(HorizontalDirectionalBlock.FACING);
         player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), facing.getOpposite().toYRot(), 0, true);
+        giveSupplies(player);
+        player.setAirSupply(player.getMaxAirSupply());
+        server.getPlayerList().saveAll();
+        var beforeCompletion = store.snapshot();
+        record.putBoolean("completed", true);
+        store.requestSave();
+        com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(server, "complete-space-start", beforeCompletion);
+        player.sendSystemMessage(Component.literal("Welcome aboard " + preset.name() + ". You are above " + LocalSpaces.get(server, LocalSpaces.address(ship)).name() + ". Use the Ship Controller to explore. Fuel is in the generator; food is in your" + " inventory."));
+        return ship;
+    }
+
+    /** The starting supplies, once: a tag stops a second grant. */
+    public static void giveSupplies(ServerPlayer player)
+    {
         if (!player.entityTags().contains(SUPPLIES))
         {
             player.getInventory().add(new ItemStack(Items.BREAD, 16));
@@ -228,14 +260,32 @@ public final class SpaceStart
             FieldGuide.supply(player);
             player.addTag(SUPPLIES);
         }
-        player.setAirSupply(player.getMaxAirSupply());
-        server.getPlayerList().saveAll();
-        var beforeCompletion = store.snapshot();
-        record.putBoolean("completed", true);
-        store.requestSave();
-        com.nullandkale.nullspace.gameplay.travel.RecordJournal.commit(server, "complete-space-start", beforeCompletion);
-        player.sendSystemMessage(Component.literal("Welcome aboard " + preset.name() + ". You are above " + LocalSpaces.get(server, LocalSpaces.address(ship)).name() + ". Use the Ship Controller to explore. Fuel is in the generator; food is in your" + " inventory."));
-        return ship;
+    }
+
+    /**
+     * What a crash survivor has: food, the suit and the field guide, and nothing else. No tools, no fuel and no stone: the
+     * ship's wrecks and furnishings are the first materials, and a tool is the first thing to make.
+     */
+    public static void giveCrashSupplies(ServerPlayer player)
+    {
+        if (!player.entityTags().contains(SUPPLIES))
+        {
+            player.getInventory().add(new ItemStack(Items.BREAD, 16));
+            player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(ModBlocks.HELMET));
+            player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModBlocks.CHEST));
+            player.setItemSlot(EquipmentSlot.LEGS, new ItemStack(ModBlocks.LEGS));
+            player.setItemSlot(EquipmentSlot.FEET, new ItemStack(ModBlocks.BOOTS));
+            FieldGuide.supply(player);
+            player.addTag(SUPPLIES);
+        }
+    }
+
+    /** The planet an orbit start is over: the chosen one, or the existing draw from the home system when the choice is random. */
+    private static String orbitPlanet(MinecraftServer server, UUID player, WorldStartSettings settings)
+    {
+        if (settings.planet().equals("random"))
+            return planet(server, player);
+        return StartPlanets.resolve(StarSystems.galaxy(server), settings.planet(), server.overworld().getSeed() ^ player.getMostSignificantBits()).id();
     }
 
     private static BlockPos buildHull(ServerPlayer player, net.minecraft.server.level.ServerLevel level, WorldStore store, CompoundTag ship, ShipBlueprints.Preset preset, String key)

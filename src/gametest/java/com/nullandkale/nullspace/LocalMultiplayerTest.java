@@ -514,7 +514,9 @@ public final class LocalMultiplayerTest
                     var helm = WorldStore.pos(vessel, "controller");
                     vessel.putDouble("simVX", 99);
                     NavigationService.open(pilot, helm, true);
-                    check(vessel.getDoubleOr("simVX", -1) == 0, "Reacquiring a helm after restart must discard stale saved velocity");
+                    // A ship keeps its momentum: taking the helm again does not stop it. The test then brings it to rest, so the flight below starts from a standstill.
+                    check(vessel.getDoubleOr("simVX", -1) == 99, "Reacquiring a helm keeps the ship's saved velocity");
+                    vessel.putDouble("simVX", 0);
                     var crew = s.getPlayerList().getPlayers().stream().filter(p -> p != pilot).findFirst().orElseThrow();
                     boolean rejected = false;
                     try

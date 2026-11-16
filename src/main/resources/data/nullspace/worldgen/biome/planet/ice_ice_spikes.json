@@ -2,7 +2,101 @@
   "attributes": {
     "minecraft:gameplay/creature_world_gen_spawn_probability": 0.07,
     "minecraft:visual/sky_color": "#101420",
-    "minecraft:visual/fog_color": "#2a2f3a"
+    "minecraft:visual/fog_color": "#2a2f3a",
+    "minecraft:gameplay/natural_mob_spawns": {
+      "argument": {
+        "spawn_costs": {},
+        "spawns_by_category": {
+          "monster": [
+            {
+              "type": "minecraft:zombie",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 2,
+                "max_inclusive": 3
+              },
+              "weight": 100
+            },
+            {
+              "type": "minecraft:skeleton",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 1,
+                "max_inclusive": 2
+              },
+              "weight": 50
+            },
+            {
+              "type": "minecraft:stray",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 1,
+                "max_inclusive": 2
+              },
+              "weight": 30
+            },
+            {
+              "type": "minecraft:zombie_villager",
+              "count": 1,
+              "weight": 8
+            },
+            {
+              "type": "minecraft:wither_skeleton",
+              "count": 1,
+              "weight": 10
+            },
+            {
+              "type": "nullspace:ghost_creeper",
+              "count": 1,
+              "weight": 30
+            },
+            {
+              "type": "nullspace:pale_spider",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 1,
+                "max_inclusive": 3
+              },
+              "weight": 40
+            },
+            {
+              "type": "nullspace:pale_cave_spider",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 1,
+                "max_inclusive": 2
+              },
+              "weight": 10
+            },
+            {
+              "type": "nullspace:pale_silverfish",
+              "count": {
+                "type": "minecraft:uniform",
+                "min_inclusive": 2,
+                "max_inclusive": 3
+              },
+              "weight": 20
+            },
+            {
+              "type": "nullspace:violet_slime",
+              "count": 1,
+              "weight": 20
+            },
+            {
+              "type": "nullspace:violet_blaze",
+              "count": 1,
+              "weight": 6
+            },
+            {
+              "type": "nullspace:repair_bot",
+              "count": 1,
+              "weight": 15
+            }
+          ]
+        }
+      },
+      "modifier": "overlay"
+    }
   },
   "carvers": [
     "minecraft:cave",

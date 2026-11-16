@@ -90,6 +90,7 @@ public final class SceneViewport implements AutoCloseable
     {
     }
 
+    private final ExhaustPuffs exhaust = new ExhaustPuffs();
     private final ResourceGroup resources = new ResourceGroup();
     private final StagedVertexBuffer staging;
     private final GpuBuffer matrix;
@@ -326,8 +327,21 @@ public final class SceneViewport implements AutoCloseable
         }
         else if (scene.getBooleanOr("universe", false))
             SceneGeometry.celestial(this, scene, eye, quads);
+        // The engine exhaust: the same puffs the world view draws as particles, drawn here with the particle sprites.
+        var puffAtlas = (TextureAtlas) Minecraft.getInstance().getTextureManager().getTexture(TextureAtlas.LOCATION_PARTICLES);
+        List<Quad> puffQuads = List.of();
+        if (useCompute)
+        {
+            exhaust.update(Minecraft.getInstance().level.getGameTime(), scene, subject -> !background || !sameVessel(subject, observer));
+            puffQuads = exhaust.quads(eye, direction, new Vec3(upV.x, upV.y, upV.z), puffAtlas);
+        }
+        else
+            exhaust.clear();
         var opaque = staging.appendDraw(DefaultVertexFormat.POSITION_TEX_COLOR, PrimitiveTopology.QUADS, null);
         var transparent = staging.appendDraw(DefaultVertexFormat.POSITION_TEX_COLOR, PrimitiveTopology.QUADS, null);
+        var puffDraw = staging.appendDraw(DefaultVertexFormat.POSITION_TEX_COLOR, PrimitiveTopology.QUADS, null);
+        for (var q : puffQuads)
+            SceneMeshes.emit(staging.getVertexBuilder(puffDraw), q);
         for (var q : quads)
             if (!q.translucent)
                 SceneMeshes.emit(staging.getVertexBuilder(opaque), q);
@@ -407,6 +421,16 @@ public final class SceneViewport implements AutoCloseable
                     players.executeTranslucent(pass);
                     players.executeTranslucentAfterTerrain(pass);
                 }
+                var puffInfo = staging.getExecuteInfo(puffDraw);
+                if (puffInfo != null)
+                {
+                    pass.setPipeline(RenderSystem.getCompiledPipeline(REVERSE_TRANSPARENT));
+                    pass.setUniform("Projection", matrix);
+                    pass.setUniform("Sampler0", puffAtlas.getTextureView(), puffAtlas.getSampler());
+                    pass.setVertexBuffer(0, puffInfo.vertexBuffer().slice());
+                    pass.setIndexBuffer(puffInfo.indexBuffer(), puffInfo.indexType());
+                    pass.drawIndexed(puffInfo.indexCount(), 1, puffInfo.firstIndex(), puffInfo.baseVertex(), 0);
+                }
             }
         }
         finally
@@ -463,6 +487,7 @@ public final class SceneViewport implements AutoCloseable
         }
         resources.close();
         meshes.clear();
+        exhaust.clear();
         transformed.clear();
         frameQuads.clear();
         transparentQuads.clear();

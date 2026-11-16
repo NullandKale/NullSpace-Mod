@@ -147,14 +147,31 @@ def write(path, data):
         f.write("\n")
 
 
+AIRLESS_SPAWNS = {"modifier": "overlay", "argument": {"spawn_costs": {}, "spawns_by_category": {"monster": [
+    {"type": "minecraft:zombie", "count": {"type": "minecraft:uniform", "min_inclusive": 2, "max_inclusive": 3}, "weight": 100},
+    {"type": "minecraft:skeleton", "count": {"type": "minecraft:uniform", "min_inclusive": 1, "max_inclusive": 2}, "weight": 50},
+    {"type": "minecraft:stray", "count": {"type": "minecraft:uniform", "min_inclusive": 1, "max_inclusive": 2}, "weight": 30},
+    {"type": "minecraft:zombie_villager", "count": 1, "weight": 8},
+    {"type": "minecraft:wither_skeleton", "count": 1, "weight": 10},
+    {"type": "nullspace:ghost_creeper", "count": 1, "weight": 30},
+    {"type": "nullspace:pale_spider", "count": {"type": "minecraft:uniform", "min_inclusive": 1, "max_inclusive": 3}, "weight": 40},
+    {"type": "nullspace:pale_cave_spider", "count": {"type": "minecraft:uniform", "min_inclusive": 1, "max_inclusive": 2}, "weight": 10},
+    {"type": "nullspace:pale_silverfish", "count": {"type": "minecraft:uniform", "min_inclusive": 2, "max_inclusive": 3}, "weight": 20},
+    {"type": "nullspace:violet_slime", "count": 1, "weight": 20},
+    {"type": "nullspace:violet_blaze", "count": 1, "weight": 6},
+    {"type": "nullspace:repair_bot", "count": 1, "weight": 15}
+]}}}
+
+
 def biome(vanilla, breathable):
     b = json.loads(vanilla)
     attributes = b.setdefault("attributes", {})
     # Nether biome carvers only suit the nether's shape.
     b["carvers"] = OVERWORLD_CARVERS
     if not breathable:
-        # Nothing lives on an airless world.
-        attributes.pop("minecraft:gameplay/natural_mob_spawns", None)
+        # Nothing native lives on an airless world, but the lost crews of wrecked ships walk it: every space mob (the suited crews,
+        # the stowaways and the repair bots), which carry salvage (AirlessCrews).
+        attributes["minecraft:gameplay/natural_mob_spawns"] = AIRLESS_SPAWNS
         attributes["minecraft:visual/sky_color"] = AIRLESS_SKY
         attributes["minecraft:visual/fog_color"] = AIRLESS_FOG
     attributes.pop("minecraft:gameplay/can_pillager_patrol_spawn", None)

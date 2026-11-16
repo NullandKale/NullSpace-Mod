@@ -55,7 +55,9 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
                 state.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);
                 state.setWorldType(state.getNormalPresetList().stream().filter(p -> p.preset() != null && p.preset().is(WorldPresets.FLAT)).findFirst().orElseThrow());
                 create.children().stream().filter(MenuTabBar.class::isInstance).map(MenuTabBar.class::cast).findFirst().orElseThrow().selectTab(3, false);
+                // The start button cycles: on a planet, aboard a ship, crash-landed, and back to a planet.
                 click(create, "Start: Aboard a ship");
+                click(create, "Start: Crash-landed");
                 if (((WorldStartAccess) create).nullspace$start().space())
                     throw new AssertionError("The UI must allow choosing an ordinary planet start");
             });

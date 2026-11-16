@@ -4,6 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "TransitPlayerMixin",
+    "SpawnPlacementsInvoker",
     "VesselRespawnMixin",
     "TransitEntityMixin",
     "TransitDamageMixin",
@@ -37,6 +38,7 @@
     "client.PlanetSkyMixin",
     "client.PlanetCloudMixin",
     "client.PlanetFogMixin",
+    "client.PlanetChunkFogMixin",
     "client.GuideBookAccessMixin",
     "client.GuideBookScreenMixin"
   ]

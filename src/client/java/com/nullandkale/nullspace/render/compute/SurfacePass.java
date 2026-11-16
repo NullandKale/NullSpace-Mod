@@ -68,12 +68,12 @@ final class SurfacePass
                 glQueryCounter(o.queries[o.querySlot][8], GL_TIMESTAMP);
             o.currentKey += ":weather:" + o.surfaceAtmosphere + ":" + o.surfaceRain + ":" + o.surfaceThunder;
             var renderSettings = SpaceSettings.get();
-            o.currentKey += ":atmosphere:" + o.atmosphere + ":" + renderSettings.clouds + ":" + renderSettings.cloudSteps;
+            o.currentKey += ":atmosphere:" + o.atmosphere + ":" + renderSettings.cloudKey();
             if (o.atmosphere != null)
             {
                 o.atmosphereTables = AtmosphereLuts.get(o.atmosphere, SpaceComputeRenderer.transmittanceProgram, SpaceComputeRenderer.multipleProgram);
                 var settings = SpaceSettings.get();
-                String nextSkyKey = o.currentKey + ":" + o.atmosphere + ":" + o.atmosphereCenter + ":" + eye + ":" + Math.floor(o.currentTime * 10) + ":" + settings.clouds + ":" + settings.cloudSteps;
+                String nextSkyKey = o.currentKey + ":" + o.atmosphere + ":" + o.atmosphereCenter + ":" + eye + ":" + Math.floor(o.currentTime * 10) + ":" + settings.cloudKey();
                 if (!nextSkyKey.equals(o.skyKey) && o.atmosphereCenter.length() <= o.atmosphere.radius() + o.atmosphere.height())
                 {
                     SceneUpload.uniforms(o, SpaceComputeRenderer.skyProgram, projection, SpaceComputeRenderer.SKY_WIDTH, SpaceComputeRenderer.SKY_HEIGHT);

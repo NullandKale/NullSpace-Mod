@@ -60,6 +60,8 @@ final class PerfWorld
     final List<net.minecraft.nbt.CompoundTag> stations = new ArrayList<>();
     final List<ServerPlayer> crew = new ArrayList<>();
     int requestedCount, launchedCount;
+    /** When set, each representative ship is a random catalog design (the video test) instead of the next in order. */
+    java.util.Random designs;
     ServerPlayer builder;
     /**
      * Roof lights on every ship. Remote ships are drawn from the light stored at their blocks, and a ship in space
@@ -124,7 +126,8 @@ final class PerfWorld
     {
         var level = ship.index >= launchedCount && (ship.index - launchedCount) % 2 == 1 ? WorldStore.level(server(), "nullspace:sol_ares") : planet;
         ship.home = level;
-        var preset = com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS.get(ship.index % com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS.size());
+        var presets = com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.PRESETS;
+        var preset = presets.get(designs != null ? designs.nextInt(presets.size()) : ship.index % presets.size());
         for (int x = (ship.base.getX() - 1) >> 4; x <= (ship.base.getX() + 32) >> 4; x++)
             for (int z = (ship.base.getZ() - 1) >> 4; z <= (ship.base.getZ() + 32) >> 4; z++)
             {
@@ -151,6 +154,33 @@ final class PerfWorld
             if (entry.getValue().is(ModBlocks.GENERATOR))
                 com.nullandkale.nullspace.gameplay.systems.FuelSystem.provision(level, at, 64);
         }
+        if (beacons)
+        {
+            // A ship in space has no stored light, so it is drawn at 15 percent brightness: roof lights on the top of the hull,
+            // only on columns the ship's own blocks occupy, so no light is left loose beside the hull.
+            var tops = new java.util.HashMap<Long, Integer>();
+            for (var key : com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.blocks(preset).keySet())
+                tops.merge(((long) key.getX() << 32) | (key.getZ() & 0xffffffffL), key.getY(), Math::max);
+            for (var spot : new double[][]{{.2, .2}, {.8, .2}, {.2, .8}, {.8, .8}, {.5, .5}, {.5, .2}, {.5, .8}, {.2, .5}, {.8, .5}})
+            {
+                int wantedX = (int) (preset.width() * spot[0]), wantedZ = (int) (preset.depth() * spot[1]);
+                int bestX = 0, bestZ = 0, bestTop = -1, bestDistance = Integer.MAX_VALUE;
+                for (var column : tops.entrySet())
+                {
+                    int x = (int) (column.getKey() >> 32), z = (int) (long) column.getKey();
+                    int distance = Math.abs(x - wantedX) + Math.abs(z - wantedZ);
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        bestX = x;
+                        bestZ = z;
+                        bestTop = column.getValue();
+                    }
+                }
+                if (bestTop >= 0 && bestDistance <= 6 && bestTop + 1 < 32)
+                    level.setBlock(origin.offset(bestX, bestTop + 1, bestZ), Blocks.SEA_LANTERN.defaultBlockState(), 18);
+            }
+        }
         ship.helm = origin.offset(preset.helm());
         var record = ShipTopology.resolve(level, ship.helm);
         ship.id = record.getStringOr("id", "");
@@ -159,7 +189,8 @@ final class PerfWorld
             record.putString("localSpace", address);
         record.putString("name", preset.name());
         record.putString("blueprint", preset.id());
-        record.putString("owner", crew.get(ship.index % crew.size()).getUUID().toString());
+        if (!crew.isEmpty())
+            record.putString("owner", crew.get(ship.index % crew.size()).getUUID().toString());
         SystemsUpgrade.upgrade(level, record);
         record.getCompoundOrEmpty("systems").putIntArray("requests", new int[]{1, com.nullandkale.nullspace.worldgen.ships.ShipBlueprints.airDemand(preset), 1, 3, 2, 0});
         var shulker = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHULKER_BOX);

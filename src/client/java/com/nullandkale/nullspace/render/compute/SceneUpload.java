@@ -233,6 +233,11 @@ final class SceneUpload
             p.matrix("CloudRotation", o.cloudRotation);
             glUniform3f(p.uniform("CloudOffset"), (float) o.cloudOffset.x, (float) o.cloudOffset.y, (float) o.cloudOffset.z);
             p.integer("CloudSteps", SpaceSettings.get().cloudSteps);
+            p.integer("CloudShadows", SpaceSettings.get().cloudShadows ? 1 : 0);
+            p.scalar("CloudCoverage", (float) SpaceSettings.get().cloudCoverage);
+            p.scalar("CloudDensity", (float) SpaceSettings.get().cloudDensity);
+            p.scalar("CloudWind", (float) SpaceSettings.get().cloudWind);
+            p.scalar("CloudScale", (float) SpaceSettings.get().cloudScale);
             p.scalar("CloudTime", (float) (Math.floor(o.currentTime * 10) / 10));
             o.texture(4, o.atmosphereTables.transmittance.texture());
             o.texture(5, o.atmosphereTables.multiple.texture());

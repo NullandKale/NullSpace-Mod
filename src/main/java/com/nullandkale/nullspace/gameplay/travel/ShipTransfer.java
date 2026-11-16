@@ -498,6 +498,8 @@ final class ShipTransfer
             next.remove("journey");
             next.remove("stored");
         }
+        if (!source.dimension().equals(target.dimension()))
+            Piloting.stop(next);
         next.putInt("width", landing == null ? 32 : landing.bounds().width());
         next.putInt("depth", landing == null ? 32 : landing.bounds().depth());
         next.putInt("height", landing == null ? 32 : PadRegistry.buildHeight(target, landing.bounds()));

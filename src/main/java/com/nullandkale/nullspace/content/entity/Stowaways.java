@@ -91,12 +91,22 @@ public final class Stowaways
 
     public static void initialize()
     {
+        // Where they may spawn on a planet: on the ground, in the dark, like any monster; the blaze, which burns, in any light.
+        for (var type : java.util.List.of(GHOST_CREEPER, PALE_SPIDER, PALE_CAVE_SPIDER, PALE_SILVERFISH, VIOLET_SLIME))
+            place(type, false);
+        place(VIOLET_BLAZE, true);
         FabricDefaultAttributeRegistry.register(GHOST_CREEPER, Creeper.createAttributes());
         FabricDefaultAttributeRegistry.register(PALE_SPIDER, Spider.createAttributes());
         FabricDefaultAttributeRegistry.register(PALE_CAVE_SPIDER, CaveSpider.createCaveSpider());
         FabricDefaultAttributeRegistry.register(PALE_SILVERFISH, Silverfish.createAttributes());
         FabricDefaultAttributeRegistry.register(VIOLET_SLIME, Monster.createMonsterAttributes());
         FabricDefaultAttributeRegistry.register(VIOLET_BLAZE, Blaze.createAttributes());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void place(EntityType<? extends Mob> type, boolean anyLight)
+    {
+        com.nullandkale.nullspace.core.mixin.SpawnPlacementsInvoker.nullspace$register((EntityType) type, net.minecraft.world.entity.SpawnPlacementTypes.ON_GROUND, net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, anyLight ? (net.minecraft.world.entity.SpawnPlacements.SpawnPredicate) (t, level, reason, pos, random) -> Monster.checkAnyLightMonsterSpawnRules((EntityType) t, level, reason, pos, random) : (net.minecraft.world.entity.SpawnPlacements.SpawnPredicate) (t, level, reason, pos, random) -> Monster.checkMonsterSpawnRules((EntityType) t, level, reason, pos, random));
     }
 
     private Stowaways()

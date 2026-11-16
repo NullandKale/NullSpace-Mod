@@ -88,12 +88,12 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest
         }
     }
 
-    private static SpaceDefinition definition(long revision, List<SpaceDefinition.Volume> volumes)
+    static SpaceDefinition definition(long revision, List<SpaceDefinition.Volume> volumes)
     {
         return new SpaceDefinition("test:gpu", revision, 42, 1, 0, List.of(new SpaceDefinition.Body("planet", 1, new Vec3(0, 0, 100), Vec3.ZERO, 25, 0xff2161aa, 0, 0, 4, .03), new SpaceDefinition.Body("sun", 0, new Vec3(-60, 50, 60), Vec3.ZERO, 8, 0xffffbb88, 12, 0, 3, 0), new SpaceDefinition.Body("moon", 2, new Vec3(24, 0, 70), Vec3.ZERO, 8, 0xffaaaaaa, 0, 0, 5, 0), new SpaceDefinition.Body("rock", 3, new Vec3(-24, -4, 55), Vec3.ZERO, 5, 0xff998877, 0, .17, 91, 0)), volumes, List.of());
     }
 
-    private static CompoundTag frame(SpaceDefinition definition, int[] blocks)
+    static CompoundTag frame(SpaceDefinition definition, int[] blocks)
     {
         var s = new CompoundTag();
         s.putBoolean("universe", true);

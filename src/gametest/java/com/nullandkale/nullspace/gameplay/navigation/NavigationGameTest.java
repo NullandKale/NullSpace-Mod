@@ -87,7 +87,8 @@ public final class NavigationGameTest
         ctx.assertTrue(Piloting.input(p, new Piloting.Input(lease, 5, FlightDynamics.FORWARD, false)), "Owner's fresh input must be accepted");
         ctx.assertTrue(!Piloting.input(p, new Piloting.Input(lease, 5, 0, false)) && !Piloting.input(p, new Piloting.Input(lease, 6, 8192, false)), "Replays and unknown controls cannot change flight");
         var original = p.position();
-        ctx.runAfterDelay(10, () ->
+        // A ship has mass now: a heavy fixture builds speed over seconds, not in a tick.
+        ctx.runAfterDelay(40, () ->
         {
             try
             {
@@ -95,7 +96,7 @@ public final class NavigationGameTest
                 ctx.assertTrue(p.position().distanceToSqr(original) < .01, "Crew remains stationary in physical storage");
                 ctx.assertTrue(Piloting.input(p, new Piloting.Input(lease, 7, 0, true)), "Owner can release controls");
                 var current = WorldStore.get(server).at(level, p.blockPosition());
-                ctx.assertTrue(current.getDoubleOr("simVX", 1) == 0 && current.getDoubleOr("simVZ", 1) == 0, "Release stops velocity");
+                ctx.assertTrue(Math.abs(current.getDoubleOr("simVX", 0)) + Math.abs(current.getDoubleOr("simVZ", 0)) > 0, "Releasing the controls leaves the ship moving: it keeps its momentum");
                 ctx.succeed();
             }
             finally

@@ -17,6 +17,8 @@ Players build ships from blocks, and place the Ship Controller wherever it fits.
 
 Controller Details shows the resulting bow direction, and the pilot camera starts behind that same bow. The server sends the bow with each ship's scene entry so that every client agrees with it.
 
+The way a ship accelerates, turns and stops is arcade-style today; a physical model is designed in [flight physics](flight-physics.md).
+
 ## Orientation in space
 
 A ship has a yaw, pitch and roll in the space simulation ([`FlightDynamics`](../../src/main/java/com/nullandkale/nullspace/model/flight/FlightDynamics.java)). That is the *rendered* orientation of the whole ship relative to the stars. Crew inside always keep an upright physical cabin; the sky moves around the windows, not the floor.

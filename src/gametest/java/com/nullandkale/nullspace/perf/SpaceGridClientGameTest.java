@@ -17,7 +17,7 @@ import net.minecraft.world.level.GameType;
  */
 public final class SpaceGridClientGameTest implements FabricClientGameTest
 {
-    static final int COLUMNS = 4, ROWS = 3, PITCH = 56, AHEAD = 130;
+    static final int COLUMNS = 4, ROWS = 3, PITCH = 44, AHEAD = 50;
 
     @Override
     public void runTest(ClientGameTestContext context)
@@ -32,8 +32,14 @@ public final class SpaceGridClientGameTest implements FabricClientGameTest
                 try
                 {
                     var perf = new PerfWorld(server.overworld());
+                    // Random catalog designs, a new set each run; -Dnullspace.video.seed=<n> repeats one.
+                    long seed = Long.getLong("nullspace.video.seed", System.nanoTime());
+                    System.out.println("SPACEGRID design seed " + seed);
+                    perf.designs = new java.util.Random(seed);
                     perf.beacons = true;
-                    perf.glass = true;
+                    perf.requestedCount = COLUMNS * ROWS + 1;
+                    // Every ship on the same planet, so all of them launch into the one orbit the camera is in.
+                    perf.launchedCount = Integer.MAX_VALUE;
                     for (int i = 0; i <= COLUMNS * ROWS; i++)
                     {
                         var ship = perf.build(i);
@@ -61,9 +67,11 @@ public final class SpaceGridClientGameTest implements FabricClientGameTest
                     candidate.putDouble("simRoll", 0);
                 });
                 p.setGameMode(GameType.SPECTATOR);
-                // Above the ship, looking away from the planet along the grid, so the lattice sits against open stars.
-                p.teleportTo(server.getLevel(TravelService.SPACE), base.getX() + 16.5, base.getY() + 36, base.getZ() + 52, java.util.Set.of(), 180, 20, true);
+                // Above and behind the ship, looking along the grid, close enough that every ship is well framed against open stars.
+                p.teleportTo(server.getLevel(TravelService.SPACE), base.getX() + 16.5, base.getY() + 30, base.getZ() + 36, java.util.Set.of(), 180, 12, true);
             });
+            // A wider view, so the whole grid fits close in.
+            context.runOnClient(mc -> mc.options.fov().set(85));
             world.getConnection().waitForChunksRender();
             context.waitTicks(40);
             context.takeScreenshot("nullspace-space-grid-0-empty");

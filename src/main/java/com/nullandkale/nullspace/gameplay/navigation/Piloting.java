@@ -91,15 +91,18 @@ public final class Piloting
         s.putDouble("simVX", 0);
         s.putDouble("simVY", 0);
         s.putDouble("simVZ", 0);
+        s.putDouble("simSpinYaw", 0);
+        s.putDouble("simSpinPitch", 0);
+        s.putDouble("simSpinRoll", 0);
     }
 
     static FlightDynamics.State flight(CompoundTag s)
     {
         var pose = SceneService.pose(s);
-        return new FlightDynamics.State(pose.toUniverse(new Vec3(16, 16, 16)), new Vec3(s.getDoubleOr("simVX", 0), s.getDoubleOr("simVY", 0), s.getDoubleOr("simVZ", 0)), s.getDoubleOr("simYaw", 0), s.getDoubleOr("simPitch", 0), s.getDoubleOr("simRoll", 0));
+        return new FlightDynamics.State(pose.toUniverse(new Vec3(16, 16, 16)), new Vec3(s.getDoubleOr("simVX", 0), s.getDoubleOr("simVY", 0), s.getDoubleOr("simVZ", 0)), s.getDoubleOr("simYaw", 0), s.getDoubleOr("simPitch", 0), s.getDoubleOr("simRoll", 0), new Vec3(s.getDoubleOr("simSpinYaw", 0), s.getDoubleOr("simSpinPitch", 0), s.getDoubleOr("simSpinRoll", 0)));
     }
 
-    static void apply(CompoundTag s, FlightDynamics.State next)
+    public static void apply(CompoundTag s, FlightDynamics.State next)
     {
         var origin = next.center().subtract(FlightDynamics.rotate(FlightDynamics.orientation(next.yaw(), next.pitch(), next.roll()), new Vec3(16, 16, 16)));
         s.putDouble("simX", origin.x);
@@ -111,6 +114,9 @@ public final class Piloting
         s.putDouble("simVX", next.velocity().x);
         s.putDouble("simVY", next.velocity().y);
         s.putDouble("simVZ", next.velocity().z);
+        s.putDouble("simSpinYaw", next.spin().x);
+        s.putDouble("simSpinPitch", next.spin().y);
+        s.putDouble("simSpinRoll", next.spin().z);
     }
 
     static boolean blocked(MinecraftServer server, CompoundTag own, FlightDynamics.State old, FlightDynamics.State next)

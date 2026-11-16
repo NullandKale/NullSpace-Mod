@@ -138,7 +138,7 @@ public final class PlanetSurfaces
      * The corner and height of a 32x32 starter pad: the candidate with the least height variation,
      * above any sea, among a few spots near the origin.
      */
-    static BlockPos landingSite(net.minecraft.server.level.ServerLevel level)
+    public static BlockPos landingSite(net.minecraft.server.level.ServerLevel level)
     {
         int sea = level.getSeaLevel();
         BlockPos best = null;

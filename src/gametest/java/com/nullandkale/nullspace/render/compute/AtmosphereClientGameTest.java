@@ -35,7 +35,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
             throw new AssertionError(message);
     }
 
-    private static CompoundTag scene(AtmosphereProfile profile, double elevation, long revision)
+    static CompoundTag scene(AtmosphereProfile profile, double elevation, long revision)
     {
         var sun = new SpaceDefinition.Body("sun", 0, new Vec3(0, Math.sin(elevation) * 100000, Math.cos(elevation) * 100000), Vec3.ZERO, 1200, 0xffffd07a, 12, 0, 4, 0);
         var scene = new CompoundTag();
@@ -55,7 +55,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
         return scene;
     }
 
-    private static Matrix4f projection(float pitch)
+    static Matrix4f projection(float pitch)
     {
         return new Matrix4f().perspective((float) Math.toRadians(80), (float) W / H, 1000000, .05f, true).lookAt(0, 0, 0, 0, (float) Math.sin(pitch), (float) Math.cos(pitch), 0, 1, 0);
     }
@@ -104,6 +104,37 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
         {
             g.dispose();
         }
+    }
+
+    /** Each cloud setting must change what the sky shows, in the direction its name says. */
+    private static void cloudLook(SceneViewport view, CompoundTag frame, float[] clear)
+    {
+        var settings = SpaceSettings.get();
+        double base = brightness(view.compute().inspectSkyTransmission());
+        settings.cloudDensity = 2;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(brightness(view.compute().inspectSkyTransmission()) < base, "Denser clouds let less of the background through");
+        settings.cloudDensity = .25;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(brightness(view.compute().inspectSkyTransmission()) > base, "Thinner clouds let more of the background through");
+        settings.cloudDensity = 1;
+        settings.cloudCoverage = .4;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(brightness(view.compute().inspectSkyTransmission()) < base, "More coverage lets less of the background through");
+        settings.cloudCoverage = -.4;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(brightness(view.compute().inspectSkyTransmission()) > base, "Less coverage lets more of the background through");
+        settings.cloudCoverage = 0;
+        settings.cloudScale = 2;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(!Arrays.equals(view.compute().inspectRadiance(), clear), "Cloud block size changes the pattern");
+        settings.cloudScale = 1;
+        settings.cloudShadows = false;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(!Arrays.equals(view.compute().inspectRadiance(), clear), "Cloud shadows can be turned off");
+        settings.cloudShadows = true;
+        view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
+        check(Arrays.equals(view.compute().inspectRadiance(), clear), "Putting every cloud setting back restores the same sky");
     }
 
     private static void aerialPerspective(SceneViewport view, AtmosphereProfile profile)
@@ -243,6 +274,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
                     view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
                     float[] clear = view.compute().inspectRadiance();
                     tile(atlas, 6, "Noon / clouds", clear);
+                    cloudLook(view, frame, clear);
                     frame.putDouble("surfaceRain", 1);
                     view.compute().surfaces(frame, Vec3.ZERO, projection(.3f));
                     float[] rain = view.compute().inspectRadiance();

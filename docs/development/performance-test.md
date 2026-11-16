@@ -4,7 +4,7 @@
 
 This test measures what saving and journaling cost on a server that looks like a real one: how many ships per second it can move, build and record, and how long the worst tick is while it does. It exists to make the open cost decision in [journals and save recovery](../design/journals-and-save-recovery.md#performance-test) with numbers. Matching runs establish a baseline for subsequent changes. The earlier simple-fixture results cannot establish a before/after comparison for this implementation.
 
-Timing is evidence, never a pass/fail threshold, the same rule as `AtmosphereBenchmark` ([`AtmosphereBenchmark`](../../src/test/java/com/nullandkale/nullspace/model/air/AtmosphereBenchmark.java)). It is opt-in and never part of `check`, `verify.ps1` or CI.
+Timing is evidence, never a pass/fail threshold, the same rule as `AtmosphereBenchmark` ([`AtmosphereBenchmark`](../../src/test/java/com/nullandkale/nullspace/model/air/AtmosphereBenchmark.java)). It is opt-in and never part of `check`, `parallel-test.ps1` or CI.
 
 ## Questions it answers
 

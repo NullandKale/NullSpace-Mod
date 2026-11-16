@@ -1,10 +1,10 @@
 """Joins the frame screenshots of a client test into an mp4 with ffmpeg.
 
-    python scripts/test/make-video.py <screenshots folder> <output.mp4> [--name frame] [--fps 10]
+    python scripts/test/make-video.py <screenshots folder> <output.mp4> [--name frame] [--fps 10] [--every 1] [--drop-dark]
 
 Frames are the screenshots whose file name contains --name, in the order the test took them (the screenshot
 counter prefix). The SpaceGridClientGameTest takes one frame every two game ticks, so ten frames per second
-plays at real speed.
+plays at real speed. --every N keeps only every Nth frame, so the video plays N times faster. --drop-dark leaves out frames that are almost entirely black (a frame the renderer missed), and says how many.
 """
 import argparse
 import re
@@ -21,6 +21,8 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("--name", default="frame")
     parser.add_argument("--fps", type=int, default=10)
+    parser.add_argument("--every", type=int, default=1)
+    parser.add_argument("--drop-dark", action="store_true")
     args = parser.parse_args()
 
     ordered = lambda path: int(re.match(r"(\d+)_", path.name).group(1))
@@ -28,6 +30,14 @@ def main() -> int:
     if not frames:
         print(f"No screenshots with '{args.name}' in {args.folder}", file=sys.stderr)
         return 1
+    if args.drop_dark:
+        from PIL import Image, ImageStat
+
+        kept = [p for p in frames if sum(ImageStat.Stat(Image.open(p).convert("L").resize((64, 36))).mean) > 12]
+        print(f"dropped {len(frames) - len(kept)} nearly black frames")
+        frames = kept
+    if args.every > 1:
+        frames = frames[:: args.every]
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         print("ffmpeg is not on PATH", file=sys.stderr)

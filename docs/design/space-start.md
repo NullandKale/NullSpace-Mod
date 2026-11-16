@@ -8,6 +8,8 @@ A new player begins inside the chosen ship, in its sealed cabin, in orbit above 
 
 The aim is that a first minute needs no setup: the player can breathe, see where they are, and has an obvious thing to do, which is to use the Ship Controller.
 
+A third option, the [crash-landing start](crash-start.md), builds the same ship but lands it wrecked on Terra. Picking the starting planet by type is designed in [choosing the starting ship and planet](starting-planet.md).
+
 ## Choosing the start
 
 **Single-player.** On *Create New World*, the *Start* control switches between **On a planet** and **Aboard a ship**. The *Starting ship* button picks a design from the Ship Beacon catalog. Rivet Bolt is the default. Game mode, difficulty, seed and world generation remain the ordinary Minecraft choices. The choice is stored in the world as `nullspace/world-start.properties`.

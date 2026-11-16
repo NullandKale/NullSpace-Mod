@@ -15,6 +15,10 @@
         "nullspace:local_scanner",
         "nullspace:ship_beacon",
         "nullspace:station_core",
-        "nullspace:docking_base"
+        "nullspace:docking_base",
+        "nullspace:broken_engine",
+        "nullspace:broken_generator",
+        "nullspace:broken_air_supply",
+        "nullspace:broken_pad_computer"
     ]
 }

@@ -182,6 +182,26 @@ public final class SceneService
         data.putDouble("roll", ship.getDoubleOr("simRoll", 0));
         var bow = ShipHeading.forward(level, ship);
         data.putString("bow", bow.getName());
+        // A thrusting ship's nozzles, for the viewport to draw the exhaust (it never draws the world's particles).
+        var exhausts = com.nullandkale.nullspace.gameplay.systems.EngineEffects.exhausts(level, ship);
+        if (!exhausts.isEmpty())
+        {
+            var nozzles = new ListTag();
+            for (var exhaust : exhausts)
+            {
+                var nozzle = new CompoundTag();
+                nozzle.putDouble("x", exhaust.origin().x - base.getX());
+                nozzle.putDouble("y", exhaust.origin().y - base.getY());
+                nozzle.putDouble("z", exhaust.origin().z - base.getZ());
+                nozzle.putInt("dx", exhaust.direction().getStepX());
+                nozzle.putInt("dz", exhaust.direction().getStepZ());
+                nozzle.putInt("tier", exhaust.tier());
+                nozzles.add(nozzle);
+            }
+            data.put("exhausts", nozzles);
+            data.putDouble("thrust", ship.getDoubleOr("thrustShare", Math.min(1, ship.getIntOr("thrustDemand", 0) / 8.0)));
+            data.putDouble("speed", ship.getDoubleOr("speedShare", 0));
+        }
         var journey = ship.getCompoundOrEmpty("journey");
         data.putBoolean("ftl", JourneyService.cruising(ship));
         double now = level.getServer().overworld().getGameTime() / 20.0;

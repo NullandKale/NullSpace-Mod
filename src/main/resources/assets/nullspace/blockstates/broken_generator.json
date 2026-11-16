@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "nullspace:block/broken_generator",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "nullspace:block/broken_generator",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "nullspace:block/broken_generator",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "nullspace:block/broken_generator",
+      "y": 270
+    }
+  }
+}

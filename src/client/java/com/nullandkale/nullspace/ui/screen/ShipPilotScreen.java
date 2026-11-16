@@ -25,7 +25,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen
     private SceneViewport viewport;
     private int pulse, buttons, sequence, ticks, lastUpdate;
     private double orbit, elevation = 18, distance = 70;
-    private boolean focused, help;
+    private boolean focused, help, assistOff;
 
     public ShipPilotScreen(ScenePackets.Frame frame)
     {
@@ -111,7 +111,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen
             pulse = 0;
         }
         focused = active;
-        ClientPlayNetworking.send(new Piloting.Input(frame.lease(), sequence++, canPilot() ? buttons | pulse : 0, false));
+        ClientPlayNetworking.send(new Piloting.Input(frame.lease(), sequence++, canPilot() ? buttons | pulse | (assistOff ? FlightDynamics.ASSIST_OFF : 0) : 0, false));
         buttons &= ~FlightDynamics.FIRE;
         pulse = 0;
     }
@@ -162,6 +162,11 @@ public final class ShipPilotScreen extends Screen implements SceneScreen
         if (event.key() == InputConstants.KEY_H)
         {
             help = !help;
+            return true;
+        }
+        if (event.key() == InputConstants.KEY_G)
+        {
+            assistOff = !assistOff;
             return true;
         }
         int bit = bit(event.key());
@@ -227,7 +232,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen
         }
         g.fill(0, 0, width, 15, 0x98060d16);
         g.fill(0, height - 15, width, height, 0x98060d16);
-        g.text(font, (canPilot() ? "PILOT" : "SHIP CAMERA") + " | " + frame.scene().getStringOr("location", "") + " | " + String.format(java.util.Locale.ROOT, "%.1f m/s", frame.scene().getDoubleOr("speed", 0)), 8, 5, TerminalTheme.CYAN, false);
+        g.text(font, (canPilot() ? "PILOT" : "SHIP CAMERA") + " | " + frame.scene().getStringOr("location", "") + " | " + String.format(java.util.Locale.ROOT, "%.1f m/s", frame.scene().getDoubleOr("speed", 0)) + (canPilot() ? " | ASSIST " + (assistOff ? "OFF" : "ON") : ""), 8, 5, TerminalTheme.CYAN, false);
         String hint = "H controls | Esc ship controls";
         int hintX = Math.max(8, width - font.width(hint) - 8);
         g.text(font, font.plainSubstrByWidth(frame.scene().getStringOr("status", "") + " | Power " + frame.scene().getIntOr("propulsion", 0), Math.max(0, hintX - 16)), 8, height - 11, TerminalTheme.AMBER, false);
@@ -236,7 +241,7 @@ public final class ShipPilotScreen extends Screen implements SceneScreen
         {
             g.fill(4, height - 51, Math.min(width - 4, 430), height - 17, 0xc0060d16);
             g.text(font, canPilot() ? "W/S thrust | A/D yaw | Space/Ctrl lift" : "Observer camera", 8, height - 47, TerminalTheme.TEXT, false);
-            g.text(font, canPilot() ? "Up/Down pitch | Q/E roll | R brake | F fire" : "", 8, height - 37, TerminalTheme.TEXT, false);
+            g.text(font, canPilot() ? "Up/Down pitch | Q/E roll | R brake | F fire | G assist" : "", 8, height - 37, TerminalTheme.TEXT, false);
             g.text(font, "Drag orbit | Wheel zoom", 8, height - 27, TerminalTheme.MUTED, false);
         }
         super.extractRenderState(g, mx, my, delta);

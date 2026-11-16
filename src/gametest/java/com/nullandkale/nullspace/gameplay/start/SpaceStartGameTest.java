@@ -102,7 +102,7 @@ public final class SpaceStartGameTest
         var planet = LocalSpaces.get(server, LocalSpaces.address(ship));
         ctx.assertTrue(!planet.moon(), "Start orbits a landable planet rather than a moon");
         var surface = PlanetSurfaces.dimension(server, planet.id());
-        ctx.assertTrue(PadRegistry.read(server).stream().anyMatch(p -> p.dimension().equals(surface.identifier().toString()) && PadRegistry.check(server.getLevel(surface), p).state() == PadRegistry.State.READY), "The first starting planet already has a usable landing destination, before any FTL jump");
+        ctx.assertTrue(PadRegistry.read(server).stream().anyMatch(p -> p.dimension().equals(surface.identifier().toString()) && PadRegistry.check(server.getLevel(surface), p).state() == PadRegistry.State.READY), "The first starting planet already has a usable landing destination, before any FTL jump: " + planet.id() + " " + PadRegistry.read(server).stream().filter(p -> p.dimension().equals(surface.identifier().toString())).map(p -> p.bounds() + "=" + PadRegistry.check(server.getLevel(surface), p).state()).toList());
         ctx.assertTrue(LocalSpaces.address(ship).equals(SpaceStart.planet(server, player.getUUID())), "Random starting planet is stable for the same player and world");
         String id = ship.getStringOr("id", "");
         int before = WorldStore.get(server).ships().size();

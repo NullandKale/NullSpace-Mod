@@ -364,7 +364,7 @@ public final class SpaceComputeRenderer implements AutoCloseable
             oldStop = own(Image.make("Volume previous stop", volumeWidth, volumeHeight, GpuFormat.RGBA32_FLOAT));
             composed = new TextureTarget("Space volume composite", width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
             cleanup(composed::destroyBuffers);
-            viewBuffer = RenderSystem.getDevice().createBuffer(() -> "Compute view", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 224);
+            viewBuffer = RenderSystem.getDevice().createBuffer(() -> "Compute view", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 240);
             own(viewBuffer);
             try (var state = new ComputeStateScope())
             {

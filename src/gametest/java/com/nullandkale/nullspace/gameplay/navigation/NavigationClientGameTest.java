@@ -161,8 +161,8 @@ public final class NavigationClientGameTest implements FabricClientGameTest
             {
                 var p = world.getConnection().getServerPlayer();
                 var s = SceneService.observer(p);
-                if (s.getDoubleOr("simVX", 0) != 0 || s.getDoubleOr("simVZ", 0) != 0)
-                    throw new AssertionError("Releasing helm must stop motion");
+                if (s.getDoubleOr("simVX", 0) == 0 && s.getDoubleOr("simVY", 0) == 0 && s.getDoubleOr("simVZ", 0) == 0)
+                    throw new AssertionError("Releasing the helm must leave the ship's momentum; the computer brakes it over time");
                 ShipService.open(p, WorldStore.pos(s, "controller"), "Ready");
             });
             c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 100);

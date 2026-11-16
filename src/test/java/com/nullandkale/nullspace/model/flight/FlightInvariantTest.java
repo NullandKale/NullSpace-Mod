@@ -23,11 +23,14 @@ class FlightInvariantTest
             for (int i = 0; i < 2000; i++)
             {
                 var old = state;
-                state = FlightDynamics.step(old, random.nextInt(FlightDynamics.ALL + 1), power, 90);
+                int bits = random.nextInt(FlightDynamics.ALL + 1);
+                var result = FlightDynamics.simulate(old, bits, new FlightDynamics.Craft(200 + random.nextInt(3000), power, (bits & FlightDynamics.ASSIST_OFF) == 0), 90);
+                state = result.state();
                 assertTrue(FlightDynamics.finite(state.center()));
-                assertTrue(FlightDynamics.finite(state.velocity()));
-                assertTrue(state.velocity().length() <= 12 + power * 8 + 1e-8);
-                assertTrue(state.center().subtract(old.center()).distanceTo(state.velocity().scale(.05)) < 1e-8);
+                assertTrue(FlightDynamics.finite(state.velocity()) && FlightDynamics.finite(state.spin()));
+                assertTrue(state.velocity().length() <= FlightDynamics.ABSOLUTE_SPEED + 1e-8);
+                assertTrue(result.thrust() >= 0 && result.thrust() <= 1 + 1e-9, "Thrust is a share of the main engines' push");
+                assertTrue(state.center().subtract(old.center()).distanceTo(state.velocity().scale(FlightDynamics.DT)) < 1e-8);
                 var pose = new ScenePose(state.center(), FlightDynamics.orientation(state.yaw(), state.pitch(), state.roll()));
                 var local = new Vec3(3.5, -2.25, 7.75);
                 assertTrue(pose.toLocal(pose.toUniverse(local)).distanceTo(local) < 1e-8);
@@ -36,19 +39,20 @@ class FlightInvariantTest
     }
 
     @TestFactory
-    Stream<DynamicTest> brakeAlwaysDissipatesMotionWhenThrustIsReleased()
+    Stream<DynamicTest> brakeAlwaysBringsAMovingShipToRestWithoutSpeedingItUp()
     {
         return IntStream.range(0, 8).mapToObj(direction -> DynamicTest.dynamicTest("brake orientation " + direction, () ->
         {
             var velocity = FlightDynamics.rotate(FlightDynamics.orientation(direction * 45, 30, -17), new Vec3(0, 0, 50));
             var state = new FlightDynamics.State(Vec3.ZERO, velocity, 30, -20, 90);
-            for (int i = 0; i < 50; i++)
+            var craft = new FlightDynamics.Craft(FlightDynamics.REFERENCE_MASS, 8, true);
+            for (int i = 0; i < 800; i++)
             {
                 double speed = state.velocity().length();
-                state = FlightDynamics.step(state, FlightDynamics.BRAKE, 8, 0);
-                assertTrue(state.velocity().length() <= speed);
+                state = FlightDynamics.simulate(state, FlightDynamics.BRAKE, craft, 0).state();
+                assertTrue(state.velocity().length() <= speed + 1e-9, "Braking never speeds the ship up");
             }
-            assertEquals(Vec3.ZERO, state.velocity());
+            assertEquals(Vec3.ZERO, state.velocity(), "Braking ends at rest");
         }));
     }
 
@@ -56,7 +60,7 @@ class FlightInvariantTest
     void allOpposingControlsCancelSimultaneously()
     {
         var state = new FlightDynamics.State(new Vec3(1, 2, 3), Vec3.ZERO, 20, -30, 40);
-        var next = FlightDynamics.step(state, FlightDynamics.ALL & ~FlightDynamics.BRAKE, 8, 270);
+        var next = FlightDynamics.step(state, FlightDynamics.ALL & ~FlightDynamics.BRAKE & ~FlightDynamics.ASSIST_OFF, 8, 270);
         assertEquals(state.center(), next.center());
         assertEquals(Vec3.ZERO, next.velocity());
         assertEquals(state.yaw(), next.yaw(), 1e-8);

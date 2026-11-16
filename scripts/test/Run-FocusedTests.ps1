@@ -5,12 +5,12 @@
   .\scripts\test\Run-FocusedTests.ps1 -Classes com.nullandkale.nullspace.ship.ShipTitleGameTest
   .\scripts\test\Run-FocusedTests.ps1 -Client -Classes com.nullandkale.nullspace.ScannerBlockClientGameTest
 .NOTES
-  Builds once unless -SkipBuild. A run that hangs for 8 minutes is killed and fails the command.
+  Builds once unless -SkipBuild. A run that hangs for 8 minutes (or -TimeoutMinutes) is killed and fails the command.
   Work folders: build/focused-tests/<time>-<class>-<id>; worlds are deleted afterwards.
   Needs rg on PATH (scripts/lib/LocalVerification.psm1). Start parallel client runs >= 15 s apart:
   several clients launched in the same second can freeze during startup.
 #>
-param([string[]] $Classes = @('com.nullandkale.nullspace.ship.RecoveryGameTest'), [switch] $SkipBuild, [switch] $Client, [string[]] $ExtraMods = @(), [string[]] $JvmProperties = @(), [string[]] $ExtraClasspath = @())
+param([string[]] $Classes = @('com.nullandkale.nullspace.ship.RecoveryGameTest'), [switch] $SkipBuild, [switch] $Client, [string[]] $ExtraMods = @(), [string[]] $JvmProperties = @(), [string[]] $ExtraClasspath = @(), [ValidateRange(1, 60)] [int] $TimeoutMinutes = 8)
 $kind = if ($Client) { 'client' } else { 'server' }
 $entry = if ($Client) { 'fabric-client-gametest' } else { 'fabric-gametest' }
 # Focused native GameTest run for a subset of classes; mirrors scripts/test/parallel-test.ps1's server job.
@@ -53,9 +53,9 @@ $fingerprint = Get-VerificationFingerprint $root
 $p = Start-Process -FilePath $spec.executable -ArgumentList ('@"' + $argFile + '"') -WorkingDirectory $work -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work 'test.log') -RedirectStandardError (Join-Path $work 'test.err.log')
 $null = $p.Handle  # keep the handle so ExitCode survives (Windows PowerShell 5.1)
 try {
-    $deadline = [DateTime]::UtcNow.AddMinutes(8)
+    $deadline = [DateTime]::UtcNow.AddMinutes($TimeoutMinutes)
     while (-not $p.WaitForExit(1000)) {
-        if ([DateTime]::UtcNow -gt $deadline) { throw 'Focused test timed out after 8 minutes' }
+        if ([DateTime]::UtcNow -gt $deadline) { throw "Focused test timed out after $TimeoutMinutes minutes" }
     }
     "exit $($p.ExitCode)  work=$work"
     if ($p.ExitCode -ne 0) { throw "Focused test process failed. See $work/test.log" }

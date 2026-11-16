@@ -1,9 +1,10 @@
 // Original implementation of exponential-density transport and Hillaire-style LUT factorization.
 // All lengths and inverse-length coefficients use the scene units in AtmosphereProfile.
-uniform int HasAtmosphere, CloudSteps, CloudsEnabled;
+uniform int HasAtmosphere, CloudSteps, CloudsEnabled, CloudShadows;
 uniform vec3 AtmoCenter, AtmoRayleigh, AtmoAbsorption;
 uniform float AtmoRadius, AtmoHeight, AtmoMie, AtmoRayleighHeight, AtmoMieHeight;
 uniform float AtmoAlbedo, AtmoClouds, CloudTime;
+uniform float CloudCoverage, CloudDensity, CloudWind, CloudScale;
 uniform float AtmoDistanceScale;
 uniform vec3 CloudOffset;
 uniform mat4 CloudRotation;
@@ -74,18 +75,19 @@ float cloudDensity(vec3 p) {
     float h = (length(p) - AtmoRadius) / AtmoHeight;
     if (h < .24 || h > .52) return 0.;
     vec3 anchored = (CloudRotation * vec4(p, 0)).xyz + CloudOffset +
-        vec3(CloudTime * AtmoHeight * .0008, 0, CloudTime * AtmoHeight * .0003);
+        vec3(CloudTime * AtmoHeight * .0008, 0, CloudTime * AtmoHeight * .0003) * CloudWind;
     float weather = densityNoise(anchored / AtmoHeight * 2.);
     // Quantized density cells retain the broad, block-shaped formations of Minecraft clouds.
-    vec3 cell = floor(anchored / (AtmoHeight * .045));
+    vec3 cell = floor(anchored / (AtmoHeight * .045 * CloudScale));
     float shape = densityFbm(cell * .43);
-    float coverage = mix(AtmoClouds, 1., SurfaceRain);
+    // The coverage setting shifts clear weather only: rain is always a full overcast.
+    float coverage = clamp(mix(AtmoClouds + CloudCoverage, 1., SurfaceRain), 0., 1.);
     float density = smoothstep(1. - coverage - .15, 1. - coverage + .12, weather * .65 + shape * .35);
     density = mix(density, max(.45, density), SurfaceRain);
     return density * smoothstep(.24, .27, h) * (1. - smoothstep(.47, .52, h));
 }
 float cloudExtinction(vec3 p) {
-    return cloudDensity(p) * (18. + SurfaceRain * 42.) / AtmoHeight;
+    return cloudDensity(p) * (18. + SurfaceRain * 42.) * CloudDensity / AtmoHeight;
 }
 float cloudShadow(vec3 p, vec3 sun) {
     vec2 span = atmoSphere(p, sun, AtmoRadius + AtmoHeight * .52);
@@ -102,7 +104,7 @@ void atmoMedium(vec3 p, vec3 d, out vec3 extinction, out vec3 source) {
     vec3 rho = atmoDensities(h), sun = atmoSunDirection(p);
     vec3 scatter = AtmoRayleigh * rho.x + vec3(AtmoMie * rho.y);
     vec3 solar = atmoTrans(p, sun) * atmoSunEnergy();
-    if (CloudsEnabled != 0 && h < AtmoHeight * .52 && max(solar.r, max(solar.g, solar.b)) > .0001)
+    if (CloudsEnabled != 0 && CloudShadows != 0 && h < AtmoHeight * .52 && max(solar.r, max(solar.g, solar.b)) > .0001)
         solar *= cloudShadow(p, sun);
     float mu = dot(d, sun);
     extinction = atmoExtinction(h);

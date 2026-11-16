@@ -14,13 +14,16 @@ public final class SpaceSettings
     public static final class Values
     {
         public int surfaceWidth = 960;
-        public int cameraWidth = 1280;
-        public double volumeScale = .5;
+        public int cameraWidth = 960;
+        public double volumeScale = .25;
         public int volumeSteps = 16;
         public boolean temporal = true, stochastic = false, planetSky = true, airParticles = true;
         public int surfaceSamples = 4;
         public boolean clouds = true;
         public int cloudSteps = 48;
+        /** How the clouds look. Coverage is added to the planet's own (clear weather only), the rest scale what the shader does. */
+        public double cloudCoverage = 0, cloudDensity = 1, cloudWind = 1, cloudScale = 1;
+        public boolean cloudShadows = true;
 
         public Values checked()
         {
@@ -30,7 +33,17 @@ public final class SpaceSettings
             volumeSteps = Math.clamp(volumeSteps, 8, 32);
             surfaceSamples = surfaceSamples >= 4 ? 4 : 1;
             cloudSteps = Math.clamp(cloudSteps, 16, 64);
+            cloudCoverage = Math.clamp(Double.isFinite(cloudCoverage) ? cloudCoverage : 0, -.5, .5);
+            cloudDensity = Math.clamp(Double.isFinite(cloudDensity) ? cloudDensity : 1, .25, 2);
+            cloudWind = Math.clamp(Double.isFinite(cloudWind) ? cloudWind : 1, 0, 3);
+            cloudScale = Math.clamp(Double.isFinite(cloudScale) ? cloudScale : 1, .5, 2);
             return this;
+        }
+
+        /** Everything the clouds depend on, so a cached sky is rebuilt when any of it changes. */
+        public String cloudKey()
+        {
+            return clouds + ":" + cloudSteps + ":" + cloudCoverage + ":" + cloudDensity + ":" + cloudWind + ":" + cloudScale + ":" + cloudShadows;
         }
     }
 
@@ -87,6 +100,14 @@ public final class SpaceSettings
         }
     }
 
+    /** Every setting back to its default. */
+    public static void defaults()
+    {
+        values = new Values();
+        loaded = true;
+        save();
+    }
+
     public static int width()
     {
         return get().surfaceWidth;
@@ -102,15 +123,21 @@ public final class SpaceSettings
         return get().cameraWidth;
     }
 
+    /**
+     * Fast, Balanced and High quality, chosen from measurements on an RTX 3070 Laptop GPU (docs/development/graphics-settings-performance.md)
+     * for the heaviest view, a nebula in sight: about 2 ms, 6 ms and 22 ms. The nebula's resolution and sample count dominate the cost.
+     */
     public static void preset(int preset)
     {
         var v = get();
-        v.surfaceWidth = preset == 0 ? 640 : preset == 1 ? 960 : 1280;
-        v.cameraWidth = preset == 0 ? 640 : preset == 1 ? 1280 : 1920;
-        v.volumeScale = preset == 0 ? .25 : preset == 1 ? .5 : 1;
-        v.volumeSteps = preset == 0 ? 8 : preset == 1 ? 16 : 24;
+        v.surfaceWidth = preset == 0 ? 640 : 960;
+        v.cameraWidth = preset == 0 ? 640 : preset == 1 ? 960 : 1280;
+        v.volumeScale = preset == 2 ? .5 : .25;
+        v.volumeSteps = preset == 0 ? 8 : 16;
         v.surfaceSamples = preset == 0 ? 1 : 4;
         v.cloudSteps = preset == 0 ? 24 : preset == 1 ? 48 : 64;
+        // Presets set what costs time; how the clouds look (coverage, density, wind, block size) is the player's own choice.
+        v.cloudShadows = preset != 0;
         v.stochastic = false;
         v.temporal = true;
         save();
@@ -119,7 +146,7 @@ public final class SpaceSettings
     public static boolean matchesPreset(int p)
     {
         var v = get();
-        return v.surfaceWidth == (p == 0 ? 640 : p == 1 ? 960 : 1280) && v.cameraWidth == (p == 0 ? 640 : p == 1 ? 1280 : 1920) && v.volumeScale == (p == 0 ? .25 : p == 1 ? .5 : 1) && v.volumeSteps == (p == 0 ? 8 : p == 1 ? 16 : 24) && v.surfaceSamples == (p == 0 ? 1 : 4) && v.cloudSteps == (p == 0 ? 24 : p == 1 ? 48 : 64) && !v.stochastic && v.temporal;
+        return v.surfaceWidth == (p == 0 ? 640 : 960) && v.cameraWidth == (p == 0 ? 640 : p == 1 ? 960 : 1280) && v.volumeScale == (p == 2 ? .5 : .25) && v.volumeSteps == (p == 0 ? 8 : 16) && v.surfaceSamples == (p == 0 ? 1 : 4) && v.cloudSteps == (p == 0 ? 24 : p == 1 ? 48 : 64) && v.cloudShadows == (p != 0) && !v.stochastic && v.temporal;
     }
 
     private SpaceSettings()

@@ -12,7 +12,11 @@
       "com.nullandkale.nullspace.gameplay.travel.LandingRotationGameTest",
       "com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.JourneyGameTest",
+      "com.nullandkale.nullspace.gameplay.navigation.FlightPhysicsGameTest",
       "com.nullandkale.nullspace.gameplay.start.SpaceStartGameTest",
+      "com.nullandkale.nullspace.gameplay.start.CrashStartGameTest",
+      "com.nullandkale.nullspace.worldgen.encounters.AirlessCrewsGameTest",
+      "com.nullandkale.nullspace.gameplay.systems.EngineEffectsGameTest",
       "com.nullandkale.nullspace.gameplay.ship.FirstShipGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.StarSystemsGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.PlanetRestartGameTest",
@@ -77,7 +81,6 @@
       "com.nullandkale.nullspace.gameplay.shipyard.RandomYardGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.RoomGalleryGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.EnemyGalleryGameTest",
-      "com.nullandkale.nullspace.gameplay.shipyard.EnemyGalleryClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StationGalleryGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.StairWalkGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.ShipYardCrashGameTest",
@@ -103,6 +106,8 @@
       "com.nullandkale.nullspace.gameplay.navigation.CourseClientGameTest",
       "com.nullandkale.nullspace.dev.DevWorldCreationClientGameTest",
       "com.nullandkale.nullspace.gameplay.start.SpaceStartClientGameTest",
+      "com.nullandkale.nullspace.gameplay.start.CrashStartClientGameTest",
+      "com.nullandkale.nullspace.gameplay.start.EffectsVideoClientGameTest",
       "com.nullandkale.nullspace.gameplay.station.StationExpansionClientGameTest",
       "com.nullandkale.nullspace.worldgen.ships.ManufacturerRoleClientGameTest",
       "com.nullandkale.nullspace.worldgen.ships.ManufacturerClientGameTest",
@@ -133,7 +138,12 @@
       "com.nullandkale.nullspace.gameplay.ship.FirstTripClientGameTest",
       "com.nullandkale.nullspace.gameplay.shipyard.ShipYardClientGameTest",
       "com.nullandkale.nullspace.worldgen.sites.TerraLandingClientGameTest",
-      "com.nullandkale.nullspace.perf.SpaceGridClientGameTest"
+      "com.nullandkale.nullspace.perf.SpaceGridClientGameTest",
+      "com.nullandkale.nullspace.gameplay.shipyard.EnemyGalleryClientGameTest",
+      "com.nullandkale.nullspace.ui.screen.SpaceSettingsClientGameTest",
+      "com.nullandkale.nullspace.render.compute.GraphicsSettingsBenchmarkClientGameTest",
+      "com.nullandkale.nullspace.render.compute.FogBlendClientGameTest",
+      "com.nullandkale.nullspace.render.compute.SkyFallClientGameTest"
     ]
   },
   "depends": {

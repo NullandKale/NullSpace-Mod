@@ -43,6 +43,7 @@ public final class SiteThreats
     {
         net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(REPAIR_BOT, RepairBot.attributes());
         com.nullandkale.nullspace.content.entity.Stowaways.initialize();
+        com.nullandkale.nullspace.content.entity.Stowaways.place(REPAIR_BOT, false);
         ServerContext.tick(ServerContext.Phase.TRAVEL, SiteThreats::tick);
     }
 
@@ -272,6 +273,17 @@ public final class SiteThreats
         mob.finalizeSpawn(level, difficulty, EntitySpawnReason.STRUCTURE, mob instanceof net.minecraft.world.entity.monster.zombie.Zombie ? new net.minecraft.world.entity.monster.zombie.Zombie.ZombieGroupData(false, false) : null);
         if (mob instanceof net.minecraft.world.entity.monster.zombie.Zombie zombie)
             zombie.setCanBreakDoors(false);
+        suit(mob, difficulty);
+        return mob;
+    }
+
+    /**
+     * Dresses a mob in the suit: wherever vanilla gave it a piece of armor it wears the armored suit (with the same enchantments),
+     * the other pieces are the plain suit, and a skeleton without a weapon gets a bow. Used for crews at sites and for the crews
+     * that walk airless planets.
+     */
+    public static void suit(Mob mob, DifficultyInstance difficulty)
+    {
         var slots = List.of(EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET);
         var plain = List.of(ModBlocks.HELMET, ModBlocks.CHEST, ModBlocks.LEGS, ModBlocks.BOOTS);
         var armored = List.of(ModBlocks.ARMORED_HELMET, ModBlocks.ARMORED_CHEST, ModBlocks.ARMORED_LEGS, ModBlocks.ARMORED_BOOTS);
@@ -289,7 +301,6 @@ public final class SiteThreats
         }
         if (mob instanceof net.minecraft.world.entity.monster.skeleton.AbstractSkeleton && mob.getMainHandItem().isEmpty())
             mob.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.BOW));
-        return mob;
     }
 
     /**

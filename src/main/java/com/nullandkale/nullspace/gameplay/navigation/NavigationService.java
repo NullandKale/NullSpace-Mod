@@ -141,8 +141,6 @@ public final class NavigationService
             throw new IllegalArgumentException("Another crew member is piloting. Use Ship camera to observe.");
         if (pilot)
             state(player.level().getServer()).computers.remove(vessel.getStringOr("id", ""));
-        if (owner == null)
-            Piloting.stop(vessel);
         close(player.level().getServer(), player.getUUID());
         if (pilot)
         {
@@ -192,7 +190,8 @@ public final class NavigationService
             var s = ship(server, l.ship);
             if (s != null)
             {
-                Piloting.stop(s);
+                // The pilot's hands are off: the ship keeps its momentum, and the computer takes over (see unattended flight).
+                s.putInt("thrustDemand", 0);
                 WorldStore.get(server).requestSave();
             }
         }
@@ -284,6 +283,83 @@ public final class NavigationService
         }
     }
 
+    /** The hull's mass in blocks, saved on the ship and counted again every ten seconds, so building changes how it handles. */
+    static double mass(ServerLevel level, CompoundTag ship, long tick)
+    {
+        int cached = ship.getIntOr("simMass", 0);
+        if (cached > 0 && tick % 200 != 0)
+            return cached;
+        var bounds = WorldStore.bounds(ship);
+        int blocks = 0;
+        for (var at : net.minecraft.core.BlockPos.betweenClosed(bounds.min(), bounds.max()))
+            if (!level.getBlockState(at).isAir())
+                blocks++;
+        ship.putInt("simMass", Math.max(150, blocks));
+        return Math.max(150, blocks);
+    }
+
+    /**
+     * One tick of physical flight for a ship: the model, then fuel for the thrust it actually used (braking costs as much as
+     * pushing), then the exhaust demand the plume follows. A ship out of fuel or power coasts at the speed it had.
+     */
+    public static FlightDynamics.State fly(ServerLevel level, CompoundTag ship, int buttons, int power, float forward, boolean assist, long tick)
+    {
+        var old = Piloting.flight(ship);
+        double mass = mass(level, ship, tick);
+        var result = FlightDynamics.simulate(old, buttons, new FlightDynamics.Craft(mass, power, assist), forward);
+        int used = (int) Math.ceil(result.thrust() * power);
+        if (power > 0 && used > 0 && !FuelSystem.spend(level, ship, FuelSystem.travelCost(level, ship, used)))
+        {
+            result = FlightDynamics.simulate(old, buttons, new FlightDynamics.Craft(mass, 0, assist), forward);
+            used = 0;
+        }
+        ship.putInt("thrustDemand", result.thrust() > .03 ? Math.max(1, used) : 0);
+        // What the exhaust follows: how hard the engines are working, and how fast the ship is going for its power.
+        ship.putDouble("thrustShare", result.thrust());
+        ship.putDouble("speedShare", Math.min(1, result.state().velocity().length() / Math.max(1, FlightDynamics.governor(new FlightDynamics.Craft(mass, Math.max(1, power), true)))));
+        return result.state();
+    }
+
+    /**
+     * Ships nobody is flying keep their momentum. With no pilot and no script, the computer holds assist on: it brakes the ship
+     * with whatever the engines and fuel allow, so a ship that was left moving slows to rest over seconds, and one with no
+     * power or fuel drifts on at the speed it had. A ship that docks, jumps, is stored or is moving between worlds is not touched
+     * here: those already set its motion themselves.
+     */
+    private static void unattended(MinecraftServer server, Runtime r)
+    {
+        var space = server.getLevel(TravelService.SPACE);
+        if (space == null)
+            return;
+        for (var tag : WorldStore.get(server).ships())
+        {
+            var ship = (CompoundTag) tag;
+            if (!ship.getStringOr("dimension", "").equals(TravelService.SPACE.identifier().toString()) || !moving(ship))
+                continue;
+            String id = ship.getStringOr("id", "");
+            if (r.pilots.containsKey(id) || r.computers.containsKey(id) || DockingService.motionLocked(ship) || JourneyService.cruising(ship) || TransferLocks.busy(server, ship))
+                continue;
+            var old = Piloting.flight(ship);
+            var next = fly(space, ship, 0, propulsion(space, ship), ShipHeading.forward(space, ship).toYRot(), true, server.getTickCount());
+            if (Piloting.blocked(server, ship, old, next))
+            {
+                Piloting.stop(ship);
+                ship.putString("flightStatus", "DRIFT STOPPED / OBSTACLE");
+            }
+            else
+            {
+                Piloting.apply(ship, next);
+                ship.putString("flightStatus", propulsion(space, ship) == 0 ? "DRIFTING / NO ENGINE POWER" : "BRAKING / NO PILOT");
+            }
+        }
+    }
+
+    /** True while a ship has any velocity or spin to keep simulating. */
+    static boolean moving(CompoundTag ship)
+    {
+        return Math.abs(ship.getDoubleOr("simVX", 0)) + Math.abs(ship.getDoubleOr("simVY", 0)) + Math.abs(ship.getDoubleOr("simVZ", 0)) + Math.abs(ship.getDoubleOr("simSpinYaw", 0)) + Math.abs(ship.getDoubleOr("simSpinPitch", 0)) + Math.abs(ship.getDoubleOr("simSpinRoll", 0)) > 1e-9;
+    }
+
     static void tick(MinecraftServer server)
     {
         JourneyService.tick(server);
@@ -301,12 +377,8 @@ public final class NavigationService
             {
                 boolean aboard = crewAboard(p.level(), s);
                 int power = aboard ? propulsion(p.level(), s) : 0;
-                boolean thrust = (l.buttons & ~FlightDynamics.FIRE) != 0;
-                if (power > 0 && thrust && !FuelSystem.spend(p.level(), s, FuelSystem.travelCost(p.level(), s, Math.max(1, power))))
-                    power = 0;
-                s.putInt("thrustDemand", thrust ? power : 0);
                 var old = Piloting.flight(s);
-                var next = FlightDynamics.step(old, l.buttons, power, ShipHeading.forward(p.level(), s).toYRot());
+                var next = fly(p.level(), s, l.buttons, power, ShipHeading.forward(p.level(), s).toYRot(), (l.buttons & FlightDynamics.ASSIST_OFF) == 0, server.getTickCount());
                 if (Piloting.blocked(server, s, old, next))
                 {
                     next = new FlightDynamics.State(old.center(), Vec3.ZERO, old.yaw(), old.pitch(), old.roll());
@@ -341,19 +413,13 @@ public final class NavigationService
             if (!commandHolds(server, vessel, level, command))
             {
                 if (vessel != null)
-                    Piloting.stop(vessel);
+                    vessel.putInt("thrustDemand", 0);
                 computers.remove();
                 continue;
             }
             var old = Piloting.flight(vessel);
-            vessel.putInt("thrustDemand", command.buttons() == 0 ? 0 : propulsion(level, vessel));
-            if (!FuelSystem.spend(level, vessel, FuelSystem.travelCost(level, vessel, Math.max(1, propulsion(level, vessel)))))
-            {
-                Piloting.stop(vessel);
-                computers.remove();
-                continue;
-            }
-            var next = FlightDynamics.step(old, command.buttons(), propulsion(level, vessel), ShipHeading.forward(level, vessel).toYRot());
+            // A script always flies with assist on: it asks for a motion and the computer gets there within the engines' limits.
+            var next = fly(level, vessel, command.buttons() & ~FlightDynamics.ASSIST_OFF, propulsion(level, vessel), ShipHeading.forward(level, vessel).toYRot(), true, server.getTickCount());
             if (Piloting.blocked(server, vessel, old, next))
             {
                 Piloting.stop(vessel);
@@ -366,6 +432,7 @@ public final class NavigationService
                 vessel.putString("flightStatus", "SCRIPT PILOT");
             }
         }
+        unattended(server, r);
         for (var j : List.copyOf(r.jumps.values()))
         {
             j.ticks++;

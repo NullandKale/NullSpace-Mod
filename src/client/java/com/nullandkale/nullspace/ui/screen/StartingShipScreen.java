@@ -40,7 +40,7 @@ public final class StartingShipScreen extends Screen
             var preset = ShipBlueprints.PRESETS.get(index);
             var button = Button.builder(Component.literal((preset.id().equals(selection.nullspace$start().ship()) ? "> " : "") + preset.name() + " | " + preset.role()), b ->
             {
-                selection.nullspace$start(new WorldStartSettings(selection.nullspace$start().space(), preset.id()));
+                selection.nullspace$start(new WorldStartSettings(selection.nullspace$start().space(), preset.id(), selection.nullspace$start().crash(), selection.nullspace$start().multi(), selection.nullspace$start().planet()));
                 changed.run();
                 onClose();
             }).bounds(x, 46 + row * 24, w, 20).build();

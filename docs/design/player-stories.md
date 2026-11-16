@@ -13,6 +13,7 @@ Food keeps the player going, fuel keeps the ship going, and materials let them b
 | Start | Starting situation | First motivation |
 | --- | --- | --- |
 | Ship start | Begins in orbit aboard a working ship (see [starting in space](space-start.md)) | Explore to find fuel, food and resources, keep the ship going and improve it |
+| Crash start | Begins in a ship that has crash-landed on Terra, with its hull torn and some machines broken (see [crash-landing start](crash-start.md)) | Gather iron and copper, craft the broken machines again and place them, then fly |
 | Vanilla start | Begins in an ordinary new Minecraft world | Build a first ship, launch it, and begin exploring space |
 
 ## A. Starting aboard a ship

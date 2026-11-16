@@ -78,13 +78,12 @@ A remote ship is shaded by the light stored at its blocks, with a floor of 15% (
 .\scripts\build\Invoke-Gradle.ps1 verifyContentAssets
 .\scripts\build\format.ps1 -Write     # Spotless + Eclipse formatter, gradle/java-format.xml
 .\scripts\build\format.ps1            # Java formatting check
-.\scripts\test\verify.ps1             # unit, native server, assets, JAR
-.\scripts\test\verify.ps1 -Graphics -Multiplayer -Crash
+.\scripts	est\parallel-test.ps1 -Graphics   # unit, native server, assets, JAR and graphical workers, in parallel
 ```
 
 Java is formatted in the Visual Studio C# style: Allman braces, four-space indents and one blank line between members. There is **no line-length limit and no warning for long lines on purpose**. A very long line is a sign that the code needs restructuring (named checks, enums, extracted methods), and wrapping it would hide that. GLSL uses [`.clang-format`](../../.clang-format).
 
-The verification runner creates `build/verification/<run>/manifest.json` before starting work. Each suite has selected, status and exit evidence; unselected suites are marked not-selected. Multiplayer requires both real client exit codes and its completed scenario marker. Crash stages require exit 86 during prepare, exit zero during verify, and a fresh completion marker. Root harnesses share Java argument handling through [`scripts/lib/LocalVerification.psm1`](../../scripts/lib/LocalVerification.psm1). See [local verification](local-verification.md) and the [performance test](performance-test.md).
+The parallel runner creates `build/parallel-verification/<run>/result.json` before starting work. Each suite has selected, status and exit evidence; unselected suites are marked not-selected. Multiplayer requires both real client exit codes and its completed scenario marker. Crash stages require exit 86 during prepare, exit zero during verify, and a fresh completion marker. Root harnesses share Java argument handling through [`scripts/lib/LocalVerification.psm1`](../../scripts/lib/LocalVerification.psm1). See [local verification](local-verification.md) and the [performance test](performance-test.md).
 
 ## Documentation map
 

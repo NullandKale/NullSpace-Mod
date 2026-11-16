@@ -66,8 +66,10 @@ public final class NullSpace implements ModInitializer
         PadComputers.initialize();
         BuildPreviews.initialize();
         ModBlocks.initialize();
+        com.nullandkale.nullspace.content.BrokenMachines.initialize();
         ControllerBlockEntity.initialize();
         SiteThreats.initialize();
+        com.nullandkale.nullspace.worldgen.encounters.AirlessCrews.initialize();
         VillagePorts.initialize();
         MachineMenus.initialize();
         FieldGuide.initialize();
@@ -75,6 +77,7 @@ public final class NullSpace implements ModInitializer
         ShipService.initialize();
         ShipDiagnostics.initialize();
         ShipIntegrity.initialize();
+        com.nullandkale.nullspace.gameplay.systems.EngineEffects.initialize();
         TravelService.initialize();
         ShipStorage.initialize();
         PlayerRescue.initialize();

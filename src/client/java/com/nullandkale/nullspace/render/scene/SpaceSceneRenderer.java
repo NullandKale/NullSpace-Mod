@@ -168,6 +168,26 @@ public final class SpaceSceneRenderer
         return prepared && viewport != null && frame != null && id.equals(frame.scene().getStringOr("sceneId", ""));
     }
 
+    private static float fadeStart = Float.MAX_VALUE, fadeEnd = Float.MAX_VALUE;
+
+    /**
+     * Where vanilla would fade far terrain into its fog colour, in blocks. With a planet sky the fog is switched off and the
+     * fade is done in the composite instead, into the real sky colour in each direction (so no biome-coloured band shows at the
+     * horizon). Called every frame by the fog mixin; both values are huge when there is nothing to fade.
+     */
+    public static void chunkFade(float start, float end)
+    {
+        fadeStart = start;
+        fadeEnd = end;
+    }
+
+    /** The fade range for a view: the main world's own, and none for monitors and other viewports. */
+    public static float[] chunkFadeFor(SpaceComputeRenderer compute)
+    {
+        boolean main = viewport != null && viewport.compute() == compute && planetSkyReady();
+        return main && fadeEnd < 1e6f ? new float[]{fadeStart, fadeEnd} : new float[]{Float.MAX_VALUE, Float.MAX_VALUE};
+    }
+
     public static boolean planetSkyReady()
     {
         return prepared && frame != null && frame.scene().getBooleanOr("planetSky", false);
