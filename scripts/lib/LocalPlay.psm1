@@ -6,7 +6,7 @@ function Get-LocalPlayArguments {
         throw 'Interactive play must use ordinary client/server launches, without GameTests'
     }
     $arguments = @($Spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') -and -not $_.StartsWith('-Xmx') })
-    $arguments += @('-Xmx2G',"-Dfabric.dli.config=$Config",'-cp',$Spec.classpath,$Spec.mainClass)
+    $arguments += @('-Xmx6G',"-Dfabric.dli.config=$Config",'-cp',$Spec.classpath,$Spec.mainClass)
     $remove = @('--gameDir','--username','--uuid','--width','--height','--quickPlaySingleplayer','--quickPlayMultiplayer','--quickPlayRealms','--quickPlayPath','--server','--port')
     for ($index=0; $index -lt $Spec.args.Count; $index++) {
         $value=[string]$Spec.args[$index]

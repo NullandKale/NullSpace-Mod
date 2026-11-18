@@ -86,6 +86,52 @@ function Get-VerificationDurations([string] $Root) {
     }
     return ,$durations
 }
+function Get-VerificationNativeDurations([string] $Root, [string] $Workspace, [string[]] $Classes) {
+    # Seconds of server-test time per class, from the newest passing runs. A class is only estimated when every one of its cases was timed.
+    $caseSeconds = @{}
+    if(Test-Path -LiteralPath $Root) {
+        foreach($run in @(Get-ChildItem -LiteralPath $Root -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 20)) {
+            $receipt = Join-Path $run.FullName 'result.json'
+            if(-not(Test-Path -LiteralPath $receipt)){continue}
+            try {$state=Get-Content -LiteralPath $receipt -Raw|ConvertFrom-Json}catch{continue}
+            if(-not $state.PSObject.Properties['status'] -or -not $state.PSObject.Properties['jobs'] -or $state.status -notin @('passed','passed-with-unit-skips')){continue}
+            foreach($job in @($state.jobs)) {
+                if(-not $job.PSObject.Properties['nativeCases']){continue}
+                foreach($case in @($job.nativeCases)) {
+                    try {$seconds=[double]$case.seconds}catch{continue}
+                    if(-not $caseSeconds.ContainsKey([string]$case.name) -and $seconds -gt 0 -and -not [double]::IsInfinity($seconds) -and -not [double]::IsNaN($seconds)){$caseSeconds[[string]$case.name]=$seconds}
+                }
+            }
+        }
+    }
+    $durations = @{}
+    foreach($class in $Classes) {
+        try {$names=@(Get-VerificationNativeInventory $Workspace @($class))}catch{continue}
+        if($names.Count -gt 0 -and @($names | Where-Object { -not $caseSeconds.ContainsKey($_) }).Count -eq 0) {
+            $durations[$class]=[double](($names | ForEach-Object { $caseSeconds[$_] } | Measure-Object -Sum).Sum)
+        }
+    }
+    return ,$durations
+}
+function Invoke-VerificationScriptShards([string] $Script, [string] $RunRoot, [string[]] $Items, [string] $ItemParameter, [int] $Workers, [string[]] $Arguments = @()) {
+    # Runs one copy of a script per slice of Items, side by side, each in its own artifact directory. Every copy finishes before a failure is reported.
+    $count = [Math]::Max(1, [Math]::Min($Workers, $Items.Count))
+    $children = @()
+    for($i = 0; $i -lt $count; $i++) {
+        $slice = @(for($j = $i; $j -lt $Items.Count; $j += $count) { $Items[$j] })
+        $root = Join-Path $RunRoot ('worker-' + ($i + 1))
+        $command = "& '$Script' -$ItemParameter " + (($slice | ForEach-Object { "'$_'" }) -join ',') + " -ArtifactRoot '$root' -SkipBuild " + ($Arguments -join ' ')
+        $argumentList = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',('"' + $command.Replace('"','\"') + '"'))
+        $null = New-Item -ItemType Directory -Force -Path $RunRoot
+        $process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $argumentList -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $RunRoot "worker-$($i + 1).log") -RedirectStandardError (Join-Path $RunRoot "worker-$($i + 1).err.log")
+        $null = $process.Handle
+        $children += [pscustomobject]@{index = $i + 1; items = $slice; root = $root; process = $process}
+    }
+    foreach($child in $children) { $child.process.WaitForExit() }
+    $failed = @($children | Where-Object { $_.process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $_.root 'result.json')) })
+    if($failed.Count) { throw ('Worker(s) ' + (($failed | ForEach-Object { "$($_.index) (exit $($_.process.ExitCode); $($_.items -join ', '))" }) -join '; ') + ". Logs: $RunRoot") }
+    return $children
+}
 function Assert-VerificationDiskSpace([long] $AvailableBytes, [long] $RequiredBytes) {
     if ($AvailableBytes -lt 0 -or $RequiredBytes -le 0) { throw 'Invalid verification disk-space measurement' }
     if ($AvailableBytes -lt $RequiredBytes) {
@@ -120,4 +166,4 @@ function Assert-VerificationNativeRegistration([string] $Workspace) {
     $mod = Read-VerificationJson (Join-Path $Workspace 'src/gametest/resources/fabric.mod.json')
     Assert-VerificationInventory $declared @($mod.entrypoints.'fabric-gametest')
 }
-Export-ModuleMember -Function Quote-JavaArgument,Write-JavaArguments,Read-VerificationJson,Write-VerificationJson,Assert-VerificationMarker,Get-VerificationFingerprint,Assert-VerificationFingerprint,Assert-VerificationInventory,Get-VerificationShards,Get-VerificationDurations,Get-VerificationNativeInventory,Assert-VerificationNativeRegistration,Assert-VerificationDiskSpace
+Export-ModuleMember -Function Quote-JavaArgument,Write-JavaArguments,Read-VerificationJson,Write-VerificationJson,Assert-VerificationMarker,Get-VerificationFingerprint,Assert-VerificationFingerprint,Assert-VerificationInventory,Get-VerificationShards,Get-VerificationDurations,Get-VerificationNativeDurations,Invoke-VerificationScriptShards,Get-VerificationNativeInventory,Assert-VerificationNativeRegistration,Assert-VerificationDiskSpace

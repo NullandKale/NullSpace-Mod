@@ -203,6 +203,35 @@ ROOMS = {
         normal=[("iron_bars", 3, 4, 10), ("lead", 2, 1, 3), ("name_tag", 1, 1, 1), ("iron_nugget", 3, 3, 9)],
         blocks=[block("polished_blackstone", 3, 8, 24), block("iron_bars", 3, 4, 12), block("stone_bricks", 2, 8, 24), block("iron_chain", 1, 2, 6)],
         finds=[(("iron_ingot", 3, 2, 6), 0), (("diamond", 2, 1, 2), 2), (("emerald", 3, 1, 3), 1), (("gold_ingot", 3, 2, 5), 1), (("__enchanted__", 2, 10, 25), 2)]),
+    # The rooms only a hab has (docs/design/hab-room-catalog.md).
+    "family_quarters": dict(
+        normal=[("book", 3, 1, 2), ("clock", 1, 1, 1), ("compass", 1, 1, 1), ("bread", 2, 1, 3), ("white_wool", 2, 2, 6), ("gold_nugget", 2, 2, 6)],
+        blocks=[block("white_carpet", 3, 4, 12), block("oak_planks", 2, 8, 16), block("lantern", 2, 2, 4), block("bookshelf", 1, 2, 6, 1)],
+        finds=[(("emerald", 3, 1, 3), 0), (("gold_ingot", 2, 1, 3), 1), (("music_disc_cat", 1, 1, 1), 2), (("golden_apple", 1, 1, 1), 3), (("diamond", 1, 1, 2), 3)]),
+    "chapel": dict(
+        normal=[("candle", 3, 1, 4), ("book", 2, 1, 2), ("paper", 2, 2, 5), ("poppy", 2, 1, 3)],
+        blocks=[block("stone_bricks", 3, 8, 24), block("polished_andesite", 2, 8, 16), block("lantern", 2, 2, 4)],
+        finds=[(("__enchanted__", 4, 5, 20), 0), (("gold_ingot", 2, 1, 3), 1), (("golden_apple", 1, 1, 1), 2), (("__enchanted__", 3, 20, 35), 3)]),
+    "machine_hall": dict(
+        normal=[("redstone", 4, 2, 8), ("nullspace:circuit_board", 2, 1, 2), ("nullspace:machine_casing", 2, 1, 2), ("copper_ingot", 2, 2, 6), ("nullspace:battery", 1, 1, 1)],
+        blocks=[block("copper_block", 2, 1, 3), block("iron_block", 1, 1, 2, 1), block("polished_andesite", 3, 8, 24)],
+        fuel=(1, 2, 2, 6),
+        finds=[(("nullspace:circuit_board", 4, 1, 3), 0), (("nullspace:air_canister", 2, 1, 2), 0), (("nullspace:machine_casing", 3, 1, 3), 1)],
+        dead=True),
+    "mine_head": dict(
+        normal=[("iron_pickaxe", 1, 1, 1), ("torch", 4, 4, 12), ("rail", 3, 4, 12), ("raw_iron", 2, 2, 6), ("coal", 3, 2, 6)],
+        blocks=[block("cobblestone", 3, 8, 24), block("rail", 2, 4, 12), block("stone_bricks", 2, 8, 16)],
+        finds=[(("raw_gold", 2, 2, 6), 0), (("iron_ingot", 3, 2, 6), 0), (("diamond", 2, 1, 2), 2), (("emerald", 2, 1, 3), 1)]),
+    "apiary": dict(
+        normal=[("honeycomb", 4, 2, 6), ("honey_bottle", 3, 1, 3), ("glass_bottle", 2, 1, 4), ("poppy", 2, 2, 5), ("bone_meal", 2, 2, 6)],
+        blocks=[block("beehive", 1, 1, 1, 1), block("honey_block", 1, 1, 2, 2), block("moss_block", 2, 2, 6)],
+        finds=[(("honeycomb", 3, 3, 8), 0), (("honey_bottle", 3, 2, 4), 1), (("golden_apple", 1, 1, 1), 3)],
+        food=["honey_bottle"]),
+    "controller_room": dict(
+        normal=[("nullspace:circuit_board", 3, 1, 3), ("nullspace:machine_casing", 2, 1, 2), ("redstone", 3, 2, 8), ("map", 2, 1, 2), ("paper", 3, 2, 6), ("clock", 1, 1, 1)],
+        blocks=[block("polished_blackstone", 3, 8, 24), block("glass", 2, 8, 16), block("iron_block", 1, 1, 2, 1)],
+        finds=[(("nullspace:local_scanner", 2, 1, 1), 1), (("nullspace:circuit_board", 4, 1, 3), 0), (("diamond", 2, 1, 2), 2), (("golden_apple", 1, 1, 1), 3)],
+        dead=True),
 }
 
 # Mid-tier finds every found room can give (the range of the End city and Nether fortress chests): gold, iron, emeralds,
@@ -264,7 +293,7 @@ def derelict_table(key, spec, tier, dead):
         pools.append(pool([item("coal", 6, low, high), item("charcoal", 2, low, high)], rolls_lo, rolls_hi))
     if "food" in spec:
         foods = {"bread": "bread", "carrot": "carrot", "potato": "potato", "apple": "apple", "sweet_berries": "sweet_berries",
-                 "beetroot": "beetroot", "glow_berries": "glow_berries"}
+                 "beetroot": "beetroot", "glow_berries": "glow_berries", "honey_bottle": "honey_bottle"}
         pools.append(pool([item(foods[f], 1, 1, 3) if tier >= 1 else item("rotten_flesh", 1, 1, 3)
                            for f in spec["food"]], 1, 1))
     salvage = []

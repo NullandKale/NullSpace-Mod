@@ -16,5 +16,6 @@ public abstract class ShipExplosionMixin
     {
         var explosion = (ServerExplosion) (Object) this;
         ShipCombat.localExplosion(explosion.level(), explosion.center(), explosion.radius(), explosion.getDirectSourceEntity());
+        com.nullandkale.nullspace.gameplay.systems.ShipAir.blast(explosion.level(), explosion.center(), explosion.radius());
     }
 }

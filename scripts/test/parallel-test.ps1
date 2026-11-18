@@ -2,13 +2,15 @@ param(
     [switch] $Graphics,
     [switch] $ClientsOnly,
     [switch] $Coverage,
-    [ValidateRange(1, 8)] [int] $GraphicsWorkers = 6,
-    [ValidateRange(1, 8)] [int] $ServerWorkers = 1,
+    [ValidateRange(1, 8)] [int] $GraphicsWorkers = 4,
+    [ValidateRange(1, 8)] [int] $ServerWorkers = 3,
     [ValidateRange(0, 100)] [int] $KeepSuccessfulWorldRuns = 0,
     [ValidateRange(0, 100)] [int] $KeepFailedWorldRuns = 0,
     [switch] $KeepWorlds,
     [ValidateRange(1, 128)] [int] $MinimumFreeGiB = 4,
-    [ValidateRange(60, 3600)] [int] $TimeoutSeconds = 1200
+    [ValidateRange(60, 3600)] [int] $TimeoutSeconds = 1800,
+    # Written once everything is compiled and the workers are about to start, so other runners may use the build outputs.
+    [string] $ReadyFile = ''
 )
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
@@ -61,11 +63,15 @@ try {
     Copy-Item -LiteralPath "$root/build/test-results/test" -Destination (Join-Path $runRoot 'unit') -Recurse
     $mod = Get-Content -LiteralPath "$root/src/gametest/resources/fabric.mod.json" -Raw | ConvertFrom-Json
     $jobs = @()
-    $nativeCosts = @{}
-    foreach($class in @($mod.entrypoints.'fabric-gametest')) {
-        $source = Join-Path $root ('src/gametest/java/'+$class.Replace('.','/')+'.java')
-        $nativeCosts[$class] = [Math]::Max(1,[regex]::Matches([IO.File]::ReadAllText($source),'(?m)^\s*@GameTest(?:\([^)]*\))?').Count)
+    # Server shards are balanced by the measured seconds of recent passing runs; a class without history costs the median, and with no history at all, its declared case count.
+    $nativeCosts = Get-VerificationNativeDurations (Join-Path $root 'build/parallel-verification') $root @($mod.entrypoints.'fabric-gametest')
+    if ($nativeCosts.Count -eq 0) {
+        foreach($class in @($mod.entrypoints.'fabric-gametest')) {
+            $source = Join-Path $root ('src/gametest/java/'+$class.Replace('.','/')+'.java')
+            $nativeCosts[$class] = [Math]::Max(1,[regex]::Matches([IO.File]::ReadAllText($source),'(?m)^\s*@GameTest(?:\([^)]*\))?').Count)
+        }
     }
+    $manifest.nativeTimingEstimates = $nativeCosts
     if (-not $ClientsOnly) {
     foreach($shard in @(Get-VerificationShards @($mod.entrypoints.'fabric-gametest') $ServerWorkers -Durations $nativeCosts)) {
         $jobs += [pscustomobject]@{name="server-$($shard.index)";kind='server';expected=@($shard.classes)}
@@ -86,6 +92,7 @@ try {
         $manifest.windowGrid = @{area=$graphicsArea;columns=$layout.columns;rows=$layout.rows}
         Write-Host ("Graphical windows: {0} columns x {1} rows on the active monitor" -f $layout.columns,$layout.rows)
     }
+    if ($ReadyFile) { [IO.File]::WriteAllText($ReadyFile, $runRoot) }
     $lastClientStart = $null
     foreach ($job in $jobs) {
         $work = Join-Path $runRoot $job.name
@@ -106,7 +113,10 @@ try {
         $launchConfig = Join-Path $work 'launch.cfg'
         [IO.File]::WriteAllText($launchConfig,$config,[Text.UTF8Encoding]::new($false))
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') })
-        $arguments += @('-Xmx2G',"-Dfabric.dli.config=$launchConfig")
+        # The number of workers is fixed (3 server and 4 graphics by default) and each has the machine's memory to itself: the server workers run the
+        # big hab and station tests, the graphics ones the client.
+        $heap = if ($job.kind -eq 'server') { '-Xmx6G' } else { '-Xmx4G' }
+        $arguments += @($heap,"-Dfabric.dli.config=$launchConfig")
         if ($Coverage) {
             $agent = Join-Path $root 'build/coverage-agent/jacocoagent.jar'
             if (-not (Test-Path -LiteralPath $agent)) { throw 'Missing exported coverage agent' }

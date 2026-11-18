@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "nullspace:green_gem_block",
+    "nullspace:machine_casing",
+    "nullspace:circuit_board",
+    "nullspace:circuit_board"
+  ],
+  "result": {
+    "id": "nullspace:repair_bay",
+    "count": 1
+  }
+}

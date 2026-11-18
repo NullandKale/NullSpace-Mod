@@ -20,6 +20,18 @@ public final class PlanetDimensions
 {
     private static final ServerContext.Key<Map<ResourceKey<Level>, Long>> SEEDS = new ServerContext.Key<>();
 
+    /**
+     * The danger band (0 to 3) of each planet surface by dimension id, set when the level is created. World generation reads it from
+     * its own threads, so it is a plain concurrent map and never asks the galaxy ({@link com.nullandkale.nullspace.worldgen.OreRichness}).
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Integer> BANDS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** How far out a surface lies: 0 at Sol (and for anything not a created planet), 3 beyond 65 light-years. */
+    public static int band(Level level)
+    {
+        return BANDS.getOrDefault(level.dimension().identifier().toString(), 0);
+    }
+
     public static Long seed(ServerLevel level)
     {
         var seeds = ServerContext.get(level.getServer()).existing(SEEDS);
@@ -46,6 +58,7 @@ public final class PlanetDimensions
                     throw new IllegalStateException("Missing planet terrain template for " + body.type());
                 // Populate this before construction: ChunkMap asks getSeed while ServerLevel is being built.
                 seeds.put(key, body.seed());
+                BANDS.put(key.identifier().toString(), Math.clamp(StarSystems.danger(server, body.id()), 0, 3));
                 var data = new DerivedLevelData(server.getWorldData(), server.getWorldData().overworldData());
                 var level = new ServerLevel(server, executor, storage, data, key, new LevelStem(prototype.type(), prototype.generator()), false, BiomeManager.obfuscateSeed(body.seed()), List.of(), false);
                 level.getWorldBorder().setAbsoluteMaxSize(server.getAbsoluteMaxWorldSize());

@@ -19,6 +19,8 @@ final class Fx
     static final Spec GENERATOR = RoomKit.of(ModBlocks.GENERATOR), BATTERY = RoomKit.of(ModBlocks.BATTERY), TERMINAL = RoomKit.of(ModBlocks.TERMINAL), MONITOR = RoomKit.of(ModBlocks.MONITOR);
     static final Spec SCANNER = RoomKit.of(ModBlocks.LOCAL_SCANNER), CAMERA = RoomKit.of(ModBlocks.CAMERA);
     static final Spec COMPUTER = RoomKit.of(ModBlocks.COMPUTER), ENGINE = RoomKit.of(ModBlocks.ENGINE);
+    /** The Station Core: the controller of a station or a hab. */
+    static final Spec CORE = RoomKit.of(ModBlocks.STATION_CORE);
 
     static Spec waterCauldron()
     {

@@ -127,7 +127,19 @@ public final class SceneService
             lease.pinnedCamera = machine.camera;
         var owner = WorldStore.get(player.level().getServer()).at(player.level(), console);
         if (owner != null)
-            lease.selection = owner.getCompoundOrEmpty("monitorChannels").getIntOr(Long.toString(console.subtract(WorldStore.pos(owner, "base")).asLong()), 0);
+        {
+            var channels = owner.getCompoundOrEmpty("monitorChannels");
+            var key = Long.toString(console.subtract(WorldStore.pos(owner, "base")).asLong());
+            var level = player.level();
+            if (channels.contains(key))
+                lease.selection = channels.getIntOr(key, 0);
+            else if (level.getBlockState(console).is(ModBlocks.MONITOR))
+            {
+                // A monitor nobody has set shows the nearest camera.
+                var cameras = com.nullandkale.nullspace.gameplay.systems.ShipSystems.connected(level, owner).stream().filter(p -> level.getBlockState(p).is(ModBlocks.CAMERA) && (!com.nullandkale.nullspace.gameplay.systems.ShipSystems.enabled(owner) || com.nullandkale.nullspace.gameplay.systems.ShipSystems.active(owner, p))).sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList();
+                lease.selection = ViewportDefaults.nearest(cameras, console);
+            }
+        }
         lease.expires = player.level().getServer().getTickCount() + 100;
         leases(player.level().getServer()).put(player.getUUID(), lease);
         SceneFrames.send(player, lease);

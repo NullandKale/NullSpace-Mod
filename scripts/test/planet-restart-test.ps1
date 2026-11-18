@@ -1,10 +1,12 @@
-param([string] $ArtifactRoot = '', [switch] $KeepWorlds)
+param([string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $SkipBuild)
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $RepoRoot 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $RepoRoot 'scripts/lib/TestWorldCleanup.psm1') -Force
-& "$RepoRoot/scripts/build/Invoke-Gradle.ps1" exportLocalServerLaunch --no-configuration-cache --no-daemon --console=plain
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not $SkipBuild) {
+    & "$RepoRoot/scripts/build/Invoke-Gradle.ps1" exportLocalServerLaunch --no-configuration-cache --no-daemon --console=plain
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $spec = Get-Content -LiteralPath "$RepoRoot/build/local-server-launch.json" -Raw | ConvertFrom-Json
 $runRoot = Join-Path $RepoRoot ('build/planet-restart/' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,6))
 if ($ArtifactRoot) { $runRoot = [System.IO.Path]::GetFullPath($ArtifactRoot) }
@@ -19,7 +21,7 @@ foreach ($stage in @('surfaces')) {
     try {
     foreach ($mode in @('prepare','verify')) {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
-        $arguments += @('-Xmx2G',"-Dnullspace.planet.restart.mode=$mode","-Dnullspace.planet.restart.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:planet_restart_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx6G',"-Dnullspace.planet.restart.mode=$mode","-Dnullspace.planet.restart.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:planet_restart_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $argFile = Join-Path $work "$mode.args"
         Write-JavaArguments $argFile $arguments

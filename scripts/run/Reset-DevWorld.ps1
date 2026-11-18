@@ -60,7 +60,7 @@ try {
         $configPath = Join-Path $runRoot 'launch.cfg'
         [IO.File]::WriteAllText($configPath,([IO.File]::ReadAllText((Join-Path $workspacePath '.gradle/loom-cache/launch.cfg')).Replace($resources,$copy)))
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Xmx') -and -not $_.StartsWith('-Dfabric.dli.config=') })
-        $arguments += @('-Xmx2G',('-Dfabric.dli.config='+$configPath),'-Dnullspace.dev.prepare=true',('-Dnullspace.dev.startShip='+$StartingShip),'-cp',$spec.classpath.Replace($resources,$copy),$spec.mainClass)
+        $arguments += @('-Xmx6G',('-Dfabric.dli.config='+$configPath),'-Dnullspace.dev.prepare=true',('-Dnullspace.dev.startShip='+$StartingShip),'-cp',$spec.classpath.Replace($resources,$copy),$spec.mainClass)
         for ($index=0; $index -lt $spec.args.Count; $index++) {
             $value=[string]$spec.args[$index]
             if ($value -in @('--username','--uuid','--gameDir')) { $index++; continue }

@@ -56,7 +56,7 @@ class StationAtmosphereTest
     void shipCoordinatesAndEnvelopeRemainCompatible()
     {
         assertEquals(Atmosphere.index(31, 31, 31), Atmosphere.SHIP.index(31, 31, 31));
-        assertThrows(IllegalArgumentException.class, () -> new Atmosphere.Grid(129, 32, 128));
-        assertThrows(IllegalArgumentException.class, () -> new Atmosphere.Grid(128, 33, 128));
+        assertThrows(IllegalArgumentException.class, () -> new Atmosphere.Grid(513, 32, 128));
+        assertThrows(IllegalArgumentException.class, () -> new Atmosphere.Grid(128, 65, 128));
     }
 }

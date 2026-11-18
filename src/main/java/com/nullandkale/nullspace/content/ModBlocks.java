@@ -177,7 +177,9 @@ public final class ModBlocks
         {
             if (state.is(LOCAL_SCANNER))
             {
-                if (player instanceof ServerPlayer sp)
+                if (player instanceof ServerPlayer sp && sp.isShiftKeyDown())
+                    com.nullandkale.nullspace.gameplay.navigation.OreSurvey.use(sp, pos);
+                else if (player instanceof ServerPlayer sp)
                 {
                     try
                     {
@@ -200,6 +202,10 @@ public final class ModBlocks
                 {
                     try
                     {
+                        // A defended site (security turrets, locked doors) answers to whoever uses its core once it has power.
+                        var secured = com.nullandkale.nullspace.worldgen.encounters.SiteDefences.secure(serverPlayer, pos);
+                        if (secured != null && !secured.isEmpty())
+                            serverPlayer.sendSystemMessage(Component.literal(secured));
                         StationService.open(serverPlayer, pos, "");
                     }
                     catch (IllegalArgumentException error)

@@ -163,8 +163,37 @@ AIRLESS_SPAWNS = {"modifier": "overlay", "argument": {"spawn_costs": {}, "spawns
 ]}}}
 
 
-def biome(vanilla, breathable):
+# The metal and gem ores whose amount grows with a world's distance from Terra: each is copied into the mod's namespace with the
+# "nullspace:richness" placement modifier (OreRichness.java), and the planets list the copies. Dirt, gravel and the stones stay vanilla.
+SCALED_ORES = ["ore_coal_upper", "ore_coal_lower", "ore_iron_upper", "ore_iron_middle", "ore_iron_small", "ore_copper",
+               "ore_copper_large", "ore_gold", "ore_gold_lower", "ore_gold_extra", "ore_redstone", "ore_redstone_lower", "ore_diamond",
+               "ore_diamond_medium", "ore_diamond_large", "ore_diamond_buried", "ore_lapis", "ore_lapis_buried", "ore_emerald"]
+
+# What a lava world, whose biomes are the Nether's, gets besides its own: the overworld's ores (its debris and quartz are its own).
+LAVA_OVERWORLD_ORES = ["ore_coal_upper", "ore_coal_lower", "ore_iron_upper", "ore_iron_middle", "ore_iron_small", "ore_gold",
+                       "ore_gold_lower", "ore_redstone", "ore_redstone_lower", "ore_diamond", "ore_diamond_medium",
+                       "ore_diamond_large", "ore_diamond_buried", "ore_lapis", "ore_lapis_buried", "ore_copper"]
+
+UNDERGROUND_STRUCTURES, UNDERGROUND_ORES, DECORATION_STEPS = 3, 6, 11
+
+
+def features(b, kind, breathable):
+    """The biome's feature steps: scaled ores, ores for the lava worlds, and the surface geodes of the airless worlds."""
+    steps = [list(step) for step in b["features"]]
+    steps += [[] for _ in range(DECORATION_STEPS - len(steps))]
+    scaled = {f"minecraft:{name}": f"nullspace:{name}" for name in SCALED_ORES}
+    steps = [[scaled.get(feature, feature) for feature in step] for step in steps]
+    if kind == "lava":
+        steps[UNDERGROUND_ORES] += [f"nullspace:{name}" for name in LAVA_OVERWORLD_ORES if f"nullspace:{name}" not in steps[UNDERGROUND_ORES]]
+    if not breathable:
+        steps = [[feature for feature in step if feature != "minecraft:amethyst_geode"] for step in steps]
+        steps[UNDERGROUND_STRUCTURES] += ["nullspace:amethyst_geode_surface", "nullspace:green_geode"]
+    return steps
+
+
+def biome(vanilla, breathable, kind):
     b = json.loads(vanilla)
+    b["features"] = features(b, kind, breathable)
     attributes = b.setdefault("attributes", {})
     # Nether biome carvers only suit the nether's shape.
     b["carvers"] = OVERWORLD_CARVERS
@@ -202,7 +231,7 @@ def main(jar):
     for kind, (pool, breathable, sea, fluid, biomes) in TYPES.items():
         for name, _ in biomes:
             write(f"worldgen/biome/planet/{kind}_{name}.json",
-                  biome(read(f"worldgen/biome/{name}.json"), breathable))
+                  biome(read(f"worldgen/biome/{name}.json"), breathable, kind))
         write(f"worldgen/material_rule/planet/{kind}.json", material_rule(kind))
         settings = dict(overworld)
         settings["material_rule"] = f"nullspace:planet/{kind}"
@@ -213,6 +242,11 @@ def main(jar):
             write(f"dimension/surface_{kind}_{chr(ord('a') + slot)}.json", dimension(kind))
     for address, kind in FIXED.items():
         write(f"dimension/{address}.json", dimension(kind))
+    for name in sorted(set(SCALED_ORES)):
+        placed = json.loads(read(f"worldgen/placed_feature/{name}.json"))
+        # Before the final biome filter, after the height is chosen.
+        placed["placement"].insert(len(placed["placement"]) - 1, {"type": "nullspace:richness"})
+        write(f"worldgen/placed_feature/{name}.json", placed)
     preset_path = os.path.join(ROOT, "src", "gametest", "resources", "data", "minecraft", "worldgen",
                                "world_preset", "flat_all_dimensions.json")
     with open(preset_path, encoding="utf-8") as f:

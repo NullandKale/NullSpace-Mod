@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "nullspace:green_fluid",
+    "nullspace:flowing_green_fluid"
+  ]
+}

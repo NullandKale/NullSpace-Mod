@@ -51,7 +51,22 @@ final class RoomKit
     /** Cells an entity (frame, stand, painting, animal) takes: no torch may go there. */
     final Set<BlockPos> entityCells = new HashSet<>();
 
+    /** The cell just inside each further door of a room that is passed through, as {@code {u, v}}: the cells in front of them stay clear too. */
+    private final List<int[]> exits = new ArrayList<>();
+    /** The cell just inside each opening (a doorless connection to a neighbouring open room): the cells right in front of it stay clear, but no walkway runs through the room. */
+    private final List<int[]> patches = new ArrayList<>();
+
     RoomKit(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, RandomGenerator rng, int variant)
+    {
+        this(style, palette, out, points, room, door, List.of(), rng, variant);
+    }
+
+    RoomKit(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, List<Door> others, RandomGenerator rng, int variant)
+    {
+        this(style, palette, out, points, room, door, others, java.util.Set.of(), rng, variant);
+    }
+
+    RoomKit(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, List<Door> others, java.util.Set<Door> open, RandomGenerator rng, int variant)
     {
         this.style = style;
         this.palette = palette;
@@ -64,7 +79,8 @@ final class RoomKit
         this.left = fwd.getCounterClockWise();
         this.back = fwd.getOpposite();
         var i = room.interior();
-        this.h = Math.min(StationPlan.PITCH - 2, i.y1() - i.y0() + 1);
+        // A room of two levels (a hab's grove) is one tall hall, so its design may use the whole height.
+        this.h = room.levels() > 1 ? i.y1() - i.y0() + 1 : Math.min(StationPlan.PITCH - 2, i.y1() - i.y0() + 1);
         boolean alongZ = fwd.getAxis() == Direction.Axis.Z;
         this.w = alongZ ? i.x1() - i.x0() + 1 : i.z1() - i.z0() + 1;
         this.d = alongZ ? i.z1() - i.z0() + 1 : i.x1() - i.x0() + 1;
@@ -73,6 +89,13 @@ final class RoomKit
         this.origin = new BlockPos(x, i.y0(), z);
         var inside = door.at().relative(fwd);
         this.doorU = (inside.getX() - x) * right.getStepX() + (inside.getZ() - z) * right.getStepZ();
+        for (var other : others)
+        {
+            // The door's cell is in the wall; the cell inside is one step into this room.
+            var into = other.a().equals(room.id()) ? other.through().getOpposite() : other.through();
+            var cell = other.at().relative(into);
+            (open.contains(other) ? patches : exits).add(new int[]{(cell.getX() - x) * right.getStepX() + (cell.getZ() - z) * right.getStepZ(), (cell.getX() - x) * fwd.getStepX() + (cell.getZ() - z) * fwd.getStepZ()});
+        }
         switch (style.maker())
         {
             case RIVET ->
@@ -121,7 +144,32 @@ final class RoomKit
     /** True for the clear lane in front of the door. */
     boolean lane(int u, int v)
     {
-        return Math.abs(u - doorU) <= 1 && v <= 1;
+        if (Math.abs(u - doorU) <= 1 && v <= 1)
+            return true;
+        for (var exit : exits)
+        {
+            // A door in the far wall in line with the first: the whole way between them is a walkway, so the route through is straight.
+            if (exit[1] >= d - 2 && Math.abs(exit[0] - doorU) <= 2 && Math.abs(u - doorU) <= 1)
+                return true;
+            if (Math.abs(u - exit[0]) <= 1 && Math.abs(v - exit[1]) <= 1)
+                return true;
+        }
+        for (var patch : patches)
+            if (Math.abs(u - patch[0]) <= 1 && Math.abs(v - patch[1]) <= 1)
+                return true;
+        return false;
+    }
+
+    /** True when people walk through this room from one door to another, along a clear strip down its middle. */
+    boolean passedThrough()
+    {
+        return !exits.isEmpty();
+    }
+
+    /** Marks a point for the world to act on (a shaft to dig, a spot to spawn at), at a cell of this room. */
+    void mark(int u, int v, int row, String name, String argument)
+    {
+        point(u, v, row, name, argument);
     }
 
     boolean inside(int u, int v, int row)

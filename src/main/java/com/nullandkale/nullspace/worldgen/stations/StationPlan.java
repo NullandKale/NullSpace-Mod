@@ -25,6 +25,10 @@ public record StationPlan(StationSpec spec, int width, int depth, int height, Li
     public enum Use
     {
         ARRIVAL, ENGINEERING, DOCK, CORRIDOR, STORES, MAINTENANCE, COMMONS, KITCHEN, OBSERVATION, ARCHIVE, WORKSHOP, FOUNDRY, CARGO_HOLD, RECEIVING_BAY, GROWING_BAY, LAB, CABIN, BUNK_ROOM, GARDEN, OPERATIONS, ARMORY, LOOKOUT, EVA_PREP, INFIRMARY, BRIG,
+        /** The rooms only a hab has (see {@code docs/design/hab-room-catalog.md}): homes, a shrine, the power plant, the shaft to the seam, the bees and the room the hab is run from. */
+        FAMILY_QUARTERS, CHAPEL, MACHINE_HALL, MINE_HEAD, APIARY, CONTROLLER_ROOM,
+        /** The rooms of the endgame testbed ship: a food farm, an animal pen, a lava farm for fuel and a vault of crafting and loot. */
+        FARM_BAY, PEN, LAVA_FARM, VAULT,
         /** A ship's helm room: the docking door is in its nose wall. */
         BRIDGE
     }
@@ -155,9 +159,21 @@ public record StationPlan(StationSpec spec, int width, int depth, int height, Li
     /** Every unmet structural requirement; empty when the plan is sound. */
     public List<String> problems()
     {
+        return problems(true);
+    }
+
+    /** As {@link #problems()}; a hab has no berths and passes false. */
+    public List<String> problems(boolean berthed)
+    {
+        return problems(berthed, MAX_WIDTH);
+    }
+
+    /** As {@link #problems(boolean)}, with the widest a plan may be: a station is built in a 128 block box, a hab is not. */
+    public List<String> problems(boolean berthed, int maxWidth)
+    {
         var out = new ArrayList<String>();
-        if (width < 1 || depth < 1 || width > MAX_WIDTH || depth > MAX_WIDTH || height > MAX_HEIGHT)
-            out.add("Station extent " + width + " x " + height + " x " + depth + " exceeds 128 x 32 x 128");
+        if (width < 1 || depth < 1 || width > maxWidth || depth > maxWidth || height > MAX_HEIGHT)
+            out.add("Station extent " + width + " x " + height + " x " + depth + " exceeds " + maxWidth + " x 32 x " + maxWidth);
         var ids = new HashSet<String>();
         for (var r : rooms)
         {
@@ -180,7 +196,7 @@ public record StationPlan(StationSpec spec, int width, int depth, int height, Li
         for (var d : doors)
             if (!ids.contains(d.a()) || !ids.contains(d.b()))
                 out.add("Door joins an unknown room");
-        if (berths.isEmpty())
+        if (berthed && berths.isEmpty())
             out.add("Station has no berth");
         for (int i = 0; i < berths.size(); i++)
         {

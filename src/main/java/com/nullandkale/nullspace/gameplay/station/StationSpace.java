@@ -14,13 +14,15 @@ import net.minecraft.world.level.ChunkPos;
 /** One station identity, a bounded build envelope, and independently cached render sections. */
 public final class StationSpace
 {
+    /** The widest a large station (a hab) is: 512 blocks. */
+    public static final int LARGE_WIDTH = 512;
     public static final int SECTION = 32, MAX_WIDTH = 128, HEIGHT = 32, TILES = MAX_WIDTH / StationLayout.TILE;
 
     public static List<BlockPos> sections(CompoundTag vessel)
     {
         var out = new ArrayList<BlockPos>();
         int width = vessel.getIntOr("width", 32), depth = vessel.getIntOr("depth", 32);
-        if (width < 1 || depth < 1 || width > MAX_WIDTH || depth > MAX_WIDTH)
+        if (width < 1 || depth < 1 || width > LARGE_WIDTH || depth > LARGE_WIDTH)
             throw new IllegalArgumentException("Invalid station envelope");
         for (int z = 0; z < depth; z += SECTION)
             for (int x = 0; x < width; x += SECTION)

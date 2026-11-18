@@ -1,6 +1,8 @@
 name: Release
 
 # Builds, runs the full test suite and publishes a GitHub release when a version tag is pushed.
+# The native server tests are split into four jobs that run side by side (-PgametestShard=N/4, see build.gradle); the unit tests,
+# asset check and JAR build run in a fifth; the release is published only when all five pass.
 #   vN.N.N             full release, marked Latest (N.N.N must equal mod_version)
 #   vN.N.N_<anything>  prerelease, for example v0.1.0_rc1 (N.N.N must equal mod_version)
 # Published releases are never changed; fix problems with a new tag. See docs/release/release-policy.md.
@@ -21,14 +23,16 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  native:
+    name: native tests ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
-    timeout-minutes: 50
-    permissions:
-      contents: write
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,28 +43,12 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-
-      - name: Classify the tag
-        run: |
-          version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
-          if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then kind=full
-          elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)_.+$ ]]; then kind=prerelease
-          else echo "::error::Tag $TAG is not vN.N.N or vN.N.N_<label>"; exit 1; fi
-          [ "${BASH_REMATCH[1]}" = "$version" ] || {
-            echo "::error::Tag $TAG is for ${BASH_REMATCH[1]} but mod_version is $version"; exit 1; }
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "::error::Release $TAG already exists. Published releases are immutable; push a new tag."; exit 1
-          fi
-          { echo "VERSION=$version"; echo "KIND=$kind"; echo "LABEL=${TAG#v}"; } >> "$GITHUB_ENV"
-          echo "Release kind: $kind"
-
-      - name: Build and test with bounded diagnostics
+      - name: Run this slice of the native tests with bounded diagnostics
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build/ci-diagnostics
-          # Native-suite runs have varied from about 6 to 20+ minutes on hosted runners. Snapshot
-          # every JVM every 4 minutes so a stall shows where the server thread sits over time.
+          # Snapshot every JVM every 4 minutes so a stall shows where the server thread sits over time.
           (
             n=0
             while sleep 240; do
@@ -75,7 +63,54 @@ jobs:
           ) &
           monitor=$!
           trap 'kill "$monitor" 2>/dev/null || true' EXIT
-          timeout --signal=QUIT --kill-after=30s 40m ./gradlew build verifyContentAssets --no-daemon
+          timeout --signal=QUIT --kill-after=30s 40m ./gradlew runGameTest -PgametestShard=${{ matrix.shard }}/4 --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-reports-${{ matrix.shard }}
+          retention-days: 14
+          path: |
+            build/run/**/logs/
+            build/ci-diagnostics/
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      kind: ${{ steps.classify.outputs.kind }}
+      label: ${{ steps.classify.outputs.label }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+
+      - name: Classify the tag
+        id: classify
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
+          if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then kind=full
+          elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)_.+$ ]]; then kind=prerelease
+          else echo "::error::Tag $TAG is not vN.N.N or vN.N.N_<label>"; exit 1; fi
+          [ "${BASH_REMATCH[1]}" = "$version" ] || {
+            echo "::error::Tag $TAG is for ${BASH_REMATCH[1]} but mod_version is $version"; exit 1; }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Published releases are immutable; push a new tag."; exit 1
+          fi
+          { echo "VERSION=$version"; echo "KIND=$kind"; echo "LABEL=${TAG#v}"; } >> "$GITHUB_ENV"
+          { echo "kind=$kind"; echo "label=${TAG#v}"; } >> "$GITHUB_OUTPUT"
+          echo "Release kind: $kind"
+
+      - name: Build with the unit tests and the asset check (the native tests run in their own jobs)
+        run: timeout --signal=QUIT --kill-after=30s 25m ./gradlew build verifyContentAssets -x runGameTest --no-daemon
 
       - name: Inspect the release JAR
         run: |
@@ -103,17 +138,11 @@ jobs:
             echo "See docs/release/release-license-proposal.md." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Publish the release
-        run: |
-          notes="Alpha build for Minecraft 26.3 with Fabric Loader 0.19.5 and Fabric API 0.164.0+26.3. Install on both client and server. Verify the download against SHA256SUMS.txt."
-          if [ "$KIND" = full ]; then
-            gh release create "$TAG" dist/* --latest --title "NullSpace $LABEL" --generate-notes --notes "$notes"
-          else
-            gh release create "$TAG" dist/* --prerelease --latest=false --title "NullSpace $LABEL (prerelease)" \
-              --generate-notes --notes "$notes"
-          fi
-          echo "Published $KIND release: $(gh release view "$TAG" --json url -q .url)" >> "$GITHUB_STEP_SUMMARY"
-
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          retention-days: 7
+          path: dist/*
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -122,5 +151,32 @@ jobs:
           path: |
             build/reports/
             build/test-results/
-            build/run/**/logs/
-            build/ci-diagnostics/
+
+  publish:
+    needs: [native, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      KIND: ${{ needs.build.outputs.kind }}
+      LABEL: ${{ needs.build.outputs.label }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish the release
+        run: |
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          notes="Alpha build for Minecraft 26.3 with Fabric Loader 0.19.5 and Fabric API 0.164.0+26.3. Install on both client and server. Verify the download against SHA256SUMS.txt."
+          if [ "$KIND" = full ]; then
+            gh release create "$TAG" dist/* --verify-tag --latest --title "NullSpace $LABEL" --generate-notes --notes "$notes"
+          else
+            gh release create "$TAG" dist/* --verify-tag --prerelease --latest=false --title "NullSpace $LABEL (prerelease)" \
+              --generate-notes --notes "$notes"
+          fi
+          echo "Published $KIND release: $(gh release view "$TAG" --json url -q .url)" >> "$GITHUB_STEP_SUMMARY"

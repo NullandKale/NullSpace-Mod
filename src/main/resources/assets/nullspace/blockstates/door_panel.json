@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "nullspace:block/door_panel"
+    },
+    "powered=true": {
+      "model": "nullspace:block/door_panel_down"
+    }
+  }
+}

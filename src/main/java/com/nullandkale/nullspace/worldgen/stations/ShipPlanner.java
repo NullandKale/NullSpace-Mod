@@ -125,6 +125,9 @@ public final class ShipPlanner
             case SCOUT -> Use.COMMONS;
         };
         var scale = Scale.of(ship.size(), ship.maker());
+        // A ship with its four side rooms named (the testbed) has deep rooms, as long as the one deck's 32 blocks allow.
+        if (ship.rooms().size() == 4)
+            scale = new Scale(scale.center(), 13, 13, 16, scale.lane());
         int x = (LIMIT - scale.center()) / 2;
         var bridge = builder.place(Use.BRIDGE, x, 0, 0, scale.center(), NOSE, 1);
         if (bridge == null)
@@ -146,10 +149,23 @@ public final class ShipPlanner
     {
         var hall = b.attachCentered(bridge, Direction.SOUTH, Use.CORRIDOR, scale.lane(), scale.hall(), 1, 0, null);
         require(hall, "hall");
-        // Two pairs of rooms in mirrored places, one large and one small; the pairs share a wall.
-        int alongA = largeFirst ? 9 : scale.hall() - 9 + 1, alongB = scale.hall() - alongA + 1;
-        pair(b, scale, draw, hall, ship.role(), largeFirst, hall.z(), alongA, 0, signature);
-        pair(b, scale, draw, hall, ship.role(), !largeFirst, hall.z() + alongA - 1, alongB, 0, null);
+        if (ship.rooms().size() == 4)
+        {
+            // The rooms are named: the first two are the large pair (east, west) and the last two the small pair.
+            int alongA = 9, alongB = scale.hall() - alongA + 1;
+            var named = ship.rooms();
+            require(b.attachAt(hall, Direction.EAST, named.get(0), alongA, scale.largeDepth(), 1, 0, null, hall.z()), named.get(0) + " east");
+            require(b.attachAt(hall, Direction.WEST, named.get(1), alongA, scale.largeDepth(), 1, 0, null, hall.z()), named.get(1) + " west");
+            require(b.attachAt(hall, Direction.EAST, named.get(2), alongB, scale.smallDepth(), 1, 0, null, hall.z() + alongA - 1), named.get(2) + " east");
+            require(b.attachAt(hall, Direction.WEST, named.get(3), alongB, scale.smallDepth(), 1, 0, null, hall.z() + alongA - 1), named.get(3) + " west");
+        }
+        else
+        {
+            // Two pairs of rooms in mirrored places, one large and one small; the pairs share a wall.
+            int alongA = largeFirst ? 9 : scale.hall() - 9 + 1, alongB = scale.hall() - alongA + 1;
+            pair(b, scale, draw, hall, ship.role(), largeFirst, hall.z(), alongA, 0, signature);
+            pair(b, scale, draw, hall, ship.role(), !largeFirst, hall.z() + alongA - 1, alongB, 0, null);
+        }
         require(b.attachCentered(hall, Direction.SOUTH, Use.ENGINEERING, scale.center(), NOSE, 1, 0, null), "engineering");
         b.berths.add(berth(bridge));
     }

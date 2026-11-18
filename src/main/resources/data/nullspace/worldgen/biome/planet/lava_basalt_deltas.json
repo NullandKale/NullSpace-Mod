@@ -20,20 +20,8 @@
         "sound": "minecraft:music.nether.basalt_deltas"
       }
     },
-    "minecraft:visual/ambient_particles": {
-      "argument": [
-        {
-          "particle": {
-            "type": "minecraft:white_ash"
-          },
-          "probability": 0.118093334
-        }
-      ],
-      "modifier": "append"
-    },
-    "minecraft:visual/fog_color": "#2a2f3a",
-    "minecraft:visual/sky_color": "#101420",
     "minecraft:gameplay/natural_mob_spawns": {
+      "modifier": "overlay",
       "argument": {
         "spawn_costs": {},
         "spawns_by_category": {
@@ -124,9 +112,21 @@
             }
           ]
         }
-      },
-      "modifier": "overlay"
-    }
+      }
+    },
+    "minecraft:visual/ambient_particles": {
+      "argument": [
+        {
+          "particle": {
+            "type": "minecraft:white_ash"
+          },
+          "probability": 0.118093334
+        }
+      ],
+      "modifier": "append"
+    },
+    "minecraft:visual/fog_color": "#2a2f3a",
+    "minecraft:visual/sky_color": "#101420"
   },
   "carvers": [
     "minecraft:cave",
@@ -141,14 +141,34 @@
     [],
     [],
     [],
-    [],
+    [
+      "nullspace:amethyst_geode_surface",
+      "nullspace:green_geode"
+    ],
     [
       "minecraft:delta",
       "minecraft:small_basalt_columns",
       "minecraft:large_basalt_columns"
     ],
     [],
-    [],
+    [
+      "nullspace:ore_coal_upper",
+      "nullspace:ore_coal_lower",
+      "nullspace:ore_iron_upper",
+      "nullspace:ore_iron_middle",
+      "nullspace:ore_iron_small",
+      "nullspace:ore_gold",
+      "nullspace:ore_gold_lower",
+      "nullspace:ore_redstone",
+      "nullspace:ore_redstone_lower",
+      "nullspace:ore_diamond",
+      "nullspace:ore_diamond_medium",
+      "nullspace:ore_diamond_large",
+      "nullspace:ore_diamond_buried",
+      "nullspace:ore_lapis",
+      "nullspace:ore_lapis_buried",
+      "nullspace:ore_copper"
+    ],
     [
       "minecraft:basalt_blobs",
       "minecraft:blackstone_blobs",
@@ -165,7 +185,10 @@
       "minecraft:ore_quartz_deltas",
       "minecraft:ore_ancient_debris_large",
       "minecraft:ore_debris_small"
-    ]
+    ],
+    [],
+    [],
+    []
   ],
   "has_precipitation": false,
   "temperature": 2.0

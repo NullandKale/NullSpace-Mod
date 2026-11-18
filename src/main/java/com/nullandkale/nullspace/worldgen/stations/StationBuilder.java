@@ -27,6 +27,22 @@ final class StationBuilder
     /** Where non-dock rooms may stand, inclusive. Docks use the margin outside it. */
     int wx0, wx1, wz0, wz1;
     String arrival;
+    /** How many levels carry arms off the arrival hall, or 0 for all of them. A hab's entry hall stands alone at the surface, over arms that go down. */
+    int armLevels;
+    /** True for a hab: underground there is more space, so halls, bays and corridors are built larger. */
+    boolean big;
+    /** For a hab: the wing each arm of the arrival hall holds, in the order the arms leave it; null when rooms are not grouped. */
+    List<HabPlanner.Wing> wings;
+    /** For a hab: how much of its full length each arm gets, in the order the arms leave the hall (1 for all of it); null for full arms. */
+    List<Double> armScale;
+    /** For a hab: how its rooms are laid out round the entry hall. */
+    HabPlanner.Form form = HabPlanner.Form.ARMS;
+    /** For a hab: arms that cross never share a level, so none needs a bare lead: the east and west arms take the even levels and the north and south ones the odd. */
+    boolean stagger;
+    /** For a hab: pairs of room ids whose door is held shut by power (a ring's closing door). */
+    final List<String[]> locked = new ArrayList<>();
+    /** The widest the finished plan may be: a station's 128 blocks, or more for a hab. */
+    int maxWidth = StationPlan.MAX_WIDTH;
     /** The last unmet requirement a layout method hit, for failure messages. */
     String note = "";
     private final Map<Use, Integer> counters = new EnumMap<>(Use.class);
@@ -76,6 +92,12 @@ final class StationBuilder
         wx1 = width - 1;
         wz0 = 0;
         wz1 = depth - 1;
+    }
+
+    /** The share of its full length arm number {@code arm} may use. */
+    double scale(int arm)
+    {
+        return armScale == null ? 1.0 : armScale.get(arm % armScale.size());
     }
 
     /** True when the arrival hall carries stair flights: it is more than one deck tall. */
@@ -325,6 +347,12 @@ final class StationBuilder
     /** The finished plan, shifted so the station starts at the origin; null when it is unsound. */
     StationPlan finish()
     {
+        return finish(true);
+    }
+
+    /** As {@link #finish()}; a hab has no berths, so it passes false and is not faulted for them. */
+    StationPlan finish(boolean berthed)
+    {
         if (rooms.isEmpty() || arrival == null)
             return null;
         // A corridor that leads nowhere (an unused pier or an empty hall) is dead space: take it out.
@@ -349,6 +377,6 @@ final class StationBuilder
         var shifted = rooms.stream().map(r -> r.shift(dx, dz)).toList();
         int height = shifted.stream().mapToInt(r -> r.outer().y1()).max().orElse(0) + 1;
         var plan = new StationPlan(spec, e[2] - e[0] + 1, e[3] - e[1] + 1, height, shifted, doors.stream().map(d -> d.shift(dx, dz)).toList(), berths.stream().map(b -> b.shift(dx, dz)).toList(), arrival);
-        return plan.problems().isEmpty() ? plan : null;
+        return plan.problems(berthed, maxWidth).isEmpty() ? plan : null;
     }
 }

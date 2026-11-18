@@ -37,6 +37,8 @@ public final class RoomEntities
                 case "stand" -> stand(level, at, arguments);
                 case "painting" -> painting(level, at, arguments);
                 case "animal" -> animal(level, at, arguments[0]);
+                case "log" -> com.nullandkale.nullspace.gameplay.habs.HabLogs.place(level, at, point.argument());
+                case "stock" -> TestbedStock.fill(level, at, point.argument());
                 default -> false;
             };
             if (ok)
@@ -102,6 +104,7 @@ public final class RoomEntities
             case "sheep" -> EntityTypes.SHEEP;
             case "cow" -> EntityTypes.COW;
             case "pig" -> EntityTypes.PIG;
+            case "minecraft:bee" -> EntityTypes.BEE;
             default -> EntityTypes.CHICKEN;
         };
         var mob = type.create(level, EntitySpawnReason.STRUCTURE);

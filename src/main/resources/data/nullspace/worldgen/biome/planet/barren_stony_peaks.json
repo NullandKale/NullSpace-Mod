@@ -7,9 +7,8 @@
         "sound": "minecraft:music.overworld.stony_peaks"
       }
     },
-    "minecraft:visual/sky_color": "#101420",
-    "minecraft:visual/fog_color": "#2a2f3a",
     "minecraft:gameplay/natural_mob_spawns": {
+      "modifier": "overlay",
       "argument": {
         "spawn_costs": {},
         "spawns_by_category": {
@@ -100,9 +99,10 @@
             }
           ]
         }
-      },
-      "modifier": "overlay"
-    }
+      }
+    },
+    "minecraft:visual/sky_color": "#101420",
+    "minecraft:visual/fog_color": "#2a2f3a"
   },
   "carvers": [
     "minecraft:cave",
@@ -119,12 +119,12 @@
       "minecraft:lake_lava_underground",
       "minecraft:lake_lava_surface"
     ],
-    [
-      "minecraft:amethyst_geode"
-    ],
+    [],
     [
       "minecraft:monster_room",
-      "minecraft:monster_room_deep"
+      "minecraft:monster_room_deep",
+      "nullspace:amethyst_geode_surface",
+      "nullspace:green_geode"
     ],
     [],
     [],
@@ -138,27 +138,27 @@
       "minecraft:ore_andesite_upper",
       "minecraft:ore_andesite_lower",
       "minecraft:ore_tuff",
-      "minecraft:ore_coal_upper",
-      "minecraft:ore_coal_lower",
-      "minecraft:ore_iron_upper",
-      "minecraft:ore_iron_middle",
-      "minecraft:ore_iron_small",
-      "minecraft:ore_gold",
-      "minecraft:ore_gold_lower",
-      "minecraft:ore_redstone",
-      "minecraft:ore_redstone_lower",
-      "minecraft:ore_diamond",
-      "minecraft:ore_diamond_medium",
-      "minecraft:ore_diamond_large",
-      "minecraft:ore_diamond_buried",
-      "minecraft:ore_lapis",
-      "minecraft:ore_lapis_buried",
-      "minecraft:ore_copper",
+      "nullspace:ore_coal_upper",
+      "nullspace:ore_coal_lower",
+      "nullspace:ore_iron_upper",
+      "nullspace:ore_iron_middle",
+      "nullspace:ore_iron_small",
+      "nullspace:ore_gold",
+      "nullspace:ore_gold_lower",
+      "nullspace:ore_redstone",
+      "nullspace:ore_redstone_lower",
+      "nullspace:ore_diamond",
+      "nullspace:ore_diamond_medium",
+      "nullspace:ore_diamond_large",
+      "nullspace:ore_diamond_buried",
+      "nullspace:ore_lapis",
+      "nullspace:ore_lapis_buried",
+      "nullspace:ore_copper",
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
       "minecraft:disk_gravel",
-      "minecraft:ore_emerald"
+      "nullspace:ore_emerald"
     ],
     [
       "minecraft:ore_infested"

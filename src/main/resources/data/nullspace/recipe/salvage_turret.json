@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI",
+    "CDC",
+    "IMI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "nullspace:circuit_board",
+    "D": "minecraft:dispenser",
+    "M": "nullspace:machine_casing"
+  },
+  "result": {
+    "id": "nullspace:salvage_turret",
+    "count": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "group": "green_gem",
+  "ingredients": [
+    "nullspace:green_gem_block"
+  ],
+  "result": {
+    "id": "nullspace:green_gem",
+    "count": 9
+  }
+}

@@ -42,7 +42,8 @@ public final class StationRooms
         return switch (room.use())
         {
             case STORES -> spec.purpose() == StationSpec.Purpose.AGRICULTURE ? 1 : spec.purpose() == StationSpec.Purpose.INDUSTRY ? 2 : 0;
-            case GROWING_BAY, GARDEN -> Math.floorMod(spec.seed() + room.id().hashCode(), 2);
+            case GARDEN -> room.levels() > 1 ? 2 : Math.floorMod(spec.seed() + room.id().hashCode(), 2);
+            case GROWING_BAY -> Math.floorMod(spec.seed() + room.id().hashCode(), 2);
             default -> 0;
         };
     }
@@ -53,7 +54,7 @@ public final class StationRooms
         {
             case STORES -> new String[]{"general", "seed", "spares"}[Math.floorMod(variant, 3)];
             case GROWING_BAY -> new String[]{"crops", "orchard"}[Math.floorMod(variant, 2)];
-            case GARDEN -> new String[]{"animal pen", "grove"}[Math.floorMod(variant, 2)];
+            case GARDEN -> variant == 2 ? "central tree" : new String[]{"animal pen", "grove"}[Math.floorMod(variant, 2)];
             default -> "";
         };
     }
@@ -64,15 +65,43 @@ public final class StationRooms
      */
     public static Set<BlockPos> furnish(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, int variant, long seed)
     {
+        return furnish(style, palette, out, points, room, door, List.of(), variant, seed);
+    }
+
+    /** As above for a room that is passed through (a hab's suites): the cells inside its {@code others} doors stay clear as well. */
+    public static Set<BlockPos> furnish(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, List<Door> others, int variant, long seed)
+    {
+        return furnish(style, palette, out, points, room, door, others, Set.of(), variant, seed);
+    }
+
+    /** As above, where the doors in {@code open} are doorless openings into a neighbouring open room (a hab's gardens and bays run into each other). */
+    public static Set<BlockPos> furnish(StationStyle style, ShipBlocks.Palette palette, Map<BlockPos, BlockState> out, List<Piece.Point> points, Room room, Door door, List<Door> others, Set<Door> open, int variant, long seed)
+    {
         var rng = new SplittableRandom(seed * 31 + room.id().hashCode());
-        var kit = new RoomKit(style, palette, out, points, room, door, rng, variant);
+        var kit = new RoomKit(style, palette, out, points, room, door, others, open, rng, variant);
         switch (room.use())
         {
+            case FAMILY_QUARTERS -> RoomsHab.familyQuarters(kit);
+            case FARM_BAY -> RoomsTestbed.farm(kit);
+            case PEN -> RoomsTestbed.pen(kit);
+            case LAVA_FARM -> RoomsTestbed.lavaFarm(kit);
+            case VAULT -> RoomsTestbed.vault(kit);
+            case CHAPEL -> RoomsHab.chapel(kit);
+            case MACHINE_HALL -> RoomsHab.machineHall(kit);
+            case MINE_HEAD -> RoomsHab.mineHead(kit);
+            case APIARY -> RoomsHab.apiary(kit);
+            case CONTROLLER_ROOM -> RoomsHab.controllerRoom(kit);
             case BRIDGE -> RoomsCommand.bridge(kit);
             case ENGINEERING -> RoomsWork.engineering(kit);
             case WORKSHOP -> RoomsWork.workshop(kit);
             case FOUNDRY -> RoomsWork.foundry(kit);
-            case CARGO_HOLD -> RoomsWork.cargoHold(kit);
+            case CARGO_HOLD ->
+                {
+                    if (kit.variant == 1)
+                        RoomsHab.oreStore(kit);
+                    else
+                        RoomsWork.cargoHold(kit);
+                }
             case RECEIVING_BAY -> RoomsWork.receivingBay(kit);
             case STORES -> RoomsWork.stores(kit);
             case MAINTENANCE -> RoomsWork.maintenance(kit);
@@ -82,12 +111,30 @@ public final class StationRooms
             case BUNK_ROOM -> RoomsLiving.bunkRoom(kit);
             case GROWING_BAY -> RoomsLiving.growingBay(kit);
             case GARDEN -> RoomsLiving.garden(kit);
-            case INFIRMARY -> RoomsLiving.infirmary(kit);
+            case INFIRMARY ->
+                {
+                    if (kit.variant == 1)
+                        RoomsHab.quarantineWard(kit);
+                    else
+                        RoomsLiving.infirmary(kit);
+                }
             case LAB -> RoomsCommand.lab(kit);
             case ARCHIVE -> RoomsCommand.archive(kit);
-            case OBSERVATION -> RoomsCommand.observation(kit);
+            case OBSERVATION ->
+                {
+                    if (kit.variant == 1)
+                        RoomsHab.gallery(kit);
+                    else
+                        RoomsCommand.observation(kit);
+                }
             case LOOKOUT -> RoomsCommand.lookout(kit);
-            case OPERATIONS -> RoomsCommand.operations(kit);
+            case OPERATIONS ->
+                {
+                    if (kit.variant == 1)
+                        RoomsHab.cameraWall(kit);
+                    else
+                        RoomsCommand.operations(kit);
+                }
             case ARMORY -> RoomsCommand.armory(kit);
             case EVA_PREP -> RoomsCommand.evaPrep(kit);
             case BRIG -> RoomsCommand.brig(kit);

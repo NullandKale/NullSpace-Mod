@@ -6,6 +6,10 @@ Status: early design, not built, and not settled. Written November 14 from a des
 
 Stations need a better power source, and player-made stations need something hard to get so that they are an end-game goal. Today a station's power comes from generators and batteries ([`PowerBus`](../../src/main/java/com/nullandkale/nullspace/model/power/PowerBus.java) shares it between the systems). The nether star already exists only at the top of the loot: it is in the singularity treasure at danger 3 (pulsar and black hole sites), so it is rare and tied to danger without any extra gate.
 
+## Decided November 16
+
+The warp core is a **tier 1 reward**, not a prize: every station has to have one, and its job is to make building a station expensive. Player-made stations cannot be finished without one. The later rewards (a hab's golden apple tree, the repair bay, the salvage turret and the portable beacon) are in [habs and what space is for](habs-and-rewards.md).
+
 ## The idea
 
 - A **warp core** is a custom beacon, built, not crafted, from colored glass. It takes on the color of the glass. It uses a nether star, powers its station and gives a beacon effect to it, and a station needs exactly one.

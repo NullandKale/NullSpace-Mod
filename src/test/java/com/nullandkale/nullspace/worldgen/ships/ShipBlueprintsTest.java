@@ -32,16 +32,16 @@ class ShipBlueprintsTest
             t.input(TerminalInput.Key.DOWN);
         int last = -1;
         for (int row = 0; row < 24; row++)
-            if (t.display().row(row).contains("Bastion Dart"))
+            if (t.display().row(row).contains("Endgame Testbed"))
                 last = row;
         assertTrue(last > 0, "The last design is on screen once it is selected");
         t.input(new TerminalInput.Pointer(10, 19));
         assertNull(t.pollAction(), "Blank catalog rows cannot trigger a purchase");
         t.input(TerminalInput.Key.ENTER);
-        assertEquals(new ControllerTerminal.Action("ship_quote", "bastion_dart"), t.pollAction());
-        t.update("Dart details");
+        assertEquals(new ControllerTerminal.Action("ship_quote", "endgame_testbed"), t.pollAction());
+        t.update("Testbed details");
         t.input(new TerminalInput.Pointer(10, 18));
-        assertEquals(new ControllerTerminal.Action("ship_buy", "bastion_dart"), t.pollAction());
+        assertEquals(new ControllerTerminal.Action("ship_buy", "endgame_testbed"), t.pollAction());
     }
 
     @Test
@@ -57,8 +57,8 @@ class ShipBlueprintsTest
             assertTrue(p.height() >= p.decks() * 5, "Declared height includes deck headroom and hull");
             assertSame(p, ShipBlueprints.get(p.id()));
         }
-        assertEquals(12, ids.size());
-        assertEquals(List.of("rivet_bolt", "rivet_hauler", "rivet_ranger", "halcyon_swift", "halcyon_courier", "halcyon_horizon", "bastion_ward", "bastion_tender", "bastion_pioneer", "rivet_spark", "halcyon_wisp", "bastion_dart"), ShipBlueprints.PRESETS.stream().map(ShipBlueprints.Preset::id).toList());
+        assertEquals(13, ids.size());
+        assertEquals(List.of("rivet_bolt", "rivet_hauler", "rivet_ranger", "halcyon_swift", "halcyon_courier", "halcyon_horizon", "bastion_ward", "bastion_tender", "bastion_pioneer", "rivet_spark", "halcyon_wisp", "bastion_dart", "endgame_testbed"), ShipBlueprints.PRESETS.stream().map(ShipBlueprints.Preset::id).toList());
         // Designs retired when ships became generated still resolve, so old saves and settings keep working.
         assertEquals("rivet_bolt", ShipBlueprints.get("sparrow").id());
         assertEquals("rivet_hauler", ShipBlueprints.get("mule").id());

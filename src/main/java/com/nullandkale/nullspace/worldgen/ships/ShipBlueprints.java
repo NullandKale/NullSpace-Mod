@@ -154,9 +154,26 @@ public final class ShipBlueprints
                 }
                 else
                 {
-                    var ship = new ShipSpec(maker, ShipSpec.Size.valueOf(g.get("size").getAsString()), role, seed);
+                    // A design may name its four side rooms (the endgame testbed does), instead of having them drawn from its role.
+                    var named = new ArrayList<com.nullandkale.nullspace.worldgen.stations.StationPlan.Use>();
+                    if (g.has("rooms"))
+                        for (var room : g.getAsJsonArray("rooms"))
+                            named.add(com.nullandkale.nullspace.worldgen.stations.StationPlan.Use.valueOf(room.getAsString()));
+                    var ship = new ShipSpec(maker, ShipSpec.Size.valueOf(g.get("size").getAsString()), role, seed, List.copyOf(named));
                     // The plan is pure geometry, so the catalog knows each ship's size and decks without touching blocks.
-                    var plan = com.nullandkale.nullspace.worldgen.stations.ShipPlanner.generate(ship);
+                    com.nullandkale.nullspace.worldgen.stations.StationPlan plan;
+                    try
+                    {
+                        plan = com.nullandkale.nullspace.worldgen.stations.ShipPlanner.generate(ship);
+                    }
+                    catch (RuntimeException failure)
+                    {
+                        // A design that names its rooms must not take the whole catalog down with it if they do not fit.
+                        if (named.isEmpty())
+                            throw failure;
+                        com.nullandkale.nullspace.NullSpace.LOGGER.error("The catalog design {} could not be planned and is left out", id, failure);
+                        continue;
+                    }
                     made = new Made(plan.width(), plan.height(), plan.depth() + com.nullandkale.nullspace.worldgen.stations.ShipPlanner.RAMP, plan.levels(), true, () ->
                     {
                         var built = ShipStructure.build(ship);
@@ -214,8 +231,8 @@ public final class ShipBlueprints
             case BRIDGE -> ShipRooms.Use.BRIDGE;
             case ENGINEERING -> ShipRooms.Use.ENGINEERING;
             case CARGO_HOLD, STORES, RECEIVING_BAY, MAINTENANCE, EVA_PREP -> ShipRooms.Use.CARGO;
-            case WORKSHOP, FOUNDRY, ARMORY -> ShipRooms.Use.WORKSHOP;
-            case KITCHEN, GROWING_BAY, GARDEN -> ShipRooms.Use.GALLEY;
+            case WORKSHOP, FOUNDRY, ARMORY, VAULT, LAVA_FARM -> ShipRooms.Use.WORKSHOP;
+            case KITCHEN, GROWING_BAY, GARDEN, FARM_BAY, PEN -> ShipRooms.Use.GALLEY;
             case LAB, OBSERVATION, ARCHIVE, LOOKOUT, OPERATIONS -> ShipRooms.Use.LAB;
             case INFIRMARY -> ShipRooms.Use.INFIRMARY;
             default -> ShipRooms.Use.CREW;

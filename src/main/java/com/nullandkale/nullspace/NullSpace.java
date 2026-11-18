@@ -67,6 +67,12 @@ public final class NullSpace implements ModInitializer
         BuildPreviews.initialize();
         ModBlocks.initialize();
         com.nullandkale.nullspace.content.BrokenMachines.initialize();
+        com.nullandkale.nullspace.content.SpaceMaterials.initialize();
+        com.nullandkale.nullspace.gameplay.defence.DefenceBlocks.initialize();
+        com.nullandkale.nullspace.gameplay.boss.SpaceBoss.initialize();
+        com.nullandkale.nullspace.gameplay.trees.GoldenTrees.initialize();
+        com.nullandkale.nullspace.gameplay.habs.HabDoors.initialize();
+        com.nullandkale.nullspace.worldgen.OreRichness.initialize();
         ControllerBlockEntity.initialize();
         SiteThreats.initialize();
         com.nullandkale.nullspace.worldgen.encounters.AirlessCrews.initialize();
@@ -106,6 +112,8 @@ public final class NullSpace implements ModInitializer
         RoomGallery.initialize();
         StationGallery.initialize();
         com.nullandkale.nullspace.gameplay.shipyard.EnemyGallery.initialize();
+        com.nullandkale.nullspace.gameplay.shipyard.MaterialsGallery.initialize();
+        com.nullandkale.nullspace.gameplay.shipyard.HabGallery.initialize();
         SpaceStart.initialize();
         ServerContext.initialize();
         LOGGER.info("NullSpace Initialized");

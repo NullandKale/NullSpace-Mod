@@ -44,7 +44,7 @@ public final class SystemsUpgrade
         if (!StationAccess.station(ship))
             throw new IllegalArgumentException("Only stations can expand");
         var previous = ShipSystems.grid(ship);
-        var next = new Atmosphere.Grid(width, 32, depth);
+        var next = new Atmosphere.Grid(width, previous.height(), depth);
         var runtime = ShipSystems.runtime(level, ship);
         if (ShipSystems.enabled(ship) && runtime.dirty)
             ShipSystems.rebuild(level, ship, runtime, false);
@@ -54,7 +54,7 @@ public final class SystemsUpgrade
             Arrays.fill(air, -1);
             for (int cell = 0; cell < previous.cells(); cell++)
                 air[next.index(previous.x(cell), previous.y(cell), previous.z(cell))] = runtime.air[cell];
-            ShipSystems.state(ship).putIntArray("air", air);
+            AirStore.write(ShipSystems.state(ship), air, next);
         }
         ship.putInt("width", width);
         ship.putInt("depth", depth);

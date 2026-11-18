@@ -91,6 +91,12 @@ public final class StationProfiles
      */
     public static List<Item> program(StationSpec spec, RandomGenerator rng)
     {
+        return program(spec, rng, -1);
+    }
+
+    /** As {@link #program(StationSpec, RandomGenerator)}, with {@code extras} optional rooms drawn instead of the size band's usual number (negative for the usual). */
+    public static List<Item> program(StationSpec spec, RandomGenerator rng, int extras)
+    {
         var profile = profile(spec.purpose());
         var items = new ArrayList<Item>();
         var counts = new EnumMap<Use, Integer>(Use.class);
@@ -101,7 +107,7 @@ public final class StationProfiles
         items.add(items.size(), new Item(Use.ENGINEERING, Class.SMALL, true));
         for (var item : items)
             counts.merge(item.use(), 1, Integer::sum);
-        int extra = optional(spec.size(), rng);
+        int extra = extras >= 0 ? extras : optional(spec.size(), rng);
         for (int i = 0; i < extra; i++)
         {
             double total = 0;

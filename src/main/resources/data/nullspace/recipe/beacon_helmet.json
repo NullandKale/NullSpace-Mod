@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "GGG",
+    "GKG"
+  ],
+  "key": {
+    "G": "nullspace:green_gem",
+    "K": "nullspace:black_hole"
+  },
+  "result": {
+    "id": "nullspace:beacon_helmet",
+    "count": 1
+  }
+}

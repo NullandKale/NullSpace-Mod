@@ -2,21 +2,36 @@ param(
     [ValidateSet('PREPARED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_REGISTERED','WORLD_SAVED','ORDER_CLEARED','QUEUED','COMMITTED','CORRUPT_COMMITTED')]
     [string[]] $Stages = @('PREPARED','PARTIAL_UNSAVED','PARTIAL_SAVED','HULL_PLACED','SHIP_REGISTERED','WORLD_SAVED','ORDER_CLEARED','QUEUED','COMMITTED','CORRUPT_COMMITTED'),
     [string] $ArtifactRoot = '',
-    [switch] $KeepWorlds
+    [switch] $KeepWorlds,
+    [switch] $SkipBuild,
+    [ValidateRange(1, 8)] [int] $Workers = 1
 )
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $RepoRoot 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $RepoRoot 'scripts/lib/TestWorldCleanup.psm1') -Force
 if ($Stages.Count -eq 0 -or @($Stages | Select-Object -Unique).Count -ne $Stages.Count) { throw 'Crash stages must be nonempty and unique' }
-& "$RepoRoot/scripts/build/Invoke-Gradle.ps1" exportLocalServerLaunch --no-configuration-cache --no-daemon --console=plain
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not $SkipBuild) {
+    & "$RepoRoot/scripts/build/Invoke-Gradle.ps1" exportLocalServerLaunch --no-configuration-cache --no-daemon --console=plain
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $spec = Get-Content -LiteralPath "$RepoRoot/build/local-server-launch.json" -Raw | ConvertFrom-Json
 $runRoot = Join-Path $RepoRoot ('build/shipyard-crash/' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,6))
 if ($ArtifactRoot) { $runRoot = [System.IO.Path]::GetFullPath($ArtifactRoot) }
 # A fresh directory is mandatory: this runner deliberately terminates JVMs.
 $null = New-Item -ItemType Directory -Path $runRoot
 $fingerprint = Get-VerificationFingerprint $RepoRoot
+if ($Workers -gt 1 -and $Stages.Count -gt 1) {
+    # Each stage owns its own world and JVM pair, so slices of the stages run side by side.
+    $shared = @(); if ($KeepWorlds) { $shared += '-KeepWorlds' }
+    $children = Invoke-VerificationScriptShards $PSCommandPath $runRoot $Stages 'Stages' $Workers $shared
+    $done = @($children | ForEach-Object { (Read-VerificationJson (Join-Path $_.root 'result.json')).stages } | Sort-Object)
+    Assert-VerificationInventory $Stages $done
+    Assert-VerificationFingerprint $RepoRoot $fingerprint
+    Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); prepareExit=86; verifyExit=0; markers=@($Stages | ForEach-Object { "$_/passed" }); workers=$children.Count }
+    Write-Host "All requested shipyard crash/restart tests passed ($($children.Count) workers). Logs: $runRoot"
+    return
+}
 foreach ($stage in $Stages) {
     $work = Join-Path $runRoot $stage
     $null = New-Item -ItemType Directory -Path $work
@@ -25,7 +40,7 @@ foreach ($stage in $Stages) {
     try {
     foreach ($mode in @('prepare','verify')) {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
-        $arguments += @('-Xmx2G',"-Dnullspace.shipyard.crash.mode=$mode","-Dnullspace.shipyard.crash.stage=$stage","-Dnullspace.shipyard.crash.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:ship_yard_crash_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx6G',"-Dnullspace.shipyard.crash.mode=$mode","-Dnullspace.shipyard.crash.stage=$stage","-Dnullspace.shipyard.crash.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:ship_yard_crash_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $argFile = Join-Path $work "$mode.args"
         Write-JavaArguments $argFile $arguments

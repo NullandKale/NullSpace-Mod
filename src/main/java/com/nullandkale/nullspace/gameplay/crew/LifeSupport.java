@@ -59,7 +59,7 @@ public final class LifeSupport
     public static boolean suited(ServerPlayer p)
     {
         // Plain and armored suit pieces protect the same way; any mix counts as a full suit.
-        boolean head = piece(p, EquipmentSlot.HEAD, ModBlocks.HELMET, ModBlocks.ARMORED_HELMET);
+        boolean head = piece(p, EquipmentSlot.HEAD, ModBlocks.HELMET, ModBlocks.ARMORED_HELMET) || p.getItemBySlot(EquipmentSlot.HEAD).is(com.nullandkale.nullspace.gameplay.boss.SpaceBoss.BEACON_HELMET);
         boolean chest = piece(p, EquipmentSlot.CHEST, ModBlocks.CHEST, ModBlocks.ARMORED_CHEST);
         boolean legs = piece(p, EquipmentSlot.LEGS, ModBlocks.LEGS, ModBlocks.ARMORED_LEGS);
         boolean feet = piece(p, EquipmentSlot.FEET, ModBlocks.BOOTS, ModBlocks.ARMORED_BOOTS);

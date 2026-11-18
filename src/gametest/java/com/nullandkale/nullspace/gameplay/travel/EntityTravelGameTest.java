@@ -398,9 +398,18 @@ public final class EntityTravelGameTest
         return problems;
     }
 
+    /** Takes everything that is not a player out of an orbit slot: a frame or an animal left there blocks the next ship that wants it. */
+    private static void sweepOrbit(Bed bed)
+    {
+        double x = bed.orbit() * (double) TravelService.SPACE_SPACING;
+        for (var entity : bed.space().getEntitiesOfClass(Entity.class, new net.minecraft.world.phys.AABB(x - 128, -32, -128, x + 160, 256, 160), e -> !(e instanceof ServerPlayer)))
+            entity.discard();
+    }
+
     public static void finish(GameTestHelper ctx, Bed bed, List<String> problems)
     {
         holdOrbit(bed.space(), bed.orbit(), false);
+        sweepOrbit(bed);
         var level = bed.level();
         for (var entity : HullEntities.inBounds(level, WorldStore.bounds(bed.ship())))
             if (!(entity instanceof ServerPlayer))
@@ -615,6 +624,7 @@ public final class EntityTravelGameTest
                 if (!(entity instanceof ServerPlayer))
                     entity.discard();
             level.getServer().getPlayerList().remove(bed.player());
+            sweepOrbit(bed);
             WorldStore.get(level.getServer()).ships().removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(bed.shipId()));
         }
         ctx.assertTrue(failures.isEmpty(), "Every design carries leashed animals:\n" + String.join("\n", failures));

@@ -1,11 +1,13 @@
-param([int] $TimeoutSeconds = 360, [string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $Profile)
+param([int] $TimeoutSeconds = 360, [string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $Profile, [switch] $SkipBuild)
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $RepoRoot 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $RepoRoot 'scripts/lib/TestWorldCleanup.psm1') -Force
 $projectRoot = $RepoRoot
-& "$projectRoot/scripts/build/Invoke-Gradle.ps1" exportLocalClientLaunch --no-configuration-cache --no-daemon --console=plain
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not $SkipBuild) {
+    & "$projectRoot/scripts/build/Invoke-Gradle.ps1" exportLocalClientLaunch --no-configuration-cache --no-daemon --console=plain
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $spec = Get-Content -LiteralPath "$projectRoot/build/local-client-launch.json" -Raw | ConvertFrom-Json
 $runRoot = Join-Path $projectRoot ('build/local-multiplayer/' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,6))
 if ($ArtifactRoot) { $runRoot = [System.IO.Path]::GetFullPath($ArtifactRoot) }
@@ -23,7 +25,7 @@ try {
         [System.IO.File]::WriteAllText((Join-Path $work 'eula.txt'),"eula=true`n")
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
         if ($Profile) { $arguments += @('-XX:FlightRecorderOptions=stackdepth=128', ('-XX:StartFlightRecording=name=NullSpacePlaytest,settings=profile,dumponexit=true,maxsize=128m,filename=' + (Join-Path $work 'profile.jfr'))) }
-        $arguments += @('-Xmx2G',"-Dnullspace.local.role=$role","-Dnullspace.local.directory=$runRoot","-Dnullspace.local.port=$port",'-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx6G',"-Dnullspace.local.role=$role","-Dnullspace.local.directory=$runRoot","-Dnullspace.local.port=$port",'-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $arguments += @('--gameDir',$work,'--username',"NullSpace_$role",'--uuid',[guid]::NewGuid().ToString(),'--width','640','--height','480')
         $argFile = Join-Path $work 'launch.args'

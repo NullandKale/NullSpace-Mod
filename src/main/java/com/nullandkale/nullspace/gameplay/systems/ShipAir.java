@@ -15,6 +15,7 @@ import net.minecraft.core.*;
 import net.minecraft.nbt.*;
 import net.minecraft.server.level.*;
 import net.minecraft.world.level.block.*;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Air aboard a ship as players and screens read it: rooms, breathability, pressure and Air Supply
@@ -72,6 +73,49 @@ public final class ShipAir
                 best = Math.max(best, SpatialAir.percent(r.air[neighbour]));
         }
         return best;
+    }
+
+    /** The share of its air an explosion of this power takes from every cell within {@link #BLAST_REACH} times its radius. */
+    public static double blastShare(float power)
+    {
+        return Math.min(0.95, 0.2 * power);
+    }
+
+    /** How many radii out from an explosion air is taken. */
+    public static final double BLAST_REACH = 2.0;
+
+    /**
+     * An explosion uses up air (chunk A2 of docs/design/rewards-work-plan.md): every room cell within twice the blast's radius loses
+     * a share of its air, and the rooms then share what is left evenly, so a blast in a small room empties it and the same blast in
+     * a big hall takes a bite. A creeper (power 3) takes 60 percent of what is near it and TNT (power 4) takes 80.
+     */
+    public static void blast(ServerLevel level, Vec3 center, float power)
+    {
+        if (power <= 0)
+            return;
+        double reach = power * BLAST_REACH;
+        for (var tag : WorldStore.get(level.getServer()).ships())
+        {
+            var ship = (CompoundTag) tag;
+            if (!ShipSystems.enabled(ship) || !ship.getStringOr("dimension", "").equals(level.dimension().identifier().toString()))
+                continue;
+            var box = WorldStore.bounds(ship).box();
+            if (!box.inflate(reach).contains(center))
+                continue;
+            var r = ShipSystems.runtime(level, ship);
+            if (r.dirty)
+                ShipSystems.rebuild(level, ship, r, false);
+            double share = blastShare(power);
+            for (var p : BlockPos.betweenClosed(BlockPos.containing(center.x - reach, center.y - reach, center.z - reach), BlockPos.containing(center.x + reach, center.y + reach, center.z + reach)))
+            {
+                if (!WorldStore.bounds(ship).contains(p) || Vec3.atCenterOf(p).distanceToSqr(center) > reach * reach)
+                    continue;
+                int cell = ShipSystems.local(ship, p);
+                if (r.atmosphere.roomAt()[cell] >= 0 && r.air[cell] > 0)
+                    r.air[cell] -= (int) (r.air[cell] * share);
+            }
+            AirStore.tick(ShipSystems.state(ship), r.air, ShipSystems.grid(ship));
+        }
     }
 
     public static int pressure(ServerLevel level, CompoundTag ship, int x, int y, int z)
@@ -235,7 +279,7 @@ public final class ShipAir
                 {
                     int i = ShipSystems.local(ship, at);
                     r.air[i] = Math.max(0, r.air[i] - 10);
-                    ShipSystems.state(ship).putIntArray("air", r.air);
+                    AirStore.tick(ShipSystems.state(ship), r.air, ShipSystems.grid(ship));
                     return true;
                 }
             }

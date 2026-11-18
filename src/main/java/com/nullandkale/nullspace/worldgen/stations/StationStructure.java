@@ -33,10 +33,34 @@ public final class StationStructure
      */
     static StationBlueprint.Plan build(StationPlan plan, boolean ship)
     {
+        return build(plan, ship, Integer.MIN_VALUE);
+    }
+
+    /**
+     * {@code groundY} is the row of the terrain's top block when the build is buried (a hab), or {@link Integer#MIN_VALUE} in open space:
+     * nothing below the ground is glazed or roofed, since rock is there.
+     */
+    static StationBlueprint.Plan build(StationPlan plan, boolean ship, int groundY)
+    {
+        return build(plan, ship, groundY, false);
+    }
+
+    /** As above; {@code ladders} puts a ladder shaft in the tall arrival hall where a station has stair flights (a hab). */
+    static StationBlueprint.Plan build(StationPlan plan, boolean ship, int groundY, boolean ladders)
+    {
+        return build(plan, ship, groundY, ladders, java.util.Set.of());
+    }
+
+    /** As above, where the doors in {@code open} are openings with no door, which the rooms they join are furnished around. */
+    static StationBlueprint.Plan build(StationPlan plan, boolean ship, int groundY, boolean ladders, java.util.Set<Door> open)
+    {
         var palette = ShipBlocks.palette(plan.spec().maker());
         var style = StationStyle.of(plan.spec().maker(), plan.spec().seed());
         var out = new LinkedHashMap<BlockPos, BlockState>();
-        var occupied = shell(plan, style, out);
+        var laps = new StringBuilder();
+        long mark = System.nanoTime();
+        var occupied = shell(plan, style, out, groundY);
+        mark = lap(laps, "shell", mark);
         var docks = new ArrayList<BlockPos>();
         for (var berth : plan.berths())
         {
@@ -49,26 +73,32 @@ public final class StationStructure
         for (var room : plan.rooms())
         {
             if (room.use() == Use.ARRIVAL && room.levels() >= 2 && room.climb() != null)
-                occupied.addAll(atrium(out, room, style, palette));
+                occupied.addAll(ladders ? ladderShaft(out, room, style) : atrium(out, room, style, palette));
             var interior = room.interior();
             var center = new BlockPos((interior.x0() + interior.x1()) / 2, interior.y0(), (interior.z0() + interior.z1()) / 2);
             points.add(new Piece.Point(center, "room", room.id() + ":" + room.use().name().toLowerCase(Locale.ROOT)));
         }
-        // Every room with one door and one job is furnished by its design.
+        mark = lap(laps, "ladders", mark);
+        // A hab: the furniture of its surface lobby.
+        boolean hab = groundY != Integer.MIN_VALUE;
+        if (hab)
+            occupied.addAll(HabFurnishings.entryHall(plan, groundY, out, points));
+        // Every room with one door and one job is furnished by its design; a hab's rooms may be passed through, and then the way through stays clear.
         var furnished = new HashSet<String>();
         for (var room : plan.rooms())
         {
             if (!StationRooms.furnishes(room.use()))
                 continue;
             var doors = plan.doors().stream().filter(d -> d.a().equals(room.id()) || d.b().equals(room.id())).toList();
-            if (doors.size() != 1)
+            if (doors.size() != 1 && !(hab && !doors.isEmpty()))
                 continue;
             // Every room has an Air Supply asking for power, so a ship's power plant grows with its rooms: a generator per 16 power wanted.
             int generators = (4 * plan.rooms().size() + 12 + 15) / 16;
-            int variant = ship && room.use() == Use.ENGINEERING ? Math.min(3, Math.max(1, (generators + 1) / 2 - 1)) : StationRooms.variantFor(plan.spec(), room);
-            occupied.addAll(StationRooms.furnish(style, palette, out, points, room, doors.getFirst(), variant, plan.spec().seed()));
+            int variant = ship && room.use() == Use.ENGINEERING ? Math.min(3, Math.max(1, (generators + 1) / 2 - 1)) : hab ? HabFurnishings.variant(plan, room) : StationRooms.variantFor(plan.spec(), room);
+            occupied.addAll(StationRooms.furnish(style, palette, out, points, room, doors.getFirst(), doors.subList(1, doors.size()), open, variant, plan.spec().seed()));
             furnished.add(room.id());
         }
+        mark = lap(laps, "furnish", mark);
         BlockPos core = null;
         for (var room : plan.rooms())
         {
@@ -130,6 +160,7 @@ public final class StationStructure
                 occupied.add(at);
             }
         }
+        mark = lap(laps, "machines", mark);
         if (ship)
             for (var e : out.entrySet())
                 if (e.getValue().is(ModBlocks.COMPUTER))
@@ -137,13 +168,29 @@ public final class StationStructure
         if (core == null)
             throw new IllegalStateException(ship ? "The bridge has no helm" : "No free cell for the Station Core in " + plan.arrival());
         lootChests(plan, out, points);
-        roofs(out, plan, style);
+        mark = lap(laps, "loot", mark);
+        if (!ship)
+            cameras(plan, out, groundY);
+        mark = lap(laps, "cameras", mark);
+        roofs(out, plan, style, groundY);
+        mark = lap(laps, "roofs", mark);
         // An Air Supply breathes into the cell it faces, so no torch may stand there.
         for (var e : new ArrayList<>(out.entrySet()))
             if (e.getValue().is(ModBlocks.AIR_SUPPLY))
                 occupied.add(e.getKey().relative(e.getValue().getValue(HorizontalDirectionalBlock.FACING)));
         light(out, plan, occupied);
+        mark = lap(laps, "light", mark);
+        if (plan.rooms().size() > 60)
+            com.nullandkale.nullspace.NullSpace.LOGGER.info("STATION BUILD {} rooms, {} blocks, time by pass:{}", plan.rooms().size(), out.size(), laps);
         return new StationBlueprint.Plan(out, core, docks, points);
+    }
+
+    /** Adds the time a pass of the build took since {@code since} to the log line, and returns the new mark. */
+    private static long lap(StringBuilder laps, String name, long since)
+    {
+        long now = System.nanoTime();
+        laps.append(' ').append(name).append(' ').append((now - since) / 1_000_000).append(" ms;");
+        return now;
     }
 
     /**
@@ -202,7 +249,7 @@ public final class StationStructure
      * framed doors with a stone pressure plate on each side, and the cells kept clear around them.
      * Returns the cells later passes must leave alone.
      */
-    private static Set<BlockPos> shell(StationPlan plan, StationStyle style, Map<BlockPos, BlockState> out)
+    private static Set<BlockPos> shell(StationPlan plan, StationStyle style, Map<BlockPos, BlockState> out, int groundY)
     {
         // Ceilings, then walls and posts, then floors: where levels share a slab it is the upper room's floor.
         for (var room : plan.rooms())
@@ -233,7 +280,7 @@ public final class StationStructure
             for (int dy = -1; dy <= 3; dy++)
                 for (int side = -1; side <= 1; side++)
                     reserved.add(berth.port().relative(berth.facing().getClockWise(), side).above(dy));
-        windows(out, plan, style, reserved);
+        windows(out, plan, style, reserved, groundY);
         for (var door : plan.doors())
         {
             door(out, door.at(), door.through());
@@ -272,7 +319,7 @@ public final class StationStructure
         var palette = ShipBlocks.palette(plan.spec().maker());
         var style = StationStyle.of(plan.spec().maker(), plan.spec().seed());
         var out = new LinkedHashMap<BlockPos, BlockState>();
-        var occupied = shell(plan, style, out);
+        var occupied = shell(plan, style, out, Integer.MIN_VALUE);
         var points = new ArrayList<Piece.Point>();
         for (var room : plan.rooms())
         {
@@ -442,7 +489,7 @@ public final class StationStructure
      * Glazing on every exterior wall in the maker's style. Windows are whole glass blocks, so a shell
      * stays sealed; they stay clear of doorways and ports.
      */
-    private static void windows(Map<BlockPos, BlockState> out, StationPlan plan, StationStyle style, Set<BlockPos> reserved)
+    private static void windows(Map<BlockPos, BlockState> out, StationPlan plan, StationStyle style, Set<BlockPos> reserved, int groundY)
     {
         var glass = style.glass.defaultBlockState();
         for (var room : plan.rooms())
@@ -454,6 +501,8 @@ public final class StationStructure
                 for (int row = 2; row <= 4; row++)
                 {
                     int y = room.y() + level * StationPlan.PITCH + 1 + row;
+                    if (y < groundY)
+                        continue;
                     for (var side : StationBuilder.SIDES)
                     {
                         boolean alongX = side.getAxis() == Direction.Axis.Z;
@@ -603,15 +652,132 @@ public final class StationStructure
         return reserved;
     }
 
+    /**
+     * A ladder shaft in place of the atrium's stair flights: every upper level of the hall is a full floor, with a one-cell shaft in a
+     * corner of the hall, on the climb's wall, and one ladder climbing through it from the lowest floor to the top. Returns the cells in
+     * front of the ladder at every level, which furniture and torches must leave clear.
+     */
+    private static Set<BlockPos> ladderShaft(Map<BlockPos, BlockState> out, Room room, StationStyle style)
+    {
+        var i = room.interior();
+        var wall = room.climb();
+        var along = wall.getClockWise();
+        int x = wall.getAxis() == Direction.Axis.X ? (wall.getStepX() > 0 ? i.x1() : i.x0()) : (along.getStepX() > 0 ? i.x1() : i.x0());
+        int z = wall.getAxis() == Direction.Axis.Z ? (wall.getStepZ() > 0 ? i.z1() : i.z0()) : (along.getStepZ() > 0 ? i.z1() : i.z0());
+        var facing = wall.getOpposite();
+        for (int level = 1; level < room.levels(); level++)
+        {
+            int slab = room.y() + level * StationPlan.PITCH;
+            for (int fx = i.x0(); fx <= i.x1(); fx++)
+                for (int fz = i.z0(); fz <= i.z1(); fz++)
+                {
+                    if (fx == x && fz == z)
+                        continue;
+                    out.put(new BlockPos(fx, slab, fz), style.ceiling.defaultBlockState());
+                    out.put(new BlockPos(fx, slab + 1, fz), style.floorA.defaultBlockState());
+                }
+        }
+        var ladder = net.minecraft.world.level.block.Blocks.LADDER.defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, facing);
+        int top = room.y() + (room.levels() - 1) * StationPlan.PITCH + 2;
+        for (int y = room.standY(); y <= top; y++)
+            out.put(new BlockPos(x, y, z), ladder);
+        var reserved = new HashSet<BlockPos>();
+        for (int level = 0; level < room.levels(); level++)
+            reserved.add(new BlockPos(x, room.y() + level * StationPlan.PITCH + 2, z).relative(facing));
+        return reserved;
+    }
+
+    /** True when a block at the cell is inside the 128 by 32 by 128 box a station is built in; a hab has no such box. */
+    private static boolean room(BlockPos at, boolean hab)
+    {
+        return hab || at.getX() >= 0 && at.getZ() >= 0 && at.getY() >= 0 && at.getX() < 128 && at.getZ() < 128 && at.getY() < 32;
+    }
+
+    private static BlockState camera(Direction facing)
+    {
+        return ModBlocks.CAMERA.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
+    }
+
+    /**
+     * Cameras outside a station or hab, looking out, which the monitors near them show (a monitor with no camera chosen shows the nearest one).
+     * A station has one over each berth's port and one on an outer wall of each viewing room (observation, lookout, operations). A hab, whose
+     * rooms are underground, has one on each wall of the surface hall, and one high in the grove looking down on the tree.
+     */
+    private static void cameras(StationPlan plan, Map<BlockPos, BlockState> out, int groundY)
+    {
+        boolean hab = groundY != Integer.MIN_VALUE;
+        for (var berth : plan.berths())
+        {
+            var at = berth.port().above(2).relative(berth.facing());
+            if (!out.containsKey(at) && room(at, hab))
+                out.put(at, camera(berth.facing()));
+        }
+        for (var room : plan.rooms())
+        {
+            boolean viewing = !hab && (room.use() == Use.OBSERVATION || room.use() == Use.LOOKOUT || room.use() == Use.OPERATIONS);
+            boolean hall = hab && room.id().equals(plan.arrival());
+            if (!viewing && !hall)
+                continue;
+            var o = room.outer();
+            int y = hall ? groundY + 4 : room.standY() + 3;
+            int cx = (o.x0() + o.x1()) / 2, cz = (o.z0() + o.z1()) / 2;
+            for (var side : StationBuilder.SIDES)
+            {
+                var wall = switch (side)
+                {
+                    case NORTH -> new BlockPos(cx, y, o.z0());
+                    case SOUTH -> new BlockPos(cx, y, o.z1());
+                    case WEST -> new BlockPos(o.x0(), y, cz);
+                    default -> new BlockPos(o.x1(), y, cz);
+                };
+                var outside = wall.relative(side);
+                if (!out.containsKey(wall) || out.containsKey(outside) || !room(outside, hab) || covered(plan, outside.getX(), outside.getY(), outside.getZ()))
+                    continue;
+                out.put(outside, camera(side));
+                if (!hall)
+                    break;
+            }
+        }
+        if (!hab)
+            return;
+        for (var room : plan.rooms())
+        {
+            // Cameras inside a hab: high on the wall across from the door of the grove, the machine hall, the controller room, the commons, the apiary and every plaza.
+            boolean key = room.use() == Use.GARDEN && room.levels() >= 2 || room.use() == Use.MACHINE_HALL || room.use() == Use.CONTROLLER_ROOM || room.use() == Use.COMMONS || room.use() == Use.APIARY || room.use() == Use.CORRIDOR && Math.min(room.w(), room.d()) >= 23;
+            if (!key)
+                continue;
+            for (var door : plan.doors())
+            {
+                if (!door.a().equals(room.id()) && !door.b().equals(room.id()))
+                    continue;
+                var into = door.b().equals(room.id()) ? door.through() : door.through().getOpposite();
+                var i = room.interior();
+                int y = room.standY() + (room.levels() >= 2 ? 6 : 3);
+                var at = switch (into)
+                {
+                    case NORTH -> new BlockPos(door.at().getX(), y, i.z0());
+                    case SOUTH -> new BlockPos(door.at().getX(), y, i.z1());
+                    case WEST -> new BlockPos(i.x0(), y, door.at().getZ());
+                    default -> new BlockPos(i.x1(), y, door.at().getZ());
+                };
+                if (!out.containsKey(at))
+                    out.put(at, camera(into.getOpposite()));
+                break;
+            }
+        }
+    }
+
     // ---- Roofs ----
 
     /** Rooftops in the maker's shape, over every cell whose sky is free; edges are cells that drop off to nothing. */
-    private static void roofs(Map<BlockPos, BlockState> out, StationPlan plan, StationStyle style)
+    private static void roofs(Map<BlockPos, BlockState> out, StationPlan plan, StationStyle style, int groundY)
     {
         for (var room : plan.rooms())
         {
             var o = room.outer();
             int y = o.y1();
+            if (y < groundY)
+                continue;
             switch (style.roofs)
             {
                 case PARAPET -> parapet(out, plan, style, o, y);

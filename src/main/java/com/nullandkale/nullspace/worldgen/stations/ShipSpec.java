@@ -9,8 +9,14 @@ import java.util.Locale;
  * Everything that decides a planned ship: the same spec always builds the same ship. Size is the
  * ship's scale (how many decks it stands on); every size has large rooms and small rooms.
  */
-public record ShipSpec(Maker maker, Size size, Role role, long seed)
+public record ShipSpec(Maker maker, Size size, Role role, long seed, java.util.List<StationPlan.Use> rooms)
 {
+    /** A ship whose rooms the planner draws from its role. */
+    public ShipSpec(Maker maker, Size size, Role role, long seed)
+    {
+        this(maker, size, role, seed, java.util.List.of());
+    }
+
     public enum Size
     {
         SMALL(1), MEDIUM(2), LARGE(3);

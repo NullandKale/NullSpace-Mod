@@ -196,5 +196,22 @@
       "role": "SCOUT",
       "seed": 1
     }
+  },
+  {
+    "id": "endgame_testbed",
+    "name": "Endgame Testbed",
+    "manufacturer": "Rivet Works",
+    "role": "Testbed",
+    "description": "One deck, self-sufficient, for testing the late game: a farm of wheat, carrots, cocoa and sugar cane, a pen of chickens, cows, sheep and pigs, a lava farm for fuel, and a vault with an enchanting table, brewing, an anvil and chests of endgame gear, space items and treasure.",
+    "color": "orange",
+    "armed": false,
+    "cargo": false,
+    "generate": {
+      "maker": "RIVET",
+      "size": "SMALL",
+      "role": "EXPLORER",
+      "seed": 2026,
+      "rooms": ["FARM_BAY", "PEN", "LAVA_FARM", "VAULT"]
+    }
   }
 ]

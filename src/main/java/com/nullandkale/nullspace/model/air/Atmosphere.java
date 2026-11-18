@@ -8,13 +8,15 @@ import java.util.*;
  */
 public final class Atmosphere
 {
+    /** The largest grid: a large station such as a hab, 512 by 64 by 512; an ordinary station is at most 128 by 32 by 128. */
+    public static final int MAX_WIDTH = 512, MAX_HEIGHT = 64;
     public static final int SIZE = 32, CELLS = 32768, FULL = 1000, BREATHABLE = 250;
 
     public record Grid(int width, int height, int depth)
     {
         public Grid
         {
-            if (width < 1 || width > 128 || height < 1 || height > 32 || depth < 1 || depth > 128)
+            if (width < 1 || width > MAX_WIDTH || height < 1 || height > MAX_HEIGHT || depth < 1 || depth > MAX_WIDTH)
                 throw new IllegalArgumentException("Atmosphere exceeds station envelope");
         }
 
@@ -215,11 +217,15 @@ public final class Atmosphere
     private static byte[] neighborMasks(Grid grid)
     {
         byte[] result = new byte[grid.cells()];
-        for (int i = 0; i < result.length; i++)
-        {
-            int x = grid.x(i), y = grid.y(i), z = grid.z(i);
-            result[i] = (byte) ((x > 0 ? 1 : 0) | (x < grid.width() - 1 ? 2 : 0) | (y > 0 ? 4 : 0) | (y < grid.height() - 1 ? 8 : 0) | (z > 0 ? 16 : 0) | (z < grid.depth() - 1 ? 32 : 0));
-        }
+        int w = grid.width(), h = grid.height(), d = grid.depth(), i = 0;
+        // Walked in the grid's own order, so no cell needs its coordinates divided out of its index.
+        for (int y = 0; y < h; y++)
+            for (int z = 0; z < d; z++)
+            {
+                int zy = (z > 0 ? 16 : 0) | (z < d - 1 ? 32 : 0) | (y > 0 ? 4 : 0) | (y < h - 1 ? 8 : 0);
+                for (int x = 0; x < w; x++)
+                    result[i++] = (byte) (zy | (x > 0 ? 1 : 0) | (x < w - 1 ? 2 : 0));
+            }
         return result;
     }
 

@@ -334,6 +334,8 @@ public final class EncounterSites
         var history = ship.contains("encounterHistory") ? com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values()[Math.floorMod(ship.getIntOr("encounterHistory", 0), com.nullandkale.nullspace.worldgen.condition.DerelictHistory.values().length)] : com.nullandkale.nullspace.worldgen.condition.DerelictHistory.of(historySeed, danger);
         SiteLoot.apply(level, assignments(kind, ship.getStringOr("encounterDesign", design(kind, seed)), base, SitePoints.read(ship), treasure, danger, seed, history, ship.getStringOr("name", "Salvage") + " supplies"));
         ship.putBoolean("encounterStocked", true);
+        SiteDefences.apply(level, ship, danger, seed);
+        SiteMachines.apply(level, ship, danger, seed);
     }
 
     /**

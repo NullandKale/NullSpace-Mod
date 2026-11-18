@@ -43,6 +43,7 @@ The beacon cannot clear a damaged ship or merge two ships. Once a ship is comple
 | Bastion Ward | Twin hull | Small | Scout: armoured twin hull with bunks and stores |
 | Bastion Tender | Dome | Medium | Freighter: round hull with a cargo hold either side |
 | Bastion Pioneer | Twin hull | Large | Explorer: workshops, stores and mining bays in both hulls |
+| Endgame Testbed | Spine, one deck | Small | Testbed: a farm, a pen, a lava farm and a vault of late-game gear, for testing ([endgame testbed](endgame-testbed.md)) |
 
 Designs are entries in [`catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json) with the generator settings that build them. [`ShipBlueprints`](../../src/main/java/com/nullandkale/nullspace/worldgen/ships/ShipBlueprints.java) loads them, and the showroom and the delivery service build the same block-state maps. To hand-edit a design, load it with the [authoring tools](../development/authoring.md#editing-a-shipyard-design) and save: a saved template replaces the generated ship.
 

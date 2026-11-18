@@ -146,7 +146,7 @@ Fullscreen has visible aim/zoom controls and keyboard equivalents. Back reopens 
 
 Right-click any tile to configure the whole matched wall. Name, Save name, Device On/Off, camera rows, embedded preview, wall size and fullscreen are visible. Selecting a camera applies immediately, with the active feed identified from server state; no Apply dialog is required.
 
-Up to 8 x 8 coplanar matching tiles form a complete rectangular wall. Irregular/oversized groups remain individual screens. Missing power/camera is a real status; feed loss does not silently pick another camera. Back from fullscreen validates the wall again.
+Up to 8 x 8 coplanar matching tiles form a complete rectangular wall. Irregular/oversized groups remain individual screens. Missing power/camera is a real status; feed loss does not silently pick another camera. A monitor nobody has set shows the camera nearest to it ([`ViewportDefaults`](../../src/main/java/com/nullandkale/nullspace/gameplay/scene/ViewportDefaults.java)); once a camera is chosen it stays chosen. Back from fullscreen validates the wall again.
 
 **Notes:**
 

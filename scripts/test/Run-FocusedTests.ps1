@@ -43,7 +43,7 @@ if ($ExtraClasspath.Count) { $classpath += [IO.Path]::PathSeparator + ($ExtraCla
 $launchConfig = Join-Path $work 'launch.cfg'
 [IO.File]::WriteAllText($launchConfig, $config, [Text.UTF8Encoding]::new($false))
 $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') })
-$arguments += @('-Xmx2G', "-Dfabric.dli.config=$launchConfig", "-Dfabric-api.gametest.report-file=$work/native-tests.xml")
+$arguments += @('-Xmx12G', "-Dfabric.dli.config=$launchConfig", "-Dfabric-api.gametest.report-file=$work/native-tests.xml")
 $arguments += @($JvmProperties)
 $arguments += @('-cp', $classpath, $spec.mainClass) + @($spec.args)
 if ($Client) { $arguments += @('--gameDir', $work, '--width', '1280', '--height', '720') } else { $arguments += @('--universe', $work) }

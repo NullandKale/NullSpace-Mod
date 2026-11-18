@@ -1,0 +1,105 @@
+{
+  "textures": {
+    "apple": "nullspace:block/enchanted_golden_apple_hanging",
+    "stem": "nullspace:block/apple_stem",
+    "particle": "nullspace:block/enchanted_golden_apple_hanging"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        6,
+        4
+      ],
+      "to": [
+        12,
+        10,
+        12
+      ],
+      "faces": {
+        "down": {
+          "texture": "#apple"
+        },
+        "up": {
+          "texture": "#apple"
+        },
+        "north": {
+          "texture": "#apple"
+        },
+        "south": {
+          "texture": "#apple"
+        },
+        "west": {
+          "texture": "#apple"
+        },
+        "east": {
+          "texture": "#apple"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        4,
+        5
+      ],
+      "to": [
+        11,
+        12,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#apple"
+        },
+        "up": {
+          "texture": "#apple"
+        },
+        "north": {
+          "texture": "#apple"
+        },
+        "south": {
+          "texture": "#apple"
+        },
+        "west": {
+          "texture": "#apple"
+        },
+        "east": {
+          "texture": "#apple"
+        }
+      }
+    },
+    {
+      "from": [
+        7.5,
+        12,
+        7.5
+      ],
+      "to": [
+        8.5,
+        16,
+        8.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#stem"
+        },
+        "up": {
+          "texture": "#stem"
+        },
+        "north": {
+          "texture": "#stem"
+        },
+        "south": {
+          "texture": "#stem"
+        },
+        "west": {
+          "texture": "#stem"
+        },
+        "east": {
+          "texture": "#stem"
+        }
+      }
+    }
+  ]
+}

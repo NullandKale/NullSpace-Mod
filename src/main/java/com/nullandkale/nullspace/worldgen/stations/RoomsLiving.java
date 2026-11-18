@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.state.properties.BedPart;
 /** Rooms where people live, eat, grow things and recover: warm, with soft edges and somewhere to sit. */
 final class RoomsLiving
 {
-    private static BlockState pot()
+    static BlockState pot()
     {
         return Blocks.POTTED_FERN.defaultBlockState();
     }
@@ -235,7 +235,8 @@ final class RoomsLiving
         int c = k.doorU;
         k.floorFill(Blocks.MOSS_BLOCK);
         var soil = Blocks.FARMLAND.defaultBlockState().setValue(FarmlandBlock.MOISTURE, 7);
-        int[] starts = k.w >= 15 ? new int[]{0, 4, k.w - 7, k.w - 3} : new int[]{0, k.w - 3};
+        // A bay that is walked through (a hab's) has a clear strip down its middle, so its inner beds stand clear of it.
+        int[] starts = k.w >= 15 ? (k.passedThrough() ? new int[]{0, 3, k.w - 6, k.w - 3} : new int[]{0, 4, k.w - 7, k.w - 3}) : new int[]{0, k.w - 3};
         int v0 = 2, v1 = k.d - 5, which = k.rng.nextInt(4);
         // One water cell reaches four cells either way; a longer bed gets a second.
         int[] waters = v1 - v0 + 1 <= 9 ? new int[]{(v0 + v1) / 2} : new int[]{v0 + 4, v1 - 4};
@@ -306,18 +307,18 @@ final class RoomsLiving
      * One big pen with every animal two by two, like an ark: a fence all round with a gate on the side
      * toward the path, grass inside and nothing else, since animals jump onto any block.
      */
-    private static void ark(RoomKit k, int u, int v, int pw, int pd)
+    private static void ark(RoomKit k, int u, int v, int pw, int pd, boolean gateOnRight)
     {
-        int gateV = v + pd / 2;
+        int gateV = v + pd / 2, gateU = gateOnRight ? u + pw - 1 : u;
         for (int du = 0; du < pw; du++)
             for (int dv = 0; dv < pd; dv++)
             {
                 k.floor(u + du, v + dv, Blocks.GRASS_BLOCK);
                 boolean edge = du == 0 || dv == 0 || du == pw - 1 || dv == pd - 1;
-                if (edge && !(du == 0 && v + dv == gateV))
+                if (edge && !(u + du == gateU && v + dv == gateV))
                     k.put(u + du, v + dv, 0, k.fence.defaultBlockState());
             }
-        k.put(u, gateV, 0, k.gate.defaultBlockState().setValue(FenceGateBlock.FACING, k.right));
+        k.put(gateU, gateV, 0, k.gate.defaultBlockState().setValue(FenceGateBlock.FACING, k.right));
         String[] kinds = {"sheep", "cow", "pig", "chicken"};
         int iw = pw - 2, ih = pd - 2;
         for (int i = 0; i < 8; i++)
@@ -333,8 +334,69 @@ final class RoomsLiving
      * A walk-through garden: a path down the middle to a sunken pond, flower beds either side, trees in
      * the corners and a bench; a large one has one big pen with a pair of every animal.
      */
+    /**
+     * A hab's grove (variant 2): a wide hall two levels tall with one tree at its centre, in a bed of podzol ringed in stone brick.
+     * Paths run to it from the door and across the hall and round it in a square; flower beds line the way in; a lantern on a post
+     * stands at each corner of the ring; small trees stand in the corners, or ponds in a wide hall. Everything mirrors about the
+     * hall's middle line.
+     */
+    static void grove(RoomKit k)
+    {
+        k.air();
+        int cu = k.w / 2, cv = k.d / 2, c = k.doorU;
+        int ring = k.w < 21 ? 4 : k.w < 27 ? 5 : 6;
+        for (int u = 0; u < k.w; u++)
+            for (int v = 0; v < k.d; v++)
+            {
+                int dist = Math.max(Math.abs(u - cu), Math.abs(v - cv));
+                var floor = dist <= 2 ? Blocks.PODZOL : dist == 3 ? Blocks.STONE_BRICKS : u == c || v == cv || dist == ring ? Blocks.DIRT_PATH : Blocks.GRASS_BLOCK;
+                k.floor(u, v, floor);
+            }
+        // The golden apple tree: its core and logs, and a crown of leaves that never decay. It grows its first apple on its own day.
+        for (var piece : com.nullandkale.nullspace.gameplay.trees.GoldenTrees.pieces(com.nullandkale.nullspace.gameplay.trees.GoldenTrees.Kind.PLAIN))
+            k.put(cu + piece.at().dx(), cv + piece.at().dz(), piece.at().dy(), piece.state());
+        for (int du : new int[]{-ring, ring})
+            for (int dv : new int[]{-ring, ring})
+            {
+                k.put(cu + du, cv + dv, 0, k.fence.defaultBlockState());
+                k.put(cu + du, cv + dv, 1, k.fence.defaultBlockState());
+                k.put(cu + du, cv + dv, 2, k.lantern());
+            }
+        Block[] flowers = {Blocks.POPPY, Blocks.DANDELION, Blocks.AZURE_BLUET, Blocks.CORNFLOWER};
+        for (int v = 3; v <= cv - ring - 2; v++)
+        {
+            var flower = flowers[v % flowers.length].defaultBlockState();
+            k.put(c - 2, v, 0, flower);
+            k.put(c + 2, v, 0, flower);
+        }
+        for (int u : new int[]{2, k.w - 3})
+            for (int v : new int[]{2, k.d - 3})
+            {
+                if (k.w >= 25)
+                    pond(k, u == 2 ? 3 : k.w - 4, v == 2 ? 4 : k.d - 5);
+                else
+                    tree(k, u, v, Blocks.BIRCH_LOG, Blocks.BIRCH_LEAVES);
+            }
+        k.put(0, cv - 3, 0, k.seatAgainst(), k.right);
+        k.put(k.w - 1, cv + 3, 0, k.seatAgainst(), k.left);
+        k.frame(Side.BACK, c, 1, "minecraft:golden_apple");
+    }
+
+    /** A three by three pond sunk into the floor, in a rim of stone brick, centred on {@code u, v}. */
+    private static void pond(RoomKit k, int u, int v)
+    {
+        for (int du = -2; du <= 2; du++)
+            for (int dv = -2; dv <= 2; dv++)
+                k.floor(u + du, v + dv, Math.abs(du) == 2 || Math.abs(dv) == 2 ? Blocks.STONE_BRICKS.defaultBlockState() : Blocks.WATER.defaultBlockState());
+    }
+
     static void garden(RoomKit k)
     {
+        if (k.variant == 2)
+        {
+            grove(k);
+            return;
+        }
         k.air();
         int c = k.doorU;
         for (int u = 0; u < k.w; u++)
@@ -342,7 +404,16 @@ final class RoomsLiving
                 k.floor(u, v, u == c ? Blocks.DIRT_PATH : Blocks.GRASS_BLOCK);
         // The pen first, so nothing else claims its cells.
         if (k.big() && k.variant == 0)
-            ark(k, c + 2, 3, k.w - c - 3, k.d - 6);
+            // One column in from the wall, so that the clear cells in front of an opening in that wall never take a piece of the fence.
+        {
+            // On the wider side of the path, so that a door near one wall still leaves the pen room.
+            int right = k.w - c - 4, left = c - 3;
+            // (A pen is at least three wide, a cell of grass inside its fence; a garden too narrow for one beside its path has none.)
+            if (k.d - 6 >= 3 && right >= left && right >= 3)
+                ark(k, c + 2, 3, right, k.d - 6, false);
+            else if (k.d - 6 >= 3 && left >= 3)
+                ark(k, 1, 3, left, k.d - 6, true);
+        }
         // Flower beds in mirrored rows, a colour to a row.
         Block[] flowers = {Blocks.POPPY, Blocks.DANDELION, Blocks.AZURE_BLUET, Blocks.CORNFLOWER};
         int bedU = Math.max(1, c - 2);

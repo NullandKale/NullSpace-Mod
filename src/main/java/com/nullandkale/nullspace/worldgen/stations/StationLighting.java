@@ -35,6 +35,12 @@ public final class StationLighting
 
     private static final Comparator<BlockPos> ORDER = Comparator.comparingInt((BlockPos p) -> p.getY()).thenComparingInt((BlockPos p) -> p.getX()).thenComparingInt((BlockPos p) -> p.getZ());
 
+    /** The eight-cell box a position is in, as one number, for finding the torches near a cell without looking at them all. */
+    private static long box(int x, int y, int z)
+    {
+        return ((long) (x >> 3) & 0x1FFFFF) << 42 | ((long) (y >> 3) & 0x1FFFFF) << 21 | ((long) (z >> 3) & 0x1FFFFF);
+    }
+
     /** Block light at every cell a torch reaches. */
     public static Map<BlockPos, Integer> levels(Space space, Collection<BlockPos> sources)
     {
@@ -82,6 +88,10 @@ public final class StationLighting
             if (sources.add(torch.at()))
                 added.add(torch);
         var level = levels(space, sources);
+        // The candidates by the eight-cell box they are in: a dark cell only needs the torches within eight cells, which are in the 27 boxes round it.
+        var index = new HashMap<Long, ArrayList<Torch>>();
+        for (var c : candidates)
+            index.computeIfAbsent(box(c.at().getX(), c.at().getY(), c.at().getZ()), k -> new ArrayList<>()).add(c);
         var ordered = new ArrayList<>(standing);
         ordered.sort(ORDER);
         int rounds = 0;
@@ -98,6 +108,7 @@ public final class StationLighting
             boolean progress = false;
             // Darkest cells first; later fixes in the round may already have lit the rest.
             dark.sort(Comparator.comparingInt((BlockPos c) -> level.getOrDefault(c, 0)).thenComparing(ORDER));
+            var darkSet = new HashSet<>(dark);
             for (var cell : List.copyOf(dark))
             {
                 if (level.getOrDefault(cell, 0) >= MINIMUM)
@@ -106,16 +117,23 @@ public final class StationLighting
                 int bestGain = 0;
                 int checked = 0;
                 var near = new ArrayList<Torch>();
-                for (var c : candidates)
-                    if (!sources.contains(c.at()) && c.at().distManhattan(cell) <= TORCH - MINIMUM + 2)
-                        near.add(c);
+                for (int bx = -1; bx <= 1; bx++)
+                    for (int by = -1; by <= 1; by++)
+                        for (int bz = -1; bz <= 1; bz++)
+                        {
+                            var here = index.get(box(cell.getX() + bx * 8, cell.getY() + by * 8, cell.getZ() + bz * 8));
+                            if (here != null)
+                                for (var c : here)
+                                    if (!sources.contains(c.at()) && c.at().distManhattan(cell) <= TORCH - MINIMUM + 2)
+                                        near.add(c);
+                        }
                 near.sort(Comparator.comparingInt((Torch c) -> c.at().distManhattan(cell)).thenComparing(c -> c.at(), ORDER));
                 for (var c : near)
                 {
                     if (checked++ >= 6)
                         break;
                     // A wall torch is worth a little more than a floor torch that lights the same cells.
-                    int gain = gain(space, level, dark, c.at()) * 2 + (c.wall() != null ? 1 : 0);
+                    int gain = gain(space, level, darkSet, c.at()) * 2 + (c.wall() != null ? 1 : 0);
                     if (gain > bestGain)
                     {
                         best = c;
@@ -142,14 +160,15 @@ public final class StationLighting
     }
 
     /** How many currently dark cells a torch at {@code at} would bring up to the minimum. */
-    private static int gain(Space space, Map<BlockPos, Integer> level, List<BlockPos> dark, BlockPos at)
+    private static int gain(Space space, Map<BlockPos, Integer> level, Set<BlockPos> dark, BlockPos at)
     {
         var local = new HashMap<BlockPos, Integer>(Map.of(at, TORCH));
         var queue = new ArrayDeque<BlockPos>(List.of(at));
         spread(space, local, queue);
+        // Only the cells the torch reaches can gain, so these are looked at, and not every dark cell there is.
         int gain = 0;
-        for (var cell : dark)
-            if (level.getOrDefault(cell, 0) < MINIMUM && local.getOrDefault(cell, 0) >= MINIMUM)
+        for (var entry : local.entrySet())
+            if (entry.getValue() >= MINIMUM && dark.contains(entry.getKey()) && level.getOrDefault(entry.getKey(), 0) < MINIMUM)
                 gain++;
         return gain;
     }

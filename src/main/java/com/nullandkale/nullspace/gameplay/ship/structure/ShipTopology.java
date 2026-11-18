@@ -151,6 +151,9 @@ public final class ShipTopology
 
     public static Set<BlockPos> discover(ServerLevel level, CompoundTag ship)
     {
+        // A placed hab is buried: it knows its own blocks, and is not flooded out into the rock round it.
+        if (com.nullandkale.nullspace.gameplay.habs.HabVessels.is(ship))
+            return com.nullandkale.nullspace.gameplay.habs.HabVessels.discover(level, ship);
         var bounds = WorldStore.bounds(ship);
         var start = WorldStore.pos(ship, "controller");
         if (!level.hasChunkAt(start))

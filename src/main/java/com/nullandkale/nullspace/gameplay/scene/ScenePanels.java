@@ -99,7 +99,10 @@ public final class ScenePanels
                 display.putInt("wallHeight", (int) tiles.stream().mapToInt(BlockPos::getY).distinct().count());
                 display.putBoolean("mounted", true);
                 display.putString("facing", level.getBlockState(p).getValue(HorizontalDirectionalBlock.FACING).getName());
-                int channel = cameras.isEmpty() ? 0 : Math.floorMod(ship.getCompoundOrEmpty("monitorChannels").getIntOr(Long.toString(p.subtract(WorldStore.pos(ship, "base")).asLong()), 0), cameras.size());
+                var chosen = ship.getCompoundOrEmpty("monitorChannels");
+                var chosenKey = Long.toString(p.subtract(WorldStore.pos(ship, "base")).asLong());
+                // A monitor nobody has set shows the nearest camera.
+                int channel = cameras.isEmpty() ? 0 : chosen.contains(chosenKey) ? Math.floorMod(chosen.getIntOr(chosenKey, 0), cameras.size()) : ViewportDefaults.nearest(cameras, p);
                 String selectedFeed = tiles.stream().map(level::getBlockEntity).filter(MachineBlockEntity.class::isInstance).map(MachineBlockEntity.class::cast).map(e -> e.camera).filter(s -> !s.isEmpty()).findFirst().orElse("");
                 if (!selectedFeed.isEmpty())
                 {

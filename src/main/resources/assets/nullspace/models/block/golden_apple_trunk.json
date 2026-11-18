@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "nullspace:block/golden_apple_trunk_top",
+    "side": "nullspace:block/golden_apple_trunk_side"
+  }
+}

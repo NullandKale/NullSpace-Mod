@@ -143,6 +143,23 @@ public final class ShipSystems
         return r;
     }
 
+    /** Writes the air of every live large station into its saved systems; run before the store is saved (see {@link AirStore}). */
+    public static void flushLargeAir(MinecraftServer server)
+    {
+        var runtimes = ServerContext.get(server).existing(KEY);
+        if (runtimes == null)
+            return;
+        for (var r : runtimes.values())
+            if (r.air != null && r.source != null && enabled(r.source) && AirStore.large(grid(r.source)))
+            {
+                AirStore.write(state(r.source), r.air, grid(r.source));
+                if (r.seals != null)
+                    AirStore.writeSeals(state(r.source), r.seals);
+                if (r.candidates != null)
+                    state(r.source).putLongArray("candidates", r.candidates.toLongArray());
+            }
+    }
+
     static CompoundTag state(CompoundTag ship)
     {
         return ship.getCompoundOrEmpty("systems");
@@ -181,7 +198,7 @@ public final class ShipSystems
 
     public static Atmosphere.Grid grid(CompoundTag ship)
     {
-        return StationAccess.station(ship) ? new Atmosphere.Grid(ship.getIntOr("width", 32), 32, ship.getIntOr("depth", 32)) : Atmosphere.SHIP;
+        return StationAccess.station(ship) ? new Atmosphere.Grid(ship.getIntOr("width", 32), Math.clamp(ship.getIntOr("height", 32), 32, Atmosphere.MAX_HEIGHT), ship.getIntOr("depth", 32)) : Atmosphere.SHIP;
     }
 
     static int local(CompoundTag ship, BlockPos p)
@@ -199,7 +216,16 @@ public final class ShipSystems
             if (!enabled(ship) || !ship.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) || !WorldStore.bounds(ship).contains(p))
                 continue;
             var r = runtime(level, ship);
-            r.dirty = true;
+            if (r.seals != null && r.members != null && large(ship))
+            {
+                // A large vessel works out only what the change touches: its seals, and its devices if one came or went.
+                if (AirSystem.reseal(level, ship, r, p))
+                    r.airDirty = true;
+                if (DeviceInventory.track(level, r, p))
+                    r.dirty = true;
+            }
+            else
+                r.dirty = true;
             // A destroyed/disconnected supply cannot authorize a shot or launch using last
             // tick's grant. Journal placement preserves the frozen transfer allocation.
             if (!TravelService.worldMutation())
@@ -214,10 +240,24 @@ public final class ShipSystems
         }
     }
 
+    /** True for a large station, such as a hab: it is simulated from its own records and not from the chunks round it (see AirStore). */
+    static boolean large(CompoundTag ship)
+    {
+        return StationAccess.station(ship) && AirStore.large(grid(ship));
+    }
+
     static void rebuild(ServerLevel level, CompoundTag ship, ShipRuntime r, boolean initialize)
     {
+        r.rebuiltAt = r.devicesAt = level.getServer().getTickCount();
+        long started = System.nanoTime();
         DeviceInventory.rebuild(level, ship, r);
-        AirSystem.rebuild(level, ship, r, initialize);
+        long devices = System.nanoTime();
+        // A large vessel that has its rooms keeps them: its air is worked out again on the worker (AirSystem.refresh), not here.
+        if (!(large(ship) && r.atmosphere != null))
+            AirSystem.rebuild(level, ship, r, initialize);
+        long done = System.nanoTime();
+        if (done - started > 50_000_000L)
+            com.nullandkale.nullspace.NullSpace.LOGGER.info("SYSTEMS rebuild of {} ({} cells) took {} ms: devices {} ms, air {} ms", ship.getStringOr("home", ship.getStringOr("id", "")), grid(ship).cells(), (done - started) / 1_000_000, (devices - started) / 1_000_000, (done - devices) / 1_000_000);
         r.dirty = false;
         r.revision++;
     }
@@ -233,11 +273,27 @@ public final class ShipSystems
         if (!enabled(ship) || !StationAccess.ready(ship) || TransferLocks.locked(level, WorldStore.pos(ship, "base")))
             return;
         var r = runtime(level, ship);
-        if (r.dirty)
+        long now = level.getServer().getTickCount();
+        if (large(ship))
+        {
+            // Many blocks change at once in a large vessel, and its air takes a pass over millions of cells: it is rebuilt at most every two seconds, and the
+            // devices that are in loaded chunks are found again every five (those in the others are off).
+            if (r.dirty && (now - r.rebuiltAt >= 40 || r.atmosphere == null))
+                rebuild(level, ship, r, false);
+            else if (now - r.devicesAt >= 100)
+            {
+                DeviceInventory.rebuild(level, ship, r);
+                r.devicesAt = now;
+            }
+            AirSystem.refresh(level, ship, r, now);
+        }
+        else if (r.dirty)
             rebuild(level, ship, r, false);
         PowerSystem.tick(level, ship, r);
         DoorSystem.tick(level, r);
         AirSystem.tick(level, ship, r);
+        Turrets.tick(level, ship, r);
+        RepairBays.tick(level, ship, r);
     }
 
     static int grant(ShipRuntime r, PowerBus.System system)
@@ -297,6 +353,10 @@ public final class ShipSystems
                 if (level.players().stream().noneMatch(p -> bounds.box().inflate(80).contains(p.position())) && !DockingService.engaged(ship))
                     continue;
                 boolean loaded = true;
+                if (large(ship))
+                    // A large vessel runs with its controller's chunk and the chunks round the player; the rest of it is its records.
+                    loaded = level.hasChunkAt(WorldStore.pos(ship, "controller"));
+                else
                 for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
                     for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)
                         if (!level.hasChunk(x, z))

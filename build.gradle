@@ -30,6 +30,8 @@ loom {
             programArgs '--username', providers.gradleProperty('devUsername').getOrElse('Player451')
             // Pieces saved with /nullspace author save also land in the mod's resources.
             vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
+            // The dev client has the machine's memory: big habs and galleries are hundreds of thousands of blocks each.
+            vmArg '-Xmx16G'
             if (providers.gradleProperty('devWorld').isPresent()) {
                 programArgs '--quickPlaySingleplayer', providers.gradleProperty('devWorld').get()
             }
@@ -44,6 +46,8 @@ loom {
             name 'NullSpace prepared test world'
             vmArg '-Dnullspace.playtest=true'
             vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
+            // The dev client has the machine's memory: big habs and galleries are hundreds of thousands of blocks each.
+            vmArg '-Xmx16G'
             runDir 'run'
         }
         shipLab {
@@ -53,6 +57,8 @@ loom {
             vmArg '-Dnullspace.playtest=true'
             vmArg '-Dnullspace.lab=true'
             vmArg '-Dnullspace.authoringDir=' + file('src/main/resources').absolutePath
+            // The dev client has the machine's memory: big habs and galleries are hundreds of thousands of blocks each.
+            vmArg '-Xmx16G'
             runDir 'run-lab'
         }
     }
@@ -162,6 +168,8 @@ tasks.withType(JavaCompile).configureEach {
 
 test {
     useJUnitPlatform()
+    // The hab tests plan and build habs of hundreds of thousands of blocks: the default heap of a test JVM is far too small for them.
+    maxHeapSize = '4g'
     // Instrument only when requested; normal game and test launches keep their usual cost.
     jacoco {
         enabled = providers.gradleProperty('coverage').getOrElse('false').toBoolean()
@@ -292,6 +300,33 @@ tasks.named('runGameTest', JavaExec).configure {
         testDirectory.mkdirs()
         // Use Minecraft's public world-root option; Loom owns the process cwd.
         args '--universe', testDirectory.absolutePath
+    }
+}
+
+// CI splits the native tests across jobs: -PgametestShard=2/4 keeps the second of four slices of the registered classes, balanced by
+// declared case count. The slices partition the list, so every class runs in exactly one job. Without the property nothing changes.
+def gametestShard = providers.gradleProperty('gametestShard')
+def gametestSources = layout.projectDirectory.dir('src/gametest/java').asFile
+tasks.named('processGametestResources', ProcessResources).configure {
+    inputs.property('gametestShard', gametestShard.getOrElse('all'))
+    doLast {
+        if (!gametestShard.present) return
+        def (index, count) = gametestShard.get().tokenize('/').collect { it.toInteger() }
+        assert index >= 1 && index <= count, "gametestShard must look like 2/4, got ${gametestShard.get()}"
+        def manifest = new File(destinationDir, 'fabric.mod.json')
+        def mod = new groovy.json.JsonSlurper().parse(manifest)
+        def costs = mod.entrypoints['fabric-gametest'].collectEntries { name ->
+            def source = new File(gametestSources, "${name.replace('.', '/')}.java")
+            [(name): Math.max(1, (source.text =~ /(?m)^\s*@GameTest\b/).count)]
+        }
+        def bins = (1..count).collect { [index: it, classes: [], cost: 0] }
+        costs.sort { a, b -> b.value <=> a.value ?: a.key <=> b.key }.each { name, cost ->
+            def bin = bins.min { x, y -> x.cost <=> y.cost ?: x.index <=> y.index }
+            bin.classes << name
+            bin.cost += cost
+        }
+        mod.entrypoints['fabric-gametest'] = bins[index - 1].classes.sort()
+        manifest.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(mod))
     }
 }
 

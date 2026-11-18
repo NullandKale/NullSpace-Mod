@@ -96,6 +96,9 @@ public final class StationGallery
                 var at = origin.offset(MARGIN + column * PITCH, -1, MARGIN + (windows - 1) * PITCH);
                 var plan = StationBlueprint.build(new StationLayout.Layout(List.of(new StationLayout.Room("piece", piece.id(), 0, 0, 0)), List.of()));
                 place(level, at, plan.blocks());
+                // A piece with a Station Core is a real station: its core shows its power, air and doors.
+                if (plan.blocks().getOrDefault(plan.core(), Blocks.AIR.defaultBlockState()).is(com.nullandkale.nullspace.content.ModBlocks.STATION_CORE))
+                    com.nullandkale.nullspace.gameplay.habs.HabVessels.register(level, at, plan.blocks(), plan.core(), 16, 16, 16, piece.name());
                 // A walk-in opening in the south wall, the first doorway slot on the lower story.
                 for (int up = 0; up < 2; up++)
                     level.setBlock(at.offset(slot0(), 2 + up, 15), Blocks.AIR.defaultBlockState(), 18);
