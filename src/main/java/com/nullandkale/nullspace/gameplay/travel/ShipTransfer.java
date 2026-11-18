@@ -295,7 +295,13 @@ final class ShipTransfer
                 target.getChunkSource().addTicketWithRadius(net.minecraft.server.level.TicketType.PORTAL, new ChunkPos(x, z), 2);
         if (!HullEntities.loaded(target, new HullScan.Bounds(targetMin, targetMax)))
             return Result.waiting();
-        var blockers = HullEntities.inBounds(target, new HullScan.Bounds(targetMin, targetMax)).stream().filter(e -> landing == null || !(e instanceof net.minecraft.world.entity.item.ItemEntity)).toList();
+        var found = HullEntities.inBounds(target, new HullScan.Bounds(targetMin, targetMax));
+        // A painting or frame with nothing behind it is a leftover of a vessel that is gone (it would pop off at its next survival check, but a slot that
+        // is not ticking never gets one): it is taken away, and never blocks a ship.
+        for (var entity : found)
+            if (entity instanceof net.minecraft.world.entity.decoration.HangingEntity hanging && !hanging.survives())
+                hanging.discard();
+        var blockers = found.stream().filter(e -> !e.isRemoved() && (landing == null || !(e instanceof net.minecraft.world.entity.item.ItemEntity))).toList();
         if (!blockers.isEmpty())
         {
             var blocker = blockers.getFirst();

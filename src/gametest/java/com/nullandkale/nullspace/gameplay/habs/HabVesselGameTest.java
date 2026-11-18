@@ -23,7 +23,7 @@ import net.minecraft.world.item.Items;
 /** A hab in the gallery is a registered station, its Station Core is the real controller, and its systems see the hab and not the rock round it. */
 public final class HabVesselGameTest
 {
-    @GameTest(maxTicks = 600000)
+    @GameTest(environment = "nullspace:hab_vessel", maxTicks = 600000)
     public void aGalleryHabIsARegisteredStationAndItsStationCoreShowsItsPowerAirAndDoors(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
@@ -78,7 +78,7 @@ public final class HabVesselGameTest
     }
 
     /** What a large hab costs the server tick while it runs, and what one block change costs: measured, since a player in one noticed lag. */
-    @GameTest(maxTicks = 600000)
+    @GameTest(environment = "nullspace:hab_vessel", maxTicks = 600000)
     public void aLargeHabCostsLittleOfTheServerTickWhileItRunsAndWhenABlockInItChanges(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
@@ -108,6 +108,8 @@ public final class HabVesselGameTest
                 edit[0] = core.offset(2, 0, 2);
                 phase[0] = 1;
             }
+            // Always the store's current record: another test in this JVM may have replaced the store's records, and a runtime is kept per record.
+            vessel[0] = WorldStore.get(server).repository().find(vessel[0].getStringOr("id", ""));
             long started = System.nanoTime();
             ShipSystems.tick(level, vessel[0]);
             long ms = (System.nanoTime() - started) / 1_000_000;
