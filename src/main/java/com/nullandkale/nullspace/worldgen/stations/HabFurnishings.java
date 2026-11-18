@@ -87,7 +87,7 @@ final class HabFurnishings
     {
         switch (room.use())
         {
-            case STORES:
+            case STORES :
                 for (var door : plan.doors())
                 {
                     String other = door.a().equals(room.id()) ? door.b() : door.b().equals(room.id()) ? door.a() : null;
@@ -98,18 +98,18 @@ final class HabFurnishings
                     return wing == Wing.WORKS ? 2 : wing == Wing.GARDENS ? 1 : 0;
                 }
                 break;
-            case MACHINE_HALL:
+            case MACHINE_HALL :
                 return Math.floorMod(plan.spec().seed() + room.id().hashCode(), 3) == 0 ? 1 : 0;
-            case MINE_HEAD:
+            case MINE_HEAD :
                 return room.level() == 0 ? 1 : 0;
             // A hab's operations room is its camera wall, its observation room looks on the cameras, its cargo hold is the ore store, and the deepest infirmaries are quarantine wards.
-            case OPERATIONS:
-            case OBSERVATION:
-            case CARGO_HOLD:
+            case OPERATIONS :
+            case OBSERVATION :
+            case CARGO_HOLD :
                 return 1;
-            case INFIRMARY:
+            case INFIRMARY :
                 return room.level() == 0 && Math.floorMod(plan.spec().seed() + room.id().hashCode(), 2) == 0 ? 1 : 0;
-            default:
+            default :
                 break;
         }
         return StationRooms.variantFor(plan.spec(), room);

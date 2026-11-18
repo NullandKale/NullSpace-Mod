@@ -96,12 +96,12 @@ public final class StationRooms
             case WORKSHOP -> RoomsWork.workshop(kit);
             case FOUNDRY -> RoomsWork.foundry(kit);
             case CARGO_HOLD ->
-                {
-                    if (kit.variant == 1)
-                        RoomsHab.oreStore(kit);
-                    else
-                        RoomsWork.cargoHold(kit);
-                }
+            {
+                if (kit.variant == 1)
+                    RoomsHab.oreStore(kit);
+                else
+                    RoomsWork.cargoHold(kit);
+            }
             case RECEIVING_BAY -> RoomsWork.receivingBay(kit);
             case STORES -> RoomsWork.stores(kit);
             case MAINTENANCE -> RoomsWork.maintenance(kit);
@@ -112,29 +112,29 @@ public final class StationRooms
             case GROWING_BAY -> RoomsLiving.growingBay(kit);
             case GARDEN -> RoomsLiving.garden(kit);
             case INFIRMARY ->
-                {
-                    if (kit.variant == 1)
-                        RoomsHab.quarantineWard(kit);
-                    else
-                        RoomsLiving.infirmary(kit);
-                }
+            {
+                if (kit.variant == 1)
+                    RoomsHab.quarantineWard(kit);
+                else
+                    RoomsLiving.infirmary(kit);
+            }
             case LAB -> RoomsCommand.lab(kit);
             case ARCHIVE -> RoomsCommand.archive(kit);
             case OBSERVATION ->
-                {
-                    if (kit.variant == 1)
-                        RoomsHab.gallery(kit);
-                    else
-                        RoomsCommand.observation(kit);
-                }
+            {
+                if (kit.variant == 1)
+                    RoomsHab.gallery(kit);
+                else
+                    RoomsCommand.observation(kit);
+            }
             case LOOKOUT -> RoomsCommand.lookout(kit);
             case OPERATIONS ->
-                {
-                    if (kit.variant == 1)
-                        RoomsHab.cameraWall(kit);
-                    else
-                        RoomsCommand.operations(kit);
-                }
+            {
+                if (kit.variant == 1)
+                    RoomsHab.cameraWall(kit);
+                else
+                    RoomsCommand.operations(kit);
+            }
             case ARMORY -> RoomsCommand.armory(kit);
             case EVA_PREP -> RoomsCommand.evaPrep(kit);
             case BRIG -> RoomsCommand.brig(kit);

@@ -404,7 +404,7 @@ final class RoomsLiving
                 k.floor(u, v, u == c ? Blocks.DIRT_PATH : Blocks.GRASS_BLOCK);
         // The pen first, so nothing else claims its cells.
         if (k.big() && k.variant == 0)
-            // One column in from the wall, so that the clear cells in front of an opening in that wall never take a piece of the fence.
+        // One column in from the wall, so that the clear cells in front of an opening in that wall never take a piece of the fence.
         {
             // On the wider side of the path, so that a door near one wall still leaves the pen room.
             int right = k.w - c - 4, left = c - 3;

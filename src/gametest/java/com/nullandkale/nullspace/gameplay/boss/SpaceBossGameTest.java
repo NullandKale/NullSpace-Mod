@@ -3,8 +3,8 @@ package com.nullandkale.nullspace.gameplay.boss;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.crew.LifeSupport;
-import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.gameplay.navigation.StarSystems;
+import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 
 import java.util.ArrayList;
 

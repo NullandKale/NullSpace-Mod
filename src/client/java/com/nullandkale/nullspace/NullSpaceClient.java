@@ -71,11 +71,7 @@ public final class NullSpaceClient implements ClientModInitializer
     public void onInitializeClient()
     {
         // The green fluid: still and flowing share a model (translucent green, like water that hurts).
-        net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderingRegistry.register(
-                com.nullandkale.nullspace.content.SpaceMaterials.GREEN_FLUID, com.nullandkale.nullspace.content.SpaceMaterials.FLOWING_GREEN_FLUID,
-                new net.minecraft.client.renderer.block.FluidModel.Unbaked(
-                        new net.minecraft.client.resources.model.sprite.Material(net.minecraft.resources.Identifier.parse("nullspace:block/green_fluid_still")),
-                        new net.minecraft.client.resources.model.sprite.Material(net.minecraft.resources.Identifier.parse("nullspace:block/green_fluid_flow")), null, null));
+        net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderingRegistry.register(com.nullandkale.nullspace.content.SpaceMaterials.GREEN_FLUID, com.nullandkale.nullspace.content.SpaceMaterials.FLOWING_GREEN_FLUID, new net.minecraft.client.renderer.block.FluidModel.Unbaked(new net.minecraft.client.resources.model.sprite.Material(net.minecraft.resources.Identifier.parse("nullspace:block/green_fluid_still")), new net.minecraft.client.resources.model.sprite.Material(net.minecraft.resources.Identifier.parse("nullspace:block/green_fluid_flow")), null, null));
         DevWorldCreation.initialize();
         RepairBotRenderer.register();
         com.nullandkale.nullspace.render.entity.SpaceWitherRenderer.register();

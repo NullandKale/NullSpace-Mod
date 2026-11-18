@@ -68,11 +68,7 @@ public final class HabGallery
      * each layout form (arms, beads, suites, stacked, ring; a small hab has no room for beads or a ring), with their crew in them. The seeds are
      * ones found by planning many habs ({@code HabTimingTest}) that really do give the form, so nothing is searched for when the gallery is built.
      */
-    public static final List<Entry> EVERYTHING = List.of(
-            cell(StationSpec.Size.COMPACT, HabPlanner.Form.ARMS, Maker.RIVET, 2), cell(StationSpec.Size.COMPACT, HabPlanner.Form.SUITES, Maker.BASTION, 1), cell(StationSpec.Size.COMPACT, HabPlanner.Form.STACKED, Maker.RIVET, 4),
-            cell(StationSpec.Size.STANDARD, HabPlanner.Form.ARMS, Maker.HALCYON, 7), cell(StationSpec.Size.STANDARD, HabPlanner.Form.BEADS, Maker.BASTION, 4), cell(StationSpec.Size.STANDARD, HabPlanner.Form.SUITES, Maker.RIVET, 12), cell(StationSpec.Size.STANDARD, HabPlanner.Form.STACKED, Maker.HALCYON, 1), cell(StationSpec.Size.STANDARD, HabPlanner.Form.RING, Maker.BASTION, 5),
-            cell(StationSpec.Size.LARGE, HabPlanner.Form.ARMS, Maker.BASTION, 7), cell(StationSpec.Size.LARGE, HabPlanner.Form.BEADS, Maker.RIVET, 2), cell(StationSpec.Size.LARGE, HabPlanner.Form.SUITES, Maker.HALCYON, 6), cell(StationSpec.Size.LARGE, HabPlanner.Form.STACKED, Maker.BASTION, 1), cell(StationSpec.Size.LARGE, HabPlanner.Form.RING, Maker.RIVET, 19));
-
+    public static final List<Entry> EVERYTHING = List.of(cell(StationSpec.Size.COMPACT, HabPlanner.Form.ARMS, Maker.RIVET, 2), cell(StationSpec.Size.COMPACT, HabPlanner.Form.SUITES, Maker.BASTION, 1), cell(StationSpec.Size.COMPACT, HabPlanner.Form.STACKED, Maker.RIVET, 4), cell(StationSpec.Size.STANDARD, HabPlanner.Form.ARMS, Maker.HALCYON, 7), cell(StationSpec.Size.STANDARD, HabPlanner.Form.BEADS, Maker.BASTION, 4), cell(StationSpec.Size.STANDARD, HabPlanner.Form.SUITES, Maker.RIVET, 12), cell(StationSpec.Size.STANDARD, HabPlanner.Form.STACKED, Maker.HALCYON, 1), cell(StationSpec.Size.STANDARD, HabPlanner.Form.RING, Maker.BASTION, 5), cell(StationSpec.Size.LARGE, HabPlanner.Form.ARMS, Maker.BASTION, 7), cell(StationSpec.Size.LARGE, HabPlanner.Form.BEADS, Maker.RIVET, 2), cell(StationSpec.Size.LARGE, HabPlanner.Form.SUITES, Maker.HALCYON, 6), cell(StationSpec.Size.LARGE, HabPlanner.Form.STACKED, Maker.BASTION, 1), cell(StationSpec.Size.LARGE, HabPlanner.Form.RING, Maker.RIVET, 19));
 
     private static final List<StationSpec.Purpose> PURPOSES = List.of(StationSpec.Purpose.HABITATION, StationSpec.Purpose.AGRICULTURE, StationSpec.Purpose.INDUSTRY, StationSpec.Purpose.RESEARCH, StationSpec.Purpose.SECURITY);
 
@@ -278,7 +274,7 @@ public final class HabGallery
         // The three habs of a size show three layouts: the arms, the plazas (rooms that open into each other for a small hab, which has no room for plazas) and the suites.
         var want = form != null ? form : row == 0 ? HabPlanner.Form.ARMS : row == 1 && size != StationSpec.Size.COMPACT ? HabPlanner.Form.BEADS : HabPlanner.Form.SUITES;
         var purpose = PURPOSES.get((row * 2 + column) % PURPOSES.size());
-        for (long seed = 4000L + row * 31 + column; ; seed += 1000)
+        for (long seed = 4000L + row * 31 + column;; seed += 1000)
         {
             var brief = new StationSpec(maker, purpose, size, StationSpec.Condition.OPERATIONAL, seed);
             if (HabPlanner.formFor(new StationSpec(maker, HabPlanner.purposeFor(purpose), size, StationSpec.Condition.OPERATIONAL, seed)) != want && seed <= 4000L + 200_000)

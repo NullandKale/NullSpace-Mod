@@ -124,8 +124,7 @@ public final class HabVesselGameTest
             }
             if (phase[0] == 2 && phase[1] == 200)
             {
-                com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL TICK steady: avg {} ms, worst {} ms over 200 ticks; after a block change: avg {} ms, worst {} ms over 200 ticks",
-                    total[0] / 200.0, worst[0], total[1] / 200.0, worst[1]);
+                com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL TICK steady: avg {} ms, worst {} ms over 200 ticks; after a block change: avg {} ms, worst {} ms over 200 ticks", total[0] / 200.0, worst[0], total[1] / 200.0, worst[1]);
                 long flushed = System.nanoTime();
                 ShipSystems.flushLargeAir(server);
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL flush of the air and seals took {} ms", (System.nanoTime() - flushed) / 1_000_000);

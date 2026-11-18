@@ -1,8 +1,8 @@
 package com.nullandkale.nullspace.gameplay.systems;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
-import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.defence.TurretBlockEntity;
+import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.model.power.PowerBus;
 
 import net.fabricmc.fabric.api.entity.FakePlayer;
@@ -12,9 +12,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
@@ -87,9 +87,7 @@ public final class Turrets
         var box = new AABB(pos).inflate(RANGE);
         LivingEntity best = null;
         double distance = Double.MAX_VALUE;
-        java.util.List<? extends LivingEntity> candidates = hostile
-                ? level.getEntitiesOfClass(Player.class, box, p -> !p.isCreative() && !p.isSpectator())
-                : level.getEntitiesOfClass(Mob.class, box, m -> m instanceof Enemy);
+        java.util.List<? extends LivingEntity> candidates = hostile ? level.getEntitiesOfClass(Player.class, box, p -> !p.isCreative() && !p.isSpectator()) : level.getEntitiesOfClass(Mob.class, box, m -> m instanceof Enemy);
         for (var candidate : candidates)
         {
             double d = candidate.distanceToSqr(from);

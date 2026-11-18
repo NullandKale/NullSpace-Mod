@@ -110,8 +110,7 @@ final class AirSystem
 
     /** What the worker that works the air out again gives back: the rooms, and the air with the rooms' new cells filled in. */
     record Flooded(Atmosphere.Topology atmosphere, int[] air)
-    {
-    }
+    {}
 
     private static final java.util.concurrent.ExecutorService WORKER = java.util.concurrent.Executors.newSingleThreadExecutor(task ->
     {

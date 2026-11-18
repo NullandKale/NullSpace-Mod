@@ -357,10 +357,10 @@ public final class ShipSystems
                     // A large vessel runs with its controller's chunk and the chunks round the player; the rest of it is its records.
                     loaded = level.hasChunkAt(WorldStore.pos(ship, "controller"));
                 else
-                for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
-                    for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)
-                        if (!level.hasChunk(x, z))
-                            loaded = false;
+                    for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
+                        for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)
+                            if (!level.hasChunk(x, z))
+                                loaded = false;
                 if (loaded)
                     tick(level, ship);
             }

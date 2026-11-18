@@ -3,12 +3,12 @@ package com.nullandkale.nullspace.worldgen.stations;
 import com.nullandkale.nullspace.worldgen.stations.StationPlan.Room;
 import com.nullandkale.nullspace.worldgen.stations.StationPlan.Use;
 
-import net.minecraft.core.Direction;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.SplittableRandom;
+
+import net.minecraft.core.Direction;
 
 /**
  * Plans a hab: a station turned into the ground (see {@code docs/design/habs.md}). It is planned by the station layout methods, so
@@ -40,10 +40,7 @@ public final class HabPlanner
      */
     public enum Wing
     {
-        LIVING("Living wing", Use.FAMILY_QUARTERS, Use.CABIN, Use.BUNK_ROOM, Use.COMMONS, Use.KITCHEN, Use.INFIRMARY, Use.CHAPEL),
-        WORKS("Works", Use.MACHINE_HALL, Use.WORKSHOP, Use.FOUNDRY, Use.MAINTENANCE, Use.STORES, Use.CARGO_HOLD, Use.RECEIVING_BAY, Use.ENGINEERING, Use.EVA_PREP, Use.MINE_HEAD),
-        GARDENS("Gardens", Use.GROWING_BAY, Use.GARDEN, Use.APIARY),
-        COMMAND("Command wing", Use.CONTROLLER_ROOM, Use.LAB, Use.ARCHIVE, Use.OBSERVATION, Use.OPERATIONS, Use.ARMORY, Use.BRIG, Use.LOOKOUT);
+        LIVING("Living wing", Use.FAMILY_QUARTERS, Use.CABIN, Use.BUNK_ROOM, Use.COMMONS, Use.KITCHEN, Use.INFIRMARY, Use.CHAPEL), WORKS("Works", Use.MACHINE_HALL, Use.WORKSHOP, Use.FOUNDRY, Use.MAINTENANCE, Use.STORES, Use.CARGO_HOLD, Use.RECEIVING_BAY, Use.ENGINEERING, Use.EVA_PREP, Use.MINE_HEAD), GARDENS("Gardens", Use.GROWING_BAY, Use.GARDEN, Use.APIARY), COMMAND("Command wing", Use.CONTROLLER_ROOM, Use.LAB, Use.ARCHIVE, Use.OBSERVATION, Use.OPERATIONS, Use.ARMORY, Use.BRIG, Use.LOOKOUT);
 
         public final String label;
         private final List<Use> uses;
@@ -152,11 +149,7 @@ public final class HabPlanner
     private record Pool(Use use, double weight)
     {}
 
-    private static final java.util.Map<Wing, List<Pool>> POOLS = java.util.Map.of(
-            Wing.LIVING, List.of(new Pool(Use.FAMILY_QUARTERS, 5), new Pool(Use.BUNK_ROOM, 2), new Pool(Use.COMMONS, 2), new Pool(Use.KITCHEN, 2), new Pool(Use.INFIRMARY, 1), new Pool(Use.CHAPEL, 1)),
-            Wing.WORKS, List.of(new Pool(Use.WORKSHOP, 3), new Pool(Use.MAINTENANCE, 3), new Pool(Use.STORES, 4), new Pool(Use.FOUNDRY, 1), new Pool(Use.CARGO_HOLD, 1), new Pool(Use.EVA_PREP, 1), new Pool(Use.MINE_HEAD, 1)),
-            Wing.GARDENS, List.of(new Pool(Use.GROWING_BAY, 3), new Pool(Use.GARDEN, 2), new Pool(Use.APIARY, 1)),
-            Wing.COMMAND, List.of(new Pool(Use.LAB, 3), new Pool(Use.ARCHIVE, 2), new Pool(Use.OBSERVATION, 2), new Pool(Use.ARMORY, 2), new Pool(Use.OPERATIONS, 1), new Pool(Use.BRIG, 1)));
+    private static final java.util.Map<Wing, List<Pool>> POOLS = java.util.Map.of(Wing.LIVING, List.of(new Pool(Use.FAMILY_QUARTERS, 5), new Pool(Use.BUNK_ROOM, 2), new Pool(Use.COMMONS, 2), new Pool(Use.KITCHEN, 2), new Pool(Use.INFIRMARY, 1), new Pool(Use.CHAPEL, 1)), Wing.WORKS, List.of(new Pool(Use.WORKSHOP, 3), new Pool(Use.MAINTENANCE, 3), new Pool(Use.STORES, 4), new Pool(Use.FOUNDRY, 1), new Pool(Use.CARGO_HOLD, 1), new Pool(Use.EVA_PREP, 1), new Pool(Use.MINE_HEAD, 1)), Wing.GARDENS, List.of(new Pool(Use.GROWING_BAY, 3), new Pool(Use.GARDEN, 2), new Pool(Use.APIARY, 1)), Wing.COMMAND, List.of(new Pool(Use.LAB, 3), new Pool(Use.ARCHIVE, 2), new Pool(Use.OBSERVATION, 2), new Pool(Use.ARMORY, 2), new Pool(Use.OPERATIONS, 1), new Pool(Use.BRIG, 1)));
 
     private static StationProfiles.Class sizeOf(Use use)
     {

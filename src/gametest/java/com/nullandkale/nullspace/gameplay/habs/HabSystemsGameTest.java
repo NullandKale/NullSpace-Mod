@@ -206,27 +206,26 @@ public final class HabSystemsGameTest
                         switch (room.use())
                         {
                             case OPERATIONS ->
-                                {
-                                    ctx.assertTrue(monitors >= 6, label + ": a camera wall of screens: " + monitors);
-                                    walls++;
-                                }
+                            {
+                                ctx.assertTrue(monitors >= 6, label + ": a camera wall of screens: " + monitors);
+                                walls++;
+                            }
                             case OBSERVATION ->
-                                {
-                                    ctx.assertTrue(monitors >= 6, label + ": a gallery wall of screens: " + monitors);
-                                    galleries++;
-                                }
+                            {
+                                ctx.assertTrue(monitors >= 6, label + ": a gallery wall of screens: " + monitors);
+                                galleries++;
+                            }
                             case INFIRMARY ->
-                                {
-                                    if (bars > 0)
-                                        wards++;
-                                }
+                            {
+                                if (bars > 0)
+                                    wards++;
+                            }
                             case CARGO_HOLD ->
-                                {
-                                    ctx.assertTrue(ore >= 4, label + ": piles of ore: " + ore);
-                                    stores++;
-                                }
-                            case MACHINE_HALL, CONTROLLER_ROOM ->
-                                ctx.assertTrue(cameras >= 1, label + ": a camera: " + cameras);
+                            {
+                                ctx.assertTrue(ore >= 4, label + ": piles of ore: " + ore);
+                                stores++;
+                            }
+                            case MACHINE_HALL, CONTROLLER_ROOM -> ctx.assertTrue(cameras >= 1, label + ": a camera: " + cameras);
                             default ->
                                 {
                                 }

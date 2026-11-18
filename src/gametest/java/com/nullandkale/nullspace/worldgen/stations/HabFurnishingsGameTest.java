@@ -116,20 +116,20 @@ public final class HabFurnishingsGameTest
                             case MACHINE_HALL -> ctx.assertTrue(generators >= 4 && batteries == generators && terminals >= 1, label + ": generators " + generators + ", batteries " + batteries + ", consoles " + terminals);
                             case CONTROLLER_ROOM -> ctx.assertTrue(polished >= 9 && cores >= 1, label + ": a dais of " + polished + " with " + cores + " Station Cores");
                             case FAMILY_QUARTERS ->
-                                {
-                                    ctx.assertTrue(beds >= 4, label + ": beds " + beds);
-                                    homes++;
-                                }
+                            {
+                                ctx.assertTrue(beds >= 4, label + ": beds " + beds);
+                                homes++;
+                            }
                             case CHAPEL ->
-                                {
-                                    ctx.assertTrue(names >= 4, label + ": a wall of " + names + " names");
-                                    shrines++;
-                                }
+                            {
+                                ctx.assertTrue(names >= 4, label + ": a wall of " + names + " names");
+                                shrines++;
+                            }
                             case APIARY ->
-                                {
-                                    ctx.assertTrue(hives >= 2, label + ": hives " + hives);
-                                    bees++;
-                                }
+                            {
+                                ctx.assertTrue(hives >= 2, label + ": hives " + hives);
+                                bees++;
+                            }
                             default ->
                                 {
                                 }

@@ -34,7 +34,7 @@ public final class ShipYardGameTest
         // The entities of the delivery area are read on another thread, and a busy machine can take longer than the test's tick to give them: wait for them, running the server's own work, rather than fail a call the game itself asks the player to repeat.
         var server = player.level().getServer();
         net.minecraft.nbt.CompoundTag result;
-        for (int attempt = 0; ; attempt++)
+        for (int attempt = 0;; attempt++)
         {
             try
             {

@@ -1,13 +1,14 @@
 package com.nullandkale.nullspace.gameplay.systems;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import com.nullandkale.nullspace.model.air.Atmosphere;
 
 import java.util.Arrays;
 
 import net.minecraft.nbt.CompoundTag;
+
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class AirStoreTest
 {

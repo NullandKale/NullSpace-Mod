@@ -232,7 +232,6 @@ final class RoomsHab
             k.mark(c + 3 <= k.w - 2 ? c + 3 : k.w - 2, 2, 0, "log", "controller " + k.rng.nextInt(1000));
     }
 
-
     /**
      * The crew's eyes on the hab: a giant wall of screens across the back, and a desk of consoles with a chair at each in front of it. The
      * screens show the nearest camera until someone chooses one; cameras hang in the machine hall, the controller room, the commons, the plazas, the

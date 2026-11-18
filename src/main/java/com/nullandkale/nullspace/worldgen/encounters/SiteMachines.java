@@ -63,8 +63,7 @@ public final class SiteMachines
     private static boolean againstWall(ServerLevel level, BlockPos cell)
     {
         for (var side : Direction.Plane.HORIZONTAL)
-            if (level.getBlockState(cell.relative(side)).isFaceSturdy(level, cell.relative(side), side.getOpposite())
-                    && level.getBlockState(cell.relative(side.getOpposite())).isAir() && level.getBlockState(cell.relative(side.getOpposite()).above()).isAir())
+            if (level.getBlockState(cell.relative(side)).isFaceSturdy(level, cell.relative(side), side.getOpposite()) && level.getBlockState(cell.relative(side.getOpposite())).isAir() && level.getBlockState(cell.relative(side.getOpposite()).above()).isAir())
                 return true;
         return false;
     }

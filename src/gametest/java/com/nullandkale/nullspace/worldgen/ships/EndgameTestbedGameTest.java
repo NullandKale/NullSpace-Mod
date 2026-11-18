@@ -3,6 +3,8 @@ package com.nullandkale.nullspace.worldgen.ships;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.gameplay.shipyard.TestbedStock;
 
+import java.util.function.Predicate;
+
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -10,8 +12,6 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.function.Predicate;
 
 /** The endgame testbed ship: one deck, its farm, pen, lava farm and vault, and the chests the shipyard stocks. */
 public final class EndgameTestbedGameTest

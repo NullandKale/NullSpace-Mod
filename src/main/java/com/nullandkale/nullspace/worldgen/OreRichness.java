@@ -1,6 +1,5 @@
 package com.nullandkale.nullspace.worldgen;
 
-import com.mojang.serialization.MapCodec;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetDimensions;
 
 import java.util.function.Consumer;
@@ -13,6 +12,8 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.placement.PlacementContext;
 import net.minecraft.world.level.levelgen.placement.PlacementModifier;
+
+import com.mojang.serialization.MapCodec;
 
 /**
  * The farther a world is from Terra, the more ore it has and the nearer the surface it lies. Added to the planets' copies of the

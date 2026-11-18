@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.worldgen;
 
 import net.minecraft.util.RandomSource;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
