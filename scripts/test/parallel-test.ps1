@@ -3,7 +3,8 @@ param(
     [switch] $ClientsOnly,
     [switch] $Coverage,
     [ValidateRange(1, 8)] [int] $GraphicsWorkers = 4,
-    [ValidateRange(1, 8)] [int] $ServerWorkers = 3,
+    # Four, because the release CI runs the native tests as four shards and each server worker here is exactly one of them.
+    [ValidateRange(1, 8)] [int] $ServerWorkers = 4,
     [ValidateRange(0, 100)] [int] $KeepSuccessfulWorldRuns = 0,
     [ValidateRange(0, 100)] [int] $KeepFailedWorldRuns = 0,
     [switch] $KeepWorlds,
@@ -64,7 +65,8 @@ try {
     # only what changed. Do not add a `throw`, `exit` or "stop on first failure" anywhere between the compile above and the final report below.
     # Here: the unit tests, the content-asset check and the formatter check all run (`--continue`), and a failure in any of them is only added to
     # $problems. The server and graphical tests below still start, whatever these say.
-    $checks = @('test','verifyContentAssets','spotlessCheck','--continue')
+    # The same command the release CI's build job runs (.github/workflows/release.yml), so that what passes here is what CI will run.
+    $checks = @('build','verifyContentAssets','-x','runGameTest','--continue')
     if ($Coverage) { $checks += '-Pcoverage=true' }
     & "$root/scripts/build/Invoke-Gradle.ps1" @checks *> (Join-Path $runRoot 'checks.log')
     if ($LASTEXITCODE -ne 0) { $problems.Add("The unit, content or format checks failed. See $runRoot/checks.log") }
@@ -101,8 +103,28 @@ try {
     }
     $manifest.nativeTimingEstimates = $nativeCosts
     if (-not $ClientsOnly) {
-    foreach($shard in @(Get-VerificationShards @($mod.entrypoints.'fabric-gametest') $ServerWorkers -Durations $nativeCosts)) {
-        $jobs += [pscustomobject]@{name="server-$($shard.index)";kind='server';expected=@($shard.classes)}
+    # WHY THE SERVER WORKERS ARE CI'S SHARDS: a test passes or fails with the tests that share its JVM and world (leftover entities, records, orbit
+    # slots), so a different grouping is a different test. The release CI runs `runGameTest -PgametestShard=N/4`, whose split build.gradle makes by
+    # declared case count: classes sorted by cost (descending, then name), each put in the cheapest group (the lowest index on a tie). This is that
+    # same split, so server-N here runs exactly the classes of CI's shard N/4 (with four workers). Do not balance by seconds again: it is faster
+    # and it is not the same tests.
+    $ciCosts = @{}
+    foreach ($class in @($mod.entrypoints.'fabric-gametest')) {
+        $source = Join-Path $root ('src/gametest/java/' + $class.Replace('.', '/') + '.java')
+        $ciCosts[$class] = [Math]::Max(1, [regex]::Matches([IO.File]::ReadAllText($source), '(?m)^\s*@GameTest\b').Count)
+    }
+    $ciBins = @(1..$ServerWorkers | ForEach-Object { [pscustomobject]@{index = $_; classes = @(); cost = 0} })
+    # (Names compare ordinally, as Gradle's do: Sort-Object would compare them by culture and ignoring case, and the groups would differ.)
+    $ciOrder = [System.Collections.Generic.List[object]]::new()
+    foreach ($entry in $ciCosts.GetEnumerator()) { $ciOrder.Add([pscustomobject]@{Key = $entry.Key; Value = $entry.Value}) }
+    $ciOrder.Sort([Comparison[object]]{ param($x, $y) if ($x.Value -ne $y.Value) { return $y.Value.CompareTo($x.Value) } return [string]::CompareOrdinal($x.Key, $y.Key) })
+    foreach ($entry in $ciOrder) {
+        $bin = $ciBins | Sort-Object cost, index | Select-Object -First 1
+        $bin.classes += $entry.Key
+        $bin.cost += $entry.Value
+    }
+    foreach ($shard in $ciBins) {
+        $jobs += [pscustomobject]@{name = "server-$($shard.index)"; kind = 'server'; expected = @($shard.classes | Sort-Object)}
     }
     }
     if ($Graphics) {

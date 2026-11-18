@@ -7,7 +7,8 @@
   names the source fingerprint it certified; Publish-Release.ps1 refuses to tag sources that differ from it.
 #>
 param(
-    [ValidateRange(1, 8)] [int] $ServerWorkers = 3,
+    # Four, because the release CI runs the native tests as four shards and each server worker is exactly one of them (see parallel-test.ps1).
+    [ValidateRange(1, 8)] [int] $ServerWorkers = 4,
     [ValidateRange(1, 8)] [int] $GraphicsWorkers = 4,
     # Concurrent JVM pairs inside crash-test.ps1 and shipyard-crash-test.ps1.
     [ValidateRange(1, 8)] [int] $CrashWorkers = 2,
@@ -25,6 +26,17 @@ $fingerprint = Get-VerificationFingerprint $RepoRoot
 $commit = (& git -C $RepoRoot rev-parse HEAD).Trim()
 $receipt = [ordered]@{status = 'running'; startedUtc = [DateTime]::UtcNow.ToString('o'); commit = $commit; inputsSha256 = $fingerprint; parts = @()}
 function Save-Receipt { Write-VerificationJson (Join-Path $runRoot 'result.json') $receipt }
+# The machine's load and free memory every five seconds, so that "is the CPU saturated?" is answered by the run's own numbers (cpu.csv here).
+$sampler = Start-Job -ArgumentList (Join-Path $runRoot 'cpu.csv') -ScriptBlock {
+    param($file)
+    'time,cpuPercent,freeGB' | Set-Content -LiteralPath $file
+    while ($true) {
+        $cpu = (Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average
+        $free = [Math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 1)
+        ('{0},{1},{2}' -f (Get-Date -Format 'HH:mm:ss'), $cpu, $free) | Add-Content -LiteralPath $file
+        Start-Sleep -Seconds 5
+    }
+}
 
 function Start-Part([string] $Name, [string] $Command) {
     $part = [pscustomobject]@{name = $Name; started = [DateTime]::UtcNow; process = $null; log = (Join-Path $runRoot "$Name.log")}
@@ -110,6 +122,15 @@ try {
     throw
 } finally {
     foreach ($part in $running) { if (-not $part.process.HasExited) { Stop-Process -Id $part.process.Id -ErrorAction SilentlyContinue } }
+    Stop-Job $sampler -ErrorAction SilentlyContinue; Remove-Job $sampler -Force -ErrorAction SilentlyContinue
+    try {
+        $samples = @(Import-Csv (Join-Path $runRoot 'cpu.csv') | Where-Object { $_.cpuPercent -ne '' })
+        if ($samples.Count) {
+            $cpuValues = @($samples | ForEach-Object { [double]$_.cpuPercent })
+            $receipt.machine = [ordered]@{cpuAveragePercent = [Math]::Round(($cpuValues | Measure-Object -Average).Average, 1); cpuPeakPercent = ($cpuValues | Measure-Object -Maximum).Maximum; samplesAbove90Percent = @($cpuValues | Where-Object { $_ -ge 90 }).Count; samples = $cpuValues.Count; minFreeGB = ($samples | ForEach-Object { [double]$_.freeGB } | Measure-Object -Minimum).Minimum}
+            Write-Host ('Machine during the run: CPU average {0}%, peak {1}%, {2} of {3} samples at 90% or more; least free memory {4} GB' -f $receipt.machine.cpuAveragePercent, $receipt.machine.cpuPeakPercent, $receipt.machine.samplesAbove90Percent, $receipt.machine.samples, $receipt.machine.minFreeGB)
+        }
+    } catch { }
     $receipt.finishedUtc = [DateTime]::UtcNow.ToString('o')
     $receipt.elapsedSeconds = [Math]::Round(([DateTime]::UtcNow - [DateTime]::Parse($receipt.startedUtc).ToUniversalTime()).TotalSeconds)
     Save-Receipt
