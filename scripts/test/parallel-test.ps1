@@ -32,16 +32,42 @@ $manifest.prunedWorlds = $prunedWorlds
 $manifest.preserveWorlds = [bool]$KeepWorlds
 $processes = @()
 function Save-Manifest { Write-VerificationJson (Join-Path $runRoot 'result.json') $manifest }
+# Everything that fails is listed together at the end: a failed check or job never stops the others from running or from being reported.
+$problems = [System.Collections.Generic.List[string]]::new()
+function Get-JobFailureSummary($item) {
+    $lines = @()
+    $log = Join-Path $item.work 'test.log'
+    if (Test-Path -LiteralPath $log) {
+        $lines += @(Select-String -LiteralPath $log -Pattern '\(Minecraft\)    - ' | ForEach-Object { $_.Line.Trim() })
+        if (-not $lines.Count) { $lines += @(Select-String -LiteralPath $log -Pattern 'AssertionError|Client gametests failed|STALLED' | Select-Object -First 3 | ForEach-Object { $_.Line.Trim() }) }
+    }
+    if ($lines.Count) { return "`n    " + (($lines | Select-Object -First 25 | ForEach-Object { if ($_.Length -gt 400) { $_.Substring(0, 400) } else { $_ } }) -join "`n    ") }
+    return ''
+}
 try {
     Save-Manifest
     Assert-VerificationNativeRegistration $root
     # Gradle owns compilation once. Only the resulting isolated JVMs run concurrently.
-    $tasks = @('test','assemble','verifyContentAssets','spotlessCheck')
+    # Only a build that does not compile stops the run, since there is then nothing to test. The unit, content and format checks are run next, all
+    # of them, and a failure in one is recorded and reported with the rest.
+    $tasks = @('assemble')
     if (-not $ClientsOnly) { $tasks += 'exportLocalServerLaunch' }
     if ($Coverage) { $tasks += @('exportCoverageAgent','-Pcoverage=true') }
     if ($Graphics) { $tasks += 'exportLocalClientLaunch' }
     & "$root/scripts/build/Invoke-Gradle.ps1" @tasks *> (Join-Path $runRoot 'prepare.log')
-    if ($LASTEXITCODE -ne 0) { throw "Compilation or unit/content verification failed. See $runRoot/prepare.log" }
+    if ($LASTEXITCODE -ne 0) { throw "Compilation failed. See $runRoot/prepare.log" }
+    # WHY THIS SCRIPT NEVER FAILS FAST: its whole point is to find EVERY failure in ONE run, so that the complete list can be fixed as one batch.
+    # A runner that stops at the first failed stage hides every stage after it, and then the failures come out one per run: the old verify.ps1 did that
+    # (nine sweeps, one failure each, and it was deleted for it on 2026-11-15), and on 2026-11-18 two release attempts ended at the unit and content
+    # checks before a single server or graphical test had run, so everything behind them stayed unknown for another 25 minutes each. The agreed rule
+    # (AGENTS.md: "Collect outcomes for every selected check before fixing failures") is: run everything, report everything, fix everything, rerun
+    # only what changed. Do not add a `throw`, `exit` or "stop on first failure" anywhere between the compile above and the final report below.
+    # Here: the unit tests, the content-asset check and the formatter check all run (`--continue`), and a failure in any of them is only added to
+    # $problems. The server and graphical tests below still start, whatever these say.
+    $checks = @('test','verifyContentAssets','spotlessCheck','--continue')
+    if ($Coverage) { $checks += '-Pcoverage=true' }
+    & "$root/scripts/build/Invoke-Gradle.ps1" @checks *> (Join-Path $runRoot 'checks.log')
+    if ($LASTEXITCODE -ne 0) { $problems.Add("The unit, content or format checks failed. See $runRoot/checks.log") }
     $fingerprint = Get-VerificationFingerprint $root
     $manifest.inputsSha256 = $fingerprint
     $properties=[IO.File]::ReadAllText((Join-Path $root 'gradle.properties'))
@@ -53,14 +79,16 @@ try {
     $manifest.artifact=@{file=(Split-Path -Leaf $jar);sha256=(Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash.ToLowerInvariant()}
     $unit = [ordered]@{tests=0;failures=0;errors=0;skipped=0}
     $reports = @(Get-ChildItem -LiteralPath "$root/build/test-results/test" -Filter 'TEST-*.xml')
-    if ($reports.Count -eq 0) { throw 'Missing unit test reports' }
+    if ($reports.Count -eq 0) { $problems.Add('Missing unit test reports') }
+    $failedUnits = @()
     foreach ($file in $reports) {
         [xml]$report = Get-Content -LiteralPath $file.FullName -Raw
         foreach ($field in @('tests','failures','errors','skipped')) { $unit[$field] += [int]$report.testsuite.$field }
+        foreach ($case in @($report.SelectNodes('//testcase[failure or error]'))) { $failedUnits += ($case.classname + '.' + $case.name) }
     }
-    if ($unit.failures -or $unit.errors) { throw 'Unit tests failed' }
+    if ($unit.failures -or $unit.errors) { $problems.Add("Unit tests failed ($($unit.failures) failures, $($unit.errors) errors):`n    " + ((@($failedUnits) | Select-Object -First 25) -join "`n    ")) }
     $manifest.unit = $unit
-    Copy-Item -LiteralPath "$root/build/test-results/test" -Destination (Join-Path $runRoot 'unit') -Recurse
+    if ($reports.Count) { Copy-Item -LiteralPath "$root/build/test-results/test" -Destination (Join-Path $runRoot 'unit') -Recurse }
     $mod = Get-Content -LiteralPath "$root/src/gametest/resources/fabric.mod.json" -Raw | ConvertFrom-Json
     $jobs = @()
     # Server shards are balanced by the measured seconds of recent passing runs; a class without history costs the median, and with no history at all, its declared case count.
@@ -93,6 +121,10 @@ try {
         Write-Host ("Graphical windows: {0} columns x {1} rows on the active monitor" -f $layout.columns,$layout.rows)
     }
     if ($ReadyFile) { [IO.File]::WriteAllText($ReadyFile, $runRoot) }
+    # WHY PARALLEL: every server and graphical worker is started now, side by side, and none waits for another or is stopped when another fails.
+    # Running them one after another would take the sum of their times and would invite stopping at the first red one; running them together takes the
+    # time of the slowest, and a failure in one worker cannot hide another's. Each worker is its own JVM with its own world, so they cannot disturb one
+    # another (see Run-FocusedTests.ps1). Clients are started 15 seconds apart because clients that load in the same seconds can freeze.
     $lastClientStart = $null
     foreach ($job in $jobs) {
         $work = Join-Path $runRoot $job.name
@@ -143,6 +175,8 @@ try {
         Save-Manifest
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    # Wait for ALL workers. A worker that exits with a failure is only noted (see the warning below): the others are left to finish, because the whole
+    # list of failures is the result this script exists to produce.
     while (@($processes | Where-Object { -not $_.process.HasExited }).Count -gt 0) {
         if ((Get-Date) -gt $deadline) { throw "Parallel tests timed out. Logs: $runRoot" }
         for($i=0;$i -lt $processes.Count;$i++) {
@@ -175,8 +209,11 @@ try {
     }
     $actualGraphics = @(); $actualNativeClasses = @(); $nativeCases = 0
     for ($i=0; $i -lt $processes.Count; $i++) {
+        # Each job is checked on its own, and a job that failed is recorded in $problems (with its failing test names) before the next one is looked at.
+        # The `throw`s inside only leave this job's own check; the catch below turns them into entries in the list instead of ending the run.
         $item = $processes[$i]; $item.process.WaitForExit()
-        if ($item.process.ExitCode -ne 0) { throw "Test job $($item.job.name) failed" }
+        try {
+        if ($item.process.ExitCode -ne 0) { throw "Test job $($item.job.name) failed (exit $($item.process.ExitCode))" }
         $manifest.jobs[$i].exitCode = $item.process.ExitCode
         if(-not $manifest.jobs[$i].Contains('finishedUtc')) {
             $manifest.jobs[$i].finishedUtc=[DateTime]::UtcNow.ToString('o')
@@ -216,19 +253,28 @@ try {
             }
             $manifest.jobs[$i].coverage = $executionData
         }
+        } catch {
+            $manifest.jobs[$i].status = 'failed'
+            $problems.Add("$($item.job.name): $($_.Exception.Message)" + (Get-JobFailureSummary $item))
+        }
     }
+    # The whole inventory can only be complete when every job was: with a failed job it would only repeat that failure.
+    if (-not $problems.Count) {
     if ($Graphics) { Assert-VerificationInventory @($mod.entrypoints.'fabric-client-gametest') $actualGraphics }
     if (-not $ClientsOnly) { Assert-VerificationInventory @($mod.entrypoints.'fabric-gametest') $actualNativeClasses }
+    }
     $nativeWorkers=@($processes|Where-Object{$_.job.kind -eq 'server'}).Count
     $manifest.nativeModTests = $nativeCases - $nativeWorkers
     $manifest.nativeSmokeTests = $nativeWorkers
-    Assert-VerificationFingerprint $root $fingerprint
-    if ($Coverage) {
+    try { Assert-VerificationFingerprint $root $fingerprint } catch { $problems.Add($_.Exception.Message) }
+    if ($Coverage -and -not $problems.Count) {
         & "$root/scripts/build/Invoke-Gradle.ps1" combinedCoverageReport "-PcoverageRun=$runRoot" *> (Join-Path $runRoot 'coverage-report.log')
         if ($LASTEXITCODE -ne 0) { throw 'Combined coverage reporting failed' }
         Copy-Item -LiteralPath "$root/build/reports/jacoco/combinedCoverageReport" -Destination (Join-Path $runRoot 'coverage') -Recurse
         $manifest.coverage = @{scope='Main production sources; unit and isolated Minecraft JVMs';report='coverage/combinedCoverageReport.xml'}
     }
+    $manifest.problems = @($problems)
+    if ($problems.Count) { throw ("Verification found $($problems.Count) problem(s):`n" + ($problems -join "`n")) }
     $manifest.status = if ($unit.skipped) {'passed-with-unit-skips'} else {'passed'}
 } catch {
     $manifest.status = 'failed'; $manifest.error = $_.Exception.Message

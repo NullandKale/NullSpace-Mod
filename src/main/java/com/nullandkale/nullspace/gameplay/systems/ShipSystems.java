@@ -246,12 +246,15 @@ public final class ShipSystems
         return StationAccess.station(ship) && AirStore.large(grid(ship));
     }
 
-    /** How many times a vessel's systems have been rebuilt on the calling thread; the tests read it to see what a change costs. */
-    public static final java.util.concurrent.atomic.AtomicLong REBUILDS = new java.util.concurrent.atomic.AtomicLong();
+    /** How many times this vessel's systems have been rebuilt on the calling thread; the tests read it to see what a change costs it. */
+    public static int rebuilds(ServerLevel level, CompoundTag ship)
+    {
+        return runtime(level, ship).rebuilds;
+    }
 
     static void rebuild(ServerLevel level, CompoundTag ship, ShipRuntime r, boolean initialize)
     {
-        REBUILDS.incrementAndGet();
+        r.rebuilds++;
         r.rebuiltAt = r.devicesAt = level.getServer().getTickCount();
         long started = System.nanoTime();
         DeviceInventory.rebuild(level, ship, r);

@@ -107,7 +107,8 @@ public final class StationBuilds
         var existing = store.repository().find(id);
         if (existing != null)
             return existing;
-        long count = store.ships().stream().map(t -> (CompoundTag) t).filter(s -> StationAccess.station(s) && s.getStringOr("owner", "").equals(owner)).count();
+        // (A placed hab is a registered station with no owner, like an ambient place: it is not one of a player's stations.)
+        long count = store.ships().stream().map(t -> (CompoundTag) t).filter(s -> StationAccess.station(s) && !s.getBooleanOr("hab", false) && s.getStringOr("owner", "").equals(owner)).count();
         if (!ambient && count >= 32)
             throw new IllegalArgumentException("Station quota reached for this owner");
         int width = StationSpace.extent(plan, true), depth = StationSpace.extent(plan, false);

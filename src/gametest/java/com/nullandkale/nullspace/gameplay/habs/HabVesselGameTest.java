@@ -122,11 +122,11 @@ public final class HabVesselGameTest
                 level.setBlock(edit[0].above(), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
                 phase[0] = 2;
                 phase[1] = 0;
-                rebuilds[1] = ShipSystems.REBUILDS.get();
+                rebuilds[1] = ShipSystems.rebuilds(level, vessel[0]);
             }
             if (phase[0] == 2 && phase[1] == 200)
             {
-                rebuilds[0] = ShipSystems.REBUILDS.get() - rebuilds[1];
+                rebuilds[0] = ShipSystems.rebuilds(level, vessel[0]) - rebuilds[1];
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL TICK steady: avg {} ms, worst {} ms over 200 ticks; after a block change: avg {} ms, worst {} ms over 200 ticks", total[0] / 200.0, worst[0], total[1] / 200.0, worst[1]);
                 long flushed = System.nanoTime();
                 ShipSystems.flushLargeAir(server);
