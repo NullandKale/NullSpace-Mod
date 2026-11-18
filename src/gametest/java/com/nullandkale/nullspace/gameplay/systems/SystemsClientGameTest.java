@@ -232,17 +232,20 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             }
             context.takeScreenshot("nullspace-equipment-monitor");
             context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
-            // A monitor nobody has set shows the camera nearest it, so the feed it starts on is not the first: Next moves on from whichever that is.
-            // (The status can still be blank when the first frame has just arrived: record the feed only once it names one.)
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().matches(".*feed [0-9]+.*"), 400);
-            var startedOn = new String[1];
-            context.runOnClient(c -> startedOn[0] = ((MachineScreen) c.gui.screen()).previewStatus().replaceAll(".*(feed [0-9]+).*", "$1"));
+            // A monitor nobody has set shows the camera nearest it, so which feed Next lands on depends on where it started: the server says which it
+            // chose, once it has set the monitor's feed, and the fullscreen view must still show that one after the keepalives.
+            var feedMonitor = new BlockPos[1];
+            context.runOnClient(c -> feedMonitor[0] = ((MachineScreen) c.gui.screen()).getMenu().at);
             MachineTestUi.clickLabel(context, "Next camera");
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getStringOr("feed", "").isBlank(), 100);
-            context.waitTicks(4);
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().contains("feed ") && !m.previewStatus().contains(startedOn[0]), 200);
+            context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getStringOr("feed", "").isBlank(), 400);
+            context.waitTicks(8);
             var chosen = new String[1];
-            context.runOnClient(c -> chosen[0] = ((MachineScreen) c.gui.screen()).previewStatus().replaceAll(".*(feed [0-9]+).*", "$1"));
+            chosen[0] = world.getServer().computeOnServer(server ->
+            {
+                var ship = com.nullandkale.nullspace.core.save.WorldStore.get(server).at(server.overworld(), feedMonitor[0]);
+                var key = Long.toString(feedMonitor[0].subtract(com.nullandkale.nullspace.core.save.WorldStore.pos(ship, "base")).asLong());
+                return "feed " + (ship.getCompoundOrEmpty("monitorChannels").getIntOr(key, 0) + 1);
+            });
             context.takeScreenshot("nullspace-monitor-centered-feed");
             MachineTestUi.clickLabel(context, "View fullscreen");
             context.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 200);
