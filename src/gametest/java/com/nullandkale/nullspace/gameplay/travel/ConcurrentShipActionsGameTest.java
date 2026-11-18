@@ -130,7 +130,15 @@ public final class ConcurrentShipActionsGameTest
         return ship;
     }
 
-    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 160)
+    private static void waitUntil(GameTestHelper ctx, java.util.function.BooleanSupplier condition, int ticks, Runnable then)
+    {
+        if (condition.getAsBoolean() || ticks <= 0)
+            then.run();
+        else
+            ctx.runAfterDelay(2, () -> waitUntil(ctx, condition, ticks - 2, then));
+    }
+
+    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 900)
     public void simultaneousLaunchesReserveDistinctSpaceSlotsBeforeEitherShipMoves(GameTestHelper ctx) throws Exception
     {
         var a = client(ctx, 30);
@@ -162,7 +170,8 @@ public final class ConcurrentShipActionsGameTest
             ctx.assertTrue(refused, "The same ship cannot queue another transfer");
             a.ready(tokenA, false);
             b.ready(tokenB, false);
-            ctx.runAfterDelay(35, () ->
+            // The space region is loaded as the launch begins, which takes as long as the machine takes: wait for both ships to arrive.
+            waitUntil(ctx, () -> a.player().level() == a.fixture.space && b.player().level() == b.fixture.space, 600, () ->
             {
                 ctx.assertTrue(a.player().level() == a.fixture.space && b.player().level() == b.fixture.space, "Both ships launch independently");
                 var store = WorldStore.get(server);

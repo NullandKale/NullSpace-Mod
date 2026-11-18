@@ -31,8 +31,25 @@ public final class ShipYardGameTest
 {
     private static net.minecraft.nbt.CompoundTag delivered(ServerPlayer player, BlockPos beacon, String preset)
     {
-        var result = ShipYardService.deliver(player, beacon, preset);
-        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(player.level().getServer());
+        // The entities of the delivery area are read on another thread, and a busy machine can take longer than the test's tick to give them: wait for them, running the server's own work, rather than fail a call the game itself asks the player to repeat.
+        var server = player.level().getServer();
+        net.minecraft.nbt.CompoundTag result;
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                result = ShipYardService.deliver(player, beacon, preset);
+                break;
+            }
+            catch (IllegalArgumentException loading)
+            {
+                if (attempt >= 600 || loading.getMessage() == null || !loading.getMessage().startsWith("The delivery area's creatures and items are still loading"))
+                    throw loading;
+                long until = System.nanoTime() + 20_000_000L;
+                server.managedBlock(() -> System.nanoTime() > until);
+            }
+        }
+        com.nullandkale.nullspace.gameplay.travel.BuildJournal.flushPending(server);
         return result;
     }
 

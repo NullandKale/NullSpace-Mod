@@ -66,16 +66,21 @@ try {
         $lanes = @([pscustomobject]@{queue = [System.Collections.Generic.Queue[object]]::new(@($laneA + $laneB)); current = $null})
         $main.process.WaitForExit()
     }
+    # Client JVMs that start in the same few seconds can freeze while they load (see Run-FocusedTests.ps1), and the parallel check is still starting
+    # its own clients when it is ready: the lanes wait for that, and then start their parts one at a time, 20 seconds apart.
+    $lanesMayStart = (Get-Date).AddSeconds(90)
+    $lastStart = [DateTime]::MinValue
     while ($true) {
         foreach ($lane in $lanes) {
             if ($lane.current -and $lane.current.process.HasExited) {
                 $finished += $lane.current
                 $lane.current = $null
             }
-            if (-not $lane.current -and $lane.queue.Count -gt 0 -and (Test-Path -LiteralPath $ready)) {
+            if (-not $lane.current -and $lane.queue.Count -gt 0 -and (Test-Path -LiteralPath $ready) -and (Get-Date) -gt $lanesMayStart -and ((Get-Date) - $lastStart).TotalSeconds -ge 20) {
                 $next = $lane.queue.Dequeue()
                 $lane.current = Start-Part $next.name $next.command
                 $running += $lane.current
+                $lastStart = Get-Date
             }
         }
         $busy = @($lanes | Where-Object { $_.current -or $_.queue.Count }).Count

@@ -33,6 +33,8 @@ try {
         $process = Start-Process -FilePath $spec.executable -ArgumentList ('@"' + $argFile + '"') -WorkingDirectory $work -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work 'client.log') -RedirectStandardError (Join-Path $work 'client.err.log')
         $null = $process.Handle
         $processes += $process
+        # Clients that start in the same few seconds can freeze while they load (see Run-FocusedTests.ps1): the second waits for the first.
+        if ($role -eq 'pilot') { Start-Sleep -Seconds 15 }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while (@($processes | Where-Object { -not $_.HasExited }).Count -gt 0) {

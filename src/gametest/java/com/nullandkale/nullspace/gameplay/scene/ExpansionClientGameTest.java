@@ -120,12 +120,16 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
             NullSpaceClientGameTest.shiftEscape(c, 1);
             c.waitFor(mc -> mc.gui.screen() == null, 100);
             c.waitTicks(2);
-            world.getServer().runOnServer(server ->
+            // The close travels to the server as a packet, which a busy machine can take longer than two ticks to deliver: wait for it, up to ten seconds.
+            var closed = new boolean[1];
+            for (int waited = 0; waited < 200 && !closed[0]; waited += 2)
             {
-                var player = world.getConnection().getServerPlayer();
-                if (!ComputerService.session(player).equals(ComputerTerminal.NONE))
-                    throw new AssertionError("Shift+Escape must close the actual server computer session");
-            });
+                world.getServer().runOnServer(server -> closed[0] = ComputerService.session(world.getConnection().getServerPlayer()).equals(ComputerTerminal.NONE));
+                if (!closed[0])
+                    c.waitTicks(2);
+            }
+            if (!closed[0])
+                throw new AssertionError("Shift+Escape must close the actual server computer session");
             world.getServer().runOnServer(server ->
             {
                 PlanetSurfaces.ensureLanding(server, "sol_luna");

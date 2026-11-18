@@ -110,8 +110,9 @@ public final class StationGameTest
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), 18);
             }
         // What hung or stood in the vessel stays behind when its blocks go: an item frame left in an orbit slot blocks every later
-        // ship that wants it ("The destination is occupied"), in whichever test runs next in the same server.
-        for (var entity : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, WorldStore.bounds(s).box().inflate(2), e -> !(e instanceof net.minecraft.world.entity.player.Player)))
+        // ship that wants it ("The destination is occupied"), in whichever test runs next in the same server. A generated ship is wider than the
+        // box its record gives it, so the sweep reaches well past it (fixtures are at least 128 blocks apart).
+        for (var entity : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, WorldStore.bounds(s).box().inflate(40), e -> !(e instanceof net.minecraft.world.entity.player.Player)))
             entity.discard();
     }
 

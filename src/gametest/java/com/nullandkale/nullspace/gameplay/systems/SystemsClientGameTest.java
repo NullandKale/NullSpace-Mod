@@ -232,18 +232,23 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             }
             context.takeScreenshot("nullspace-equipment-monitor");
             context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
+            // A monitor nobody has set shows the camera nearest it, so the feed it starts on is not the first: Next moves on from whichever that is.
+            var startedOn = new String[1];
+            context.runOnClient(c -> startedOn[0] = ((MachineScreen) c.gui.screen()).previewStatus().replaceAll(".*(feed [0-9]+).*", "$1"));
             MachineTestUi.clickLabel(context, "Next camera");
             context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getStringOr("feed", "").isBlank(), 100);
             context.waitTicks(4);
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().contains("feed 2"), 200);
+            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().contains("feed ") && !m.previewStatus().contains(startedOn[0]), 200);
+            var chosen = new String[1];
+            context.runOnClient(c -> chosen[0] = ((MachineScreen) c.gui.screen()).previewStatus().replaceAll(".*(feed [0-9]+).*", "$1"));
             context.takeScreenshot("nullspace-monitor-centered-feed");
             MachineTestUi.clickLabel(context, "View fullscreen");
             context.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 200);
             context.waitTicks(45);
             context.runOnClient(c ->
             {
-                if (!((ViewportScreen) c.gui.screen()).status().contains("feed 2"))
-                    throw new AssertionError("Keepalive must preserve the selected monitor channel");
+                if (!((ViewportScreen) c.gui.screen()).status().contains(chosen[0]))
+                    throw new AssertionError("Keepalive must preserve the selected monitor channel (" + chosen[0] + "): " + ((ViewportScreen) c.gui.screen()).status());
             });
             var counts = new long[2];
             context.runOnClient(c ->

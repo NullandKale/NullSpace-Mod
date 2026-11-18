@@ -1,5 +1,4 @@
 package com.nullandkale.nullspace.gameplay.scene;
-
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.machine.MachineBlockEntity;
 import com.nullandkale.nullspace.content.machine.MachineMenus;
