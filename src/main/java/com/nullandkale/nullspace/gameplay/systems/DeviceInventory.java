@@ -144,6 +144,7 @@ final class DeviceInventory
             r.candidates.add(packed);
         else
             r.candidates.remove(packed);
-        return was || is;
+        // Only a candidate coming or going changes the device list: a door that opens or shuts is the same device, and is the seals' business.
+        return was != is;
     }
 }

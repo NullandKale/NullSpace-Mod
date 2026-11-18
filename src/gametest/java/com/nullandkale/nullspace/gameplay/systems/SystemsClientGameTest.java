@@ -233,6 +233,8 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             context.takeScreenshot("nullspace-equipment-monitor");
             context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
             // A monitor nobody has set shows the camera nearest it, so the feed it starts on is not the first: Next moves on from whichever that is.
+            // (The status can still be blank when the first frame has just arrived: record the feed only once it names one.)
+            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewStatus().matches(".*feed [0-9]+.*"), 400);
             var startedOn = new String[1];
             context.runOnClient(c -> startedOn[0] = ((MachineScreen) c.gui.screen()).previewStatus().replaceAll(".*(feed [0-9]+).*", "$1"));
             MachineTestUi.clickLabel(context, "Next camera");
