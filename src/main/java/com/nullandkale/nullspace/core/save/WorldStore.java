@@ -390,7 +390,7 @@ public final class WorldStore
                 continue;
             long base = ship.getLongOr("base", 0);
             int baseX = BlockPos.getX(base), baseY = BlockPos.getY(base), baseZ = BlockPos.getZ(base);
-            int height = Math.clamp(ship.getIntOr("height", 32), 0, 64);
+            int height = Math.clamp(ship.getIntOr("height", 32), 0, ship.getBooleanOr("hab", false) ? 64 : 32);
             if (x >= baseX && x <= baseX + ship.getIntOr("width", 32) - 1 && y >= baseY && y <= baseY + height - 1 && z >= baseZ && z <= baseZ + ship.getIntOr("depth", 32) - 1 && baseY > bestY)
             {
                 best = ship;
@@ -416,7 +416,7 @@ public final class WorldStore
     public static HullScan.Bounds bounds(CompoundTag ship)
     {
         BlockPos base = pos(ship, "base");
-        return new HullScan.Bounds(base, base.offset(ship.getIntOr("width", 32) - 1, Math.clamp(ship.getIntOr("height", 32), 0, 64) - 1, ship.getIntOr("depth", 32) - 1));
+        return new HullScan.Bounds(base, base.offset(ship.getIntOr("width", 32) - 1, Math.clamp(ship.getIntOr("height", 32), 0, ship.getBooleanOr("hab", false) ? 64 : 32) - 1, ship.getIntOr("depth", 32) - 1));
     }
 
     public static ListTag targets(CompoundTag root)

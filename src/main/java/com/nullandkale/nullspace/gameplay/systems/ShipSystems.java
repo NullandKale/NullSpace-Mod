@@ -198,7 +198,7 @@ public final class ShipSystems
 
     public static Atmosphere.Grid grid(CompoundTag ship)
     {
-        return StationAccess.station(ship) ? new Atmosphere.Grid(ship.getIntOr("width", 32), Math.clamp(ship.getIntOr("height", 32), 32, Atmosphere.MAX_HEIGHT), ship.getIntOr("depth", 32)) : Atmosphere.SHIP;
+        return StationAccess.station(ship) ? new Atmosphere.Grid(ship.getIntOr("width", 32), Math.clamp(ship.getIntOr("height", 32), 32, ship.getBooleanOr("hab", false) ? Atmosphere.MAX_HEIGHT : 32), ship.getIntOr("depth", 32)) : Atmosphere.SHIP;
     }
 
     static int local(CompoundTag ship, BlockPos p)
