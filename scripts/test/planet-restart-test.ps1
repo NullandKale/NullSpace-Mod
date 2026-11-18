@@ -21,7 +21,7 @@ foreach ($stage in @('surfaces')) {
     try {
     foreach ($mode in @('prepare','verify')) {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
-        $arguments += @('-Xmx6G',"-Dnullspace.planet.restart.mode=$mode","-Dnullspace.planet.restart.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:planet_restart_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx4G',"-Dnullspace.planet.restart.mode=$mode","-Dnullspace.planet.restart.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:planet_restart_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $argFile = Join-Path $work "$mode.args"
         Write-JavaArguments $argFile $arguments

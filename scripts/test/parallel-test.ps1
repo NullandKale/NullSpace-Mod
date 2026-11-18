@@ -148,8 +148,9 @@ try {
     # time of the slowest, and a failure in one worker cannot hide another's. Each worker is its own JVM with its own world, so they cannot disturb one
     # another (see Run-FocusedTests.ps1). Clients are started 15 seconds apart because clients that load in the same seconds can freeze.
     $lastClientStart = $null
-    foreach ($job in $jobs) {
-        $work = Join-Path $runRoot $job.name
+    # Starts one worker JVM (its own folder, world and resources) and returns its process. $suffix names the folder of a second attempt.
+    function Start-Worker($job, [string] $suffix = '') {
+        $work = Join-Path $runRoot ($job.name + $suffix)
         $null = New-Item -ItemType Directory -Path $work
         [IO.File]::WriteAllText((Join-Path $work 'eula.txt'),"eula=true`n")
         $spec = Get-Content -LiteralPath "$root/build/local-$($job.kind)-launch.json" -Raw | ConvertFrom-Json
@@ -167,9 +168,9 @@ try {
         $launchConfig = Join-Path $work 'launch.cfg'
         [IO.File]::WriteAllText($launchConfig,$config,[Text.UTF8Encoding]::new($false))
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') })
-        # The number of workers is fixed (3 server and 4 graphics by default) and each has the machine's memory to itself: the server workers run the
+        # The number of workers is fixed (4 server and 4 graphics by default) and each has the machine's memory to itself: the server workers run the
         # big hab and station tests, the graphics ones the client.
-        $heap = if ($job.kind -eq 'server') { '-Xmx6G' } else { '-Xmx4G' }
+        $heap = if ($job.kind -eq 'server') { '-Xmx4G' } else { '-Xmx4G' }
         $arguments += @($heap,"-Dfabric.dli.config=$launchConfig")
         if ($Coverage) {
             $agent = Join-Path $root 'build/coverage-agent/jacocoagent.jar'
@@ -188,9 +189,25 @@ try {
             if ($remaining -gt 0) { Start-Sleep -Milliseconds ([int][Math]::Ceiling($remaining)) }
         }
         $process = Start-Process -FilePath $spec.executable -ArgumentList ('@"'+$argFile+'"') -WorkingDirectory $work -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work 'test.log') -RedirectStandardError (Join-Path $work 'test.err.log')
-        if ($job.kind -eq 'client') { $lastClientStart = [DateTime]::UtcNow }
+        if ($job.kind -eq 'client') { $script:lastClientStart = [DateTime]::UtcNow }
         $null = $process.Handle
-        $processes += [pscustomobject]@{job=$job;process=$process;work=$work;windowHandle=0L}
+        return [pscustomobject]@{process = $process; work = $work}
+    }
+    # A client worker is stalled when it has run for minutes without completing a test and its log has gone quiet: that is a freeze in the
+    # client test framework's start-up handshake (the test thread never runs), not a failing test, and waiting does not end it.
+    function Test-WorkerStalled($item, $jobState, [DateTime] $now) {
+        if ($item.job.kind -ne 'client' -or $item.restarts -ge 1 -or $item.process.HasExited) { return $false }
+        if (($now - $item.startedAt).TotalMinutes -lt 5) { return $false }
+        if ($jobState.Contains('completed') -and $jobState.completed -gt 0) { return $false }
+        if ($jobState.Contains('runningCase') -and $jobState.runningCase) { return $false }
+        $log = Join-Path $item.work 'logs/latest.log'
+        $last = if (Test-Path -LiteralPath $log) { (Get-Item -LiteralPath $log).LastWriteTimeUtc } else { $item.startedAt }
+        return (($now - $last).TotalMinutes -ge 3)
+    }
+    foreach ($job in $jobs) {
+        $started = Start-Worker $job
+        $process = $started.process; $work = $started.work
+        $processes += [pscustomobject]@{job=$job;process=$process;work=$work;windowHandle=0L;startedAt=[DateTime]::UtcNow;restarts=0}
         $manifest.jobs += [ordered]@{name=$job.name;kind=$job.kind;pid=$process.Id;startedUtc=[DateTime]::UtcNow.ToString('o');expected=@($job.expected);status='running'}
         if ($job.kind -eq 'client') { $manifest.jobs[-1].windowBounds = $job.windowBounds }
         Write-Host ("Started {0}: {1} test classes, PID {2}" -f $job.name,$job.expected.Count,$process.Id)
@@ -214,6 +231,17 @@ try {
                     if ($item.process.ExitCode -ne 0) { Write-Warning "Worker $($item.job.name) failed; other isolated workers will finish before verification reports failure." }
                 }
             } elseif($item.job.kind -eq 'client') {
+                # WATCHDOG: a client that froze while starting is killed and started once more (see Test-WorkerStalled).
+                if (Test-WorkerStalled $item $jobState ([DateTime]::UtcNow)) {
+                    Write-Warning "Worker $($item.job.name) has done nothing for minutes (a start-up freeze): restarting it once."
+                    Stop-Process -Id $item.process.Id -Force -ErrorAction SilentlyContinue
+                    $null = $item.process.WaitForExit(15000)
+                    $restarted = Start-Worker $item.job '-retry'
+                    $item.process = $restarted.process; $item.work = $restarted.work; $item.startedAt = [DateTime]::UtcNow; $item.restarts = 1; $item.windowHandle = 0L
+                    $jobState.pid = $restarted.process.Id; $jobState.restartedUtc = [DateTime]::UtcNow.ToString('o'); $jobState.restarts = 1
+                    Save-Manifest
+                    continue
+                }
                 $item.windowHandle = Set-GraphicalTestWindow -ProcessId $item.process.Id -PreviousWindow $item.windowHandle -Name $item.job.name -Bounds $item.job.windowBounds
                 $jobState.windowArranged = $item.windowHandle -ne 0
                 $evidencePath=Join-Path $item.work 'nullspace-test-evidence.json'

@@ -37,7 +37,7 @@ foreach ($stage in $Stages) {
     try {
     foreach ($mode in @('prepare','verify')) {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
-        $arguments += @('-Xmx6G',"-Dnullspace.crash.mode=$mode","-Dnullspace.crash.stage=$stage","-Dnullspace.crash.direction=$direction","-Dnullspace.crash.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:crash_recovery_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx4G',"-Dnullspace.crash.mode=$mode","-Dnullspace.crash.stage=$stage","-Dnullspace.crash.direction=$direction","-Dnullspace.crash.result=$work/passed",'-Dfabric-api.gametest.filter=nullspace-test:crash_recovery_game_test_restart','-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $argFile = Join-Path $work "$mode.args"
         Write-JavaArguments $argFile $arguments

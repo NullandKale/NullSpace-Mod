@@ -25,7 +25,7 @@ try {
         [System.IO.File]::WriteAllText((Join-Path $work 'eula.txt'),"eula=true`n")
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') })
         if ($Profile) { $arguments += @('-XX:FlightRecorderOptions=stackdepth=128', ('-XX:StartFlightRecording=name=NullSpacePlaytest,settings=profile,dumponexit=true,maxsize=128m,filename=' + (Join-Path $work 'profile.jfr'))) }
-        $arguments += @('-Xmx6G',"-Dnullspace.local.role=$role","-Dnullspace.local.directory=$runRoot","-Dnullspace.local.port=$port",'-cp',$spec.classpath,$spec.mainClass)
+        $arguments += @('-Xmx4G',"-Dnullspace.local.role=$role","-Dnullspace.local.directory=$runRoot","-Dnullspace.local.port=$port",'-cp',$spec.classpath,$spec.mainClass)
         $arguments += @($spec.args)
         $arguments += @('--gameDir',$work,'--username',"NullSpace_$role",'--uuid',[guid]::NewGuid().ToString(),'--width','640','--height','480')
         $argFile = Join-Path $work 'launch.args'
