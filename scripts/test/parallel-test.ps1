@@ -36,7 +36,7 @@ try {
     Save-Manifest
     Assert-VerificationNativeRegistration $root
     # Gradle owns compilation once. Only the resulting isolated JVMs run concurrently.
-    $tasks = @('test','assemble','verifyContentAssets')
+    $tasks = @('test','assemble','verifyContentAssets','spotlessCheck')
     if (-not $ClientsOnly) { $tasks += 'exportLocalServerLaunch' }
     if ($Coverage) { $tasks += @('exportCoverageAgent','-Pcoverage=true') }
     if ($Graphics) { $tasks += 'exportLocalClientLaunch' }

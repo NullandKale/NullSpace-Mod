@@ -89,6 +89,7 @@ public final class HabVesselGameTest
         var tick = new Runnable[1];
         var phase = new int[]{0, 0};
         var worst = new long[]{0, 0};
+        var rebuilds = new long[]{0, 0};
         var total = new long[]{0, 0};
         var vessel = new net.minecraft.nbt.CompoundTag[1];
         var edit = new net.minecraft.core.BlockPos[1];
@@ -121,14 +122,18 @@ public final class HabVesselGameTest
                 level.setBlock(edit[0].above(), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
                 phase[0] = 2;
                 phase[1] = 0;
+                rebuilds[1] = ShipSystems.REBUILDS.get();
             }
             if (phase[0] == 2 && phase[1] == 200)
             {
+                rebuilds[0] = ShipSystems.REBUILDS.get() - rebuilds[1];
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL TICK steady: avg {} ms, worst {} ms over 200 ticks; after a block change: avg {} ms, worst {} ms over 200 ticks", total[0] / 200.0, worst[0], total[1] / 200.0, worst[1]);
                 long flushed = System.nanoTime();
                 ShipSystems.flushLargeAir(server);
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL flush of the air and seals took {} ms", (System.nanoTime() - flushed) / 1_000_000);
-                ctx.assertTrue(worst[0] < 100 && worst[1] < 250, "A large hab's tick is cheap: steady worst " + worst[0] + " ms, rebuild worst " + worst[1] + " ms");
+                // What a block change must not do is rebuild the vessel's systems on the server thread: its seals change a cell at a time and its air
+                // is worked out on a worker. That is asserted by counting rebuilds, not milliseconds, which a slow machine would change.
+                ctx.assertTrue(rebuilds[0] == 0, "A block change in a large hab rebuilds nothing on the server thread: " + rebuilds[0] + " rebuilds");
                 ctx.succeed();
                 return;
             }
