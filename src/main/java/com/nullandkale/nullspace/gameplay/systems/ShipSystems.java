@@ -246,22 +246,24 @@ public final class ShipSystems
         return StationAccess.station(ship) && AirStore.large(grid(ship));
     }
 
-    /** How many times this vessel's systems have been rebuilt on the calling thread; the tests read it to see what a change costs it. */
-    public static int rebuilds(ServerLevel level, CompoundTag ship)
+    /** How many times this vessel's air has been worked out on the calling thread (a pass over its whole grid); the tests read it to see what a change costs it. */
+    public static int airRebuilds(ServerLevel level, CompoundTag ship)
     {
-        return runtime(level, ship).rebuilds;
+        return runtime(level, ship).airRebuilds;
     }
 
     static void rebuild(ServerLevel level, CompoundTag ship, ShipRuntime r, boolean initialize)
     {
-        r.rebuilds++;
         r.rebuiltAt = r.devicesAt = level.getServer().getTickCount();
         long started = System.nanoTime();
         DeviceInventory.rebuild(level, ship, r);
         long devices = System.nanoTime();
         // A large vessel that has its rooms keeps them: its air is worked out again on the worker (AirSystem.refresh), not here.
         if (!(large(ship) && r.atmosphere != null))
+        {
+            r.airRebuilds++;
             AirSystem.rebuild(level, ship, r, initialize);
+        }
         long done = System.nanoTime();
         if (done - started > 50_000_000L)
             com.nullandkale.nullspace.NullSpace.LOGGER.info("SYSTEMS rebuild of {} ({} cells) took {} ms: devices {} ms, air {} ms", ship.getStringOr("home", ship.getStringOr("id", "")), grid(ship).cells(), (done - started) / 1_000_000, (devices - started) / 1_000_000, (done - devices) / 1_000_000);

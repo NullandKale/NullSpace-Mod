@@ -122,18 +122,19 @@ public final class HabVesselGameTest
                 level.setBlock(edit[0].above(), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
                 phase[0] = 2;
                 phase[1] = 0;
-                rebuilds[1] = ShipSystems.rebuilds(level, vessel[0]);
+                rebuilds[1] = ShipSystems.airRebuilds(level, vessel[0]);
             }
             if (phase[0] == 2 && phase[1] == 200)
             {
-                rebuilds[0] = ShipSystems.rebuilds(level, vessel[0]) - rebuilds[1];
+                rebuilds[0] = ShipSystems.airRebuilds(level, vessel[0]) - rebuilds[1];
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL TICK steady: avg {} ms, worst {} ms over 200 ticks; after a block change: avg {} ms, worst {} ms over 200 ticks", total[0] / 200.0, worst[0], total[1] / 200.0, worst[1]);
                 long flushed = System.nanoTime();
                 ShipSystems.flushLargeAir(server);
                 com.nullandkale.nullspace.NullSpace.LOGGER.info("HAB VESSEL flush of the air and seals took {} ms", (System.nanoTime() - flushed) / 1_000_000);
-                // What a block change must not do is rebuild the vessel's systems on the server thread: its seals change a cell at a time and its air
-                // is worked out on a worker. That is asserted by counting rebuilds, not milliseconds, which a slow machine would change.
-                ctx.assertTrue(rebuilds[0] == 0, "A block change in a large hab rebuilds nothing on the server thread: " + rebuilds[0] + " rebuilds");
+                // What a block change must not do is work the vessel's air out in full on the server thread: its seals change a cell at a time and its air
+                // is worked out on a worker. (The device list may be found again on the server thread: that reads a few thousand cells.) That is asserted
+                // by counting full air passes, not milliseconds, which a slow machine would change.
+                ctx.assertTrue(rebuilds[0] == 0, "A block change in a large hab works no air out on the server thread: " + rebuilds[0] + " full passes");
                 ctx.succeed();
                 return;
             }

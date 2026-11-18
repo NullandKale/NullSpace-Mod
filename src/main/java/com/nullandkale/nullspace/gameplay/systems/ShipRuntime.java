@@ -27,8 +27,8 @@ final class ShipRuntime
     it.unimi.dsi.fastutil.longs.LongOpenHashSet members, candidates;
     /** The seals changed since the air was last worked out; the air of a large vessel is worked out on another thread, and what it has begun is pending. */
     boolean airDirty;
-    /** How many times the systems were rebuilt on the server thread (read by the tests). */
-    int rebuilds;
+    /** How many times the air was worked out in full on the server thread (read by the tests). */
+    int airRebuilds;
     long airAt = -1_000_000;
     java.util.concurrent.CompletableFuture<AirSystem.Flooded> pending;
     Set<BlockPos> blocks = Set.of();
