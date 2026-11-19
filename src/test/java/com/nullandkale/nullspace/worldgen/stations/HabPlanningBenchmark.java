@@ -2,15 +2,10 @@ package com.nullandkale.nullspace.worldgen.stations;
 
 import com.nullandkale.nullspace.worldgen.shipgen.Spec.Maker;
 
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-/** Prints how long planning a hab takes in each size and layout form, and which seeds give each form for real; a guide for the gallery and for performance work. */
-class HabTimingTest
+/** Opt-in planning times and example seeds for the hab gallery; run with the benchmarkHabPlanning Gradle task. */
+public final class HabPlanningBenchmark
 {
-    @Test
-    void planningTimesBySizeAndForm()
+    public static void main(String[] args)
     {
         long slowest = 0;
         for (var size : StationSpec.Size.values())
@@ -41,6 +36,5 @@ class HabTimingTest
                 System.out.println("HAB TIMING " + size + " " + form + " " + maker + ": average " + (tried == 0 ? 0 : total / tried) + " ms over " + tried + "; seeds that really give it: " + found);
             }
         System.out.println("HAB TIMING slowest plan " + slowest + " ms");
-        assertTrue(slowest >= 0);
     }
 }

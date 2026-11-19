@@ -1,0 +1,49 @@
+document,review_disposition,source_sha256
+docs/design/atmosphere-and-cloud-renderer.md,Renderer contract and implementation record; actual GPU tests retain independent CPU comparisons.,c40ae212fdf667036052f7a0a7aca5c6974421d30cba7522f6cf675360992556
+docs/design/atmosphere-and-cloud-research.md,Research and alternatives; current implementation is separate renderer/model code.,e3ef78d749998c6a26712cf68efc799976d8d2a0e09cf5508baf5d63e98e8103
+docs/design/crash-start.md,Implemented 0.7 start modes; trace CrashStart/CrashSites/CrashDamage and idempotent supplies.,4aeb941777ab72835c53a2170c233e19c032c9373baa524973b42e70bb9cfb14
+docs/design/creative-scanner-tools.md,Implemented real scanner settings/spawn/travel workflow; keep actual GUI input scenario.,33fbf1233a7ac0681e405c97dac7b7290ba5633c39905c78b1244c9aa6d3417e
+docs/design/endgame-testbed.md,Implemented ship/stock; old never-compiled status is stale relative to native release coverage.,f4612d61cbd105ea439ed9081fd061cbe11a569168aaadc22b139fe50eb594f1
+docs/design/flight-motion-and-transitions.md,Accepted transition/view contracts; distinguish physical slot from simulation pose.,127c9b330e5cdb148e03087ce7a4fb694aade475819f29027ac0da9e95396c61
+docs/design/flight-physics.md,Implemented 0.7 mass/thrust/momentum/spin/assist; preserve native unpiloted drift checks.,2f8f2a70f836cead97951719c464661dcee90bc14c35e0f4c31a2f12b6c11d72
+docs/design/ftl-journeys.md,Implemented paid journey/signal/paused resume; preserve depleted persistent site and online/offline crew paths.,fa2782caa8ae02e1e68a1d558d1509df522ce739e5c629c69e02ea9bc74e57da
+docs/design/generation-infrastructure.md,Live template/piece/kit paths coexist with room planners; do not delete old paths solely from low coverage.,4b9d03c3a086e702b97fb1bf5041d00c1da443c20299a051a5b7a13194e31214
+docs/design/hab-room-catalog.md,Mixed implemented room catalog and proposed/status text; compare current furnishings and real room tests.,b8def5db70c5c7d2f06ec5a733fe87e3670f424427c2fae16a9b662b66d13cea
+docs/design/hab-rooms.md,Implemented furnishing/depth/doors/tree content; remaining player acceptance is distinct from structure checks.,9b514d1fe909cf2b9c8a6754ff186bbdf43786e4981bd35ee027357d97832df2
+docs/design/habs-and-rewards.md,Design direction with implemented 0.8 subset; not a blanket implementation claim.,346e5aeb8099b94ecb098139005a6c28d8a26cf236526377a2e5699b73a83405
+docs/design/habs.md,Mixed initial plan and implemented large-vessel addendum; runtime now has real power/air/device registration.,fd54a185a0a203897981eddf7615313380c3a1e82fbd0e0cbb3255a243f4f8b9
+docs/design/independent-ship-actions.md,Per-ship authority/locks; concurrent native scenarios retain real conflict boundaries.,ddf3a5facb6f8108c2d566b9071adf3b5993ae23fc2f9a2f0068530e2137993a
+docs/design/journals-and-save-recovery.md,"Current persistence design: MOVE/BUILD/RECORD, two slots, containment and operator recovery; keep legacy compatibility.",98b45d700c6a386d492963b7cf159a383e264edc9549506c2807d72fd4256e51
+docs/design/pad-arrival-orientation.md,Implemented physical quarter-turn landing; entrance versus pad-computer edge is authoritative.,fcaf4f7dbb910ac66475503d1348cc5aced4cf0c4e892d1bd15b1a4afa1afa92
+docs/design/pad-previews-and-hatches.md,Implemented real redstone/pad preview lifecycle; pure geometry does not replace native hooks.,37c8c557555de5b62e71abcaedc24a85982255d51030b8d5463e3185fbc92249
+docs/design/planet-computers-and-rendering.md,Planet/sky/computer design; current image envelope and ABI reject legacy forms despite stale migration text elsewhere.,71c492680854bc53aafa276d84c1719d7bb043ef292f7a3ede8330b5b378f0d2
+docs/design/player-stories.md,Historical workflows; newer course/journey/start services supersede some original service names and steps.,08d93cb52be2579046b6e8c45a5753873604747207f21bdfda73f20f97019ddc
+docs/design/procedural-generation.md,Live authoring/kit workflow plus later planned generators; multiple supported paths remain.,29743d1dee1b8296940e27343c0bc4d09ff1f5a3bdec4ab6e408f4ed8e34edbf
+docs/design/procedural-ships.md,Historical procedural generation stage; retain live tiny/gallery paths and newer planned ships separately.,0b72cc6a8f0fc0e2f0b7a092205da40bdd1f22f6e77a1687d0cb3732a1792b54
+docs/design/recovery-stations-and-ship-design.md,Historical design/implementation decisions; compare current storage/title/recall authority.,cf27793efdd0642cb62b471b642ceee95aa4116f6b32237b4259103b5b668752
+docs/design/rewards-work-plan.md,Mixed implemented 0.8 rewards and deferred balance/terrain acceptance; do not treat all checklist items as unbuilt.,4bc6bf85172b625075caa260b525904a122963d519a007c89bf1c2d4c3b2046e
+docs/design/ship-block-support.md,Current portability boundary; native block entities/ticks/entities and mod-specific databases need separate checks.,5a9a3add4ccef32019f605c518929c4b1361a6891a35618a4888137dc4c595d1
+docs/design/ship-block-ui-design.md,UI design goals; typed sessions and actual keyboard/screens are current acceptance boundary.,189f269c8e1c23cf05d6f091fa957104be9e70a0658cef5aecb764cf79f0537b
+docs/design/ship-fuel-and-power-design.md,Integer power/fuel contracts; finite containers and actual equipment integration retained.,48b4775bfd0bcb15700190987d89187cbd9aa4be5cc8e3d451c5f1153859e1e1
+docs/design/ship-generator.md,Planned ship/station generation contract; authored templates can override generated catalog entries.,e517660fe084a003aa52f8386e217ba1575005cc4304f587e264608cf43961c3
+docs/design/ship-navigation.md,Historical baseline contains drag/instant stop descriptions superseded by 0.7 physics.,586028df67681491d3121f05d0bf8ee060e518e2625ffa526e545a1b5f0d63fd
+docs/design/ship-recall.md,Ownership/recall behavior; online crew blocks and offline harbor release must be distinguished.,0207d909737ef33b3be735512dc58c393a8978f1cf3404a135ce2ec2c3bf1f1d
+docs/design/ship-recipes.md,Gameplay crafting contract; datapack recipe execution and guide snapshots both retained.,25a6e198a3cf1a88923ea62cf696e752bc4548d64d4b9a61c9e7ea869d31e2d1
+docs/design/ship-rooms-and-resources.md,Generation resource/layout decisions; actual reachable sealed rooms and loot tiers covered independently.,afcc1dada2f99aa4c6e484bc804b6cfb99348c7613a17ab81c0ccae1d06073df
+docs/design/ship-systems-and-viewports.md,Engineering/rendering implementation history and accepted behavior; current runtime ownership lives in architecture.md.,5c2ed7613c169d4ac2b90f7f3fd32949b1b6a3b9d718f07ef71dbf79e7397d21
+docs/design/ship-systems-redesign.md,"Design evolution; preserve stable device IDs, separate structural discovery from travel validation.",724cc9f77c568a05b04271204f2ee6573cedea2118c7fe484f4098acea0126be
+docs/design/shipyard.md,Historical saved-intent delivery superseded by BUILD; legacy order migration remains intentionally supported.,5f40f2834394f7fffbf66ba68edaaff15e766f3d5aabc869c7ce936d95861e28
+docs/design/space-compute-renderer-plan.md,Implementation record; actual compute/resource/reload tests are necessary despite pure model overlap.,a11861456bf5d6f64f4bc6cc2548e37c2a9cd1436852af25e4ab21dff59fc7b9
+docs/design/space-encounters-and-docking.md,Live encounter and docking contract; consent/reservations/blackout/boarding retained.,a6efa0986684c2b3cb2c14dc126ed5902accd957570939593a1d868adc41b3d3
+docs/design/space-rendering-workshop.md,"Renderer development/review workflow; screenshots are artifacts, not automatic aesthetic acceptance.",f2922ce395ef390e993b06bdf02d3a41173266a0ccac8c1aa07aac540fa95628
+docs/design/space-start.md,Implemented start selection and supplies; later crash modes extend rather than replace orbital starts.,8063acbd25662deaed6647f711af1179afb730f4739f6d6a8228fa10300c0f65
+docs/design/space-world-generation.md,Seeded galaxy/site population plus persistent depletion/reset; distinguish planning from queued placement.,748010ec118f7d5f4a1f66eefcb03e53892ef59ae50b127e804dcf6fe88dfa20
+docs/design/star-systems.md,Galaxy chart/range/region contracts; dedicated surface recreation and legacy assignment covered separately.,aaecb983e446f0f6556b0bb675eaca833fdb52150ea3eff6a086fc13260c4904
+docs/design/starting-planet.md,Earlier finite surface-pool proposal superseded by dedicated planet dimensions; gas worlds stay orbit-only.,14f2b605ea7f634cba7e466698c357117e118c5e03916563459ed028fd21cfba
+docs/design/station-modules-and-systems.md,Player-built tile station and system capability remain live; newer generated stations are another path.,009d7be96a5b8a14ad20654c337a1399969f6263e4a937db6bec532796e814f8
+docs/design/station-reference.md,Reference/design material; structural generation success does not establish a good build.,2121e45f1248a28f87cf2dba8716b955048f62228dd3b1963aad827271dc9d7d
+docs/design/stations.md,Station creation/boarding/access design; actual native and client boarding tests retained.,513fa9c0e89c5eb855d704a31bc650f3dcda6b4eae19f199ba79e9e23114b115
+docs/design/tiny-ships-and-stations.md,Implemented distinct tiny maker layouts and room-planned station work; preserve separate generator tests.,ffebf95298cdd4e6a9f94a984e3fdab7b69d4a48ed96ffe86a26d3d2706b7eed
+docs/design/ui-audit-notes.md,Dated UI findings; compare current scanner/course and terminal application code.,57f5f1b6988770c7463a8da1b5697ad858f765eb3fb1d2bd319fb8db2fd8d9a7
+docs/design/ui-refinement-design.md,Presentation goals and implementation history; no speculative product redesign during this freeze.,3cd49ee86afadcf426447a4c381fca7ac419d44ceeb5fa6e7321475fdad6211e
+docs/design/warp-core.md,Design/proposal; not evidence of a shipped warp-core feature.,60729fc51012ade480f01907b2388a48e3084cef6ffa1980e8e0fb89291df551

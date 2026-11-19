@@ -170,8 +170,7 @@ try {
         $arguments = @($spec.jvmArgs | Where-Object { -not $_.StartsWith('@') -and -not $_.StartsWith('-Dfabric.dli.config=') })
         # The number of workers is fixed (4 server and 4 graphics by default) and each has the machine's memory to itself: the server workers run the
         # big hab and station tests, the graphics ones the client.
-        $heap = if ($job.kind -eq 'server') { '-Xmx4G' } else { '-Xmx4G' }
-        $arguments += @($heap,"-Dfabric.dli.config=$launchConfig")
+        $arguments += @('-Xmx4G',"-Dfabric.dli.config=$launchConfig")
         if ($Coverage) {
             $agent = Join-Path $root 'build/coverage-agent/jacocoagent.jar'
             if (-not (Test-Path -LiteralPath $agent)) { throw 'Missing exported coverage agent' }
@@ -208,7 +207,7 @@ try {
         $started = Start-Worker $job
         $process = $started.process; $work = $started.work
         $processes += [pscustomobject]@{job=$job;process=$process;work=$work;windowHandle=0L;startedAt=[DateTime]::UtcNow;restarts=0}
-        $manifest.jobs += [ordered]@{name=$job.name;kind=$job.kind;pid=$process.Id;startedUtc=[DateTime]::UtcNow.ToString('o');expected=@($job.expected);status='running'}
+        $manifest.jobs += [ordered]@{name=$job.name;workDirectory=$job.name;kind=$job.kind;pid=$process.Id;startedUtc=[DateTime]::UtcNow.ToString('o');expected=@($job.expected);status='running'}
         if ($job.kind -eq 'client') { $manifest.jobs[-1].windowBounds = $job.windowBounds }
         Write-Host ("Started {0}: {1} test classes, PID {2}" -f $job.name,$job.expected.Count,$process.Id)
         Save-Manifest
@@ -239,6 +238,7 @@ try {
                     $restarted = Start-Worker $item.job '-retry'
                     $item.process = $restarted.process; $item.work = $restarted.work; $item.startedAt = [DateTime]::UtcNow; $item.restarts = 1; $item.windowHandle = 0L
                     $jobState.pid = $restarted.process.Id; $jobState.restartedUtc = [DateTime]::UtcNow.ToString('o'); $jobState.restarts = 1
+                    $jobState.workDirectory = $item.job.name + '-retry'
                     Save-Manifest
                     continue
                 }

@@ -73,7 +73,9 @@ function Get-VerificationDurations([string] $Root) {
         if(-not $state.PSObject.Properties['status'] -or -not $state.PSObject.Properties['jobs'] -or $state.status -notin @('passed','passed-with-unit-skips')){continue}
         foreach($job in @($state.jobs)) {
             if($job.name -notmatch '^graphics-\d+$'){continue}
-            $evidence=Join-Path $run.FullName ($job.name+'/nullspace-test-evidence.json')
+            $directory = if ($job.PSObject.Properties['workDirectory']) { [string]$job.workDirectory } else { [string]$job.name }
+            if ($directory -cne $job.name -and $directory -cne ($job.name + '-retry')) { continue }
+            $evidence=Join-Path $run.FullName ($directory+'/nullspace-test-evidence.json')
             if(-not(Test-Path -LiteralPath $evidence)){continue}
             try {$data=Get-Content -LiteralPath $evidence -Raw|ConvertFrom-Json}catch{continue}
             if(-not $data.PSObject.Properties['timings']){continue}
@@ -129,7 +131,14 @@ function Invoke-VerificationScriptShards([string] $Script, [string] $RunRoot, [s
     }
     foreach($child in $children) { $child.process.WaitForExit() }
     $failed = @($children | Where-Object { $_.process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $_.root 'result.json')) })
-    if($failed.Count) { throw ('Worker(s) ' + (($failed | ForEach-Object { "$($_.index) (exit $($_.process.ExitCode); $($_.items -join ', '))" }) -join '; ') + ". Logs: $RunRoot") }
+    if($failed.Count) {
+        $details = @(foreach ($child in $failed) {
+            $message = "$($child.index) (exit $($child.process.ExitCode); $($child.items -join ', '))"
+            try { $message += ': ' + ((Read-VerificationJson (Join-Path $child.root 'result.json')).problems -join '; ') } catch { }
+            $message
+        })
+        throw ('Worker(s) ' + ($details -join "`n") + ". Logs: $RunRoot")
+    }
     return $children
 }
 function Assert-VerificationDiskSpace([long] $AvailableBytes, [long] $RequiredBytes) {

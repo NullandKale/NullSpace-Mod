@@ -14,7 +14,7 @@
 param([string[]] $Classes = @())
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-& "$root/scripts/build/Invoke-Gradle.ps1" prepareCompatMods compatClasses processCompatResources --console=plain *> "$root/build/compat-build.log"
+& "$root/scripts/build/Invoke-Gradle.ps1" prepareCompatMods compatClasses processCompatResources exportLocalServerLaunch --console=plain *> "$root/build/compat-build.log"
 if ($LASTEXITCODE -ne 0) { Get-Content "$root/build/compat-build.log" | Select-String 'error|FAIL|Could not' | Select-Object -First 30; throw 'compat build failed' }
 if (-not $Classes.Count) {
     $source = Join-Path $root 'src/compat/java'
@@ -23,4 +23,4 @@ if (-not $Classes.Count) {
 $jars = @(Get-ChildItem -LiteralPath (Join-Path $root 'build/compat-mods') -Filter '*.jar' | ForEach-Object { $_.FullName })
 "Testing with $($jars.Count) mod jar(s): $(($jars | ForEach-Object { Split-Path -Leaf $_ }) -join ', ')"
 $classpath = @((Join-Path $root 'build/classes/java/compat'), (Join-Path $root 'build/resources/compat'))
-& "$root/scripts/test/Run-FocusedTests.ps1" -Classes $Classes -ExtraMods $jars -ExtraClasspath $classpath
+& "$root/scripts/test/Run-FocusedTests.ps1" -SkipBuild -Classes $Classes -ExtraMods $jars -ExtraClasspath $classpath

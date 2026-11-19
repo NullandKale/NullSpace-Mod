@@ -179,7 +179,7 @@ public final class DefenceGameTest
     }
 
     @GameTest(environment = "nullspace:defence", maxTicks = 800)
-    public void aRepairBayMendsATreasuredToolWithItsEnchantmentsForFuelAndStopsWithoutIt(GameTestHelper ctx) throws java.io.IOException
+    public void aRepairBayMendsATreasuredToolWithItsEnchantmentsAndSpendsFuel(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(300, 6, 300));

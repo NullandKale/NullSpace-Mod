@@ -6,11 +6,11 @@ Who owns what at runtime, in what order the server simulates it, and how it is s
 
 [`ServerContext`](../../src/main/java/com/nullandkale/nullspace/core/ServerContext.java) owns each server's services: repositories, computers, navigation, engineering runtimes, terminal sessions, survival state, previews, diagnostics, scene subscriptions and the list of unresolved journals. One end-of-tick dispatcher runs phases in this order:
 
-`SESSIONS → COMPUTERS → TRAVEL → SYSTEMS → SCENES → TERRAIN → COMBAT → NAVIGATION → SURVIVAL → FIXTURES`
+`SESSIONS → COMPUTERS → TRAVEL → SYSTEMS → SCENES → TERRAIN → COMBAT → NAVIGATION → SURVIVAL → FIXTURES → SAVE`
 
 Computers therefore observe the previous completed simulation tick unless a physical edit has already invalidated a grant. Physical edits invalidate grants immediately. Stop handlers flush while the context is still available; the final stopped handler releases the context. Lighting workers access only concurrent chunk-watch counters, and never enter the server context or read the world.
 
-There is no tick phase for saving. The ship store is written when Minecraft saves the world (below).
+The final `SAVE` phase lets `BuildJournal` flush completed builds through a shared world save after its batching delay. Ordinary metadata writes still follow Minecraft's world-save hook (below). Some content, including boss effects and native block-entity ticks, also uses Fabric or Minecraft tick hooks outside this dispatcher.
 
 ## The ship store
 
@@ -37,7 +37,7 @@ Every ship move writes a journal under `nullspace/transfers/`. The design and it
 - [`BuildJournal`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/BuildJournal.java) journals a build the same way, for operations that edit blocks and records together and cannot resume from a saved intent.
 - [`ShipIntegrity`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/ShipIntegrity.java) checks the store against the world when a chunk loads, using the ship id each controller carries. A disagreement marks the ship as needing attention and locks it until an operator resolves it.
 
-`ShipPlacement` owns physical snapshot placement and clearing and the replay guard. [`TravelService`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TravelService.java) retains checkpoint ordering, passenger readiness, entity authority and recovery decisions. Physical edits publish topology and visual invalidations through `ShipMutations`. Source geometry is keyed to physical world regions and is invalidated by real block and light edits; replacing unrelated metadata does not flush those snapshots.
+[`TransferReplay`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferReplay.java) owns physical snapshot placement, clearing and the replay guard. [`TravelService`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TravelService.java) owns passenger readiness and delegates each physical move to `ShipTransfer`, which orders its checkpoints, hull placement and passenger moves. `TransferRecovery` owns recovery and entity authority. Block and light hooks invalidate topology and physical scene snapshots; replacing unrelated metadata does not flush those snapshots.
 
 `WorldStore.at` finds the ship around a position with a loop that allocates nothing. It is not indexed, because most code edits ship records without telling the repository, so a cached index could return a ship that no longer exists.
 
@@ -53,7 +53,7 @@ Every ship move writes a journal under `nullspace/transfers/`. The design and it
 
 [`ShipCommand`](../../src/main/java/com/nullandkale/nullspace/model/engineering/ShipCommand.java) classifies engineering queries and mutations. UI authorization and the engineering executor use that same parser; scripted engineering calls reach the same executor. Transport authentication, proximity, revisions and block permissions stay at the server boundary. Flight, weapons, travel and sensors keep their authoritative native services.
 
-[`FairScheduler`](../../src/main/java/com/nullandkale/nullspace/model/computer/FairScheduler.java) rotates first claim on both job budgets and the server's computer budget. Expression syntax becomes a bounded immutable AST when a program is compiled. Images carry compiler ABI 1; old images without that field use the compatible original layout, and unknown ABIs reject before replacing a working machine. Guest paths never reach host filesystem, process or network APIs.
+[`FairScheduler`](../../src/main/java/com/nullandkale/nullspace/model/computer/FairScheduler.java) rotates first claim on both job budgets and the server's computer budget. Expression syntax becomes a bounded immutable AST when a program is compiled. Images require compiler ABI 1; missing or unknown ABIs reject before replacing a working machine. Guest paths never reach host filesystem, process or network APIs.
 
 Computer images use a versioned UTF-8 byte envelope with SHA-256 integrity, capped at 8 MiB per envelope; an invalid envelope stays stored and the computer shows a read-only recovery message. Disk quotas, job quotas and sandbox capabilities are in [NullOS](nullos.md).
 
@@ -78,7 +78,7 @@ A remote ship is shaded by the light stored at its blocks, with a floor of 15% (
 .\scripts\build\Invoke-Gradle.ps1 verifyContentAssets
 .\scripts\build\format.ps1 -Write     # Spotless + Eclipse formatter, gradle/java-format.xml
 .\scripts\build\format.ps1            # Java formatting check
-.\scripts	est\parallel-test.ps1 -Graphics   # unit, native server, assets, JAR and graphical workers, in parallel
+.\scripts\test\parallel-test.ps1 -Graphics   # unit, native server, assets, JAR and graphical workers, in parallel
 ```
 
 Java is formatted in the Visual Studio C# style: Allman braces, four-space indents and one blank line between members. There is **no line-length limit and no warning for long lines on purpose**. A very long line is a sign that the code needs restructuring (named checks, enums, extracted methods), and wrapping it would hide that. GLSL uses [`.clang-format`](../../.clang-format).

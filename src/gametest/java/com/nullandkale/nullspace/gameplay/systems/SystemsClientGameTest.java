@@ -567,23 +567,6 @@ public final class SystemsClientGameTest implements FabricClientGameTest
         ClientTestEvidence.passed(getClass());
     }
 
-    private static void awaitStatus(ClientGameTestContext context, String expected)
-    {
-        try
-        {
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains(expected), 100);
-        }
-        catch (AssertionError failed)
-        {
-            context.takeScreenshot("equipment-switch-failed");
-            context.runOnClient(c ->
-            {
-                throw new AssertionError("Expected " + expected + "; screen=" + c.gui.screen() + "; status=" + (c.gui.screen() instanceof TerminalScreen t ? t.status() : "none"), failed);
-            });
-            throw failed;
-        }
-    }
-
     private static int[] cameraPixels(ClientGameTestContext context)
     {
         var result = new java.util.concurrent.atomic.AtomicReference<int[]>();

@@ -135,6 +135,15 @@ public final class JournalGameTest
             {
                 throw new java.io.UncheckedIOException(error);
             }
+            finally
+            {
+                // Retiring the hull frees its slot. Its mock passenger and arrival target must go too:
+                // another test's recovery resolves saved arrivals for every online player.
+                TransferRecovery.clearTarget(player);
+                server.getPlayerList().remove(player);
+            }
+            ctx.assertTrue(server.getPlayerList().getPlayer(player.getUUID()) == null && server.getLevel(TravelService.SPACE).players().stream().noneMatch(p -> p.getUUID().equals(player.getUUID())), "Retiring the fixture must remove its passenger before another test reuses the slot");
+            ctx.assertTrue(store.list("targets").stream().noneMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(player.getUUID().toString())), "Retiring the fixture must not leave an arrival that recovery can replay into a reused slot");
             ctx.succeed();
         });
     }

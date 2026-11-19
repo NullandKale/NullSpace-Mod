@@ -31,7 +31,7 @@ import net.minecraft.world.level.storage.TagValueOutput;
  *
  * <p>Without other mods installed there is nothing to test and every case passes at once. With them, each
  * anomaly is reported by name. Anomalies a person has looked at and accepted go in
- * {@code src/gametest/resources/compat/known-issues.json}, so a new problem fails the run and an old one does not.
+ * {@code src/compat/resources/compat/known-issues.json}, so a new problem fails the run and an old one does not.
  */
 public final class ModCompatGameTest
 {

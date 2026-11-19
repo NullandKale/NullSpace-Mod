@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 public final class StationCamerasGameTest
 {
     @GameTest(maxTicks = 200)
-    public void everyStationHasACameraOverEachBerthAndOneOnTheOuterWallOfEachViewingRoomItCanReach(GameTestHelper ctx)
+    public void reachableBerthsHaveOutwardCamerasAndEveryCameraIsMountedInsideTheStation(GameTestHelper ctx)
     {
         for (var maker : Maker.values())
             for (var size : StationSpec.Size.values())
@@ -30,7 +30,6 @@ public final class StationCamerasGameTest
                             continue;
                         ctx.assertTrue(blueprint.blocks().get(over) != null && blueprint.blocks().get(over).is(ModBlocks.CAMERA) && blueprint.blocks().get(over).getValue(HorizontalDirectionalBlock.FACING) == berth.facing(), spec.description() + ": the camera over " + berth.port() + " looks out of the port");
                     }
-                    long viewing = plan.rooms().stream().filter(r -> r.use() == StationPlan.Use.OBSERVATION || r.use() == StationPlan.Use.LOOKOUT || r.use() == StationPlan.Use.OPERATIONS).count();
                     ctx.assertTrue(cameras.stream().allMatch(c -> inside(c.getKey())), spec.description() + ": every camera is inside the 128 by 32 by 128 box a station is built in");
                     for (var camera : cameras)
                     {

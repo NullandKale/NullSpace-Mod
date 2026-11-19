@@ -105,8 +105,7 @@ public final class ShipControlTestUi
 
     public static void destination(ClientGameTestContext c, String name, String kind)
     {
-        // Older tests select remote contacts too. Browse through the Scanner feed, then explicitly
-        // select the mark at the controller, just as a player does.
+        // Select a controller destination. Remote contacts require the overload with a world and a physical Scanner.
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
@@ -121,8 +120,6 @@ public final class ShipControlTestUi
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
-            if (browser)
-                search(c, screen, name, kind);
             if (screen.buffer().row(3).isBlank())
                 throw new AssertionError("No destination matching " + name);
             click(screen, 3, 3);

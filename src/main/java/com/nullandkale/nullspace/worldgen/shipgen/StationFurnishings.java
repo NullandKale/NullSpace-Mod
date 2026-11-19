@@ -313,27 +313,6 @@ final class StationFurnishings
         }
     }
 
-    /** Double chests, {@code rows} high, {@code pairs} of them along a wall's zone. */
-    private static void stock(Frame f, int side, int start, int pairs, int rows)
-    {
-        for (int row = 0; row < rows; row++)
-            for (int i = 0; i < pairs; i++)
-            {
-                var at = cell(f, side, 3 + start + 2 * i);
-                int u = at[0], v = at[1];
-                // Stacked rows: place a double chest at this height.
-                var face = f.s.dir(into(side));
-                var a = f.s.at(u, v, row);
-                var b = side >= WEST ? f.s.at(u, v + 1, row) : f.s.at(u + 1, v, row);
-                if (f.free(u, v, row) && f.free(side >= WEST ? u : u + 1, side >= WEST ? v + 1 : v, row))
-                {
-                    boolean aRight = b.equals(a.relative(face.getCounterClockWise()));
-                    f.g.set(a, aRight ? CHEST_RIGHT : CHEST_LEFT, face);
-                    f.g.set(b, aRight ? CHEST_LEFT : CHEST_RIGHT, face);
-                }
-            }
-    }
-
     /** Bookshelves two high along a wall, cells {@code from} to {@code to}. */
     private static void shelves(Frame f, int side, int from, int to)
     {

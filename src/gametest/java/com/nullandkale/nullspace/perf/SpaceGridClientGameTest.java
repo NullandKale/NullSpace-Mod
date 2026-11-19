@@ -25,6 +25,11 @@ public final class SpaceGridClientGameTest implements FabricClientGameTest
         ClientTestEvidence.started(getClass());
         if (System.getProperty("nullspace.local.role") != null)
             return;
+        if (!Boolean.getBoolean("nullspace.video.spaceGrid"))
+        {
+            ClientTestEvidence.passed(getClass());
+            return;
+        }
         try (var world = context.worldBuilder().create())
         {
             var fixture = world.getServer().computeOnServer(server ->

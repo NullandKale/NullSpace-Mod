@@ -42,26 +42,6 @@ final class RoomsLiving
         k.put(u, v, 4, Fx.leaves(leaves));
     }
 
-    /** A fenced grass pen with hay, a water trough and animals. {@code u, v} is its lowest corner; it is {@code pw} by {@code pd}. */
-    private static void pen(RoomKit k, int u, int v, int pw, int pd, String animal, int count)
-    {
-        for (int du = 0; du < pw; du++)
-            for (int dv = 0; dv < pd; dv++)
-            {
-                boolean edge = du == 0 || dv == 0 || du == pw - 1 || dv == pd - 1;
-                k.floor(u + du, v + dv, Blocks.GRASS_BLOCK);
-                if (edge)
-                    k.put(u + du, v + dv, 0, k.fence.defaultBlockState());
-            }
-        k.put(u + pw - 2, v + pd - 2, 0, Blocks.HAY_BLOCK.defaultBlockState());
-        k.put(u + 1, v + pd - 2, 0, Fx.waterCauldron().get(k.fwd));
-        for (int i = 0; i < count; i++)
-        {
-            k.animal(u + 1 + i % (pw - 2), v + 1 + i / (pw - 2), animal);
-            k.keep(u + 1 + i % (pw - 2), v + 1 + i / (pw - 2), 0);
-        }
-    }
-
     /** A room to meet in: seating along one wall and tables you can walk round; a large one adds a stage and a counter. */
     static void commons(RoomKit k)
     {

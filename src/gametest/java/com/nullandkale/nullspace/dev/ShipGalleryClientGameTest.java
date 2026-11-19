@@ -10,7 +10,6 @@ import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
@@ -141,11 +140,6 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
             }
         }
         ClientTestEvidence.passed(getClass());
-    }
-
-    private static void key(ClientGameTestContext ctx, int key)
-    {
-        ctx.runOnClient(c -> ((TerminalScreen) c.gui.screen()).keyPressed(new KeyEvent(key, 0, 0)));
     }
 
     private static void pause(ClientGameTestContext ctx)

@@ -16,13 +16,13 @@ The two crash scripts run each stage as its own prepare/verify JVM pair in its o
 
 **A frozen client is restarted once.** Clients that load together under load can freeze in the client test framework's start-up handshake (its test thread never runs; the render thread waits on it), and waiting does not end that. A client worker that has run more than five minutes with no completed test and a log quiet for three is killed and started again, once (`Test-WorkerStalled` and `Start-Worker` in `parallel-test.ps1`); the manifest records `restarts`. The server workers get 4 GB of heap, what the release CI's server JVM gets by default, and the multiplayer and crash lanes 4 GB: a full check on this 39 GB machine once left 0.6 GB free with the larger heaps.
 
-For the ordinary unit/server/assets suites and graphical coverage, run `.\scripts\test\parallel-test.ps1 -Graphics`. It compiles and packages once, then launches the server tests alongside four graphical workers and three server workers by default. `-GraphicsWorkers` and `-ServerWorkers` each take one through eight; one server JVM runs out of its 2 GiB heap on the whole native suite. Each worker has its own world root, working directory, resource manifest and logs under `build/parallel-verification/<run>/`.
+For the ordinary unit/server/assets suites and graphical coverage, run `.\scripts\test\parallel-test.ps1 -Graphics`. It compiles and packages once, then launches four server workers alongside four graphical workers by default. `-GraphicsWorkers` and `-ServerWorkers` each take one through eight. Keep four server workers to match the release CI's shard membership. Each worker has its own world root, working directory, resource manifest and logs under `build/parallel-verification/<run>/`.
 
-The scheduler assigns the longest graphical cases first using timings from recent passing runs, falling back to even class counts without history. Counts can be uneven because individual tests take different amounts of time. Native shards are balanced by the measured seconds of each class in recent passing runs (`nativeCases` in the receipt, a class without history costs the median), and by declared case counts when there is no history. No empty workers are started when the inventory is smaller than the requested worker count. Success requires every declared class exactly once and every native test ID exactly once, checked against Fabric's XML report. Unit skips remain explicit in the result; the current suite needs none.
+The scheduler assigns the longest graphical cases first using timings from recent passing runs, falling back to even class counts without history. Counts can be uneven because individual tests take different amounts of time. Native shards use declared case counts and ordinal class names, matching `build.gradle`; measured native durations are recorded for diagnostics and do not change membership. Graphical worker counts are capped by the number of classes. Success requires every declared class exactly once and every native test ID exactly once, checked against Fabric's XML report. Unit skips remain explicit in the result; the current suite needs none.
 
 On Windows, graphical worker windows automatically tile into a grid on the monitor active when the command starts, using its working area so the taskbar stays clear. Six workers normally use 3 columns and 2 rows; eight use a layout chosen for the monitor's aspect ratio. Each window is labeled `NullSpace tests | graphics-N` and placed as soon as SDL creates it. Only that invocation's graphical worker PIDs are moved, without taking focus. Slots stay fixed when workers finish, and you can reposition a window manually afterward. Grid bounds and arrangement state are recorded in the run receipt.
 
-Server workers are additional: the defaults mean seven game JVMs, and eight graphical workers plus two server workers mean ten. Each JVM has a 2 GiB maximum Java heap and graphical workers share the GPU. Six graphical workers were faster than eight in the comparable November 3 runs; more concurrency is not automatically faster. Use `-GraphicsWorkers 2` for lower resource contention while playing, or `.\scripts\test\parallel-test.ps1 -Graphics -GraphicsWorkers 4 -ServerWorkers 2` to try splitting native work without increasing the total beyond six JVMs.
+Server workers are additional: the defaults mean eight game JVMs. Each parallel worker has a 4 GiB maximum Java heap and graphical workers share the GPU. Use `-GraphicsWorkers 2` for lower resource contention while keeping the four native shards aligned with CI. Changing `-ServerWorkers` also changes which tests share a server world.
 
 Test worlds are disposable by default. The parallel runner removes closed `world`/`saves` directories at startup and again after all owned workers exit, including failures and timeouts. Older failed runs are cleaned too. Logs, receipts, XML reports, screenshots, private resources and JAR snapshots remain. Cleanup records paths, byte counts and skipped active worlds in `result.json` and `world-cleanup.json`. `-MinimumFreeGiB 4` remains the default disk-space threshold after startup cleanup.
 
@@ -91,6 +91,7 @@ Default crash points:
 | SOURCE_CLEARED | Original ship restored; staged copy removed |
 | PASSENGERS_MOVED | Original ship/passenger arrival restored |
 | COMMITTED | Destination in space remains authoritative |
+| CORRUPT_COMMITTED | Damage the newest store copy; replay committed records onto the surviving copy |
 | TEMP_PREPARED | Baseline survives interrupted initial temporary-file write |
 | TEMP_SOURCE_CLEARED | Last durable journal stage recovers an interrupted replacement write |
 
@@ -104,32 +105,39 @@ This covers abrupt process death and torn/unpromoted temporary files. It does no
 
 | Checkpoint | State at termination |
 | --- | --- |
-| INTENT_SAVED | Durable order; construction has not started |
+| PREPARED | Durable BUILD journal; construction has not started |
 | PARTIAL_UNSAVED | Seven hull blocks placed without an explicit chunk save |
 | PARTIAL_SAVED | Seven hull blocks explicitly saved |
 | HULL_PLACED | Entire hull and test cargo saved before registering ship identity |
-| SHIP_SAVED | Ship identity and systems saved; world flush still pending |
+| SHIP_REGISTERED | Ship identity and systems registered; world flush still pending |
 | WORLD_SAVED | Hull and metadata flushed; order still pending |
 | ORDER_CLEARED | Final order removal saved |
+| QUEUED | Completed build awaits its shared world-save barrier |
+| COMMITTED | World and matching metadata saved; BUILD committed |
+| CORRUPT_COMMITTED | Newest store copy damaged after commitment |
 
-Startup must finish any pending order automatically. The second process checks exactly one ship, the complete planned hull, preserved committed ship/device identities, saved barrel contents where a flush occurred, outside-block preservation, a successful launch preflight and repeated-recovery idempotence. A frozen-source fingerprint and per-case success markers prevent stale or mixed-build results from being accepted. Normal `runGameTest` registers this entrypoint but does not halt its JVM; the physical matrix is always opt-in.
+Startup rolls unfinished BUILD operations back, including already saved partial work. Committed builds retain exactly one complete ship, cargo and device identities; damaged-copy recovery replays their committed records. Verification checks the appropriate outcome, outside-block preservation and repeated-recovery idempotence. Legacy intent migration has separate native coverage. A frozen-source fingerprint and per-case success markers prevent stale or mixed-build results from being accepted. Normal `runGameTest` registers this entrypoint but does not halt its JVM; the physical matrix is always opt-in.
+
+Both crash scripts collect failures across every independent selected checkpoint, then write a passed or failed receipt and report the complete list. A failed prepare blocks only its own dependent verify process. `Test-CrashRunners.ps1` checks this orchestration with small JVM probes, without Minecraft.
 
 The two-client script also requires `shipyard-race-passed`: each actual client buys from its own shipyard screen on the same pad. Exactly one wins; both retain their currency items. That case runs after the existing travel, engineering and remote-camera scenarios. Both crash runners check a frozen input fingerprint and retain per-case logs and success markers.
 
 ## Save and journal performance test
 
+Hab planning diagnostics are also opt-in: `.\scripts\build\Invoke-Gradle.ps1 benchmarkHabPlanning` prints planning times and example seeds by size and layout form without launching Minecraft. This replaces `HabTimingTest`, whose nonnegative-time assertion did not check planner correctness. `HabPlannerTest`, `HabRoomCountTest` and `HabWingsTest` retain the behavioral checks. Ordinary `test`, `check` and `build` do not run the benchmark.
+
 [`scripts/test/performance-test.ps1`](../../scripts/test/performance-test.ps1) measures what saving and journaling cost on a generated world of real ships: one dedicated-server JVM per scenario, a one-minute warm-up, a stepped ramp, then flat out. It is opt-in and never part of `check`, `parallel-test.ps1` or CI. The design and the scenarios are in the [performance test](performance-test.md). [`scripts/test/compare-performance.py`](../../scripts/test/compare-performance.py) prints two runs side by side:
 
 ```powershell
-.\scripts	est\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label before
-.\scripts	est\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label after
-python scripts	est\compare-performance.py build\performance\<run before> build\performance\<run after>
+.\scripts\test\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label before
+.\scripts\test\performance-test.ps1 -Ships 40 -Scenarios idle,store-save,world-save,move -Label after
+python scripts\test\compare-performance.py build\performance\<run before> build\performance\<run after>
 ```
 
 ## Videos of graphical tests
 
-A client test that takes a screenshot every few ticks can be joined into a video: `python scripts/test/make-video.py <screenshots folder> <output.mp4>` (needs `ffmpeg` on the path; see [`make-video.py`](../../scripts/test/make-video.py)). [`SpaceGridClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/perf/SpaceGridClientGameTest.java) records ships launching into a grid in space and landing again this way.
+A client test that takes a screenshot every few ticks can be joined into a video: `python scripts/test/make-video.py <screenshots folder> <output.mp4>` (needs `ffmpeg` on the path; see [`make-video.py`](../../scripts/test/make-video.py)). [`SpaceGridClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/perf/SpaceGridClientGameTest.java) records ships launching into a grid in space and landing again when explicitly enabled with `-Dnullspace.video.spaceGrid=true`. Use `-Dnullspace.video.seed=<n>` for a repeatable fleet. Hab construction timing is likewise opt-in with `-Dnullspace.perf.habGallery=true` on `HabGalleryTimingGameTest`. These tools produce review/diagnostic artifacts; default registration does not mean they ran their workload.
 
 ## Running one native test class
 
-`.\scripts	est\Run-FocusedTests.ps1 -SkipBuild -Classes <full.Class.Name>` needs `rg` (ripgrep) on the path for its inventory check and ends with an error without it; the test itself still runs and writes `native-tests.xml` in its `build/focused-tests` folder. Tests that change global state, or launch to the first free orbit slot, run in their own environment (their own batch) so they cannot disturb a test running at the same time.
+`.\scripts\test\Run-FocusedTests.ps1 -Classes <full.Class.Name>` validates selection before launch and uses the server export unless `-Client` is set. Use `-SkipBuild` only after preparing that export for the current sources. It requires `rg` for the frozen input fingerprint. Tests that mutate global state or use free orbit slots must retain appropriate environment isolation; see the [review findings](feature-freeze-review.md#coverage-gaps-and-refactor-queue).

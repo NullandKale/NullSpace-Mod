@@ -240,7 +240,7 @@ public final class ShipStorageGameTest
     }
 
     @GameTest(environment = "nullspace:ship_recall", maxTicks = 120)
-    public void aboardOfflineAndDockedCrewCannotBeDraggedAway(GameTestHelper ctx) throws Exception
+    public void onlineAndDockedCrewBlockRecallAndOfflineCrewAreReleasedToTheHarbor(GameTestHelper ctx) throws Exception
     {
         var f = new Fixture(ctx, 3);
         var visitor = player(ctx, 30);

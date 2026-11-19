@@ -222,6 +222,16 @@ tasks.register('benchmarkSystems', JavaExec) {
         providers.gradleProperty('benchmarkLabel').getOrElse('current')
 }
 
+// Planning diagnostics belong outside the regression suite; timing work remains opt-in.
+tasks.register('benchmarkHabPlanning', JavaExec) {
+    description = 'Prints hab planning times and example seeds for each size and layout form.'
+    dependsOn 'testClasses'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.nullandkale.nullspace.worldgen.stations.HabPlanningBenchmark'
+    maxHeapSize = '4g'
+}
+
 
 // Interactive local multiplayer uses ordinary launches, without GameTest entrypoints.
 tasks.register('exportLocalPlayLaunches') {

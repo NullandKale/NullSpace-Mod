@@ -20,10 +20,4 @@ class SiteMachinesTest
         assertTrue(hits[3] > 1600 && hits[3] < 2000, "a little under half at danger 3: " + hits[3]);
     }
 
-    @Test
-    void theSameSeedAlwaysGivesTheSameAnswer()
-    {
-        for (long seed = 0; seed < 50; seed++)
-            assertEquals(SiteMachines.hasBay(3, seed), SiteMachines.hasBay(3, seed));
-    }
 }

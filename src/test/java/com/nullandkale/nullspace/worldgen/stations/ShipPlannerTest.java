@@ -31,7 +31,6 @@ class ShipPlannerTest
             var plan = assertDoesNotThrow(() -> ShipPlanner.generate(spec), spec.description());
             assertTrue(plan.problems().isEmpty(), spec.description() + ": " + plan.problems());
             assertTrue(plan.width() <= 32 && plan.depth() + ShipPlanner.RAMP <= 32 && plan.height() <= 32, spec.description() + " is " + plan.width() + " x " + plan.height() + " x " + plan.depth());
-            assertEquals(spec, spec, "stable");
             assertEquals(plan, ShipPlanner.generate(spec), "the same brief plans the same ship");
         }
     }

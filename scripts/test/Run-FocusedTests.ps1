@@ -2,15 +2,15 @@
 .SYNOPSIS
   Runs selected GameTest classes in one isolated JVM, like a single scripts/test/parallel-test.ps1 worker.
 .EXAMPLE
-  .\scripts\test\Run-FocusedTests.ps1 -Classes com.nullandkale.nullspace.ship.ShipTitleGameTest
-  .\scripts\test\Run-FocusedTests.ps1 -Client -Classes com.nullandkale.nullspace.ScannerBlockClientGameTest
+  .\scripts\test\Run-FocusedTests.ps1 -Classes com.nullandkale.nullspace.gameplay.ownership.ShipTitleGameTest
+  .\scripts\test\Run-FocusedTests.ps1 -Client -Classes com.nullandkale.nullspace.gameplay.navigation.ScannerBlockClientGameTest
 .NOTES
   Builds once unless -SkipBuild. A run that hangs for 8 minutes (or -TimeoutMinutes) is killed and fails the command.
   Work folders: build/focused-tests/<time>-<class>-<id>; worlds are deleted afterwards.
   Needs rg on PATH (scripts/lib/LocalVerification.psm1). Start parallel client runs >= 15 s apart:
   several clients launched in the same second can freeze during startup.
 #>
-param([string[]] $Classes = @('com.nullandkale.nullspace.ship.RecoveryGameTest'), [switch] $SkipBuild, [switch] $Client, [string[]] $ExtraMods = @(), [string[]] $JvmProperties = @(), [string[]] $ExtraClasspath = @(), [ValidateRange(1, 60)] [int] $TimeoutMinutes = 8)
+param([string[]] $Classes = @('com.nullandkale.nullspace.gameplay.travel.JournalGameTest'), [switch] $SkipBuild, [switch] $Client, [string[]] $ExtraMods = @(), [string[]] $JvmProperties = @(), [string[]] $ExtraClasspath = @(), [ValidateRange(1, 60)] [int] $TimeoutMinutes = 8)
 $kind = if ($Client) { 'client' } else { 'server' }
 $entry = if ($Client) { 'fabric-client-gametest' } else { 'fabric-gametest' }
 # Focused native GameTest run for a subset of classes; mirrors scripts/test/parallel-test.ps1's server job.
@@ -18,8 +18,16 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Import-Module (Join-Path $root 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $root 'scripts/lib/TestWorldCleanup.psm1') -Force
+Assert-VerificationInventory $Classes $Classes
+foreach ($class in $Classes) {
+    if ($class -notmatch '^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$') { throw "Invalid test class name: $class" }
+    $relative = $class.Replace('.', '/') + '.java'
+    if (-not (Test-Path -LiteralPath (Join-Path $root "src/gametest/java/$relative")) -and -not (Test-Path -LiteralPath (Join-Path $root "src/compat/java/$relative"))) { throw "Test class does not exist: $class" }
+}
+if (-not $Client) { $null = @(Get-VerificationNativeInventory $root $Classes) }
 if (-not $SkipBuild) {
-    & "$root/scripts/build/Invoke-Gradle.ps1" gametestClasses processGametestResources exportLocalServerLaunch exportLocalClientLaunch --console=plain *> "$root/build/focused-build.log"
+    $export = if ($Client) { 'exportLocalClientLaunch' } else { 'exportLocalServerLaunch' }
+    & "$root/scripts/build/Invoke-Gradle.ps1" gametestClasses processGametestResources $export --console=plain *> "$root/build/focused-build.log"
     if ($LASTEXITCODE -ne 0) { Get-Content "$root/build/focused-build.log" | Select-String 'error|FAIL' | Select-Object -First 30; throw 'build failed' }
 }
 $work = Join-Path $root ('build/focused-tests/' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + ($Classes[0].Split('.')[-1]) + '-' + [guid]::NewGuid().ToString('N').Substring(0,4))

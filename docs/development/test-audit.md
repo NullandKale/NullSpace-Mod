@@ -1,3 +1,48 @@
+# Test audit
+
+The current comprehensive review is [Feature-freeze repository review — November 18](feature-freeze-review.md), with [all Java test sources and dispositions](test-review.csv) and [all design documents](design-review.csv). The preliminary assessment and November 14 measurements below are retained as dated evidence; their scope, counts and open items do not describe the completed expanded review.
+
+## Preliminary cleanup assessment (November 18)
+
+Scope: inspect the build, verification scripts, test registrations and Java call sites; apply cleanup with no gameplay changes. Performance tuning and broad architectural changes remain deferred. This is a static follow-up to the November 14 audit below, not a new coverage or mutation measurement.
+
+## Current inventory
+
+- 323 common/server Java files and 63 client Java files before cleanup.
+- 100 JUnit test classes before cleanup; 99 after moving the planning diagnostic out of JUnit. Helpers and standalone benchmarks are excluded from these class counts.
+- 106 registered native GameTest classes declaring 369 methods, plus 45 registered client classes. Runtime native case counts can differ from declared method counts.
+- No `@Disabled` or `@Ignore` annotations found in `src/test` or `src/gametest`.
+
+The existing local receipt `build/parallel-verification/20261118-130728-26c153/result.json` reports 760 unit executions and all four native and four graphical workers passed. That is prior evidence, not verification of this cleanup. `logs/ci.log` separately contains a large-hab rebuild assertion failure; the log alone does not establish a failure on the current sources, and this pass does not weaken that assertion.
+
+## Changes
+
+| Finding | Action | Evidence |
+| --- | --- | --- |
+| `RoomsLiving.pen` and `StationFurnishings.stock` are unused private helpers | Removed both | No calls or method references in either declaring class; neither is a registered callback |
+| `HabTimingTest` logs planner timings but only asserts `slowest >= 0`, with `slowest` initialized to zero | Preserved its diagnostic loop as `HabPlanningBenchmark`, invoked explicitly by `benchmarkHabPlanning` | Planner correctness still has separate assertions in `HabPlannerTest`, `HabRoomCountTest` and `HabWingsTest` |
+| Verification guide describes three native workers, 2 GiB heaps and native balancing by measured duration | Updated the guide | Current `parallel-test.ps1` defaults to four native and four graphical workers with 4 GiB heaps; native membership follows CI's declared-case split |
+
+## Keep and follow up
+
+The November 14 dead-code list below is historical. `StationLayout.loops` is used by `StationLayoutTest`; `SpaceBvh.intersect` and `box` are exercised by `SpaceDefinitionTest`, and the hierarchy is built by the client renderer. Those methods stay. `Furnishings.hub` and `Shapes.dome` have enum-dispatch callers; absent coverage is insufficient evidence to remove a supported branch. Private command and callback methods referenced through `::` also stay.
+
+Do not use the old unit coverage verdict as proof for all tests added since November 14. This pass found one vacuous test and did not collect new per-test coverage. Behavioral assertions, boundary cases, persistence tests and failure regressions remain valuable even when their executed lines overlap.
+
+Review tools still warrant a separate, explicit batch: `LootSurveyGameTest` and `LiveStationSurveyGameTest` pass without doing a survey unless `nullspace.survey.sites` is set; `HabGalleryTimingGameTest` logs construction timings; station, derelict and manufacturer screenshot galleries provide review artifacts. Preserve these tools. Moving them to an opt-in lane requires updating Gradle sharding, local inventory checks, focused runners and receipts together, then verifying the changed selection. `CreativeScannerClientGameTest` already exercises real controls and has failure assertions, so it must remain a behavioral test.
+
+The largest production classes include `StationStructure` (991 lines), `DerelictDamage` (869) and `ShipTransfer` (767). Size alone does not justify extracting them during the freeze. Changes to construction, damage or transfer boundaries need a concrete maintenance problem and their own integration batch.
+
+## Verification of this batch
+
+Passed `.\scripts\build\Invoke-Gradle.ps1 build compileGametestJava verifyContentAssets -x runGameTest --continue --offline --console=plain`: build and packaging, Java compilation, 759 unit executions across 99 classes (zero failures, errors or skips), Spotless and content verification. The old timing test no longer appears in the JUnit reports, and `HabPlanningBenchmark` compiles. Log: `logs/feature-freeze-cleanup-check.log`.
+
+Native registration matches all 106 declared classes; client registration matches all 45 `FabricClientGameTest` implementations. `git diff --check` passes. `benchmarkHabPlanning --dry-run --offline` passes and selects only compilation prerequisites and the benchmark, with no test or Minecraft launch. The benchmark itself was not measured or run.
+
+No native, graphical, multiplayer or crash launch was selected: the production deletions are unreachable private methods, and the only execution-path change moves the vacuous diagnostic outside the default unit suite. No claim of new graphical or gameplay validation is made.
+
+---
+
 # Test audit (November 14)
 
 Goal: decide for every test whether the project needs it, and find the gaps that matter. No target of 100 percent coverage.

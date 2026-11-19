@@ -53,7 +53,7 @@ public final class NavigationGameTest
     }
 
     @GameTest(maxTicks = 80)
-    public void pilotLeaseRejectsStolenReplayAndUnknownInputsAndStopsOnRelease(GameTestHelper ctx)
+    public void pilotLeaseRejectsStolenReplayAndUnknownInputsAndPreservesMomentumOnRelease(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
         var level = server.getLevel(TravelService.SPACE);

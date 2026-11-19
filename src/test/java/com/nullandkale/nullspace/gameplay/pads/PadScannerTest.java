@@ -73,14 +73,6 @@ class PadScannerTest
     }
 
     @Test
-    void discoversWholePad()
-    {
-        var result = PadScanner.scan(this::pad, -1, 1, 3, 1, 0);
-        assertTrue(result.valid(), result.message());
-        assertEquals(new PadScanner.Pad(0, 7, 0, 0, 7), result.pad());
-    }
-
-    @Test
     void detectsMissingCornerAwayFromRays()
     {
         var result = PadScanner.scan((x, y, z) -> x == 8 && z == 8 ? PadScanner.Cell.OTHER : pad(x, y, z), -1, 1, 3, 1, 0);

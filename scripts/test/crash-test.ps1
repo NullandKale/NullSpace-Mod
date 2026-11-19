@@ -17,7 +17,11 @@ if ($Workers -gt 1 -and $Stages.Count -gt 1) {
     # Each stage owns its own world and JVM pair, so slices of the stages run side by side.
     $shared = @('-Directions',(($Directions | ForEach-Object { "'$_'" }) -join ','))
     if ($KeepWorlds) { $shared += '-KeepWorlds' }
-    $children = Invoke-VerificationScriptShards $PSCommandPath $runRoot $Stages 'Stages' $Workers $shared
+    try { $children = Invoke-VerificationScriptShards $PSCommandPath $runRoot $Stages 'Stages' $Workers $shared }
+    catch {
+        Write-VerificationJson (Join-Path $runRoot 'result.json') @{status='failed';preserveWorlds=[bool]$KeepWorlds;inputsSha256=$fingerprint;stages=@($Stages);directions=@($Directions);problems=@($_.Exception.Message)}
+        throw
+    }
     $cases = @($children | ForEach-Object { (Read-VerificationJson (Join-Path $_.root 'result.json')).cases } | Sort-Object)
     Assert-VerificationInventory @(foreach ($direction in $Directions) { foreach ($stage in $Stages) { "$direction/$stage" } }) $cases
     Assert-VerificationFingerprint $RepoRoot $fingerprint
@@ -26,6 +30,8 @@ if ($Workers -gt 1 -and $Stages.Count -gt 1) {
     return
 }
 $cases = @()
+$results = @()
+$problems = [System.Collections.Generic.List[string]]::new()
 foreach ($direction in $Directions) {
 foreach ($stage in $Stages) {
     if ($stage -notin @('PREPARED','DESTINATION_STAGED','SOURCE_CLEARED','PASSENGERS_MOVED','COMMITTED','CORRUPT_COMMITTED','TEMP_PREPARED','TEMP_SOURCE_CLEARED')) { throw "Unknown crash stage: $stage" }
@@ -57,6 +63,12 @@ foreach ($stage in $Stages) {
     Assert-VerificationFingerprint $RepoRoot $fingerprint
     Write-Host "Crash/restart passed: $case"
     $cases += $case
+    $results += @{case=$case;status='passed'}
+    } catch {
+        $problem = "${case}: $($_.Exception.Message)"
+        $problems.Add($problem)
+        $results += @{case=$case;status='failed';error=$_.Exception.Message}
+        Write-Warning $problem
     } finally {
         # Recovery verification needs the prepare world's journals. Clean up only
         # after BOTH JVMs have finished, including an unsuccessful recovery.
@@ -70,6 +82,6 @@ foreach ($stage in $Stages) {
     }
 }
 }
+Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status=$(if($problems.Count){'failed'}else{'passed'}); preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); directions=@($Directions); cases=@($cases); results=@($results); problems=@($problems); prepareExit=86; verifyExit=0; markers=@($cases | ForEach-Object { "$_/passed" }) }
+if ($problems.Count) { throw ("Crash/restart failures:`n" + ($problems -join "`n")) }
 Write-Host "All requested crash/restart tests passed. Logs: $runRoot"
-
-Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); directions=@($Directions); cases=@($cases); prepareExit=86; verifyExit=0; markers=@($cases | ForEach-Object { "$_/passed" }) }

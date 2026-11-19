@@ -72,7 +72,7 @@ Shell calls use `ship <action> <arguments>`; Python-style calls use `ship.action
 | `fire()` | Fire an installed powered weapon, with recharge and normal hit authority |
 | `launch()`, `land(pad)`, `jump(address)` | Existing loading-screen/journaled travel |
 
-Flight words include forward/reverse, left/right, up/down, pitch_up/pitch_down, roll_left/roll_right and brake. A crew pilot takes ownership over script flight. Two computers cannot simultaneously own flight control. Commands expire and stop motion if hardware, power, cabin safety or chunk availability is lost.
+Flight words include forward/reverse, left/right, up/down, pitch_up/pitch_down, roll_left/roll_right and brake. A crew pilot takes ownership over script flight. Two computers cannot simultaneously own flight control. Commands expire when hardware, power, cabin safety or chunk availability is lost. The ship retains momentum; unattended assist brakes it when fuel and engine power are available.
 
 All normal actions are exposed; no extra computer-specific permission tier is imposed. Device power, connectivity, recharge, safe cabin, collision and transit rules still apply. Travel requires an online crew member aboard the ship controller because the existing transfer protocol needs a player readiness handshake. An unattended job waits when that prerequisite is unavailable. Native actions do not bypass that handshake or manufacture a fake player.
 
@@ -81,4 +81,4 @@ Computer image restoration validates a complete replacement before committing. I
 
 ## Disk persistence
 
-Computer images now use a versioned UTF-8 byte envelope with integrity checking instead of a single NBT string. This preserves legal disks above the native string limit, including Unicode text and detached programs. Existing string images migrate on a successful save. Invalid saved images are preserved and the terminal reports that its disk is read-only until repaired. See [runtime architecture](architecture.md) for save scheduling and migration boundaries.
+Computer images use a versioned UTF-8 byte envelope with integrity checking. This preserves legal disks above the native string limit, including Unicode text and detached programs. Plain NBT string images and images without the current compiler ABI are rejected and preserved; there is no automatic migration for them. Invalid saved images leave the terminal read-only until repaired. See [runtime architecture](architecture.md) for save scheduling and persistence boundaries.

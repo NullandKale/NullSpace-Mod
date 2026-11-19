@@ -26,17 +26,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 public final class NavigationClientGameTest implements FabricClientGameTest
 {
-    private static void choose(ClientGameTestContext c, int index)
-    {
-        c.runOnClient(mc ->
-        {
-            var t = (TerminalScreen) mc.gui.screen();
-            while (t.selection() != index)
-                t.keyPressed(new KeyEvent(InputConstants.KEY_DOWN, 0, 0));
-            t.keyPressed(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
-        });
-    }
-
     @Override
     public void runTest(ClientGameTestContext c)
     {

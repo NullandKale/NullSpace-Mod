@@ -108,7 +108,7 @@ public final class ShipTitleGameTest
     }
 
     @GameTest(environment = "nullspace:ship_recall", maxTicks = 600)
-    public void storingClearsThePadAndDeployReturnsTheSameShipOnlyWithItsTitle(GameTestHelper ctx) throws Exception
+    public void storingClearsThePadAndOwnerDeploysTheSameShipWithoutATitle(GameTestHelper ctx) throws Exception
     {
         var f = new ShipStorageGameTest.Fixture(ctx, 211);
         var cargo = f.base.offset(3, 1, 7);

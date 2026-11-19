@@ -17,7 +17,7 @@ import net.minecraft.world.level.GameType;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-/** Exterior review and real, unassisted walking up and down the explorer stairwell. */
+/** Screenshot review of the explorer and freighter exteriors and bridges; StairWalkGameTest checks walking. */
 public final class ManufacturerRoleClientGameTest implements FabricClientGameTest
 {
     @Override

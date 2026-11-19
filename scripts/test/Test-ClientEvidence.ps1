@@ -11,6 +11,7 @@ $spec = Get-Content -LiteralPath (Join-Path $workspacePath 'build/local-server-l
 $probe = Join-Path $artifactPath 'EvidenceProbe.java'
 [IO.File]::WriteAllText($probe,@'
 package com.nullandkale.nullspace;
+import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import java.nio.file.*;
 public final class EvidenceProbe {
   public static void main(String[] args) throws Exception {
@@ -20,7 +21,7 @@ public final class EvidenceProbe {
 }
 '@)
 $javac = Join-Path (Split-Path -Parent $spec.executable) 'javac.exe'
-$source = Join-Path $workspacePath 'src/gametest/java/com/nullandkale/nullspace/ClientTestEvidence.java'
+$source = Join-Path $workspacePath 'src/gametest/java/com/nullandkale/nullspace/testing/ClientTestEvidence.java'
 $compileArgs = Join-Path $artifactPath 'compile.args'
 Write-JavaArguments $compileArgs @('-cp',$spec.classpath,'-d',$classes,$source,$probe)
 & $javac ('@' + $compileArgs)

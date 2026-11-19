@@ -78,6 +78,14 @@ foreach($runName in @('old','new','failed')){
 [IO.File]::WriteAllText((Join-Path $history 'malformed/result.json'),'{')
 $timings=Get-VerificationDurations $history
 Check ($timings -is [hashtable] -and $timings.Count -eq 2 -and $timings.A -eq 100 -and $timings.B -eq 20) 'Scheduling may use only completed timings from passing runs'
+$retryRun = Join-Path $fixture 'build/retry-history/run'
+$null = New-Item -ItemType Directory -Force -Path (Join-Path $retryRun 'graphics-1-retry')
+Write-VerificationJson (Join-Path $retryRun 'result.json') @{status='passed';jobs=@(@{name='graphics-1';workDirectory='graphics-1-retry'})}
+Write-VerificationJson (Join-Path $retryRun 'graphics-1-retry/nullspace-test-evidence.json') @{completed=@('Retry');timings=@{Retry=@{milliseconds=42}}}
+$retryTimings = Get-VerificationDurations (Split-Path -Parent $retryRun)
+Check ($retryTimings.Retry -eq 42) 'Scheduling lost the successful retry evidence'
+Write-VerificationJson (Join-Path $retryRun 'result.json') @{status='passed';jobs=@(@{name='graphics-1';workDirectory='../run/graphics-1-retry'})}
+Check ((Get-VerificationDurations (Split-Path -Parent $retryRun)).Count -eq 0) 'Timing history accepted an unbounded receipt path'
 Write-VerificationJson (Join-Path $fixture 'shared.json') @{marker='complete'}
 Check ((Read-VerificationJson (Join-Path $fixture 'shared.json')).marker -eq 'complete') 'Shared receipt reader failed'
 $nativeResources=Join-Path $fixture 'src/gametest/resources'

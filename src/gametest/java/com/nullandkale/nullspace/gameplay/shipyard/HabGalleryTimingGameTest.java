@@ -10,7 +10,7 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 /**
- * Builds one hab of each size in the gallery and logs where the time goes (see {@code HAB GALLERY} in the log): planning, building the blocks,
+ * Opt-in diagnostic: builds a standard ring and large arms hab and logs where the time goes (see {@code HAB GALLERY} in the log): planning, building the blocks,
  * loading the chunks, filling the ground, digging the rooms and placing the blocks. It passes when the gallery finishes; the numbers are for
  * the person tuning it.
  */
@@ -19,6 +19,11 @@ public final class HabGalleryTimingGameTest
     @GameTest(maxTicks = 600000)
     public void oneHabOfEachSizeIsBuiltAndTheTimeEachPhaseTookIsLogged(GameTestHelper ctx)
     {
+        if (!Boolean.getBoolean("nullspace.perf.habGallery"))
+        {
+            ctx.succeed();
+            return;
+        }
         var server = ctx.getLevel().getServer();
         var job = HabGallery.start(server, StationSpec.Size.STANDARD, List.of(new HabGallery.Entry(Maker.HALCYON, HabPlanner.Form.RING, StationSpec.Size.STANDARD), new HabGallery.Entry(Maker.RIVET, HabPlanner.Form.ARMS, StationSpec.Size.LARGE)), false);
         var tick = new Runnable[1];

@@ -24,7 +24,11 @@ $fingerprint = Get-VerificationFingerprint $RepoRoot
 if ($Workers -gt 1 -and $Stages.Count -gt 1) {
     # Each stage owns its own world and JVM pair, so slices of the stages run side by side.
     $shared = @(); if ($KeepWorlds) { $shared += '-KeepWorlds' }
-    $children = Invoke-VerificationScriptShards $PSCommandPath $runRoot $Stages 'Stages' $Workers $shared
+    try { $children = Invoke-VerificationScriptShards $PSCommandPath $runRoot $Stages 'Stages' $Workers $shared }
+    catch {
+        Write-VerificationJson (Join-Path $runRoot 'result.json') @{status='failed';preserveWorlds=[bool]$KeepWorlds;inputsSha256=$fingerprint;stages=@($Stages);problems=@($_.Exception.Message)}
+        throw
+    }
     $done = @($children | ForEach-Object { (Read-VerificationJson (Join-Path $_.root 'result.json')).stages } | Sort-Object)
     Assert-VerificationInventory $Stages $done
     Assert-VerificationFingerprint $RepoRoot $fingerprint
@@ -32,6 +36,8 @@ if ($Workers -gt 1 -and $Stages.Count -gt 1) {
     Write-Host "All requested shipyard crash/restart tests passed ($($children.Count) workers). Logs: $runRoot"
     return
 }
+$results = @()
+$problems = [System.Collections.Generic.List[string]]::new()
 foreach ($stage in $Stages) {
     $work = Join-Path $runRoot $stage
     $null = New-Item -ItemType Directory -Path $work
@@ -58,6 +64,12 @@ foreach ($stage in $Stages) {
     Assert-VerificationMarker (Join-Path $work 'passed')
     Assert-VerificationFingerprint $RepoRoot $fingerprint
     Write-Host "Shipyard crash/restart passed: $stage"
+    $results += @{case=$stage;status='passed'}
+    } catch {
+        $problem = "${stage}: $($_.Exception.Message)"
+        $problems.Add($problem)
+        $results += @{case=$stage;status='failed';error=$_.Exception.Message}
+        Write-Warning $problem
     } finally {
         if (-not $KeepWorlds) {
             try {
@@ -68,5 +80,6 @@ foreach ($stage in $Stages) {
         }
     }
 }
-Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status='passed'; preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); prepareExit=86; verifyExit=0; markers=@($Stages | ForEach-Object { "$_/passed" }) }
+Write-VerificationJson (Join-Path $runRoot 'result.json') @{ status=$(if($problems.Count){'failed'}else{'passed'}); preserveWorlds=[bool]$KeepWorlds; inputsSha256=$fingerprint; stages=@($Stages); results=@($results); problems=@($problems); prepareExit=86; verifyExit=0; markers=@($results | Where-Object status -eq 'passed' | ForEach-Object { "$($_.case)/passed" }) }
+if ($problems.Count) { throw ("Shipyard crash/restart failures:`n" + ($problems -join "`n")) }
 Write-Host "All requested shipyard crash/restart tests passed. Logs: $runRoot"

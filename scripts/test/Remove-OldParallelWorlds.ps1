@@ -30,10 +30,13 @@ foreach ($group in @('passing','failed')) {
     foreach ($run in @($selected | Select-Object -Skip $retain)) {
         $cleanup = @(foreach ($job in @($run.receipt.jobs)) {
             if ($job.name -notmatch '^(server(?:-\d+)?|graphics-\d+)$') { continue }
-            $jobRoot = Join-Path $run.path $job.name
             $leaf = if ($job.name.StartsWith('server')) {'world'} else {'saves'}
             $ids = if ($job.PSObject.Properties['pid']) { @([int]$job.pid) } else { @() }
-            Remove-TestWorlds -Workspace $workspacePath -WorkRoot $jobRoot -Leaves $leaf -ProcessIds $ids
+            # Both attempts belong to this job. Derive bounded names instead of trusting a receipt path.
+            foreach ($directory in @($job.name, ($job.name + '-retry'))) {
+                $jobRoot = Join-Path $run.path $directory
+                if (Test-Path -LiteralPath $jobRoot) { Remove-TestWorlds -Workspace $workspacePath -WorkRoot $jobRoot -Leaves $leaf -ProcessIds $ids }
+            }
         })
         if ($cleanup.Count) {
             $record = Join-Path $run.path 'world-cleanup.json'

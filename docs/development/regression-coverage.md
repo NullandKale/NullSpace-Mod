@@ -1,5 +1,7 @@
 # Regression coverage
 
+This page retains dated coverage history. For the current source review, known gaps and test dispositions, see the [November 18 feature-freeze review](feature-freeze-review.md). Old case counts, known-bug lists and migration descriptions below are not current acceptance claims.
+
 This pass expands tests around observable behavior and failure boundaries. Seeded simulations are repeatable; they check conservation, bounded work and independent coordinate frames. Native GameTests use Minecraft's real blocks, registries, serializers and server services. Graphical tests use the actual OpenGL client. Local multiplayer uses two separate client JVMs and a loopback dedicated server.
 
 The November 5 docking hotfix passes **534 unit scenarios**, **188 mod-native scenarios**, four worker smoke tests, all **25 graphical entrypoints**, both loopback client roles and a standalone package boot/save. Combined execution covers **88.20% of main-source lines** and **75.68% of branches**; client-only sources are outside that denominator. Current receipt.
@@ -36,7 +38,7 @@ The earlier November 4 baseline separately passes all **14 travel** and **seven 
 
 ```powershell
 # Unit tests, native server tests, graphical client tests and package:
-.\scripts\test\test.ps1 runClientGameTest assemble --no-daemon --console=plain
+.\scripts\test\parallel-test.ps1 -Graphics
 
 # Two actual clients and a loopback dedicated server:
 .\scripts\test\multiplayer-test.ps1

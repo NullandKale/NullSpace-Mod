@@ -15,6 +15,10 @@ function Make-Run([string]$Id,[string]$Status,[string]$Finished) {
     return $run
 }
 $old=Make-Run '20260101-000000-aaaaaa' 'passed' '2026-01-01T00:00:00Z'
+$retry = Join-Path $old 'graphics-1-retry/saves/New World'
+$null = New-Item -ItemType Directory -Force -Path $retry
+[IO.File]::WriteAllText((Join-Path $retry 'level.dat'),'retry world')
+[IO.File]::WriteAllText((Join-Path $old 'graphics-1-retry/test.log'),'retry evidence')
 $recent=Make-Run '20260102-000000-bbbbbb' 'passed-with-unit-skips' '2026-01-02T00:00:00Z'
 $failed=Make-Run '20260103-000000-cccccc' 'failed' '2026-01-03T00:00:00Z'
 $running=Make-Run '20260104-000000-dddddd' 'running' '2026-01-04T00:00:00Z'
@@ -28,6 +32,8 @@ try {
     $removed=@(& (Join-Path $PSScriptRoot 'Remove-OldParallelWorlds.ps1') -Workspace $workspace -Keep 1)
     if(Test-Path -LiteralPath (Join-Path $old 'server/world')){throw 'Old closed native world was retained'}
     if(Test-Path -LiteralPath (Join-Path $old 'graphics-1/saves')){throw 'Old closed graphical worlds were retained'}
+    if(Test-Path -LiteralPath $retry){throw 'Retry worlds were retained'}
+    if([IO.File]::ReadAllText((Join-Path $old 'graphics-1-retry/test.log')) -ne 'retry evidence'){throw 'Retry cleanup removed evidence'}
     if(Test-Path -LiteralPath (Join-Path $failed 'server/world')){throw 'Failed-run worlds accumulated instead of being cleaned'}
     foreach($run in @($recent,$running)) {
         if(-not(Test-Path -LiteralPath (Join-Path $run 'server/world/level.dat'))){throw 'Retention removed a recent or running world'}

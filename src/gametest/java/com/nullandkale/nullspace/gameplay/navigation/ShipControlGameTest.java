@@ -251,7 +251,7 @@ public final class ShipControlGameTest
     }
 
     @GameTest(environment = "nullspace:ship_control")
-    public void scannerMarksAndControllerSelectsAndRejectsStolenSessions(GameTestHelper ctx)
+    public void scannerSelectsControllerDestinationAndRejectsStolenSessions(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
         var level = server.getLevel(TravelService.SPACE);
