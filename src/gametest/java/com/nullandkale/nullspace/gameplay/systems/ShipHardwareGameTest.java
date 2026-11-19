@@ -160,7 +160,15 @@ public final class ShipHardwareGameTest
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(160, 6, 160));
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Monitor wall");
+        var pad = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
+        // Every batch of tests is laid out over the same ground and registered pads outlive their tests, so a pad an earlier test left here would make the
+        // registration below refuse (it returns the reason as text, which this used to ignore) and the ship would have no pad below it.
+        var repository = com.nullandkale.nullspace.core.save.PadRepository.get(level.getServer());
+        var kept = new java.util.ArrayList<>(repository.all());
+        kept.removeIf(entry -> entry.dimension().equals(level.dimension().identifier().toString()) && (pad.overlaps(entry.bounds()) || entry.name().equalsIgnoreCase("Monitor wall")));
+        repository.replace(kept);
+        String registered = PadComputers.register(level, base.offset(-1, 1, 3), pad, "Monitor wall");
+        ctx.assertTrue(registered.startsWith("Registered"), "The monitor wall's pad registers: " + registered);
         var camera = base.offset(5, 3, 5);
         level.setBlock(camera, ModBlocks.CAMERA.defaultBlockState(), 18);
         var mounted = ModBlocks.MONITOR.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH);
