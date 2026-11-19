@@ -606,8 +606,19 @@ public final class ShipGameTests
             slot++;
         }
         server.getLevel(TravelService.SPACE).setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);
-        ctx.runAfterDelay(10, () ->
+        // Entities load on other threads, so the launch waits until the chunks it needs say they have them, not for a fixed number of ticks (which a test
+        // server that never sleeps passes in a few milliseconds): the slot's chunk in space, and the chunks the ship stands in.
+        var slotChunk = new BlockPos(slot * TravelService.SPACE_SPACING, 0, 0);
+        var landing = new HullScan.Bounds(slotChunk, slotChunk);
+        var standing = new HullScan.Bounds(base, base.offset(7, 3, 7));
+        Runnable[] launch = {null};
+        launch[0] = () ->
         {
+            if (!HullEntities.loaded(server.getLevel(TravelService.SPACE), landing) || !HullEntities.loaded(level, standing))
+            {
+                ctx.runAfterDelay(5, launch[0]);
+                return;
+            }
             for (var entity : java.util.List.of(creeper, cow, item))
                 ctx.assertTrue(level.getEntity(entity.getUUID()) != null, "Fixture entities must be loaded before transfer");
             creeper.setNoAi(true);
@@ -740,7 +751,8 @@ public final class ShipGameTests
             TransferRecovery.recover(server);
             ctx.assertTrue(player.level() == space && level.getBlockState(controller).isAir(), "Committed transfer must not roll back");
             ctx.succeed();
-        });
+        };
+        ctx.runAfterDelay(10, launch[0]);
     }
 
     private static void assertChest(GameTestHelper ctx, net.minecraft.server.level.ServerLevel level, BlockPos pos, int count)
