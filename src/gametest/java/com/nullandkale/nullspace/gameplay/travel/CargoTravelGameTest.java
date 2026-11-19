@@ -61,7 +61,7 @@ public final class CargoTravelGameTest
         return entity;
     }
 
-    @GameTest(environment = "nullspace:cargo_travel", maxTicks = 200)
+    @GameTest(environment = "nullspace:cargo_travel", maxTicks = 400)
     public void leashedAnimalsRidersVehiclesDecorationsLiquidsAndClocksAllTravel(GameTestHelper ctx)
     {
         var level = ctx.getLevel();

@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.*;
 
 public final class SphereGameTest
 {
-    @GameTest(environment = "nullspace:sphere_travel", maxTicks = 240)
+    @GameTest(environment = "nullspace:sphere_travel", maxTicks = 400)
     public void sphereDecksRoomsPressureAndFullSizeTravel(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();

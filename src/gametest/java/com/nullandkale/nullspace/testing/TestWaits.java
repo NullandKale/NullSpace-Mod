@@ -43,18 +43,33 @@ public final class TestWaits
      */
     public static void afterLoaded(GameTestHelper ctx, int minTicks, Runnable then)
     {
-        Runnable[] poll = {null};
-        poll[0] = () ->
-        {
-            if (!held(ctx))
-            {
-                ctx.runAfterDelay(5, poll[0]);
-                return;
-            }
-            then.run();
-        };
-        ctx.runAfterDelay(minTicks, poll[0]);
+        ctx.runAfterDelay(minTicks, () -> look(ctx, then));
     }
+
+    private static void look(GameTestHelper ctx, Runnable then)
+    {
+        if (held(ctx))
+        {
+            then.run();
+            return;
+        }
+        // Ticks do not pass at the speed of loading: a test server spins through them while the threads that load are starved by a busy machine, and a test's
+        // tick limit would run out in a few seconds. Give the loading a tick's worth of real time (a real server's tick is 50 ms) each time.
+        try
+        {
+            Thread.sleep(PAUSE_MILLIS);
+        }
+        catch (InterruptedException interrupted)
+        {
+            Thread.currentThread().interrupt();
+        }
+        // A new callback each time, never this one again: the framework keeps its scheduled callbacks in a map keyed by the Runnable and removes the entry of
+        // the one it has just run, so a callback that schedules itself is dropped and the test waits out its tick limit.
+        ctx.runAfterDelay(1, () -> look(ctx, then));
+    }
+
+    /** How long a wait for loading gives the loader between looks, in real time. */
+    private static final long PAUSE_MILLIS = 100;
 
     /**
      * Runs {@code then} after {@code ticks} ticks, for a wait that is about time passing (a protocol timeout expiring, a countdown running out) and not about

@@ -194,7 +194,7 @@ public final class ShipGameTests
                 TestWaits.hold(ctx, level, x, z);
     }
 
-    @GameTest(maxTicks = 600)
+    @GameTest(maxTicks = 800)
     public void readinessTimeoutsPreserveSourceAndQuarantineArrival(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
@@ -529,7 +529,7 @@ public final class ShipGameTests
      * Picks the first free orbit slot, holds its chunk and launches ten ticks later, so it runs in its own environment, alone:
      * another test launching at the same time would take the slot, and the next one has not loaded its entities.
      */
-    @GameTest(environment = "nullspace:ship_round_trip")
+    @GameTest(environment = "nullspace:ship_round_trip", maxTicks = 400)
     public void transferRoundTripAndInterruptedTransfers(GameTestHelper ctx)
     {
         var level = ctx.getLevel();
@@ -824,7 +824,7 @@ public final class ShipGameTests
         ctx.succeed();
     }
 
-    @GameTest(maxTicks = 60)
+    @GameTest(maxTicks = 400)
     public void underwaterAirCarriesIntoVacuumWithoutRefill(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();

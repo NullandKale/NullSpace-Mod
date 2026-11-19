@@ -244,7 +244,7 @@ public final class ShipSystemsGameTest
 
     // Recovery tests replace the global repository and deliberately cancel all queued door work.
     // Keep this asynchronous door/transfer sequence outside their concurrent batch.
-    @GameTest(environment = "nullspace:systems_transfer", maxTicks = 180)
+    @GameTest(environment = "nullspace:systems_transfer", maxTicks = 400)
     public void separateControllersPowerDoorsAndJournaledResources(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();

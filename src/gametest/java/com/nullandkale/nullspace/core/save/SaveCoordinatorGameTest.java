@@ -20,7 +20,7 @@ import net.minecraft.nbt.StringTag;
  */
 public final class SaveCoordinatorGameTest
 {
-    @GameTest(environment = "nullspace:save_batch", maxTicks = 100)
+    @GameTest(environment = "nullspace:save_batch", maxTicks = 400)
     public void readyBuildsShareAFlushedSaveAndStayLockedUntilItCompletes(GameTestHelper ctx) throws Exception
     {
         var server = ctx.getLevel().getServer();

@@ -35,6 +35,8 @@ class GameTestHygieneTest
     private static final Set<String> CRASH_HARNESS = Set.of("CrashRecoveryGameTest", "ShipYardCrashGameTest");
     /** Development fixtures and the helpers themselves, not tests: a fixture keeps registrations whose computers are gone, so a generated world keeps its pads, and builds worlds for performance runs. */
     private static final Set<String> FIXTURES_AND_HELPERS = Set.of("PerfWorld", "DevStoryFixture", "TestPads");
+    /** Ticks a test that waits for loading must have beyond its fixed waits (a wait for loading pauses 100 ms a tick, so this is about thirty seconds). */
+    private static final int LOADING_TICKS = 300;
     /** Calls and hooks that change what the tests running beside this one see. */
     private static final List<String> SHARED = List.of("TravelService.transfer(", "TransferRecovery.recover(", "failureInjector", "writeObserver", ".noSave");
 
@@ -145,6 +147,60 @@ class GameTestHygieneTest
         return out;
     }
 
+    /**
+     * A test in a file that holds chunks and waits for them to load whose tick limit leaves no room for the loading. A wait for loading pauses 100 ms a tick, so
+     * 300 ticks is about thirty seconds on top of the fixed waits; a limit of a hundred ticks ran out on a busy machine before the entities were loaded.
+     */
+    static List<String> tightBudgets(Source source)
+    {
+        if (!source.text().contains("TestWaits.hold(") || CRASH_HARNESS.contains(source.name()) || FIXTURES_AND_HELPERS.contains(source.name()))
+            return List.of();
+        var out = new ArrayList<String>();
+        for (var test : tests(source.text()))
+        {
+            if (!test.body().contains("TestWaits.afterLoaded("))
+                continue;
+            int fixed = 0;
+            var waits = Pattern.compile("TestWaits\\.after(?:Loaded|Ticks)\\(\\s*\\w+\\s*,\\s*(\\d+)\\s*,").matcher(test.body());
+            while (waits.find())
+                fixed += Integer.parseInt(waits.group(1));
+            var limit = Pattern.compile("maxTicks\\s*=\\s*(\\d+)").matcher(test.arguments());
+            int budget = limit.find() ? Integer.parseInt(limit.group(1)) : 100;
+            if (budget < fixed + LOADING_TICKS)
+                out.add(source.name() + "." + test.name() + ": maxTicks = " + budget + " leaves less than " + LOADING_TICKS + " ticks for loading beyond its " + fixed + " ticks of waits; use at least " + (fixed + LOADING_TICKS));
+        }
+        return out;
+    }
+
+    /**
+     * A callback that schedules itself again with {@code runAfterDelay(n, name[0])}. The framework keeps its scheduled callbacks in a map keyed by the Runnable and
+     * removes the entry of the one it has just run, so a callback that hands itself back is dropped and a poll silently stops after its first look. Schedule a new
+     * lambda each time: {@code runAfterDelay(n, () -> name[0].run())}.
+     */
+    static List<String> selfSchedulingCallbacks(Source source)
+    {
+        var out = new ArrayList<String>();
+        var assignment = Pattern.compile("(\\w+)\\[0\\]\\s*=\\s*\\(\\)\\s*->").matcher(source.text());
+        while (assignment.find())
+        {
+            int open = source.text().indexOf('{', assignment.end());
+            if (open < 0 || !source.text().substring(assignment.end(), open).isBlank())
+                continue;
+            int depth = 0, at = open;
+            for (; at < source.text().length(); at++)
+            {
+                if (source.text().charAt(at) == '{')
+                    depth++;
+                else if (source.text().charAt(at) == '}' && --depth == 0)
+                    break;
+            }
+            String body = source.text().substring(open, Math.min(at + 1, source.text().length()));
+            if (Pattern.compile("runAfterDelay\\([^;]*,\\s*" + Pattern.quote(assignment.group(1)) + "\\[0\\]\\s*\\)").matcher(body).find())
+                out.add(source.name() + ": " + assignment.group(1) + "[0] schedules itself again; use runAfterDelay(n, () -> " + assignment.group(1) + "[0].run()), a new callback each time");
+        }
+        return out;
+    }
+
     /** An environment that a test names and that has no file: the test would not start. */
     static List<String> missingEnvironments(Source source)
     {
@@ -183,6 +239,18 @@ class GameTestHygieneTest
     void shipLaunchingTestsTellTheWaitWhichChunksTheyHold() throws IOException
     {
         none(sources().stream().flatMap(s -> untrackedHolds(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void testsThatWaitForLoadingHaveTicksToSpareForIt() throws IOException
+    {
+        none(sources().stream().flatMap(s -> tightBudgets(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void pollingCallbacksNeverRescheduleThemselves() throws IOException
+    {
+        none(sources().stream().flatMap(s -> selfSchedulingCallbacks(s).stream()).collect(Collectors.toList()));
     }
 
     @Test
@@ -225,6 +293,18 @@ class GameTestHygieneTest
         assertEquals(0, untrackedHolds(held).size());
         var elsewhere = new Source("SomeGameTest", withoutComments("void f() {\n    level.setChunkForced(x, z, true);\n}"));
         assertEquals(0, untrackedHolds(elsewhere).size());
+
+        String tight = "@GameTest(maxTicks = 100)\npublic void waits(GameTestHelper ctx)\n{\n    TestWaits.hold(ctx, level, 1, 1);\n    TestWaits.afterLoaded(ctx, 10, () -> {});\n}";
+        assertEquals(1, tightBudgets(new Source("SomeGameTest", withoutComments(tight))).size());
+        assertEquals(0, tightBudgets(new Source("SomeGameTest", withoutComments(tight.replace("maxTicks = 100", "maxTicks = 310")))).size());
+        assertEquals(1, tightBudgets(new Source("SomeGameTest", withoutComments(tight.replace("(maxTicks = 100)", "(environment = \"nullspace:x\")")))).size());
+        var noHolds = tight.replace("    TestWaits.hold(ctx, level, 1, 1);\n", "");
+        assertEquals(0, tightBudgets(new Source("SomeGameTest", withoutComments(noHolds))).size());
+
+        var itself = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, poll[0]);\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
+        assertEquals(1, selfSchedulingCallbacks(itself).size());
+        var fresh = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, () -> poll[0].run());\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
+        assertEquals(0, selfSchedulingCallbacks(fresh).size());
     }
 
     @Test

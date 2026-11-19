@@ -233,7 +233,7 @@ public final class BlockSupportGameTest
         ctx.succeed();
     }
 
-    @GameTest(environment = "nullspace:block_support_travel", maxTicks = 200)
+    @GameTest(environment = "nullspace:block_support_travel", maxTicks = 400)
     public void workshopCargoAndStoredBeesSurviveJournalRecoveryAndTravel(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
