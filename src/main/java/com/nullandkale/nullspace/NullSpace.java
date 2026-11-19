@@ -103,6 +103,7 @@ public final class NullSpace implements ModInitializer
         CourseService.initialize();
         SpacePopulation.initialize();
         PlanetSurfaces.initialize();
+        com.nullandkale.nullspace.gameplay.habs.NaturalHabs.initialize();
         LifeSupport.initialize();
         PlaytestWorld.initialize();
         ShipLab.initialize();

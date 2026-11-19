@@ -26,6 +26,13 @@ public final class RoomEntities
     /** Spawns every point's entity relative to {@code origin}; returns how many were placed. */
     public static int spawn(ServerLevel level, BlockPos origin, List<Piece.Point> points)
     {
+        return spawn(level, origin, points, entity ->
+        {});
+    }
+
+    /** Assigns recovery identities before the entities become visible to the world. */
+    public static int spawn(ServerLevel level, BlockPos origin, List<Piece.Point> points, java.util.function.Consumer<Entity> prepare)
+    {
         int placed = 0;
         for (var point : points)
         {
@@ -33,10 +40,10 @@ public final class RoomEntities
             var arguments = point.argument().split(" ");
             boolean ok = switch (point.name())
             {
-                case "frame" -> frame(level, at, arguments);
-                case "stand" -> stand(level, at, arguments);
-                case "painting" -> painting(level, at, arguments);
-                case "animal" -> animal(level, at, arguments[0]);
+                case "frame" -> frame(level, at, arguments, prepare);
+                case "stand" -> stand(level, at, arguments, prepare);
+                case "painting" -> painting(level, at, arguments, prepare);
+                case "animal" -> animal(level, at, arguments[0], prepare);
                 case "log" -> com.nullandkale.nullspace.gameplay.habs.HabLogs.place(level, at, point.argument());
                 case "stock" -> TestbedStock.fill(level, at, point.argument());
                 default -> false;
@@ -47,7 +54,7 @@ public final class RoomEntities
         return placed;
     }
 
-    private static boolean frame(ServerLevel level, BlockPos at, String[] arguments)
+    private static boolean frame(ServerLevel level, BlockPos at, String[] arguments, java.util.function.Consumer<Entity> prepare)
     {
         var item = BuiltInRegistries.ITEM.getOptional(Identifier.parse(arguments[0]));
         var facing = Direction.byName(arguments[1]);
@@ -55,10 +62,11 @@ public final class RoomEntities
             return false;
         var frame = new ItemFrame(level, at, facing);
         frame.setItem(new ItemStack(item.get()), false);
+        prepare.accept(frame);
         return level.addFreshEntity(frame);
     }
 
-    private static boolean stand(ServerLevel level, BlockPos at, String[] arguments)
+    private static boolean stand(ServerLevel level, BlockPos at, String[] arguments, java.util.function.Consumer<Entity> prepare)
     {
         var facing = Direction.byName(arguments[0]);
         var stand = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.STRUCTURE);
@@ -74,11 +82,12 @@ public final class RoomEntities
             stand.setItemSlot(EquipmentSlot.FEET, new ItemStack(armored ? ModBlocks.ARMORED_BOOTS : ModBlocks.BOOTS));
         }
         stand.snapTo(at.getX() + .5, at.getY(), at.getZ() + .5, facing.toYRot(), 0);
+        prepare.accept(stand);
         return level.addFreshEntity(stand);
     }
 
     /** A painting of the requested size on the wall behind {@code at}; tries the neighbouring cells if the first anchor does not hold. */
-    private static boolean painting(ServerLevel level, BlockPos at, String[] arguments)
+    private static boolean painting(ServerLevel level, BlockPos at, String[] arguments, java.util.function.Consumer<Entity> prepare)
     {
         var facing = Direction.byName(arguments[0]);
         if (facing == null)
@@ -92,12 +101,15 @@ public final class RoomEntities
         {
             var painting = new Painting(level, anchor, facing, variant);
             if (painting.survives())
+            {
+                prepare.accept(painting);
                 return level.addFreshEntity(painting);
+            }
         }
         return false;
     }
 
-    private static boolean animal(ServerLevel level, BlockPos at, String kind)
+    private static boolean animal(ServerLevel level, BlockPos at, String kind, java.util.function.Consumer<Entity> prepare)
     {
         EntityType<? extends Mob> type = switch (kind)
         {
@@ -112,6 +124,7 @@ public final class RoomEntities
             return false;
         mob.snapTo(at.getX() + .5, at.getY(), at.getZ() + .5, (at.hashCode() & 3) * 90f, 0);
         mob.setPersistenceRequired();
+        prepare.accept(mob);
         return level.addFreshEntity(mob);
     }
 

@@ -6,6 +6,7 @@
   "environment": "*",
   "entrypoints": {
     "fabric-gametest": [
+      "com.nullandkale.nullspace.gameplay.habs.NaturalHabGameTest",
       "com.nullandkale.nullspace.gameplay.ship.structure.HullCarveGameTest",
       "com.nullandkale.nullspace.gameplay.ship.structure.LooseBlocksGameTest",
       "com.nullandkale.nullspace.worldgen.sites.TerraLandingGameTest",
@@ -114,6 +115,7 @@
       "com.nullandkale.nullspace.worldgen.encounters.LiveStationSurveyGameTest"
     ],
     "fabric-client-gametest": [
+      "com.nullandkale.nullspace.gameplay.habs.NaturalHabClientGameTest",
       "com.nullandkale.nullspace.content.SpaceMaterialsClientGameTest",
       "com.nullandkale.nullspace.ui.screen.EquipmentUiClientGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.ScannerBlockClientGameTest",

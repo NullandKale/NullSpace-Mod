@@ -1,6 +1,6 @@
 # Habs: generation
 
-Status: **the shells, layouts, rooms, powered doors, depth ramp, stock, logs and trees are built; the hab controller, its power network and placing habs in the world are not.** Written November 17. What a hab is for, and why, is in [habs and what space is for](habs-and-rewards.md#habs); this page is how one is generated and how it is reviewed. The work is split in [the work plan](rewards-work-plan.md#track-b-habs), and this page covers the first piece of it (B1) up to the shell.
+Status, November 18: **the shells, layouts, rooms, powered doors, depth ramp, stock, logs, trees, Station Core registration and natural surface placement are built.** The dedicated hab-controller screen and player-built hab workflow remain unfinished. What a hab is for, and why, is in [habs and what space is for](habs-and-rewards.md#habs); this page is how one is generated and how it is reviewed. The work is split in [the work plan](rewards-work-plan.md#track-b-habs).
 
 **Decided** marks what the owner decided. Everything else on this page is a reading of those decisions that I chose so the shell could be built and looked at; each is listed again under [open points](#open-points) so it can be corrected.
 
@@ -9,6 +9,20 @@ Status: **the shells, layouts, rooms, powered doors, depth ramp, stock, logs and
 **Decided.** A hab is a station in the ground. Floor 1 is at the surface and the hab goes down from there; it is basically an inverted station. Generated habs are dungeons with good loot, harder than a station of the same size, and each holds one golden apple tree on its deepest floor.
 
 ## How it is generated
+
+### Natural placement
+
+[`NaturalHabs`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/NaturalHabs.java) populates Terra and every assigned landable planet surface as players explore. It runs automatically, without an operator command, when the world's Generate Structures option is enabled. Flat worlds, space, the Nether and the End do not receive natural habs.
+
+[`HabSites`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/HabSites.java) chooses one dungeon brief per 768-block region from the surface seed. Small, medium and large briefs have weights 6:3:1; all three makers and the five hab purposes occur. Up to nine nearby positions are tried without changing the brief. Positions must have a dry, gentle entrance and enough depth below it. Shallow terrain cover hides roof edges on slopes; cliffs are rejected. This is the initial village-scale spacing, not a measured frequency or balance claim.
+
+Previously inhabited chunks, registered vessels, pads and active construction or transfer areas are protected. Already generated but uninhabited terrain remains eligible, so existing saves gain habs through exploration without a world reset. Loot, crew, logs, powered-door links, one golden apple tree and the real Station Core are commissioned through the existing hab systems. No free generator fuel is added.
+
+The `naturalHabs` world-store section saves each site's brief, origin and completed chunk batches. BUILD journals protect each batch and final commissioning; unfinished sites remain locked until construction is durable and resume after restart. Completed or exhausted sites stay recorded. Rediscovery never replaces a dismantled core, replenishes loot or respawns a stripped hab; the tree's ordinary growth is independent.
+
+[`HabSitesTest`](../../src/test/java/com/nullandkale/nullspace/gameplay/habs/HabSitesTest.java) checks region separation, alternatives and repeatable briefs. [`NaturalHabGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/habs/NaturalHabGameTest.java) exercises terrain ticks, real registration, loot, crew, burial, inhabited chunks and metadata reload. [`NaturalHabClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/habs/NaturalHabClientGameTest.java) enters a real planet, waits for automatic placement and records the surface, entry and grove for visual review.
+
+### Layout construction
 
 A hab is planned by the station planner, so it gets what a station gets: straight carriers, rooms flush along them in mirrored bays, a door in the middle of each wall, a tree of doors, and one tall arrival hall. [`HabPlanner`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/HabPlanner.java) runs the same layout methods ([`StationMethods`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationMethods.java)) and the same room programs ([`StationProfiles`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationProfiles.java)) as [`StationPlanner`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/StationPlanner.java), with these differences:
 
@@ -59,7 +73,7 @@ The seed gives each hab one of five layouts ([`HabPlanner.Form`](../../src/main/
 
 ## Doors that only power opens
 
-A **door panel** ([`HabDoors`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/HabDoors.java)) stands where a stone pressure plate would, on each side of a door, and works like one (stepping on it powers the iron door beside it) but only while a generator of the hab has fuel. Each panel remembers the generators of its hab in its block entity, filled in when the hab is placed ([`HabDoors.link`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/HabDoors.java)), so a door works from anywhere in the hab; it remembers whether it last saw fuel, for the times the machine hall's chunk is not loaded. Opening a door burns a little of the generator's fuel. Three kinds of door are powered ([`HabPlanner.poweredDoors`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/HabPlanner.java)): the controller room's, the entry hall's to the command wing, and a ring's closing door. **The machine hall is never behind one** ([`HabPlanner.problems`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/HabPlanner.java) rejects a plan that puts it there), so the way in is always: find the machine hall, feed its generators coal, and the doors open. Generators burn only for the doors for now: air supplies and lights in a hab do not draw on them until the hab controller and its power network are built.
+A **door panel** ([`HabDoors`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/HabDoors.java)) stands where a stone pressure plate would, on each side of a door, and works like one (stepping on it powers the iron door beside it) but only while a generator of the hab has fuel. Each panel remembers the generators of its hab in its block entity, filled in when the hab is placed ([`HabDoors.link`](../../src/main/java/com/nullandkale/nullspace/gameplay/habs/HabDoors.java)), so a door works from anywhere in the hab; it remembers whether it last saw fuel, for the times the machine hall's chunk is not loaded. Opening a door burns a little of the generator's fuel. Three kinds of door are powered ([`HabPlanner.poweredDoors`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/HabPlanner.java)): the controller room's, the entry hall's to the command wing, and a ring's closing door. **The machine hall is never behind one** ([`HabPlanner.problems`](../../src/main/java/com/nullandkale/nullspace/worldgen/stations/HabPlanner.java) rejects a plan that puts it there), so the way in is always: find the machine hall, feed its generators coal, and the doors open. Placed habs also register their Station Core and power network through `HabVessels`; generators start empty, so players supply the fuel.
 
 ## The depth ramp, the crew and the stock
 
@@ -120,7 +134,6 @@ Not yet tested: a large hab running with the chunks far from the player unloaded
 ## Not built yet
 
 - **The explosions-and-air rules for sealed rooms** ([air and explosions](habs-and-rewards.md#air-and-explosions)); the rest of [the room catalog](hab-room-catalog.md) is built.
-- **Placing habs in the world.** Frequency about as often as villages, finding a flat enough site (or fitting the entry hall to the terrain), planets with and without air, and the Terra, Nether and End cases.
 - **Turrets and the green fluid by floor.** The crew and stock follow the floor ([the depth ramp](#the-depth-ramp-the-crew-and-the-stock)); the security turrets and green fluid leaks of [`SiteDefences`](../../src/main/java/com/nullandkale/nullspace/worldgen/encounters/SiteDefences.java) apply to a site as a whole today and would need to follow the floor.
 - **The hab controller, the tree's state on its screen, player-built habs.** B2, B4 and B5 of the work plan. A tree that has lost its air or light does not yet stop growing, the trees are not in the field guide, and a hab is not yet required to have one.
 

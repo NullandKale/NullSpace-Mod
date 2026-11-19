@@ -90,7 +90,7 @@ public final class TransferLocks
     static boolean physicalAreaBusy(ServerLevel level, HullScan.Bounds bounds, Pending ignored)
     {
         String dimension = level.dimension().identifier().toString();
-        if (UnresolvedJournals.areaBusy(level, bounds))
+        if (UnresolvedJournals.areaBusy(level, bounds) || com.nullandkale.nullspace.gameplay.habs.NaturalHabs.areaBusy(level, bounds))
             return true;
         return TravelService.pending(level.getServer()).values().stream().anyMatch(p -> p != ignored && (p.sourceDimension.equals(dimension) && p.sourceBounds.box().intersects(bounds.box()) || p.targetDimension.equals(dimension) && p.targetBounds.box().intersects(bounds.box())));
     }

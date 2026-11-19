@@ -95,6 +95,13 @@ public final class HabDepth
     /** Spawns {@link #plan} into the world. Returns the creatures placed. */
     public static List<Mob> populate(ServerLevel level, BlockPos origin, HabPlanner.Hab hab, long seed)
     {
+        return populate(level, origin, hab, seed, entity ->
+        {});
+    }
+
+    /** Assigns recovery identities before registering newly created crew. */
+    public static List<Mob> populate(ServerLevel level, BlockPos origin, HabPlanner.Hab hab, long seed, java.util.function.Consumer<net.minecraft.world.entity.Entity> prepare)
+    {
         var placed = new ArrayList<Mob>();
         var random = RandomSource.create(seed);
         for (var spawn : plan(hab, origin, seed))
@@ -114,6 +121,7 @@ public final class HabDepth
                 continue;
             mob.snapTo(spawn.at().getX() + .5, spawn.at().getY(), spawn.at().getZ() + .5, random.nextFloat() * 360, 0);
             mob.setPersistenceRequired();
+            prepare.accept(mob);
             if (level.addFreshEntity(mob))
                 placed.add(mob);
         }

@@ -147,7 +147,7 @@ Chunks are built whole and tested once together (see AGENTS.md). Dependencies ar
 
 ## Track B: habs
 
-The generation design is [habs](habs.md), and **B1's shell is built**: the planner, the buried structure and the `/nullspace shipyard habs` gallery. The rooms, the controller, the tree and placing habs in the world are not. Then:
+The generation design is [habs](habs.md). **B1's planner, structure, rooms, tree, Station Core registration and natural placement on Terra and planet surfaces are built.** Natural placement was missing from 0.8.0 and is added in 0.8.1. The `/nullspace shipyard habs` gallery remains a separate review tool. The dedicated controller screen and player construction workflow still follow below:
 
 - **B1. The hab itself:** generation like a station but down from a surface entrance, on every planet and buildable on Terra, in the Nether and in the End, about as common as villages; sealed, lit and breathable.
 - **B2. The hab controller:** the new block for power, air and turrets, with the tree on its screen.

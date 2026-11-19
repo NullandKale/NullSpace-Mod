@@ -304,6 +304,7 @@ if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) 
     tasks.named('runClientGameTest').configure { finalizedBy 'cleanupClientGameTestWorlds' }
 }
 tasks.named('runGameTest', JavaExec).configure {
+    jvmArgs '-Dnullspace.habs.enabled=false'
     def sessionsDirectory = serverTestSessions
     doFirst {
         def testDirectory = new File(sessionsDirectory.get().asFile, UUID.randomUUID().toString())
@@ -311,6 +312,10 @@ tasks.named('runGameTest', JavaExec).configure {
         // Use Minecraft's public world-root option; Loom owns the process cwd.
         args '--universe', testDirectory.absolutePath
     }
+}
+
+tasks.named('runClientGameTest', JavaExec).configure {
+    jvmArgs '-Dnullspace.habs.enabled=false'
 }
 
 // CI splits the native tests across jobs: -PgametestShard=2/4 keeps the second of four slices of the registered classes, balanced by
