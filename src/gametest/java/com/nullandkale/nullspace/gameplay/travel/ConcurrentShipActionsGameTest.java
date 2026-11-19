@@ -18,6 +18,7 @@ import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
@@ -135,7 +136,7 @@ public final class ConcurrentShipActionsGameTest
         if (condition.getAsBoolean() || ticks <= 0)
             then.run();
         else
-            ctx.runAfterDelay(2, () -> waitUntil(ctx, condition, ticks - 2, then));
+            TestWaits.afterLoaded(ctx, 2, () -> waitUntil(ctx, condition, ticks - 2, then));
     }
 
     @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 900)
@@ -148,7 +149,7 @@ public final class ConcurrentShipActionsGameTest
         var groundB = ground(b);
         var controllerA = WorldStore.pos(groundA, "controller");
         var controllerB = WorldStore.pos(groundB, "controller");
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var free = new ArrayList<Integer>();
             for (int slot = 0; slot <= 7000 && free.size() < 2; slot++)
@@ -181,7 +182,7 @@ public final class ConcurrentShipActionsGameTest
                 ctx.assertTrue(!a.fixture.surface.getBlockState(controllerA).is(ModBlocks.COMPUTER) && !b.fixture.surface.getBlockState(controllerB).is(ModBlocks.COMPUTER), "Both authoritative source copies are removed");
                 a.ready(tokenA, true);
                 b.ready(tokenB, true);
-                ctx.runAfterDelay(5, () ->
+                TestWaits.afterLoaded(ctx, 5, () ->
                 {
                     a.close();
                     b.close();
@@ -196,7 +197,7 @@ public final class ConcurrentShipActionsGameTest
     {
         var a = client(ctx, 34);
         var b = client(ctx, 35);
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var first = ShipStorage.move(a.player(), a.fixture.computer, a.fixture.ship());
             ctx.assertTrue(first.outcome() == TravelService.Outcome.COMPLETED, first.message());
@@ -240,7 +241,7 @@ public final class ConcurrentShipActionsGameTest
         b.board();
         c.board();
         var server = ctx.getLevel().getServer();
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var tokenA = a.land(a.pad());
             boolean denied = false;
@@ -270,19 +271,19 @@ public final class ConcurrentShipActionsGameTest
             ctx.assertTrue(TransferLocks.locked(a.fixture.space, WorldStore.pos(a.fixture.ship(), "controller")) && TransferLocks.locked(b.fixture.surface, b.fixture.padBase.above()), "Source hull and destination pad are reserved throughout preparation");
             a.ready(tokenA, false);
             b.ready(tokenA, false); // Another ship's token cannot acknowledge B.
-            ctx.runAfterDelay(35, () ->
+            TestWaits.afterLoaded(ctx, 35, () ->
             {
                 ctx.assertTrue(a.player().level() == a.fixture.surface && b.player().level() == b.fixture.space, "A completes its physical move while B still awaits its own preparation" + " acknowledgement");
                 a.ready(tokenA, true);
-                ctx.runAfterDelay(5, () ->
+                TestWaits.afterLoaded(ctx, 5, () ->
                 {
                     ctx.assertTrue(!TransferLocks.physicalBusy(a.player()) && TransferLocks.physicalBusy(b.player()), "Finishing A never clears B's job");
                     b.ready(tokenB, false);
-                    ctx.runAfterDelay(35, () ->
+                    TestWaits.afterLoaded(ctx, 35, () ->
                     {
                         ctx.assertTrue(b.player().level() == b.fixture.surface && a.fixture.ship().getStringOr("dimension", "").equals("minecraft:overworld"), "B's commit preserves A's already committed ship metadata");
                         b.ready(tokenB, true);
-                        ctx.runAfterDelay(5, () ->
+                        TestWaits.afterLoaded(ctx, 5, () ->
                         {
                             ctx.assertTrue(!TransferLocks.physicalBusy(b.player()), "B releases its own arrival reservation");
                             a.close();
@@ -306,7 +307,7 @@ public final class ConcurrentShipActionsGameTest
         b.board();
         c.board();
         var server = ctx.getLevel().getServer();
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var jumpA = Jumps.jump(a.player(), WorldStore.pos(a.fixture.ship(), "controller"), "sol_luna");
             var jumpB = Jumps.jump(b.player(), WorldStore.pos(b.fixture.ship(), "controller"), "sol_ares");
@@ -316,21 +317,21 @@ public final class ConcurrentShipActionsGameTest
             NavigationService.ready(a.player(), new TravelPackets.Ready(jumpA, false));
             NavigationService.ready(b.player(), new TravelPackets.Ready(jumpA, false));
             c.ready(land, false);
-            ctx.runAfterDelay(40, () ->
+            TestWaits.afterLoaded(ctx, 40, () ->
             {
                 ctx.assertTrue(JourneyService.cruising(a.fixture.ship()) && a.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_luna") && LocalSpaces.address(b.fixture.ship()).equals(LocalSpaces.HOME), "Only A's matching acknowledgement commits its jump");
                 ctx.assertTrue(c.player().level() == c.fixture.surface, "An unrelated physical transfer proceeds while both jumps are pending");
                 NavigationService.ready(a.player(), new TravelPackets.Ready(jumpA, true));
                 c.ready(land, true);
-                ctx.runAfterDelay(5, () ->
+                TestWaits.afterLoaded(ctx, 5, () ->
                 {
                     ctx.assertTrue(!NavigationService.pending(server, a.fixture.id) && NavigationService.pending(server, b.fixture.id), "Finishing A leaves B's jump intact");
                     NavigationService.ready(b.player(), new TravelPackets.Ready(jumpB, false));
-                    ctx.runAfterDelay(30, () ->
+                    TestWaits.afterLoaded(ctx, 30, () ->
                     {
                         ctx.assertTrue(JourneyService.cruising(b.fixture.ship()) && b.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_ares") && JourneyService.cruising(a.fixture.ship()) && a.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_luna"), "Each jump preserves the other ship's destination");
                         NavigationService.ready(b.player(), new TravelPackets.Ready(jumpB, true));
-                        ctx.runAfterDelay(5, () ->
+                        TestWaits.afterLoaded(ctx, 5, () ->
                         {
                             a.close();
                             b.close();
@@ -377,7 +378,7 @@ public final class ConcurrentShipActionsGameTest
                 ctx.succeed();
             }
         });
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var menu = ComputerTerminal.issue(a.player(), a.fixture.computer, "Ready", "recall", "");
             String first = ShipStorage.request(a.player(), a.fixture.computer, a.fixture.selection(), menu.session());

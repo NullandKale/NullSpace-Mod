@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.trees.GoldenTrees.Kind;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
 
 import java.util.List;
 
@@ -194,7 +195,7 @@ public final class GoldenTreeGameTest
     private static net.minecraft.nbt.CompoundTag dryShip(GameTestHelper ctx, ServerLevel level, BlockPos base) throws java.io.IOException
     {
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Tree test");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Tree test");
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
         for (var p : BlockPos.betweenClosed(WorldStore.bounds(ship).min(), WorldStore.bounds(ship).max()))

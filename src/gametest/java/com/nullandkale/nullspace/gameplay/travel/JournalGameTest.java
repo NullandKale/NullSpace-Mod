@@ -10,6 +10,8 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.nio.file.*;
 import java.util.*;
@@ -36,9 +38,9 @@ public final class JournalGameTest
         var planet = ctx.getLevel().getServer().overworld();
         for (int x = base.getX() >> 4; x <= (base.getX() >> 4) + 2; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() >> 4) + 2; z++)
-                planet.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, planet, x, z);
         ShipTestFixture.build(planet, base);
-        PadComputers.register(planet, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), pad, false);
+        TestPads.register(planet, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), pad, false);
         for (int x = 2; x <= 5; x++)
             planet.setBlock(base.offset(x, 3, 5), new Block[]{ModBlocks.GENERATOR, ModBlocks.BATTERY, ModBlocks.AIR_SUPPLY, ModBlocks.LOCAL_SCANNER}[x - 2].defaultBlockState(), 18);
         var controller = base.offset(6, 3, 3);
@@ -648,7 +650,7 @@ public final class JournalGameTest
                 ctx.assertTrue(UnresolvedJournals.get(server, entry.id()) == null && !TransferLocks.busy(server, restored), "A successful rescue archives the original and releases its locks");
                 ctx.assertTrue(Files.exists(store.directory.resolve("rescue").resolve(entry.id()).resolve("hull.nbt")), "Export retains a vanilla structure for manual recovery");
                 completed[0] = true;
-                ctx.runAfterDelay(3, () ->
+                TestWaits.afterLoaded(ctx, 3, () ->
                 {
                     var restoredPig = (net.minecraft.world.entity.animal.pig.Pig) rescueLevel.getEntity(uuid);
                     var expectedFence = fence.offset(rescuedBase.subtract(WorldStore.pos(record, "base")));

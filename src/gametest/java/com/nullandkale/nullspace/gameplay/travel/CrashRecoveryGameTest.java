@@ -13,6 +13,7 @@ import com.nullandkale.nullspace.model.computer.ComputerImageCodec;
 import com.nullandkale.nullspace.model.computer.ScriptLanguage;
 import com.nullandkale.nullspace.model.computer.VirtualComputer;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
 
 import java.util.*;
 
@@ -57,7 +58,7 @@ public final class CrashRecoveryGameTest
         if (mode.equals("prepare"))
         {
             ShipTestFixture.build(planet, base);
-            PadComputers.register(planet, base.offset(-1, 1, 3), new PadScanner.Pad(4096, 4103, 96, 4096, 4103), "Crash Home");
+            TestPads.register(planet, base.offset(-1, 1, 3), new PadScanner.Pad(4096, 4103, 96, 4096, 4103), "Crash Home");
             for (int x = 2; x <= 5; x++)
                 planet.setBlock(base.offset(x, 3, 5), new net.minecraft.world.level.block.Block[]{ModBlocks.GENERATOR, ModBlocks.BATTERY, ModBlocks.AIR_SUPPLY, ModBlocks.LOCAL_SCANNER}[x - 2].defaultBlockState(), 18);
             var initial = ShipTopology.resolve(planet, planetController);

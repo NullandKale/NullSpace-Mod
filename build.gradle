@@ -170,6 +170,10 @@ test {
     useJUnitPlatform()
     // The hab tests plan and build habs of hundreds of thousands of blocks: the default heap of a test JVM is far too small for them.
     maxHeapSize = '4g'
+    // GameTestHygieneTest scans the GameTest sources. They are not on the test classpath, so without these inputs Gradle would call an unchanged test class up to
+    // date after a GameTest changed, and the scan would not run again.
+    inputs.dir('src/gametest/java').withPropertyName('gametestSources').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir('src/gametest/resources/data/nullspace/test_environment').withPropertyName('gametestEnvironments').withPathSensitivity(PathSensitivity.RELATIVE)
     // Instrument only when requested; normal game and test launches keep their usual cost.
     jacoco {
         enabled = providers.gradleProperty('coverage').getOrElse('false').toBoolean()

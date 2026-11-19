@@ -21,6 +21,8 @@ import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 
@@ -89,7 +91,7 @@ public final class ShipGameTests
         stranger.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 4.5);
         var bounds = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
         String name = "Session " + java.util.UUID.randomUUID().toString().substring(0, 8);
-        PadComputers.register(level, base.offset(-1, 1, 3), bounds, name);
+        TestPads.register(level, base.offset(-1, 1, 3), bounds, name);
         var registry = level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace-pads.json");
         String original = java.nio.file.Files.readString(registry);
         var crowded = new com.google.gson.JsonArray();
@@ -134,7 +136,7 @@ public final class ShipGameTests
             stolen = true;
         }
         ctx.assertTrue(stolen, "Another player must not use a stolen session");
-        PadComputers.register(level, base.offset(-1, 1, 3), bounds, name + " renamed");
+        TestPads.register(level, base.offset(-1, 1, 3), bounds, name + " renamed");
         ctx.assertTrue(ComputerTerminal.authorize(player, request).argument().equals("id:" + selected.id()), "Rename must not redirect the selected pad");
         ComputerTerminal.close(stranger, open.session());
         player.teleportTo(base.getX() + 30, base.getY() + 3, base.getZ() + 3);
@@ -185,11 +187,11 @@ public final class ShipGameTests
         player.level().getServer().getPlayerList().remove(player);
     }
 
-    private static void keepFixtureLoaded(net.minecraft.server.level.ServerLevel level, BlockPos base)
+    private static void keepFixtureLoaded(GameTestHelper ctx, net.minecraft.server.level.ServerLevel level, BlockPos base)
     {
         for (int x = base.getX() >> 4; x <= (base.getX() + 7) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 7) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
     }
 
     @GameTest(maxTicks = 600)
@@ -199,7 +201,7 @@ public final class ShipGameTests
         var server = level.getServer();
         var base = ctx.absolutePos(new BlockPos(1024, 64, 1024));
         var controller = ShipTestFixture.build(level, base);
-        keepFixtureLoaded(level, base);
+        keepFixtureLoaded(ctx, level, base);
         var space = server.getLevel(TravelService.SPACE);
         int free = 0;
         for (int slot = 0; free < 3; slot++)
@@ -207,14 +209,14 @@ public final class ShipGameTests
             final int x = slot * TravelService.SPACE_SPACING;
             if (TransferLocks.spaceSlotFree(server, slot))
             {
-                space.setChunkForced(x >> 4, 0, true);
+                TestWaits.hold(ctx, space, x >> 4, 0);
                 free++;
             }
         }
         var registered = PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Readiness " + java.util.UUID.randomUUID().toString().substring(0, 8));
         ctx.assertTrue(registered.startsWith("Registered "), "Readiness fixture must register: " + registered);
         // Allow the fixture chunks and their initial entity data to finish loading.
-        ctx.runAfterDelay(40, () ->
+        TestWaits.afterLoaded(ctx, 40, () ->
         {
             var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "readiness-test"), false);
             var player = new net.minecraft.server.level.ServerPlayer(server, level, cookie.gameProfile(), cookie.clientInformation());
@@ -226,7 +228,7 @@ public final class ShipGameTests
             SystemsUpgrade.upgrade(level, ShipTopology.resolve(level, controller));
             TravelService.request(player, controller, "", ShipService.preflight(level, controller));
             TravelService.ready(player, new TravelPackets.Ready(java.util.UUID.randomUUID(), false));
-            ctx.runAfterDelay(205, () ->
+            TestWaits.afterTicks(ctx, 205, () ->
             {
                 ctx.assertTrue(!TransferLocks.busy(player) && level.getBlockState(controller).is(ModBlocks.COMPUTER), "Missing/wrong preparation ACK must time out without moving the source");
                 TravelService.request(player, controller, "", ShipService.preflight(level, controller));
@@ -241,11 +243,11 @@ public final class ShipGameTests
                         latest = progress;
                 ctx.assertTrue(latest != null, "Preparation must send an acknowledgment token");
                 TravelService.ready(player, new TravelPackets.Ready(latest.id(), false));
-                ctx.runAfterDelay(40, () ->
+                TestWaits.afterTicks(ctx, 40, () ->
                 {
                     ctx.assertTrue(player.level().dimension().equals(TravelService.SPACE) && TransferLocks.busy(player), "Arrival must remain quarantined while its ACK is missing (dimension=" + player.level().dimension() + ", busy=" + TransferLocks.busy(player) + ")");
                     TravelService.ready(player, new TravelPackets.Ready(java.util.UUID.randomUUID(), true));
-                    ctx.runAfterDelay(205, () ->
+                    TestWaits.afterTicks(ctx, 205, () ->
                     {
                         ctx.assertTrue(!TransferLocks.busy(player) && !connection.isConnected(), "Missing/wrong arrival ACK must disconnect the client and release" + " travel");
                         ctx.assertTrue(level.getBlockState(controller).isAir(), "Arrival timeout must keep the committed destination" + " authoritative");
@@ -263,12 +265,12 @@ public final class ShipGameTests
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(1152, 64, 1152));
         var controller = ShipTestFixture.build(level, base);
-        keepFixtureLoaded(level, base);
+        keepFixtureLoaded(ctx, level, base);
         var pad = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
         var scan = HullScan.inspect(level, controller, pad, true);
         var stand = new net.minecraft.world.entity.decoration.ArmorStand(level, base.getX() + 3.5, base.getY() + 3, base.getZ() + 3.5);
         level.addFreshEntity(stand);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             ctx.assertTrue(Occupants.inspect(level, scan).cargo().contains(stand), "Decorations such as armor stands are accepted as cargo");
             stand.discard();
@@ -303,7 +305,7 @@ public final class ShipGameTests
                 level.getChunkSource().addTicketWithRadius(SceneSnapshots.CAMERA_TICKET, new net.minecraft.world.level.ChunkPos(at.getX() >> 4, at.getZ() >> 4), 0);
             }
         // Fresh distant chunks become visible to passive queries between server ticks.
-        ctx.runAfterDelay(5, () ->
+        TestWaits.afterLoaded(ctx, 5, () ->
         {
             var pad = new PadRegistry.Pad(java.util.UUID.randomUUID().toString(), "State pad", level.dimension().identifier().toString(), base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7));
             ctx.assertTrue(PadRegistry.inspectState(level.getServer(), pad).state() == PadRegistry.State.OCCUPIED, "Ship must show occupied: " + PadRegistry.inspectState(level.getServer(), pad));
@@ -427,7 +429,7 @@ public final class ShipGameTests
         store.ships().add(ship);
         // Air comes only from working systems: the reference ship's generator and Air Supply.
         SystemsUpgrade.upgrade(space, ship);
-        ctx.runAfterDelay(25, () ->
+        TestWaits.afterLoaded(ctx, 25, () ->
         {
             ctx.assertTrue(player.getHealth() < 20, "Vacuum must damage a fed player despite Water Breathing");
             space.setBlock(window, Blocks.GLASS.defaultBlockState(), 18);
@@ -445,7 +447,7 @@ public final class ShipGameTests
                 if (!cabinAir && (waited[0] += 10) < 400)
                 {
                     // A new Runnable each time: the helper keys scheduled work by the Runnable.
-                    ctx.runAfterDelay(10, () -> refilled[0].run());
+                    TestWaits.afterLoaded(ctx, 10, () -> refilled[0].run());
                     return;
                 }
                 ctx.assertTrue(player.getAirSupply() > 0, "Closing leak must restore breathable air within 20 seconds");
@@ -453,7 +455,7 @@ public final class ShipGameTests
                 ctx.assertTrue(LifeSupport.suited(player) && !player.getAbilities().mayfly && !player.getAbilities().flying, "Sealed cabin must retain normal gravity");
                 player.teleportTo(base.getX() + 10.5, base.getY() + 3, base.getZ() + 3.5);
                 int suppliedAir = player.getAirSupply();
-                ctx.runAfterDelay(10, () ->
+                TestWaits.afterLoaded(ctx, 10, () ->
                 {
                     // Playtest 2 spec: a suited, tethered player outside the cabin is held at the
                     // 20 floor rather than refilled.
@@ -461,7 +463,7 @@ public final class ShipGameTests
                     ctx.assertTrue(player.getAbilities().mayfly && player.getAbilities().flying, "Leaving the cabin must automatically activate suit flight");
                     player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.item.ItemStack.EMPTY);
                     int bareAir = player.getAirSupply();
-                    ctx.runAfterDelay(5, () ->
+                    TestWaits.afterLoaded(ctx, 5, () ->
                     {
                         ctx.assertTrue(player.getAirSupply() < bareAir && !player.getAbilities().mayfly && !player.getAbilities().flying, "Missing suit piece must remove oxygen and flight");
                         player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(ModBlocks.HELMET));
@@ -475,14 +477,14 @@ public final class ShipGameTests
                             // has no breathable outlet to draw from.
                             if (player.getAirSupply() >= ventedAir && (drained[0] += 10) < 400)
                             {
-                                ctx.runAfterDelay(10, () -> vented[0].run());
+                                TestWaits.afterLoaded(ctx, 10, () -> vented[0].run());
                                 return;
                             }
                             ctx.assertTrue(player.getAirSupply() < ventedAir, "Vented Air Supply room must stop tether air");
                             ctx.assertTrue(player.getAbilities().flying, "Restoring the complete suit outside must reactivate flight");
                             space.setBlock(window, Blocks.GLASS.defaultBlockState(), 18);
                             player.teleportTo(base.getX() + 200, base.getY() + 3, base.getZ() + 3.5);
-                            ctx.runAfterDelay(2, () ->
+                            TestWaits.afterLoaded(ctx, 2, () ->
                             {
                                 ctx.assertTrue(player.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(controller)) <= 72 * 72, "Server must enforce the tether boundary");
                                 player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
@@ -493,18 +495,18 @@ public final class ShipGameTests
                                     // The vented cabin refills before it has gravity.
                                     if (player.getAbilities().mayfly && (refill[0] += 10) < 500)
                                     {
-                                        ctx.runAfterDelay(10, () -> reentered[0].run());
+                                        TestWaits.afterLoaded(ctx, 10, () -> reentered[0].run());
                                         return;
                                     }
                                     ctx.assertTrue(!player.getAbilities().flying && !player.getAbilities().mayfly, "Reentering a sealed cabin must restore normal" + " gravity");
                                     player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
                                     player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.item.ItemStack.EMPTY);
                                     player.teleportTo(base.getX() + 10.5, base.getY() + 3, base.getZ() + 3.5);
-                                    ctx.runAfterDelay(2, () ->
+                                    TestWaits.afterLoaded(ctx, 2, () ->
                                     {
                                         ctx.assertTrue(player.getAbilities().flying, "Creative lab players must also enter" + " flight automatically");
                                         player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
-                                        ctx.runAfterDelay(2, () ->
+                                        TestWaits.afterLoaded(ctx, 2, () ->
                                         {
                                             ctx.assertTrue(!player.getAbilities().flying && player.getAbilities().mayfly, "Creative cabin gravity must not" + " revoke creative flight" + " permission");
                                             server.getPlayerList().remove(player);
@@ -512,14 +514,14 @@ public final class ShipGameTests
                                         });
                                     });
                                 };
-                                ctx.runAfterDelay(2, () -> reentered[0].run());
+                                TestWaits.afterLoaded(ctx, 2, () -> reentered[0].run());
                             });
                         };
-                        ctx.runAfterDelay(10, () -> vented[0].run());
+                        TestWaits.afterLoaded(ctx, 10, () -> vented[0].run());
                     });
                 });
             };
-            ctx.runAfterDelay(10, refilled[0]);
+            TestWaits.afterLoaded(ctx, 10, refilled[0]);
         });
     }
 
@@ -596,7 +598,7 @@ public final class ShipGameTests
         var ids = java.util.List.of(creeper.getUUID(), cow.getUUID(), item.getUUID());
         for (int x = (base.getX() >> 4); x <= ((base.getX() + 7) >> 4); x++)
             for (int z = (base.getZ() >> 4); z <= ((base.getZ() + 7) >> 4); z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
         int slot = 0;
         while (true)
         {
@@ -605,20 +607,10 @@ public final class ShipGameTests
                 break;
             slot++;
         }
-        server.getLevel(TravelService.SPACE).setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);
-        // Entities load on other threads, so the launch waits until the chunks it needs say they have them, not for a fixed number of ticks (which a test
-        // server that never sleeps passes in a few milliseconds): the slot's chunk in space, and the chunks the ship stands in.
-        var slotChunk = new BlockPos(slot * TravelService.SPACE_SPACING, 0, 0);
-        var landing = new HullScan.Bounds(slotChunk, slotChunk);
-        var standing = new HullScan.Bounds(base, base.offset(7, 3, 7));
-        Runnable[] launch = {null};
-        launch[0] = () ->
+        TestWaits.hold(ctx, server.getLevel(TravelService.SPACE), (slot * TravelService.SPACE_SPACING) >> 4, 0);
+        // Waits until the chunks this test holds, here and in space, have their entities (see TestWaits), not for a fixed number of ticks.
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
-            if (!HullEntities.loaded(server.getLevel(TravelService.SPACE), landing) || !HullEntities.loaded(level, standing))
-            {
-                ctx.runAfterDelay(5, launch[0]);
-                return;
-            }
             for (var entity : java.util.List.of(creeper, cow, item))
                 ctx.assertTrue(level.getEntity(entity.getUUID()) != null, "Fixture entities must be loaded before transfer");
             creeper.setNoAi(true);
@@ -751,8 +743,7 @@ public final class ShipGameTests
             TransferRecovery.recover(server);
             ctx.assertTrue(player.level() == space && level.getBlockState(controller).isAir(), "Committed transfer must not roll back");
             ctx.succeed();
-        };
-        ctx.runAfterDelay(10, launch[0]);
+        });
     }
 
     private static void assertChest(GameTestHelper ctx, net.minecraft.server.level.ServerLevel level, BlockPos pos, int count)
@@ -841,7 +832,7 @@ public final class ShipGameTests
         var location = ctx.absolutePos(new BlockPos(2048, 0, 2048));
         var base = new BlockPos(location.getX(), 96, location.getZ());
         var controller = ShipTestFixture.build(space, base);
-        keepFixtureLoaded(space, base);
+        keepFixtureLoaded(ctx, space, base);
         var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "water-air-test"), false);
         var player = new net.minecraft.server.level.ServerPlayer(server, server.overworld(), cookie.gameProfile(), cookie.clientInformation());
         var connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
@@ -869,14 +860,14 @@ public final class ShipGameTests
         ship.putLong("base", base.above().asLong());
         ship.putLong("controller", controller.asLong());
         WorldStore.get(server).ships().add(ship);
-        ctx.runAfterDelay(2, () ->
+        TestWaits.afterLoaded(ctx, 2, () ->
         {
             int dryAir = player.getAirSupply();
             for (int x = 3; x <= 5; x++)
                 for (int y = 3; y <= 5; y++)
                     for (int z = 2; z <= 4; z++)
                         space.setBlock(base.offset(x, y, z), Blocks.WATER.defaultBlockState(), 18);
-            ctx.runAfterDelay(10, () ->
+            TestWaits.afterLoaded(ctx, 10, () ->
             {
                 int wetAir = player.getAirSupply();
                 ctx.assertTrue(player.isUnderWater() && wetAir < dryAir, "Sealed cabin must not suppress vanilla underwater air loss");
@@ -896,7 +887,7 @@ public final class ShipGameTests
                 space.setBlock(base.offset(3, 4, 6), Blocks.AIR.defaultBlockState(), 18);
                 // Sample after enough drain ticks to distinguish the old reserve from
                 // vanilla's temporary +4 recovery before our end-of-tick vacuum update.
-                ctx.runAfterDelay(10, () ->
+                TestWaits.afterLoaded(ctx, 10, () ->
                 {
                     ctx.assertTrue(!player.isUnderWater() && player.getAirSupply() < wetAir, "Entering vacuum from water must not restore a stale air reserve (wet=" + wetAir + ", current=" + player.getAirSupply() + ", underwater=" + player.isUnderWater() + ", dimension=" + player.level().dimension() + ", position=" + player.position() + ")");
                     serverRemove(player);

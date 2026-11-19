@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.systems.Turrets;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
 import com.nullandkale.nullspace.worldgen.encounters.SiteDefences;
 
 import java.util.Set;
@@ -90,7 +91,7 @@ public final class DefenceGameTest
     private static CompoundTag ship(ServerLevel level, BlockPos base, String name) throws java.io.IOException
     {
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), name);
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), name);
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
         return ship;
@@ -114,7 +115,7 @@ public final class DefenceGameTest
         var at = base.offset(3, 3, 2);
         force(level, base, true);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Turret test");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Turret test");
         level.setBlock(at, DefenceBlocks.SALVAGE_TURRET.defaultBlockState(), 18);
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
@@ -153,7 +154,7 @@ public final class DefenceGameTest
         var at = base.offset(3, 3, 2);
         force(level, base, true);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Security turret test");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Security turret test");
         level.setBlock(at, DefenceBlocks.SALVAGE_TURRET.defaultBlockState(), 18);
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
@@ -186,7 +187,7 @@ public final class DefenceGameTest
         var at = base.offset(3, 3, 2);
         force(level, base, true);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Repair bay test");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Repair bay test");
         level.setBlock(at, DefenceBlocks.REPAIR_BAY.defaultBlockState(), 18);
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
@@ -248,7 +249,7 @@ public final class DefenceGameTest
         var base = ctx.absolutePos(new BlockPos(520, 6, 520));
         force(level, base, true);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Defended site");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Defended site");
         ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ShipTopology.resolve(level, helm));
         var ship = WorldStore.get(level.getServer()).at(level, helm);
@@ -305,7 +306,7 @@ public final class DefenceGameTest
         var base = ctx.absolutePos(new BlockPos(620, 6, 620));
         force(level, base, true);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Deep site");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Deep site");
         ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ShipTopology.resolve(level, helm));
         var ship = WorldStore.get(level.getServer()).at(level, helm);

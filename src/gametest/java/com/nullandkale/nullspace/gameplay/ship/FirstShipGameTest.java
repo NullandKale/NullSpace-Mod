@@ -14,6 +14,8 @@ import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.util.*;
 
@@ -54,7 +56,7 @@ public final class FirstShipGameTest
         var scan = PadComputers.inspect(level, padComputer);
         ctx.assertTrue(scan.valid(), "Player-built dirt pad and cobble ring are valid");
         String name = "First ship " + width;
-        PadComputers.register(level, padComputer, scan.pad(), name);
+        TestPads.register(level, padComputer, scan.pad(), name);
         for (int y = 0; y < 4; y++)
             for (int x = 0; x < width; x++)
                 for (int z = 0; z < width; z++)
@@ -96,13 +98,13 @@ public final class FirstShipGameTest
         for (int x = (orbit.min().getX() - 2) >> 4; x <= (orbit.max().getX() + 2) >> 4; x++)
             for (int z = -1; z <= 2; z++)
             {
-                space.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, space, x, z);
                 space.getChunk(x, z);
             }
         for (int x = (ground.min().getX() - 2) >> 4; x <= (ground.max().getX() + 2) >> 4; x++)
             for (int z = (ground.min().getZ() - 2) >> 4; z <= (ground.max().getZ() + 2) >> 4; z++)
             {
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
                 level.getChunk(x, z);
             }
         int[] ticks = {0};

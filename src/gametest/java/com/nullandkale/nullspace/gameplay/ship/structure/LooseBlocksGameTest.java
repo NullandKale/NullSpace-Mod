@@ -16,6 +16,7 @@ import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TransferReplay;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 
 import java.util.*;
@@ -274,7 +275,7 @@ public final class LooseBlocksGameTest
         var client = ConcurrentShipActionsGameTest.client(ctx, 91);
         var f = client.fixture();
         client.board();
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var controller = WorldStore.pos(f.ship(), "controller");
             var loose = f.base.offset(30, 10, 30);

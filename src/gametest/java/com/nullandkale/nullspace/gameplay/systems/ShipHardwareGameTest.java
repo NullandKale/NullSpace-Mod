@@ -16,6 +16,7 @@ import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
 
 import java.util.*;
 
@@ -92,7 +93,7 @@ public final class ShipHardwareGameTest
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(220, 6, 220));
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Module performance");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Module performance");
         var scanner = base.offset(2, 3, 1);
         var battery = base.offset(4, 3, 1);
         level.setBlock(scanner, ModBlocks.LOCAL_SCANNER.defaultBlockState(), 18);
@@ -132,7 +133,7 @@ public final class ShipHardwareGameTest
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(120, 6, 120));
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Battery modules");
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Battery modules");
         var at = base.offset(2, 3, 6);
         level.setBlock(at, ModBlocks.BATTERY.defaultBlockState(), 18);
         var battery = (MachineBlockEntity) level.getBlockEntity(at);
@@ -160,15 +161,7 @@ public final class ShipHardwareGameTest
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(160, 6, 160));
         var helm = ShipTestFixture.build(level, base);
-        var pad = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
-        // Every batch of tests is laid out over the same ground and registered pads outlive their tests, so a pad an earlier test left here would make the
-        // registration below refuse (it returns the reason as text, which this used to ignore) and the ship would have no pad below it.
-        var repository = com.nullandkale.nullspace.core.save.PadRepository.get(level.getServer());
-        var kept = new java.util.ArrayList<>(repository.all());
-        kept.removeIf(entry -> entry.dimension().equals(level.dimension().identifier().toString()) && (pad.overlaps(entry.bounds()) || entry.name().equalsIgnoreCase("Monitor wall")));
-        repository.replace(kept);
-        String registered = PadComputers.register(level, base.offset(-1, 1, 3), pad, "Monitor wall");
-        ctx.assertTrue(registered.startsWith("Registered"), "The monitor wall's pad registers: " + registered);
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Monitor wall");
         var camera = base.offset(5, 3, 5);
         level.setBlock(camera, ModBlocks.CAMERA.defaultBlockState(), 18);
         var mounted = ModBlocks.MONITOR.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH);
@@ -271,7 +264,7 @@ public final class ShipHardwareGameTest
         var base = ctx.absolutePos(new BlockPos(80, 6, 80));
         var helm = ShipTestFixture.build(level, base);
         var bounds = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
-        PadComputers.register(level, base.offset(-1, 1, 3), bounds, "Compact hardware");
+        TestPads.register(level, base.offset(-1, 1, 3), bounds, "Compact hardware");
         var ship = ShipTopology.resolve(level, helm);
         SystemsUpgrade.upgrade(level, ship);
         var door = base.offset(3, 3, 0);

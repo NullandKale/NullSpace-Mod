@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
+import com.nullandkale.nullspace.testing.TestPads;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 
 import java.util.*;
@@ -46,7 +47,7 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
                 level.setBlock(computer, PadComputers.BLOCK.defaultBlockState(), 18);
                 try
                 {
-                    PadComputers.register(level, computer, new PadScanner.Pad(0, 25, 90, 0, 31), "Recovery pad");
+                    TestPads.register(level, computer, new PadScanner.Pad(0, 25, 90, 0, 31), "Recovery pad");
                 }
                 catch (java.io.IOException e)
                 {

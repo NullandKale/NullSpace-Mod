@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.UnresolvedJournals;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
 
 import java.util.List;
 
@@ -31,7 +32,7 @@ public final class ShipIntegrityGameTest
             for (int z = base.getZ() >> 4; z <= (base.getZ() >> 4) + 2; z++)
                 level.setChunkForced(x, z, true);
         ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), pad, false);
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), pad, false);
         var controller = base.offset(6, 3, 3);
         SystemsUpgrade.upgrade(level, ShipTopology.resolve(level, controller));
         return controller;

@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.Occupants;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.util.*;
 
@@ -60,7 +61,7 @@ public final class CargoTravelGameTest
         return entity;
     }
 
-    @GameTest(maxTicks = 200)
+    @GameTest(environment = "nullspace:cargo_travel", maxTicks = 200)
     public void leashedAnimalsRidersVehiclesDecorationsLiquidsAndClocksAllTravel(GameTestHelper ctx)
     {
         var level = ctx.getLevel();
@@ -71,7 +72,7 @@ public final class CargoTravelGameTest
         registerPad(ctx, base, name);
         for (int x = base.getX() >> 4; x <= (base.getX() + 7) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 7) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
 
         var player = ctx.makeMockServerPlayerInLevel();
         player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
@@ -95,10 +96,10 @@ public final class CargoTravelGameTest
         int slot = 0;
         while (!TransferLocks.spaceSlotFree(server, slot))
             slot++;
-        server.getLevel(TravelService.SPACE).setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);
+        TestWaits.hold(ctx, server.getLevel(TravelService.SPACE), (slot * TravelService.SPACE_SPACING) >> 4, 0);
         var occupants = List.of(trader, llama, cow, boat, pig, stand);
         var ids = occupants.stream().map(Entity::getUUID).toList();
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var scan = ShipService.inspect(level, controller);
             var cargo = Occupants.inspect(level, scan.scan()).cargo();

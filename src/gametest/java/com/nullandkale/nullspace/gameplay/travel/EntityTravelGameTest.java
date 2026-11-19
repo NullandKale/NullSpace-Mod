@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYard;
 import com.nullandkale.nullspace.gameplay.shipyard.ShipYardService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 
 import java.util.*;
@@ -427,7 +428,7 @@ public final class EntityTravelGameTest
     public void pigsLeashedToAFencePostTravelWithTheShip(GameTestHelper ctx)
     {
         var make = referenceBed(ctx, 0);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var bed = make.get();
             var level = bed.level();
@@ -447,7 +448,7 @@ public final class EntityTravelGameTest
     public void everyKindOfLeashSurvivesALaunchAndALanding(GameTestHelper ctx)
     {
         var make = catalogBed(ctx, 1, "rivet_ranger");
-        ctx.runAfterDelay(30, () ->
+        TestWaits.afterLoaded(ctx, 30, () ->
         {
             var bed = make.get();
             var level = bed.level();
@@ -506,7 +507,7 @@ public final class EntityTravelGameTest
     public void pigsOnAFencePostComeBackWhenALaunchIsRolledBack(GameTestHelper ctx)
     {
         var make = referenceBed(ctx, 2);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var bed = make.get();
             var level = bed.level();
@@ -546,7 +547,7 @@ public final class EntityTravelGameTest
             var result = TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(level, bed.helm()));
             if (result.outcome() == TravelService.Outcome.WAITING)
             {
-                ctx.runAfterDelay(2, () -> rollBack(ctx, bed, fence, seen, stages, index, problems));
+                TestWaits.afterLoaded(ctx, 2, () -> rollBack(ctx, bed, fence, seen, stages, index, problems));
                 return;
             }
             problems.add("The injected failure at " + stage + " did not stop the launch: " + result.outcome() + " " + result.message());
@@ -560,7 +561,7 @@ public final class EntityTravelGameTest
             TravelService.failureInjector = at ->
             {};
         }
-        ctx.runAfterDelay(2, () ->
+        TestWaits.afterLoaded(ctx, 2, () ->
         {
             problems.addAll(compare("After a failure at " + stage, level, bed.space(), bed.ship(), seen, 0));
             if (LeashFenceKnotEntity.getKnot(level, fence).isEmpty())
@@ -586,7 +587,7 @@ public final class EntityTravelGameTest
         var space = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
         holdOrbit(space, 0, true);
         holdOrbit(space, 4, true);
-        ctx.runAfterDelay(120, () ->
+        TestWaits.afterLoaded(ctx, 120, () ->
         {
             animalsOnEveryDesign(ctx, sites);
             holdOrbit(space, 0, false);
@@ -671,7 +672,7 @@ public final class EntityTravelGameTest
     public void oneOfEveryEntityTypeTravelsOnTheLargestShip(GameTestHelper ctx)
     {
         var make = catalogBed(ctx, 30, "rivet_ranger");
-        ctx.runAfterDelay(30, () ->
+        TestWaits.afterLoaded(ctx, 30, () ->
         {
             var bed = make.get();
             var level = bed.level();

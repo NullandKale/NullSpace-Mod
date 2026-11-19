@@ -10,6 +10,8 @@ import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.testing.TestZones;
 
 import java.util.*;
@@ -135,7 +137,7 @@ public final class ShipStorageGameTest
                 for (int z = -1; z <= 32; z++)
                     surface.setBlock(padBase.offset(x, 0, z), (x == -1 || z == -1 || x == 26 || z == 32 ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
             surface.setBlock(computer, PadComputers.BLOCK.defaultBlockState(), 18);
-            PadComputers.register(surface, computer, new PadScanner.Pad(padBase.getX(), padBase.getX() + 25, padBase.getY(), padBase.getZ(), padBase.getZ() + 31), "Recall " + index);
+            TestPads.register(surface, computer, new PadScanner.Pad(padBase.getX(), padBase.getX() + 25, padBase.getY(), padBase.getZ(), padBase.getZ() + 31), "Recall " + index);
             var ship = StationGameTest.fixture(space, base, true);
             ship.putDouble("simX", 10000000 + index * 1000);
             ship.putDouble("simZ", 10000000);
@@ -148,7 +150,7 @@ public final class ShipStorageGameTest
                 var at = level == surface ? padBase : base;
                 for (int x = -16; x < 48; x += 16)
                     for (int z = -16; z < 48; z += 16)
-                        level.setChunkForced(at.offset(x, 0, z).getX() >> 4, at.offset(x, 0, z).getZ() >> 4, true);
+                        TestWaits.hold(ctx, level, at.offset(x, 0, z).getX() >> 4, at.offset(x, 0, z).getZ() >> 4);
             }
         }
 

@@ -10,6 +10,8 @@ import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.systems.*;
 import com.nullandkale.nullspace.model.flight.ShipHeading;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.worldgen.ships.ShipBlueprints;
 
 import java.util.*;
@@ -41,7 +43,7 @@ public final class LandingRotationGameTest
         };
         // Deliberately point the computer independently of its ring edge.
         level.setBlock(at, PadComputers.BLOCK.defaultBlockState().setValue(PadComputerBlock.FACING, Direction.NORTH), 18);
-        PadComputers.register(level, at, new PadScanner.Pad(base.getX(), base.getX() + width - 1, base.getY(), base.getZ(), base.getZ() + depth - 1), name, false);
+        TestPads.register(level, at, new PadScanner.Pad(base.getX(), base.getX() + width - 1, base.getY(), base.getZ(), base.getZ() + depth - 1), name, false);
         return PadRegistry.read(level.getServer()).stream().filter(p -> p.name().equals(name)).findFirst().orElseThrow();
     }
 
@@ -78,7 +80,7 @@ public final class LandingRotationGameTest
     {
         var source = EntityTravelGameTest.referenceBed(ctx, slot);
         var destination = pad(ctx.getLevel(), new BlockPos(370000 + slot * 64, 80, 360000), 8, 8, side, "Rotate " + side);
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var bed = source.get();
             var ship = bed.ship();
@@ -154,14 +156,14 @@ public final class LandingRotationGameTest
     {
         var fixture = EntityTravelGameTest.referenceBed(ctx, 176);
         var target = pad(ctx.getLevel(), new BlockPos(398000, 80, 360000), 8, 8, Direction.EAST, "Rotated rescue target");
-        ctx.runAfterDelay(20, () -> whenPassengersLoaded(ctx, fixture.get(), false, 0, () ->
+        TestWaits.afterLoaded(ctx, 20, () -> whenPassengersLoaded(ctx, fixture.get(), false, 0, () ->
         {
             var bed = fixture.get();
             var server = bed.level().getServer();
             var store = WorldStore.get(server);
             completed(ctx, TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(bed.level(), bed.helm())));
             EntityTravelGameTest.holdOrbit(bed.space(), WorldStore.pos(bed.ship(), "base").getX() / TravelService.SPACE_SPACING, true);
-            ctx.runAfterDelay(10, () -> whenPassengersLoaded(ctx, bed, true, 0, () -> restoreLanding(ctx, bed, target)));
+            TestWaits.afterLoaded(ctx, 10, () -> whenPassengersLoaded(ctx, bed, true, 0, () -> restoreLanding(ctx, bed, target)));
         }));
     }
 
@@ -181,7 +183,7 @@ public final class LandingRotationGameTest
         if (ready || waited >= 200)
             then.run();
         else
-            ctx.runAfterDelay(2, () -> whenPassengersLoaded(ctx, bed, inSpace, waited + 2, then));
+            TestWaits.afterLoaded(ctx, 2, () -> whenPassengersLoaded(ctx, bed, inSpace, waited + 2, then));
     }
 
     private static void restoreLanding(GameTestHelper ctx, EntityTravelGameTest.Bed bed, PadRegistry.Pad target)
@@ -245,14 +247,14 @@ public final class LandingRotationGameTest
         ctx.succeed();
     }
 
-    @GameTest(maxTicks = 500)
+    @GameTest(environment = "nullspace:landing_fit", maxTicks = 500)
     public void rectangularHullFitsAfterTurningAndWrongOrientationRefusesBeforeMutation(GameTestHelper ctx) throws Exception
     {
         var fixture = EntityTravelGameTest.catalogBed(ctx, 175, "rivet_bolt");
         var preset = ShipBlueprints.get("rivet_bolt");
         var wrong = pad(ctx.getLevel(), new BlockPos(390000, 80, 360000), preset.depth(), preset.width(), Direction.NORTH, "Wrong rotation footprint");
         var right = pad(ctx.getLevel(), new BlockPos(390128, 80, 360000), preset.depth(), preset.width(), Direction.EAST, "Swapped rotation footprint");
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var bed = fixture.get();
             var stand = bed.floor().getFirst();

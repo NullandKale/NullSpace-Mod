@@ -11,6 +11,8 @@ import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.util.*;
 
@@ -231,7 +233,7 @@ public final class BlockSupportGameTest
         ctx.succeed();
     }
 
-    @GameTest(maxTicks = 200)
+    @GameTest(environment = "nullspace:block_support_travel", maxTicks = 200)
     public void workshopCargoAndStoredBeesSurviveJournalRecoveryAndTravel(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
@@ -241,7 +243,7 @@ public final class BlockSupportGameTest
         var pad = new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7);
         String name = "Workshop " + UUID.randomUUID().toString().substring(0, 8);
         level.setBlock(base.offset(3, 1, -1), PadComputers.BLOCK.defaultBlockState(), FLAGS);
-        PadComputers.register(level, base.offset(3, 1, -1), pad, name);
+        TestPads.register(level, base.offset(3, 1, -1), pad, name);
         var machines = List.of(Blocks.HOPPER, Blocks.DISPENSER, Blocks.DROPPER, Blocks.BREWING_STAND, Blocks.CRAFTER, Blocks.LECTERN, Blocks.DECORATED_POT, Blocks.CHISELED_BOOKSHELF, Blocks.JUKEBOX, Blocks.ENCHANTING_TABLE, Blocks.BEEHIVE);
         int[][] offsets = {{1, 3}, {1, 4}, {1, 5}, {2, 5}, {3, 5}, {4, 5}, {5, 5}, {1, 1}, {2, 1}, {4, 1}, {5, 1}};
         var positions = new ArrayList<BlockPos>();
@@ -261,14 +263,14 @@ public final class BlockSupportGameTest
         load(level, hive, hiveData);
         for (int x = base.getX() >> 4; x <= (base.getX() + 7) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 7) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
         int slot = 0;
         while (!TransferLocks.spaceSlotFree(server, slot))
             slot++;
-        server.getLevel(TravelService.SPACE).setChunkForced((slot * TravelService.SPACE_SPACING) >> 4, 0, true);
+        TestWaits.hold(ctx, server.getLevel(TravelService.SPACE), (slot * TravelService.SPACE_SPACING) >> 4, 0);
         var player = ctx.makeMockServerPlayerInLevel();
         player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var previous = TravelService.failureInjector;
             try

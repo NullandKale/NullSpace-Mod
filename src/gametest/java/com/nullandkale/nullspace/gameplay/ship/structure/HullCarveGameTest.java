@@ -9,6 +9,8 @@ import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.TransferRecovery;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestPads;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.util.Set;
 
@@ -27,9 +29,9 @@ public final class HullCarveGameTest
         var base = new BlockPos(10368, 96, 10368);
         for (int x = base.getX() >> 4; x <= (base.getX() + 31) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 31) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
         var helm = ShipTestFixture.build(level, base);
-        PadComputers.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Carved hull", false);
+        TestPads.register(level, base.offset(-1, 1, 3), new PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Carved hull", false);
         for (var at : BlockPos.betweenClosed(base.offset(6, 6, 6), base.offset(7, 7, 7)))
             level.setBlock(at, Blocks.STONE.defaultBlockState(), 18);
         ShipService.inspect(level, helm);

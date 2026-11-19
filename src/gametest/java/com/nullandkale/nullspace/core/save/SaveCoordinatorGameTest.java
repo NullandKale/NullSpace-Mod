@@ -1,5 +1,7 @@
 package com.nullandkale.nullspace.core.save;
 
+import com.nullandkale.nullspace.testing.TestWaits;
+
 import java.nio.file.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,7 +32,7 @@ public final class SaveCoordinatorGameTest
         var c = b.offset(64, 0, 0);
         for (var at : java.util.List.of(a, b, c))
         {
-            level.setChunkForced(at.getX() >> 4, at.getZ() >> 4, true);
+            TestWaits.hold(ctx, level, at.getX() >> 4, at.getZ() >> 4);
             level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18);
         }
         long before = store.saveNumber();
@@ -98,7 +100,7 @@ public final class SaveCoordinatorGameTest
         }
         com.nullandkale.nullspace.gameplay.travel.TransferRecovery.recover(server);
         ctx.assertTrue(level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), "General recovery does not roll back a live batch awaiting its commit retry");
-        ctx.runAfterDelay(35, () ->
+        TestWaits.afterLoaded(ctx, 35, () ->
         {
             ctx.assertTrue(!com.nullandkale.nullspace.gameplay.travel.TransferLocks.locked(level, c), "The ordinary save phase flushes a queued batch without another operator action");
             ctx.assertTrue(level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), "The timer commits the placed hull rather than rolling it back");

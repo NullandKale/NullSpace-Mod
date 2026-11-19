@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.CabinPaths;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.*;
@@ -16,7 +17,7 @@ import net.minecraft.world.level.block.*;
 
 public final class SphereGameTest
 {
-    @GameTest(maxTicks = 240)
+    @GameTest(environment = "nullspace:sphere_travel", maxTicks = 240)
     public void sphereDecksRoomsPressureAndFullSizeTravel(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
@@ -76,7 +77,7 @@ public final class SphereGameTest
         player.getInventory().add(new ItemStack(Items.EMERALD, 11));
         for (int x = base.getX() >> 4; x <= (base.getX() + 79) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 31) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
         var space = server.getLevel(TravelService.SPACE);
         int free = 0;
         for (int slot = 0; free < 3; slot++)
@@ -86,11 +87,11 @@ public final class SphereGameTest
             {
                 for (int dx = 0; dx <= 1; dx++)
                     for (int dz = 0; dz <= 1; dz++)
-                        space.setChunkForced((x >> 4) + dx, dz, true);
+                        TestWaits.hold(ctx, space, (x >> 4) + dx, dz);
                 free++;
             }
         }
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             TravelService.transfer(player, controller, "", ShipService.preflight(level, controller));
             ctx.assertTrue(player.level() == space, "Full 32-cube sphere must launch");

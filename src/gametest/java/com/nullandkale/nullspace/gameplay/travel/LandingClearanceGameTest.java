@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.gameplay.travel;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -15,7 +16,7 @@ public final class LandingClearanceGameTest
     public void interruptedArrivalRestoresDisplacedFluidAndTheOriginalShip(GameTestHelper ctx)
     {
         var fixture = EntityTravelGameTest.referenceBed(ctx, 91);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var bed = fixture.get();
             var base = WorldStore.pos(bed.ship(), "base");
@@ -55,11 +56,11 @@ public final class LandingClearanceGameTest
         });
     }
 
-    @GameTest(maxTicks = 200)
+    @GameTest(environment = "nullspace:landing_loot", maxTicks = 200)
     public void droppedLootAndLavaPermitArrivalButRemainRealObjectsAndLaunchHazards(GameTestHelper ctx)
     {
         var fixture = EntityTravelGameTest.referenceBed(ctx, 90);
-        ctx.runAfterDelay(10, () ->
+        TestWaits.afterLoaded(ctx, 10, () ->
         {
             var bed = fixture.get();
             var base = WorldStore.pos(bed.ship(), "base");

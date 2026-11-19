@@ -11,6 +11,7 @@ import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.testing.ShipTestFixture;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
 import com.nullandkale.nullspace.ui.terminal.TerminalPackets;
 
@@ -270,7 +271,7 @@ public final class ShipSystemsGameTest
         player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() - .5);
         for (int x = base.getX() >> 4; x <= (base.getX() + 31) >> 4; x++)
             for (int z = base.getZ() >> 4; z <= (base.getZ() + 31) >> 4; z++)
-                level.setChunkForced(x, z, true);
+                TestWaits.hold(ctx, level, x, z);
         var space = server.getLevel(TravelService.SPACE);
         int free = 0;
         for (int slot = 0; free < 3; slot++)
@@ -280,11 +281,11 @@ public final class ShipSystemsGameTest
             {
                 for (int dx = 0; dx <= 1; dx++)
                     for (int dz = 0; dz <= 1; dz++)
-                        space.setChunkForced((x >> 4) + dx, dz, true);
+                        TestWaits.hold(ctx, space, (x >> 4) + dx, dz);
                 free++;
             }
         }
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             var before = WorldStore.get(server).at(level, helm);
             var systems = before.getCompoundOrEmpty("systems").copy();
@@ -320,12 +321,12 @@ public final class ShipSystemsGameTest
             }
             ctx.assertTrue(stale, "Stale systems revision must be rejected");
             SystemsConsole.action(player, console, ComputerTerminal.Action.OPEN_DOORS);
-            ctx.runAfterDelay(16, () ->
+            TestWaits.afterLoaded(ctx, 16, () ->
             {
                 var doors = ShipTopology.discover(level, WorldStore.get(server).at(level, helm)).stream().filter(p -> level.getBlockState(p).getBlock() instanceof DoorBlock && level.getBlockState(p).getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER).toList();
                 ctx.assertTrue(doors.size() == 12 && doors.stream().allMatch(p -> level.getBlockState(p).getValue(DoorBlock.OPEN)), "Powered controller must open ten room doors and both airlock doors");
                 SystemsConsole.action(player, console, ComputerTerminal.Action.CLOSE_DOORS);
-                ctx.runAfterDelay(16, () ->
+                TestWaits.afterLoaded(ctx, 16, () ->
                 {
                     ctx.assertTrue(doors.stream().noneMatch(p -> level.getBlockState(p).getValue(DoorBlock.OPEN)), "Close all must close real doors");
                     ctx.assertTrue(HullScan.validDoor(level, doors.getFirst()), "Closed real door must retain pressure seal");
@@ -335,18 +336,18 @@ public final class ShipSystemsGameTest
                     var shortId = door.getStringOr("id", "").substring(0, 8);
                     SystemsConsole.action(player, console, ComputerTerminal.Action.CONFIGURE, "group lock add " + shortId);
                     SystemsConsole.action(player, console, ComputerTerminal.Action.CONFIGURE, "doors lock open");
-                    ctx.runAfterDelay(2, () ->
+                    TestWaits.afterLoaded(ctx, 2, () ->
                     {
                         var selected = WorldStore.pos(vessel, "base").offset(BlockPos.of(door.getLongOr("position", 0)));
                         ctx.assertTrue(level.getBlockState(selected).getValue(DoorBlock.OPEN) && doors.stream().filter(p -> level.getBlockState(p).getValue(DoorBlock.OPEN)).count() == 1, "Named group must move only its stable door ID");
                         SystemsConsole.action(player, console, ComputerTerminal.Action.CLOSE_DOORS);
                         var session2 = ComputerTerminal.issue(player, console, "", "systems", Integer.toString(ShipSystems.revision(level, vessel)));
                         ComputerTerminal.close(player, session2.session());
-                        ctx.runAfterDelay(2, () ->
+                        TestWaits.afterLoaded(ctx, 2, () ->
                         {
                             ctx.assertTrue(level.getBlockState(selected).getValue(DoorBlock.OPEN), "Closing the terminal cancels queued door work before it can" + " resume");
                             SystemsConsole.action(player, console, ComputerTerminal.Action.CONFIGURE, "power controls 0");
-                            ctx.runAfterDelay(2, () ->
+                            TestWaits.afterLoaded(ctx, 2, () ->
                             {
                                 boolean blackout = false;
                                 try
@@ -365,7 +366,7 @@ public final class ShipSystemsGameTest
                                 player.teleportTo(base.getX() + 18.5, base.getY() + 6, base.getZ() + 19.5);
                                 EquipmentPanel.equipmentAction(player, base.offset(14, 6, 21), ComputerTerminal.Action.DEVICE_RESET);
                                 player.teleportTo(helm.getX() + .5, helm.getY(), helm.getZ() - .5);
-                                ctx.runAfterDelay(2, () ->
+                                TestWaits.afterLoaded(ctx, 2, () ->
                                 {
                                     ctx.assertTrue(ShipSystems.power(level, vessel, PowerBus.System.CONTROLS) == 1 && SystemsConsole.summary(level, vessel).contains("Generation 16"), "Local supply reset must recover an intentionally" + " unpowered console");
                                     level.setBlock(base.offset(15, 6, 22), ModBlocks.BATTERY.defaultBlockState(), 18);
