@@ -4,7 +4,6 @@ import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
-import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.model.air.SpatialAir;
 import com.nullandkale.nullspace.model.power.PowerBus;
@@ -15,7 +14,6 @@ import net.minecraft.core.*;
 import net.minecraft.nbt.*;
 import net.minecraft.server.level.*;
 import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.BlockState;
 
 import static com.nullandkale.nullspace.gameplay.systems.ShipSystems.*;
 
@@ -46,16 +44,16 @@ final class AirSystem
                 r.seals = AirStore.readSeals(s, grid).orElse(null);
             if (r.seals == null)
             {
-                r.seals = new boolean[grid.cells()];
-                scan(level, ship, grid, base, r.seals);
+                // A hab that was being built has been scanned already, a few milliseconds a tick (SealScan); only its doors are looked at again.
+                var ready = SealScan.take(ship.getStringOr("id", ""));
+                r.seals = ready != null && ready.matches(base, grid) ? ready.settled() : scan(level, ship, grid, base, r);
                 AirStore.writeSeals(s, r.seals);
             }
             seals = r.seals;
         }
         else
         {
-            seals = new boolean[grid.cells()];
-            scan(level, ship, grid, base, seals);
+            seals = scan(level, ship, grid, base, r);
         }
         r.seals = seals;
         long flood = System.nanoTime();
@@ -68,44 +66,13 @@ final class AirSystem
         AirStore.write(s, r.air, grid);
     }
 
-    /**
-     * Finds which cells of the grid seal, a chunk section at a time: a section with only air is skipped, and the blocks of the others are read from the
-     * section itself, whose block states are looked up once each. Only a door goes through {@link HullScan#seals}, since whether it seals depends on its
-     * neighbours and its docking mate. A buried hab is mostly rock, so this reads a few cells for each block a full lookup would.
-     */
-    private static void scan(ServerLevel level, CompoundTag ship, Atmosphere.Grid grid, BlockPos base, boolean[] seals)
+    /** Finds which cells of the grid seal, all at once on the calling thread: what an ordinary vessel does, and a large one that was not scanned as it was built. */
+    private static boolean[] scan(ServerLevel level, CompoundTag ship, Atmosphere.Grid grid, BlockPos base, ShipRuntime r)
     {
-        var bounds = WorldStore.bounds(ship);
-        var solid = new HashMap<BlockState, Boolean>();
-        var at = new BlockPos.MutableBlockPos();
-        int x1 = base.getX() + grid.width() - 1, y1 = base.getY() + grid.height() - 1, z1 = base.getZ() + grid.depth() - 1;
-        for (int cx = base.getX() >> 4; cx <= x1 >> 4; cx++)
-            for (int cz = base.getZ() >> 4; cz <= z1 >> 4; cz++)
-            {
-                var chunk = level.getChunk(cx, cz);
-                for (int sy = base.getY() >> 4; sy <= y1 >> 4; sy++)
-                {
-                    int index = chunk.getSectionIndex(sy << 4);
-                    if (index < 0 || index >= chunk.getSectionsCount())
-                        continue;
-                    var section = chunk.getSection(index);
-                    if (section.hasOnlyAir())
-                        continue;
-                    for (int y = Math.max(base.getY(), sy << 4); y <= Math.min(y1, (sy << 4) + 15); y++)
-                        for (int z = Math.max(base.getZ(), cz << 4); z <= Math.min(z1, (cz << 4) + 15); z++)
-                            for (int x = Math.max(base.getX(), cx << 4); x <= Math.min(x1, (cx << 4) + 15); x++)
-                            {
-                                var state = section.getBlockState(x & 15, y & 15, z & 15);
-                                if (state.isAir())
-                                    continue;
-                                at.set(x, y, z);
-                                if (!bounds.contains(at))
-                                    continue;
-                                boolean sealed = ShipDoors.isDoor(state) || state.getBlock() instanceof DoorBlock ? HullScan.seals(level, at) : solid.computeIfAbsent(state, st -> st.isCollisionShapeFullBlock(level, at.immutable()) && !(st.getBlock() instanceof LeavesBlock));
-                                seals[grid.index(x - base.getX(), y - base.getY(), z - base.getZ())] = sealed;
-                            }
-                }
-            }
+        r.sealScans++;
+        var scan = new SealScan(level, base, grid, WorldStore.bounds(ship));
+        scan.step(Long.MAX_VALUE);
+        return scan.seals();
     }
 
     /** What the worker that works the air out again gives back: the rooms, and the air with the rooms' new cells filled in. */

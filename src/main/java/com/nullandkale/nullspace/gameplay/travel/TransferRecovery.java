@@ -54,8 +54,13 @@ public final class TransferRecovery
 
     static void checkpoint(Path file, CompoundTag journal, String stage)
     {
+        checkpoint(file, journal, stage, true);
+    }
+
+    static void checkpoint(Path file, CompoundTag journal, String stage, boolean compare)
+    {
         journal.putString("stage", stage);
-        WorldStore.write(file, journal);
+        WorldStore.write(file, journal, compare);
         TravelService.failureInjector.accept(stage);
     }
 

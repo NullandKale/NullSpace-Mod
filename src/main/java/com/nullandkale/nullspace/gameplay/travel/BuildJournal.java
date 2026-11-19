@@ -118,6 +118,11 @@ public final class BuildJournal
 
     private static Job begin(ServerLevel level, String operation, Collection<String> ships, HullScan.Bounds region, Set<BlockPos> positions)
     {
+        return begin(level, operation, ships, region, positions, true);
+    }
+
+    private static Job begin(ServerLevel level, String operation, Collection<String> ships, HullScan.Bounds region, Set<BlockPos> positions, boolean prepare)
+    {
         var store = WorldStore.get(level.getServer());
         if (TransferLocks.areaBusy(level, region))
             throw new IllegalArgumentException("A journal or travel operation reserves this build area");
@@ -145,9 +150,8 @@ public final class BuildJournal
             journal.put("ticks", JournalTicks.capture(level, TransferReplay.positions(saved, min)));
             journal.put("records", new ListTag());
             var job = new Job(level, Journals.file(store.directory, journal), journal);
-            TransferRecovery.checkpoint(job.file, journal, "PREPARED");
-            ServerContext.get(level.getServer()).service(ACTIVE, HashSet::new).add(job.file);
-            job.lock();
+            if (prepare)
+                job.prepare();
             return job;
         }
         catch (java.io.IOException error)
@@ -226,6 +230,8 @@ public final class BuildJournal
         private final List<Runnable> savedCallbacks = new ArrayList<>();
         private final List<Runnable> committedCallbacks = new ArrayList<>();
         private boolean finished;
+        /** True from the moment the journal in memory differs from the file until the file has been written. */
+        private boolean unwritten;
 
         private Job(ServerLevel level, Path file, CompoundTag journal)
         {
@@ -252,7 +258,7 @@ public final class BuildJournal
         public void annotate(String key, Tag value)
         {
             journal.put(key, value.copy());
-            WorldStore.write(file, journal);
+            WorldStore.write(file, journal, false);
         }
 
         /** Saves actual entities before a rescue or removal changes their authority or creates replacements. */
@@ -290,11 +296,29 @@ public final class BuildJournal
             changes.put("ids", affectedIds);
             changes.put("before", saved);
             journal.put("entityChanges", changes);
-            WorldStore.write(file, journal);
+            WorldStore.write(file, journal, false);
         }
 
         /** Adds a second, separately captured footprint without scanning the empty distance between storage slots. */
         public void include(ServerLevel level, Collection<BlockPos> positions)
+        {
+            var unique = uncaptured(level, positions);
+            if (unique.isEmpty())
+                return;
+            UnresolvedJournals.remove(server, journal.getStringOr("id", ""));
+            try
+            {
+                addRegion(level, unique);
+                WorldStore.write(file, journal, false);
+            }
+            finally
+            {
+                lock();
+            }
+        }
+
+        /** The positions that no footprint of this journal holds yet. */
+        private Set<BlockPos> uncaptured(ServerLevel level, Collection<BlockPos> positions)
         {
             var unique = new HashSet<>(positions);
             var existing = new ArrayList<CompoundTag>();
@@ -303,39 +327,42 @@ public final class BuildJournal
             for (var region : existing)
                 if (region.getStringOr("source", "").equals(level.dimension().identifier().toString()))
                     unique.removeAll(TransferReplay.positions(region.getCompoundOrEmpty("template"), WorldStore.pos(region, "min")));
-            if (unique.isEmpty())
-                return;
+            return unique;
+        }
+
+        /** Saves the blocks now at {@code unique} in the journal, without writing it. */
+        private void addRegion(ServerLevel level, Set<BlockPos> unique)
+        {
             var min = new BlockPos(unique.stream().mapToInt(BlockPos::getX).min().orElseThrow(), unique.stream().mapToInt(BlockPos::getY).min().orElseThrow(), unique.stream().mapToInt(BlockPos::getZ).min().orElseThrow());
             var max = new BlockPos(unique.stream().mapToInt(BlockPos::getX).max().orElseThrow(), unique.stream().mapToInt(BlockPos::getY).max().orElseThrow(), unique.stream().mapToInt(BlockPos::getZ).max().orElseThrow());
-            UnresolvedJournals.remove(server, journal.getStringOr("id", ""));
-            try
+            if (TransferLocks.areaBusy(level, new HullScan.Bounds(min, max)))
+                throw new IllegalArgumentException("A journal or travel operation reserves this build area");
+            var template = new StructureTemplate();
+            template.fillFromWorld(level, min, new Vec3i(max.getX() - min.getX() + 1, max.getY() - min.getY() + 1, max.getZ() - min.getZ() + 1), false, List.of());
+            var saved = template.save(new CompoundTag());
+            var captured = unique;
+            saved.getListOrEmpty("blocks").removeIf(t ->
             {
-                if (TransferLocks.areaBusy(level, new HullScan.Bounds(min, max)))
-                    throw new IllegalArgumentException("A journal or travel operation reserves this build area");
-                var template = new StructureTemplate();
-                template.fillFromWorld(level, min, new Vec3i(max.getX() - min.getX() + 1, max.getY() - min.getY() + 1, max.getZ() - min.getZ() + 1), false, List.of());
-                var saved = template.save(new CompoundTag());
-                var captured = unique;
-                saved.getListOrEmpty("blocks").removeIf(t ->
-                {
-                    var coords = ((CompoundTag) t).getListOrEmpty("pos");
-                    return !captured.contains(min.offset(coords.getIntOr(0, 0), coords.getIntOr(1, 0), coords.getIntOr(2, 0)));
-                });
-                var region = new CompoundTag();
-                region.putString("source", level.dimension().identifier().toString());
-                region.putLong("min", min.asLong());
-                region.putLong("max", max.asLong());
-                region.put("template", saved);
-                region.put("ticks", JournalTicks.capture(level, TransferReplay.positions(saved, min)));
-                if (!journal.contains("regions"))
-                    journal.put("regions", new ListTag());
-                journal.getListOrEmpty("regions").add(region);
-                WorldStore.write(file, journal);
-            }
-            finally
-            {
-                lock();
-            }
+                var coords = ((CompoundTag) t).getListOrEmpty("pos");
+                return !captured.contains(min.offset(coords.getIntOr(0, 0), coords.getIntOr(1, 0), coords.getIntOr(2, 0)));
+            });
+            var region = new CompoundTag();
+            region.putString("source", level.dimension().identifier().toString());
+            region.putLong("min", min.asLong());
+            region.putLong("max", max.asLong());
+            region.put("template", saved);
+            region.put("ticks", JournalTicks.capture(level, TransferReplay.positions(saved, min)));
+            if (!journal.contains("regions"))
+                journal.put("regions", new ListTag());
+            journal.getListOrEmpty("regions").add(region);
+        }
+
+        /** Makes the journal durable and locks its area: a build that has begun is recoverable from here. */
+        private void prepare()
+        {
+            TransferRecovery.checkpoint(file, journal, "PREPARED", false);
+            ServerContext.get(server).service(ACTIVE, HashSet::new).add(file);
+            lock();
         }
 
         private void lock()
@@ -392,14 +419,23 @@ public final class BuildJournal
                 var latest = address.value(after);
                 return new StoreRecords.Entry(entry.top(), entry.kind(), entry.key(), entry.before(), latest == null ? null : latest.copy());
             });
-            journal.put("records", StoreRecords.encode(entries));
+            var encodedRecords = StoreRecords.encode(entries);
             var shipIds = new LinkedHashSet<String>();
             journal.getListOrEmpty("ships").forEach(t -> t.asString().ifPresent(shipIds::add));
             shipIds.addAll(StoreRecords.shipIds(entries));
             var ships = new ListTag();
             shipIds.forEach(id -> ships.add(StringTag.valueOf(id)));
+            // Most steps of a long build change no store record (the blocks go in, the store does not change), and the journal holds every block it saved:
+            // rewriting it, reading it back and comparing it on every tick was most of the server thread's time while a hab was built. A write that failed
+            // leaves the journal marked unwritten, so the next step writes it again.
+            boolean same = !unwritten && encodedRecords.equals(journal.get("records")) && ships.equals(journal.get("ships"));
+            journal.put("records", encodedRecords);
             journal.put("ships", ships);
-            WorldStore.write(file, journal);
+            if (same)
+                return;
+            unwritten = true;
+            WorldStore.write(file, journal, false);
+            unwritten = false;
         }
 
         public <T> T step(Supplier<T> build)
@@ -447,7 +483,7 @@ public final class BuildJournal
                 return;
             try
             {
-                TransferRecovery.checkpoint(file, journal, "PLACED");
+                TransferRecovery.checkpoint(file, journal, "PLACED", false);
                 if (batch.jobs.isEmpty())
                     batch.dueTick = server.getTickCount() + 20L;
                 batch.latestQueuedTick = server.getTickCount();
@@ -496,7 +532,7 @@ public final class BuildJournal
             for (var callback : callbacks)
                 callback.run();
             journal.putLong("saveNumber", store.saveNumberCovering());
-            TransferRecovery.checkpoint(file, journal, "COMMITTED");
+            TransferRecovery.checkpoint(file, journal, "COMMITTED", false);
             var committed = List.copyOf(committedCallbacks);
             committedCallbacks.clear();
             for (var callback : committed)

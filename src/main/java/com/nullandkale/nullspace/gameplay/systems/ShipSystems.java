@@ -252,6 +252,12 @@ public final class ShipSystems
         return runtime(level, ship).airRebuilds;
     }
 
+    /** How many times this vessel's seals were scanned all at once on the calling thread; a hab built by the terrain tick is scanned beforehand, a few milliseconds a tick (SealScan). */
+    public static int sealScans(ServerLevel level, CompoundTag ship)
+    {
+        return runtime(level, ship).sealScans;
+    }
+
     static void rebuild(ServerLevel level, CompoundTag ship, ShipRuntime r, boolean initialize)
     {
         r.rebuiltAt = r.devicesAt = level.getServer().getTickCount();

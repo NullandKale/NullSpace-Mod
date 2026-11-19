@@ -29,6 +29,8 @@ final class ShipRuntime
     boolean airDirty;
     /** How many times the air was worked out in full on the server thread (read by the tests). */
     int airRebuilds;
+    /** How many times the seals of this vessel were scanned all at once on the calling thread; a hab scanned as it was built has none. */
+    int sealScans;
     long airAt = -1_000_000;
     java.util.concurrent.CompletableFuture<AirSystem.Flooded> pending;
     Set<BlockPos> blocks = Set.of();

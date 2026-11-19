@@ -4,6 +4,8 @@ import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.ship.ShipIntegrity;
+import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
+import com.nullandkale.nullspace.gameplay.systems.SealScan;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.model.air.Atmosphere;
 import com.nullandkale.nullspace.worldgen.stations.HabStructure;
@@ -45,6 +47,14 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class HabVessels
 {
     private static final Map<String, long[]> OWN = new ConcurrentHashMap<>();
+    /** The writes of hab block lists that were handed to a worker, until they are done (see {@link #saved}). */
+    private static final Map<String, java.util.concurrent.CompletableFuture<Void>> SAVING = new ConcurrentHashMap<>();
+    private static final java.util.concurrent.ExecutorService IO = java.util.concurrent.Executors.newSingleThreadExecutor(task ->
+    {
+        var thread = new Thread(task, "nullspace-hab-save");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     /** True for a vessel that is a placed hab (or a gallery station) and knows its own blocks. */
     public static boolean is(CompoundTag ship)
@@ -58,8 +68,12 @@ public final class HabVessels
         return UUID.nameUUIDFromBytes(("nullspace:hab:" + level.dimension().identifier() + ":" + origin.asLong()).getBytes(StandardCharsets.UTF_8)).toString();
     }
 
-    /** Registers a built hab, its controller the Station Core in its controller room (or the hall's when it has none). */
-    public static CompoundTag register(ServerLevel level, BlockPos origin, HabStructure.Build build, String name)
+    /** Where a hab's vessel stands: the low corner and size of its air grid, and the box that holds its blocks. */
+    public record Frame(BlockPos base, Atmosphere.Grid grid, HullScan.Bounds bounds)
+    {}
+
+    /** The Station Core of a built hab, in its controller room (or the hall's when it has none), in plan coordinates. */
+    private static BlockPos core(HabStructure.Build build)
     {
         var plan = build.hab().plan();
         BlockPos core = null;
@@ -73,11 +87,63 @@ public final class HabVessels
                     core = at;
             }
         }
-        return register(level, origin, build.plan().blocks(), core != null ? core : build.plan().core(), plan.width(), plan.height(), plan.depth(), name);
+        return core != null ? core : build.plan().core();
+    }
+
+    /** The frame the vessel of a hab built with its plan corner at {@code origin} will have, known before it is registered. */
+    public static Frame frame(BlockPos origin, HabStructure.Build build)
+    {
+        var plan = build.hab().plan();
+        return frame(origin, core(build), plan.width(), plan.height(), plan.depth());
+    }
+
+    private static Frame frame(BlockPos origin, BlockPos core, int width, int height, int depth)
+    {
+        // A large station: its air and systems cover the whole hab, up to 512 by 64 by 512 (Atmosphere.Grid). Only a hab taller than 64 blocks (none is
+        // planned) is covered from the window of that height round its Station Core.
+        int wy = window(origin.getY(), height, origin.offset(core).getY(), Atmosphere.MAX_HEIGHT);
+        var base = new BlockPos(origin.getX(), wy, origin.getZ());
+        int vesselHeight = Math.clamp(height, 32, Atmosphere.MAX_HEIGHT);
+        return new Frame(base, new Atmosphere.Grid(width, vesselHeight, depth), new HullScan.Bounds(base, base.offset(width - 1, vesselHeight - 1, depth - 1)));
+    }
+
+    /** Registers a built hab, its controller the Station Core in its controller room (or the hall's when it has none). */
+    public static CompoundTag register(ServerLevel level, BlockPos origin, HabStructure.Build build, String name)
+    {
+        var plan = build.hab().plan();
+        return register(level, origin, build.plan().blocks(), core(build), plan.width(), plan.height(), plan.depth(), name, false);
+    }
+
+    /**
+     * Registers a built hab like {@link #register}, but hands the writing of its block list to a worker, since compressing hundreds of thousands of blocks is no
+     * work for a tick. The hab is not safe against a crash until {@link #saved} says so: the block list is what finds its blocks again after a restart.
+     */
+    public static CompoundTag registerDeferred(ServerLevel level, BlockPos origin, HabStructure.Build build, String name)
+    {
+        var plan = build.hab().plan();
+        return register(level, origin, build.plan().blocks(), core(build), plan.width(), plan.height(), plan.depth(), name, true);
+    }
+
+    /** True once the block list of the hab registered with {@link #registerDeferred} is on disk; throws what stopped it, if it failed. */
+    public static boolean saved(String id)
+    {
+        var writing = SAVING.get(id);
+        if (writing == null)
+            return true;
+        if (!writing.isDone())
+            return false;
+        SAVING.remove(id);
+        writing.join();
+        return true;
     }
 
     /** Registers a station made of {@code blocks} (plan coordinates, standing with their corner at {@code origin}) whose controller is the Station Core at {@code core}. */
     public static CompoundTag register(ServerLevel level, BlockPos origin, Map<BlockPos, BlockState> blocks, BlockPos core, int width, int height, int depth, String name)
+    {
+        return register(level, origin, blocks, core, width, height, depth, name, false);
+    }
+
+    private static CompoundTag register(ServerLevel level, BlockPos origin, Map<BlockPos, BlockState> blocks, BlockPos core, int width, int height, int depth, String name, boolean deferSave)
     {
         var server = level.getServer();
         var store = WorldStore.get(server);
@@ -94,10 +160,8 @@ public final class HabVessels
         // Anyone may use and edit it, as with the derelict stations.
         s.putBoolean("salvage", true);
         s.putBoolean("hab", true);
-        // A large station: its air and systems cover the whole hab, up to 512 by 64 by 512 (Atmosphere.Grid). Only a hab taller than 64 blocks (none is
-        // planned) is covered from the window of that height round its Station Core.
         var coreAt = origin.offset(core);
-        int wy = window(origin.getY(), height, coreAt.getY(), Atmosphere.MAX_HEIGHT);
+        int wy = frame(origin, core, width, height, depth).base().getY();
         var base = new BlockPos(origin.getX(), wy, origin.getZ());
         s.putLong("base", base.asLong());
         s.putLong("controller", coreAt.asLong());
@@ -122,11 +186,22 @@ public final class HabVessels
         }
         var own = list.stream().mapToLong(Long::longValue).toArray();
         OWN.put(id, own);
-        save(server, id, own);
+        if (deferSave)
+            SAVING.put(id, java.util.concurrent.CompletableFuture.runAsync(() -> save(server, id, own), IO));
+        else
+            save(server, id, own);
         store.ships().add(s);
         long started = System.nanoTime();
         // What a station does when its build finishes: its systems are made, its batteries given a charge and its requests set; the fuel is the player's.
-        SystemsUpgrade.upgrade(level, s);
+        try
+        {
+            SystemsUpgrade.upgrade(level, s);
+        }
+        finally
+        {
+            // A scan kept for this hab is taken by its first rebuild; one it did not take is not left holding the hab's seals.
+            SealScan.discard(id);
+        }
         for (var device : s.getCompoundOrEmpty("systems").getListOrEmpty("devices"))
         {
             var d = (CompoundTag) device;

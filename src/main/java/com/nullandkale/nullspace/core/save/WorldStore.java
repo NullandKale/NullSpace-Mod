@@ -304,6 +304,15 @@ public final class WorldStore
 
     public static void write(Path file, CompoundTag tag)
     {
+        write(file, tag, true);
+    }
+
+    /**
+     * Writes a file and reads it back, so that a snapshot recovery could not read is never promoted. {@code compare} also checks that what was read equals what
+     * was written, a walk over every tag; a build journal that holds every block it saved skips it, since the read-back already proves the file parses.
+     */
+    public static void write(Path file, CompoundTag tag, boolean compare)
+    {
         try
         {
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");
@@ -333,7 +342,7 @@ public final class WorldStore
             // Reject a snapshot that recovery could not read, before promoting it or touching world
             // blocks.
             var verified = read(temp);
-            if (!tag.equals(verified))
+            if (compare && !tag.equals(verified))
                 throw new java.io.IOException("Saved NBT differs at " + difference(tag, verified, "root") + "; refusing to replace the previous file");
             try (var channel = FileChannel.open(temp, StandardOpenOption.WRITE))
             {

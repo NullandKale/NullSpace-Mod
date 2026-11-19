@@ -8,7 +8,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.shipyard.RoomEntities;
-import com.nullandkale.nullspace.gameplay.travel.BuildJournal;
+import com.nullandkale.nullspace.gameplay.systems.SealScan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.worldgen.stations.HabPlanner;
 import com.nullandkale.nullspace.worldgen.stations.HabStructure;
@@ -32,11 +32,19 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.FlatLevelSource;
 import net.minecraft.world.level.levelgen.Heightmap;
 
-/** Natural surface dungeons. Existing inhabited terrain is never retrofitted; unfinished construction resumes from BUILD journals. */
+/**
+ * Natural surface dungeons. Existing inhabited terrain is never retrofitted. A dungeon is a fixed set of blocks at fixed places, so building it is idempotent:
+ * there is no journal and no save of its own. Progress is a count of finished chunks kept in the world store, which is saved together with the chunks, so after
+ * a crash both come back from the same moment and the build goes on from there, setting a few blocks again that are already right.
+ */
 public final class NaturalHabs
 {
     public static final String SECTION = "naturalHabs";
-    private static final int VERSION = 1, CELLS_PER_TICK = 2048, CHUNKS_PER_BATCH = 4, MAX_TERRAIN_FILL = 8;
+    private static final int VERSION = 1, MAX_CELLS_PER_TICK = 4096, RESUME_REWIND = 8, MAX_TERRAIN_FILL = 8;
+    /** How long a tick may spend placing blocks, after its first 64: a few milliseconds, so that a build never takes a tick over its 50. */
+    private static final long EDIT_NANOS = 6_000_000L;
+    /** How long a tick may spend finding the seals of a finished dungeon (see SealScan); a large one takes some seconds in all. */
+    private static final long SCAN_NANOS = 5_000_000L;
     private static final TicketType TICKET = Registry.register(BuiltInRegistries.TICKET_TYPE, Identifier.parse("nullspace:hab_generation"), new TicketType(1200, TicketType.FLAG_LOADING));
     private static final ThreadLocal<Boolean> PLACING = ThreadLocal.withInitial(() -> false);
     private static final ServerContext.Key<State> KEY = new ServerContext.Key<>();
@@ -125,7 +133,7 @@ public final class NaturalHabs
         {
             var record = map.getCompoundOrEmpty(key);
             String status = record.getStringOr("state", "");
-            if ((status.equals("building") || status.equals("built") && BuildJournal.pending(level.getServer(), record.getStringOr("id", ""))) && record.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && new HullScan.Bounds(WorldStore.pos(record, "min"), WorldStore.pos(record, "max")).box().intersects(bounds.box()))
+            if (status.equals("building") && record.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && new HullScan.Bounds(WorldStore.pos(record, "min"), WorldStore.pos(record, "max")).box().intersects(bounds.box()))
                 return true;
         }
         return false;
@@ -195,12 +203,6 @@ public final class NaturalHabs
             NullSpace.LOGGER.error("Natural hab generation paused; its saved construction will retry", failure);
             if (runtime.active != null)
             {
-                if (runtime.active.job != null)
-                    placing(() ->
-                    {
-                        runtime.active.job.abort();
-                        return null;
-                    });
                 runtime.active.release();
                 runtime.active = null;
             }
@@ -222,10 +224,22 @@ public final class NaturalHabs
         String id;
         List<Map.Entry<ChunkPos, LinkedHashMap<BlockPos, BlockState>>> chunks;
         int checked;
-        BuildJournal.Job job;
+        SealScan seals;
+        /** The chunk being built and the blocks of it still to set; the chunk before it are done. */
+        int cursor = -1;
         Iterator<Map.Entry<BlockPos, BlockState>> edits;
-        int batchEnd;
         boolean finishing;
+        /** The plan turned into blocks, worked out on a worker (see compute). */
+        CompletableFuture<Prepared> preparing;
+        /** The commissioning step, a piece a tick: which piece, and the ids its entities are given in order. */
+        int finishPhase;
+        List<UUID> finishIds;
+        final int[] finishIndex = {0};
+
+        record Prepared(boolean ok, BlockPos origin, HullScan.Bounds bounds, List<Map.Entry<ChunkPos, LinkedHashMap<BlockPos, BlockState>>> chunks, String id)
+        {
+            static final Prepared FAILED = new Prepared(false, null, null, null, null);
+        }
 
         Active(MinecraftServer server, String key, CompoundTag record)
         {
@@ -270,6 +284,7 @@ public final class NaturalHabs
                 releaseTickets();
                 build = null;
                 chunks = null;
+                preparing = null;
                 checked = 0;
                 WorldStore.get(server).requestSave();
                 return false;
@@ -286,12 +301,19 @@ public final class NaturalHabs
             return source.getGenerator().getBaseHeight(x, z, type, level, source.randomState()) - 1;
         }
 
-        boolean prepare()
+        /** Starts working out, on a worker, where the hab stands and every block it sets: a map of hundreds of thousands of blocks is no work for a tick. */
+        CompletableFuture<Prepared> startPrepare()
         {
-            build = planning.join();
             var record = record();
             int x = record.getIntOr("x", 0) - build.hab().plan().width() / 2;
             int z = record.getIntOr("z", 0) - build.hab().plan().depth() / 2;
+            BlockPos saved = record.contains("origin") ? WorldStore.pos(record, "origin") : null;
+            var planned = build;
+            return CompletableFuture.supplyAsync(() -> compute(planned, x, z, saved));
+        }
+
+        Prepared compute(HabStructure.Build build, int x, int z, BlockPos saved)
+        {
             int low = Integer.MAX_VALUE, high = Integer.MIN_VALUE;
             var entrance = build.hab().entry().outer();
             for (int dx : new int[]{entrance.x0(), entrance.x1()})
@@ -299,13 +321,13 @@ public final class NaturalHabs
                 {
                     int floor = height(x + dx, z + dz, Heightmap.Types.OCEAN_FLOOR_WG);
                     if (height(x + dx, z + dz, Heightmap.Types.WORLD_SURFACE_WG) > floor)
-                        return false;
+                        return Prepared.FAILED;
                     low = Math.min(low, floor);
                     high = Math.max(high, floor);
                 }
             if (high - low > 6)
-                return false;
-            origin = record.contains("origin") ? WorldStore.pos(record, "origin") : new BlockPos(x, high - build.hab().groundY(), z);
+                return Prepared.FAILED;
+            var origin = saved != null ? saved : new BlockPos(x, high - build.hab().groundY(), z);
             var all = new LinkedHashMap<BlockPos, BlockState>();
             for (var at : build.carve())
                 all.put(origin.offset(at), Blocks.AIR.defaultBlockState());
@@ -324,16 +346,27 @@ public final class NaturalHabs
                 }
             var min = new BlockPos(all.keySet().stream().mapToInt(BlockPos::getX).min().orElseThrow(), all.keySet().stream().mapToInt(BlockPos::getY).min().orElseThrow(), all.keySet().stream().mapToInt(BlockPos::getZ).min().orElseThrow());
             var max = new BlockPos(all.keySet().stream().mapToInt(BlockPos::getX).max().orElseThrow(), all.keySet().stream().mapToInt(BlockPos::getY).max().orElseThrow(), all.keySet().stream().mapToInt(BlockPos::getZ).max().orElseThrow());
-            bounds = new HullScan.Bounds(min, max);
             if (min.getY() < level.getMinY() || max.getY() > level.getMaxY() || !level.getWorldBorder().isWithinBounds(min) || !level.getWorldBorder().isWithinBounds(max))
-                return false;
+                return Prepared.FAILED;
             var byChunk = new TreeMap<ChunkPos, LinkedHashMap<BlockPos, BlockState>>(Comparator.comparingInt(ChunkPos::x).thenComparingInt(ChunkPos::z));
             all.forEach((at, block) -> byChunk.computeIfAbsent(ChunkPos.containing(at), ignored -> new LinkedHashMap<>()).put(at, block));
-            chunks = new ArrayList<>(byChunk.entrySet());
-            id = HabVessels.idAt(level, origin);
+            return new Prepared(true, origin, new HullScan.Bounds(min, max), new ArrayList<>(byChunk.entrySet()), HabVessels.idAt(level, origin));
+        }
+
+        /** Takes the worker's result: the hab's place, and what it will set, chunk by chunk. False when the site does not suit it. */
+        boolean prepare()
+        {
+            var prepared = preparing.join();
+            if (!prepared.ok())
+                return false;
+            origin = prepared.origin();
+            bounds = prepared.bounds();
+            chunks = prepared.chunks();
+            id = prepared.id();
+            var record = record();
             record.putLong("origin", origin.asLong());
-            record.putLong("min", min.asLong());
-            record.putLong("max", max.asLong());
+            record.putLong("min", bounds.min().asLong());
+            record.putLong("max", bounds.max().asLong());
             record.putString("id", id);
             return true;
         }
@@ -343,6 +376,13 @@ public final class NaturalHabs
             if (build == null)
             {
                 if (!planning.isDone())
+                    return false;
+                build = planning.join();
+                preparing = startPrepare();
+            }
+            if (chunks == null)
+            {
+                if (!preparing.isDone())
                     return false;
                 if (!prepare())
                     return skip("No dry, gentle surface with room below it");
@@ -406,119 +446,149 @@ public final class NaturalHabs
                 record().putString("state", "building");
                 WorldStore.get(server).requestSave();
             }
-            if (BuildJournal.pending(server, id))
-                return false;
             if (finishing)
                 return true;
             int next = record().getIntOr("next", 0);
             if (next >= chunks.size())
             {
+                // The dungeon's air is found a few milliseconds a tick, before it is registered: registering a large one used to stop the server for ten seconds.
+                if (seals == null)
+                {
+                    var frame = HabVessels.frame(origin, build);
+                    seals = new SealScan(level, frame.base(), frame.grid(), frame.bounds());
+                }
+                if (!seals.step(SCAN_NANOS))
+                    return false;
                 for (var pos : held)
                     if (!HullEntities.loaded(level, new HullScan.Bounds(new BlockPos(pos.x() * 16, bounds.min().getY(), pos.z() * 16), new BlockPos(pos.x() * 16 + 15, bounds.max().getY(), pos.z() * 16 + 15))))
                         return false;
-                finish();
+                if (!finishStep())
+                    return false;
                 finishing = true;
                 return false;
             }
+            place(next);
+            return false;
+        }
+
+        /**
+         * Sets blocks for a few milliseconds a tick, chunk by chunk, and keeps count of the chunks that are done. Setting a block that is already right changes
+         * nothing, so a build that stopped is taken up a little before where it got to and nothing else need be remembered.
+         */
+        void place(int next)
+        {
+            if (cursor < 0)
+                cursor = Math.max(0, next - RESUME_REWIND);
             placing(() ->
             {
-                if (job == null)
+                long deadline = System.nanoTime() + EDIT_NANOS;
+                int placed = 0;
+                while (cursor < chunks.size() && placed < MAX_CELLS_PER_TICK)
                 {
-                    batchEnd = Math.min(next + CHUNKS_PER_BATCH, chunks.size());
-                    var regions = new ArrayList<Collection<BlockPos>>();
-                    for (int i = next; i < batchEnd; i++)
-                        regions.add(chunks.get(i).getValue().keySet());
-                    job = BuildJournal.begin(level, "natural-hab", List.of(id), regions.getFirst());
-                    for (int i = 1; i < regions.size(); i++)
-                        job.include(level, regions.get(i));
-                    var batch = new ArrayList<Map.Entry<BlockPos, BlockState>>();
-                    for (int i = next; i < batchEnd; i++)
-                        batch.addAll(chunks.get(i).getValue().entrySet());
-                    edits = batch.iterator();
-                }
-                job.step(() ->
-                {
-                    for (int i = 0; i < CELLS_PER_TICK && edits.hasNext(); i++)
+                    if (edits == null)
+                        edits = chunks.get(cursor).getValue().entrySet().iterator();
+                    while (edits.hasNext() && placed < MAX_CELLS_PER_TICK)
                     {
                         var edit = edits.next();
                         if (!level.setBlock(edit.getKey(), edit.getValue(), 18) && !level.getBlockState(edit.getKey()).equals(edit.getValue()))
                             throw new IllegalStateException("Cannot place natural hab at " + edit.getKey());
+                        placed++;
+                        if ((placed & 63) == 0 && System.nanoTime() >= deadline)
+                            break;
                     }
-                    if (!edits.hasNext())
-                        record().putInt("next", batchEnd);
-                    return null;
-                });
-                if (!edits.hasNext())
-                {
-                    job.commit();
-                    job = null;
+                    if (edits.hasNext())
+                        break;
+                    edits = null;
+                    record().putInt("next", ++cursor);
+                    WorldStore.get(server).requestSave();
+                    if (placed >= 64 && System.nanoTime() >= deadline)
+                        break;
                 }
                 return null;
             });
-            return false;
         }
 
-        void finish()
+        /**
+         * Commissions the finished dungeon a piece a tick, so that none is a stall of a third of a second: its entities, then its stock and doors, its tree and
+         * crew, and last its registration. Each piece is idempotent (entities get the same ids, a vessel is registered over its old record), so one that a
+         * crash cut short is simply done again. True when done.
+         */
+        boolean finishStep()
         {
-            placing(() ->
+            switch (finishPhase)
             {
-                var positions = new LinkedHashSet<BlockPos>();
-                for (var entry : build.plan().blocks().entrySet())
-                    if (entry.getValue().hasBlockEntity())
-                        positions.add(origin.offset(entry.getKey()));
-                for (var point : build.plan().points())
+                case 0 ->
                 {
-                    var at = origin.offset(point.pos());
-                    positions.add(at);
-                    // A painting may select a neighboring anchor; recovery must load its entity chunk too.
-                    if (point.name().equals("painting"))
-                        for (var side : Direction.Plane.HORIZONTAL)
-                        {
-                            var neighbor = at.relative(side, 2);
-                            int x = neighbor.getX() - origin.getX(), z = neighbor.getZ() - origin.getZ();
-                            if (x >= 0 && x < build.hab().plan().width() && z >= 0 && z < build.hab().plan().depth())
-                                positions.add(neighbor);
-                        }
+                    var crew = HabDepth.plan(build.hab(), origin, spec.seed());
+                    int count = build.plan().points().size() + crew.size();
+                    finishIds = new ArrayList<>();
+                    for (int i = 0; i < count; i++)
+                        finishIds.add(UUID.nameUUIDFromBytes((id + "/entity/" + i).getBytes(StandardCharsets.UTF_8)));
+                    finishIndex[0] = 0;
+                    finishPhase = 1;
                 }
-                var crew = HabDepth.plan(build.hab(), origin, spec.seed());
-                crew.forEach(spawn -> positions.add(spawn.at()));
-                var tree = build.plan().points("tree").getFirst().pos();
-                for (var cell : com.nullandkale.nullspace.gameplay.trees.TreeShape.fruit())
-                    positions.add(origin.offset(tree).offset(cell.dx(), cell.dy(), cell.dz()));
-                var regions = new LinkedHashMap<ChunkPos, Collection<BlockPos>>();
-                for (var at : positions)
-                    regions.computeIfAbsent(ChunkPos.containing(at), ignored -> new ArrayList<>()).add(at);
-                var pieces = new ArrayList<>(regions.values());
-                job = BuildJournal.begin(level, "commission-natural-hab", List.of(id), pieces.getFirst());
-                for (int i = 1; i < pieces.size(); i++)
-                    job.include(level, pieces.get(i));
-                int count = build.plan().points().size() + crew.size();
-                var ids = new ArrayList<UUID>();
-                for (int i = 0; i < count; i++)
-                    ids.add(UUID.nameUUIDFromBytes((id + "/entity/" + i).getBytes(StandardCharsets.UTF_8)));
-                job.captureEntityChanges(ids);
-                job.step(() ->
+                case 1 ->
                 {
-                    int[] index = {0};
-                    java.util.function.Consumer<net.minecraft.world.entity.Entity> identity = entity -> entity.setUUID(ids.get(index[0]++));
-                    RoomEntities.spawn(level, origin, build.plan().points(), identity);
-                    HabDepth.stock(level, origin, build.hab(), build.plan().points(), spec.seed(), "Hab supplies");
-                    HabDoors.link(level, origin, build);
-                    HabDepth.seedTree(level, origin, build, spec.seed());
-                    HabDepth.populate(level, origin, build.hab(), spec.seed(), identity);
-                    var vessel = HabVessels.register(level, origin, build, spec.maker().name().toLowerCase(Locale.ROOT) + " Hab");
-                    vessel.putBoolean("worldGenerated", true);
-                    String address = PlanetSurfaces.address(level);
-                    vessel.putString("localSpace", address == null ? LocalSpaces.HOME : address);
-                    record().putString("state", "built");
-                    WorldStore.get(server).requestSave();
-                    return null;
-                });
-                job.commit();
-                job = null;
-                NullSpace.LOGGER.info("Natural hab placed in {} at {} ({})", level.dimension().identifier(), origin, spec.description());
-                return null;
-            });
+                    placing(() ->
+                    {
+                        RoomEntities.spawn(level, origin, build.plan().points(), identity());
+                        return null;
+                    });
+                    finishPhase = 2;
+                }
+                case 2 ->
+                {
+                    placing(() ->
+                    {
+                        HabDepth.stock(level, origin, build.hab(), build.plan().points(), spec.seed(), "Hab supplies");
+                        HabDoors.link(level, origin, build);
+                        return null;
+                    });
+                    finishPhase = 3;
+                }
+                case 3 ->
+                {
+                    placing(() ->
+                    {
+                        HabDepth.seedTree(level, origin, build, spec.seed());
+                        HabDepth.populate(level, origin, build.hab(), spec.seed(), identity());
+                        return null;
+                    });
+                    finishPhase = 4;
+                }
+                case 4 ->
+                {
+                    NullSpace.LOGGER.info("Natural hab {} seals found in {} ms of server time, spread over its last build ticks", key, seals.nanos() / 1_000_000);
+                    seals.keep(id);
+                    placing(() ->
+                    {
+                        var vessel = HabVessels.registerDeferred(level, origin, build, spec.maker().name().toLowerCase(Locale.ROOT) + " Hab");
+                        vessel.putBoolean("worldGenerated", true);
+                        String address = PlanetSurfaces.address(level);
+                        vessel.putString("localSpace", address == null ? LocalSpaces.HOME : address);
+                        return null;
+                    });
+                    finishPhase = 5;
+                }
+                default ->
+                {
+                    // Built only once the hab's block list is on disk: a built hab that lost it could not find its blocks again after a restart.
+                    if (HabVessels.saved(id))
+                    {
+                        record().putString("state", "built");
+                        WorldStore.get(server).requestSave();
+                        NullSpace.LOGGER.info("Natural hab placed in {} at {} ({})", level.dimension().identifier(), origin, spec.description());
+                        finishPhase = 6;
+                    }
+                }
+            }
+            return finishPhase == 6;
+        }
+
+        /** Gives each entity its next id, in the order the hab makes them: the same ids on every run, whichever tick makes them. */
+        java.util.function.Consumer<net.minecraft.world.entity.Entity> identity()
+        {
+            return entity -> entity.setUUID(finishIds.get(finishIndex[0]++));
         }
     }
 

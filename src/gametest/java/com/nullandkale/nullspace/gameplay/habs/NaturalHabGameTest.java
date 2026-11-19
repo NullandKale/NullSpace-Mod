@@ -48,6 +48,7 @@ public final class NaturalHabGameTest
             }
             var vessel = WorldStore.get(server).repository().find(record.getStringOr("id", ""));
             ctx.assertTrue(vessel != null && vessel.getBooleanOr("hab", false) && vessel.getBooleanOr("worldGenerated", false), "Terrain ticks register the hab as a real station vessel");
+            ctx.assertTrue(com.nullandkale.nullspace.gameplay.systems.ShipSystems.sealScans(level, vessel) == 0, "Registering the hab does not scan its blocks on the server thread: the build already found its seals, a few milliseconds a tick");
             var bounds = WorldStore.bounds(vessel);
             if (!held[0])
             {
