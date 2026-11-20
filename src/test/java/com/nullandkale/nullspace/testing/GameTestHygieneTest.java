@@ -38,7 +38,18 @@ class GameTestHygieneTest
     /** Ticks a test that waits for loading must have beyond its fixed waits (a wait for loading pauses 100 ms a tick, so this is about thirty seconds). */
     private static final int LOADING_TICKS = 300;
     /** Calls and hooks that change what the tests running beside this one see. */
-    private static final List<String> SHARED = List.of("TravelService.transfer(", "TransferRecovery.recover(", "failureInjector", "writeObserver", ".noSave");
+    private static final List<String> SHARED = List.of("TravelService.transfer(", "TravelService.request(", "TravelService.ready(", "TransferRecovery.recover(", "failureInjector", "writeObserver", ".noSave");
+    /** The calls that launch, land or recover a ship: a request and its ready acknowledgement end in a transfer a few ticks later. */
+    private static final List<String> LAUNCHES = List.of("TravelService.transfer(", "TravelService.request(", "TravelService.ready(", "TransferRecovery.recover(");
+    /** A statement that sets a static field of a class, such as {@code ShipYardService.placementObserver = ...}. */
+    private static final Pattern STATIC_ASSIGNMENT = Pattern.compile("(?m)^\\s*([A-Z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*)\\s*=[^=]");
+    /** Environments whose tests launch side by side on purpose, to test exactly that. */
+    private static final Set<String> SIDE_BY_SIDE_LAUNCHES = Set.of("concurrent_ship_actions");
+
+    static boolean launches(String text)
+    {
+        return LAUNCHES.stream().anyMatch(text::contains);
+    }
 
     private static final Pattern TEST = Pattern.compile("@GameTest\\(([^)]*)\\)\\s*(?:@\\w+(?:\\([^)]*\\))?\\s*)*public\\s+(?:static\\s+)?void\\s+(\\w+)\\s*\\(");
 
@@ -109,12 +120,18 @@ class GameTestHygieneTest
         {
             if (test.arguments().contains("environment"))
                 continue;
+            boolean found = false;
             for (var token : SHARED)
                 if (test.body().contains(token))
                 {
                     out.add(source.name() + "." + test.name() + ": uses " + token + " without its own environment; add environment = \"nullspace:<name>\" and a file for it in test_environment");
+                    found = true;
                     break;
                 }
+            // Any static field of a class set by a test is a hook every test beside it sees (an observer, a probe, a clock), whatever it is called.
+            var hook = STATIC_ASSIGNMENT.matcher(test.body());
+            if (!found && hook.find())
+                out.add(source.name() + "." + test.name() + ": sets the static field " + hook.group(1) + " without its own environment; add environment = \"nullspace:<name>\" and a file for it in test_environment");
         }
         return out;
     }
@@ -124,7 +141,7 @@ class GameTestHygieneTest
     {
         if (CRASH_HARNESS.contains(source.name()) || source.name().equals("TestWaits"))
             return List.of();
-        if (!source.text().contains("TravelService.transfer(") && !source.text().contains("TransferRecovery.recover("))
+        if (!launches(source.text()))
             return List.of();
         var out = new ArrayList<String>();
         var matcher = Pattern.compile("\\.runAfterDelay\\(").matcher(source.text());
@@ -138,7 +155,7 @@ class GameTestHygieneTest
     {
         if (CRASH_HARNESS.contains(source.name()) || FIXTURES_AND_HELPERS.contains(source.name()) || source.name().equals("TestWaits"))
             return List.of();
-        if (!source.text().contains("TravelService.transfer(") && !source.text().contains("TransferRecovery.recover("))
+        if (!launches(source.text()))
             return List.of();
         var out = new ArrayList<String>();
         var matcher = Pattern.compile("\\.setChunkForced\\([^;]*,\\s*true\\)").matcher(source.text());
@@ -201,6 +218,35 @@ class GameTestHygieneTest
         return out;
     }
 
+    /**
+     * A test that picks a free orbit slot itself ({@code spaceSlotFree}) and holds its chunk expects its launch to take that slot. Tests that share an environment
+     * run side by side, so another test's launch could take the slot first and this one would land in a slot whose chunk is not held: it needs its environment
+     * to itself, unless the environment exists to test launches side by side.
+     */
+    static List<String> slotPickersThatShare(List<Source> all)
+    {
+        var byEnvironment = new HashMap<String, Integer>();
+        var pickers = new ArrayList<String[]>();
+        for (var source : all)
+        {
+            if (CRASH_HARNESS.contains(source.name()) || FIXTURES_AND_HELPERS.contains(source.name()))
+                continue;
+            for (var test : tests(source.text()))
+            {
+                var named = Pattern.compile("environment\\s*=\\s*\"nullspace:([a-z0-9_]+)\"").matcher(test.arguments());
+                String environment = named.find() ? named.group(1) : "minecraft:default";
+                byEnvironment.merge(environment, 1, Integer::sum);
+                if (test.body().contains("spaceSlotFree("))
+                    pickers.add(new String[]{source.name() + "." + test.name(), environment});
+            }
+        }
+        var out = new ArrayList<String>();
+        for (var picker : pickers)
+            if (!SIDE_BY_SIDE_LAUNCHES.contains(picker[1]) && (picker[1].equals("minecraft:default") || byEnvironment.get(picker[1]) > 1))
+                out.add(picker[0] + ": picks a free orbit slot itself but shares the environment " + picker[1] + " with " + (byEnvironment.get(picker[1]) - 1) + " other test(s); give it an environment of its own");
+        return out;
+    }
+
     /** An environment that a test names and that has no file: the test would not start. */
     static List<String> missingEnvironments(Source source)
     {
@@ -254,6 +300,12 @@ class GameTestHygieneTest
     }
 
     @Test
+    void testsThatPickTheirOrbitSlotHaveTheirEnvironmentToThemselves() throws IOException
+    {
+        none(slotPickersThatShare(sources()));
+    }
+
+    @Test
     void everyNamedEnvironmentHasItsFile() throws IOException
     {
         none(sources().stream().flatMap(s -> missingEnvironments(s).stream()).collect(Collectors.toList()));
@@ -303,6 +355,17 @@ class GameTestHygieneTest
 
         var itself = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, poll[0]);\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
         assertEquals(1, selfSchedulingCallbacks(itself).size());
+        var observed = new Source("SomeGameTest", withoutComments("@GameTest(maxTicks = 100)\npublic void observes(GameTestHelper ctx)\n{\n    ShipYardService.placementObserver = count -> {};\n    var local = 3;\n}"));
+        assertEquals(1, sharedWithoutEnvironment(observed).size());
+        var compared = new Source("SomeGameTest", withoutComments("@GameTest(maxTicks = 100)\npublic void compares(GameTestHelper ctx)\n{\n    ctx.assertTrue(Blocks.STONE == Blocks.STONE, \"same\");\n}"));
+        assertEquals(0, sharedWithoutEnvironment(compared).size());
+        var requested = new Source("SomeGameTest", withoutComments("@GameTest(maxTicks = 100)\npublic void launches(GameTestHelper ctx)\n{\n    TravelService.request(p, at, \"\", inspection);\n}"));
+        assertEquals(1, sharedWithoutEnvironment(requested).size());
+        String picker = "@GameTest(environment = \"nullspace:slots\")\npublic void picks(GameTestHelper ctx)\n{\n    TransferLocks.spaceSlotFree(server, 0);\n}";
+        String other = "@GameTest(environment = \"nullspace:slots\")\npublic void other(GameTestHelper ctx)\n{\n}";
+        assertEquals(1, slotPickersThatShare(List.of(new Source("SomeGameTest", withoutComments(picker + "\n" + other)))).size());
+        assertEquals(0, slotPickersThatShare(List.of(new Source("SomeGameTest", withoutComments(picker)))).size());
+        assertEquals(0, slotPickersThatShare(List.of(new Source("SomeGameTest", withoutComments((picker + "\n" + other).replace("nullspace:slots", "nullspace:concurrent_ship_actions"))))).size());
         var fresh = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, () -> poll[0].run());\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
         assertEquals(0, selfSchedulingCallbacks(fresh).size());
     }

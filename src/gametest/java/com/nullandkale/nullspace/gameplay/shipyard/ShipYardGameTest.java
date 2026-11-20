@@ -429,7 +429,7 @@ public final class ShipYardGameTest
         });
     }
 
-    @GameTest(maxTicks = 500)
+    @GameTest(environment = "nullspace:shipyard_interrupted_delivery", maxTicks = 500)
     public void interruptedDeliveryRollsBackItsHullAndRecordsWithoutDuplicateShips(GameTestHelper ctx) throws java.io.IOException
     {
         var f = fixture(ctx, 12, BOLT, 32);

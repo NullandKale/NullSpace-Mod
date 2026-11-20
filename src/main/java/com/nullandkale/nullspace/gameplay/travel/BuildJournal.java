@@ -118,11 +118,6 @@ public final class BuildJournal
 
     private static Job begin(ServerLevel level, String operation, Collection<String> ships, HullScan.Bounds region, Set<BlockPos> positions)
     {
-        return begin(level, operation, ships, region, positions, true);
-    }
-
-    private static Job begin(ServerLevel level, String operation, Collection<String> ships, HullScan.Bounds region, Set<BlockPos> positions, boolean prepare)
-    {
         var store = WorldStore.get(level.getServer());
         if (TransferLocks.areaBusy(level, region))
             throw new IllegalArgumentException("A journal or travel operation reserves this build area");
@@ -150,8 +145,7 @@ public final class BuildJournal
             journal.put("ticks", JournalTicks.capture(level, TransferReplay.positions(saved, min)));
             journal.put("records", new ListTag());
             var job = new Job(level, Journals.file(store.directory, journal), journal);
-            if (prepare)
-                job.prepare();
+            job.prepare();
             return job;
         }
         catch (java.io.IOException error)

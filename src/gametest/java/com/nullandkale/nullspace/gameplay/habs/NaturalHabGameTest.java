@@ -62,27 +62,9 @@ public final class NaturalHabGameTest
                 ctx.runAfterDelay(1, () -> poll[0].run());
                 return;
             }
-            var origin = WorldStore.pos(record, "origin");
-            var build = HabStructure.build(HabPlanner.generate(StationSpec.read(record.getCompoundOrEmpty("spec"))));
-            var core = WorldStore.pos(vessel, "controller");
-            ctx.assertTrue(level.getBlockState(core).is(ModBlocks.STATION_CORE), "The dungeon has a functional Station Core");
-            var door = origin.offset(build.entrance());
-            ctx.assertTrue(level.getBlockState(door).is(Blocks.IRON_DOOR), "The entrance stands at the actual surface");
-            ctx.assertTrue(!level.getBlockState(door.relative(build.outside()).below()).isAir(), "Players have ground outside the entrance");
-            var entry = build.hab().entry().outer();
-            for (var at : build.plan().blocks().keySet())
-            {
-                if (at.getX() >= entry.x0() - 2 && at.getX() <= entry.x1() + 2 && at.getZ() >= entry.z0() - 2 && at.getZ() <= entry.z1() + 2)
-                    continue;
-                var absolute = origin.offset(at);
-                int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, absolute.getX(), absolute.getZ()) - 1;
-                ctx.assertTrue(absolute.getY() < surface, "The dungeon's rooms stay below the terrain at " + absolute + " (" + build.plan().blocks().get(at) + "), surface " + surface + ", above " + level.getBlockState(absolute.above()));
-            }
-            var tree = origin.offset(build.plan().points("tree").getFirst().pos());
-            ctx.assertTrue(level.getBlockEntity(tree) instanceof com.nullandkale.nullspace.gameplay.trees.TreeBlockEntity, "The deepest floor holds its golden tree");
-            var inventories = build.plan().blocks().keySet().stream().map(origin::offset).filter(p -> level.getBlockEntity(p) instanceof Container).toList();
-            ctx.assertTrue(inventories.stream().anyMatch(p -> !((Container) level.getBlockEntity(p)).isEmpty()), "Generated dungeon containers hold real loot");
-            ctx.assertTrue(com.nullandkale.nullspace.gameplay.ship.structure.HullEntities.inBounds(level, WorldStore.bounds(vessel)).stream().anyMatch(e -> e instanceof net.minecraft.world.entity.Mob), "The dungeon has its lost crew, including its inactive chunks");
+            var built = assertDungeon(ctx, level, record, vessel);
+            var core = built.core();
+            var inventories = built.inventories();
             inventories.forEach(p ->
             {
                 var inventory = (Container) level.getBlockEntity(p);
@@ -150,6 +132,98 @@ public final class NaturalHabGameTest
             ctx.succeed();
         };
         ctx.runAfterDelay(5, () -> poll[0].run());
+    }
+
+    @GameTest(environment = "nullspace:natural_habs_resume", maxTicks = 600000)
+    public void aBuildThatStopsPartWayIsTakenUpAgainAndFinishesTheSameDungeon(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var level = server.getLevel(PlanetSurfaces.dimension(server, "sol_luna"));
+        int[] cell = {200};
+        boolean[] interrupted = {false}, held = {false};
+        Runnable[] poll = {null};
+        poll[0] = () ->
+        {
+            while (HabSites.site(level.getSeed(), cell[0], 200).spec().size() != StationSpec.Size.COMPACT)
+                cell[0]++;
+            ctx.assertTrue(cell[0] < 320, "A dry, untouched compact site is available on Luna");
+            var record = NaturalHabs.consider(level, cell[0], 200);
+            String state = record.getStringOr("state", "");
+            if (state.equals("skipped"))
+            {
+                cell[0]++;
+                ctx.runAfterDelay(1, () -> poll[0].run());
+                return;
+            }
+            if (!interrupted[0] && state.equals("building") && record.getIntOr("next", 0) >= 2)
+            {
+                // What a restart leaves: the world and its store as they are, and no build in progress. The build is taken up from its saved count of
+                // chunks, a few chunks early, and the stone that grounds its rooms is worked out again for the chunks still to build.
+                NaturalHabs.interrupt(server);
+                interrupted[0] = true;
+            }
+            if (!state.equals("built"))
+            {
+                ctx.runAfterDelay(5, () -> poll[0].run());
+                return;
+            }
+            ctx.assertTrue(interrupted[0], "The build was stopped part way before it finished");
+            var vessel = WorldStore.get(server).repository().find(record.getStringOr("id", ""));
+            ctx.assertTrue(vessel != null && vessel.getBooleanOr("hab", false), "The build that was taken up again registers the hab");
+            var bounds = WorldStore.bounds(vessel);
+            if (!held[0])
+            {
+                force(level, bounds, true);
+                held[0] = true;
+                ctx.runAfterDelay(5, () -> poll[0].run());
+                return;
+            }
+            if (!com.nullandkale.nullspace.gameplay.ship.structure.HullEntities.loaded(level, bounds))
+            {
+                ctx.runAfterDelay(1, () -> poll[0].run());
+                return;
+            }
+            try
+            {
+                assertDungeon(ctx, level, record, vessel);
+                ctx.succeed();
+            }
+            finally
+            {
+                force(level, bounds, false);
+            }
+        };
+        ctx.runAfterDelay(1, () -> poll[0].run());
+    }
+
+    record Built(BlockPos core, java.util.List<BlockPos> inventories)
+    {}
+
+    /** What a finished natural hab must be: a working Station Core, its door at the surface, its rooms under the terrain, its tree, loot and crew. */
+    private static Built assertDungeon(GameTestHelper ctx, ServerLevel level, net.minecraft.nbt.CompoundTag record, net.minecraft.nbt.CompoundTag vessel)
+    {
+        var origin = WorldStore.pos(record, "origin");
+        var build = HabStructure.build(HabPlanner.generate(StationSpec.read(record.getCompoundOrEmpty("spec"))));
+        var core = WorldStore.pos(vessel, "controller");
+        ctx.assertTrue(level.getBlockState(core).is(ModBlocks.STATION_CORE), "The dungeon has a functional Station Core");
+        var door = origin.offset(build.entrance());
+        ctx.assertTrue(level.getBlockState(door).is(Blocks.IRON_DOOR), "The entrance stands at the actual surface");
+        ctx.assertTrue(!level.getBlockState(door.relative(build.outside()).below()).isAir(), "Players have ground outside the entrance");
+        var entry = build.hab().entry().outer();
+        for (var at : build.plan().blocks().keySet())
+        {
+            if (at.getX() >= entry.x0() - 2 && at.getX() <= entry.x1() + 2 && at.getZ() >= entry.z0() - 2 && at.getZ() <= entry.z1() + 2)
+                continue;
+            var absolute = origin.offset(at);
+            int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, absolute.getX(), absolute.getZ()) - 1;
+            ctx.assertTrue(absolute.getY() < surface, "The dungeon's rooms stay below the terrain at " + absolute + " (" + build.plan().blocks().get(at) + "), surface " + surface + ", above " + level.getBlockState(absolute.above()));
+        }
+        var tree = origin.offset(build.plan().points("tree").getFirst().pos());
+        ctx.assertTrue(level.getBlockEntity(tree) instanceof com.nullandkale.nullspace.gameplay.trees.TreeBlockEntity, "The deepest floor holds its golden tree");
+        var inventories = build.plan().blocks().keySet().stream().map(origin::offset).filter(p -> level.getBlockEntity(p) instanceof Container).toList();
+        ctx.assertTrue(inventories.stream().anyMatch(p -> !((Container) level.getBlockEntity(p)).isEmpty()), "Generated dungeon containers hold real loot");
+        ctx.assertTrue(com.nullandkale.nullspace.gameplay.ship.structure.HullEntities.inBounds(level, WorldStore.bounds(vessel)).stream().anyMatch(e -> e instanceof net.minecraft.world.entity.Mob), "The dungeon has its lost crew, including its inactive chunks");
+        return new Built(core, inventories);
     }
 
     private static void force(ServerLevel level, com.nullandkale.nullspace.gameplay.ship.structure.HullScan.Bounds bounds, boolean on)

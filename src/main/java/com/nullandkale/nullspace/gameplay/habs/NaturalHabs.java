@@ -89,6 +89,17 @@ public final class NaturalHabs
         return map.getCompoundOrEmpty(key);
     }
 
+    /** Drops the build in progress as a restart would, keeping only what the world and its store hold; the next terrain tick takes it up again. For tests. */
+    public static void interrupt(MinecraftServer server)
+    {
+        var runtime = state(server);
+        if (runtime.active != null)
+        {
+            runtime.active.release();
+            runtime.active = null;
+        }
+    }
+
     private static boolean surface(ServerLevel level)
     {
         return PlanetSurfaces.address(level) != null && !(level.getChunkSource().getGenerator() instanceof FlatLevelSource);
@@ -229,6 +240,8 @@ public final class NaturalHabs
         int cursor = -1;
         Iterator<Map.Entry<BlockPos, BlockState>> edits;
         boolean finishing;
+        /** The stone that grounds the rooms has been worked out for the chunks still to build. */
+        boolean covered;
         /** The plan turned into blocks, worked out on a worker (see compute). */
         CompletableFuture<Prepared> preparing;
         /** The commissioning step, a piece a tick: which piece, and the ids its entities are given in order. */
@@ -410,41 +423,21 @@ public final class NaturalHabs
                 }
                 if (com.nullandkale.nullspace.gameplay.travel.TransferLocks.areaBusy(level, bounds))
                     return skip("Another construction or transfer reserves this site");
-                // The whole dungeon must be underground, not just its surface hall's doorway.
-                var entrance = build.hab().entry().outer();
-                for (var piece : chunks)
-                {
-                    var ceilings = new HashMap<Long, BlockPos>();
-                    for (var at : piece.getValue().keySet())
-                    {
-                        int dx = at.getX() - origin.getX(), dz = at.getZ() - origin.getZ();
-                        if (dx >= entrance.x0() - 2 && dx <= entrance.x1() + 2 && dz >= entrance.z0() - 2 && dz <= entrance.z1() + 2)
-                            continue;
-                        long column = new BlockPos(at.getX(), 0, at.getZ()).asLong();
-                        ceilings.merge(column, at, (a, b) -> a.getY() > b.getY() ? a : b);
-                    }
-                    for (var top : ceilings.values())
-                    {
-                        int ground = level.getHeight(Heightmap.Types.OCEAN_FLOOR, top.getX(), top.getZ()) - 1;
-                        if (top.getY() - ground > MAX_TERRAIN_FILL)
-                            return skip("The underground rooms would emerge through the terrain at " + top + " above " + ground);
-                        if (level.getBlockState(top.above()).getBlock() instanceof net.minecraft.world.level.block.FallingBlock)
-                            piece.getValue().putIfAbsent(top.above(), Blocks.STONE.defaultBlockState());
-                        if (top.getY() < ground)
-                            continue;
-                        var cover = level.getBlockState(new BlockPos(top.getX(), ground, top.getZ()));
-                        if (cover.isAir() || cover.hasBlockEntity() || !cover.getFluidState().isEmpty() || cover.getBlock() instanceof net.minecraft.world.level.block.FallingBlock || cover.is(net.minecraft.tags.BlockTags.LEAVES))
-                            cover = Blocks.STONE.defaultBlockState();
-                        // Shallow terrain cover hides roofs on gentle slopes; there is no whole-site platform.
-                        for (int y = ground; y <= top.getY(); y++)
-                            piece.getValue().putIfAbsent(top.atY(y), Blocks.STONE.defaultBlockState());
-                        piece.getValue().put(top.above(), cover);
-                    }
-                }
+                String emerges = cover(0, true);
+                if (emerges != null)
+                    return skip(emerges);
+                covered = true;
                 if (WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).anyMatch(s -> s.getStringOr("dimension", "").equals(level.dimension().identifier().toString()) && WorldStore.bounds(s).box().intersects(bounds.box())) || PadRegistry.read(server).stream().anyMatch(p -> p.dimension().equals(level.dimension().identifier().toString()) && p.bounds().minX() <= bounds.max().getX() && p.bounds().maxX() >= bounds.min().getX() && p.bounds().minZ() <= bounds.max().getZ() && p.bounds().maxZ() >= bounds.min().getZ()))
                     return skip("An existing vessel or pad reserves this site");
                 record().putString("state", "building");
                 WorldStore.get(server).requestSave();
+            }
+            else if (!covered)
+            {
+                // A build taken up after a restart: the stone that grounds the rooms in the terrain is not saved, so it is worked out again for the chunks
+                // still to build, over terrain that is as it was. Chunks already built keep theirs, since setting their blocks again never touches it.
+                cover(record().getIntOr("next", 0), false);
+                covered = true;
             }
             if (finishing)
                 return true;
@@ -469,6 +462,61 @@ public final class NaturalHabs
             }
             place(next);
             return false;
+        }
+
+        /** True when the world holds, at {@code at}, the block the dungeon sets there: the build has already set it. */
+        boolean placed(Map<BlockPos, BlockState> edits, BlockPos at)
+        {
+            var planned = edits.get(at);
+            return planned != null && level.getBlockState(at).equals(planned);
+        }
+
+        /**
+         * Grounds the dungeon in the terrain over it, for the chunks from {@code from} on: every room must be underground, not just the surface hall's doorway,
+         * and shallow terrain cover hides the roofs on gentle slopes (there is no whole-site platform). Returns why the site does not suit, or null; with
+         * {@code enforce} false (a build taken up again) nothing is refused.
+         */
+        String cover(int from, boolean enforce)
+        {
+            var entrance = build.hab().entry().outer();
+            for (int index = Math.min(from, chunks.size()); index < chunks.size(); index++)
+            {
+                var piece = chunks.get(index);
+                // Only the chunk a build stopped in can be part built; every later one stands on the terrain as it was, where the dungeon's own blocks may pass
+                // through the ground without having been set.
+                boolean partial = !enforce && index == from;
+                var ceilings = new HashMap<Long, BlockPos>();
+                for (var at : piece.getValue().keySet())
+                {
+                    int dx = at.getX() - origin.getX(), dz = at.getZ() - origin.getZ();
+                    if (dx >= entrance.x0() - 2 && dx <= entrance.x1() + 2 && dz >= entrance.z0() - 2 && dz <= entrance.z1() + 2)
+                        continue;
+                    long column = new BlockPos(at.getX(), 0, at.getZ()).asLong();
+                    ceilings.merge(column, at, (a, b) -> a.getY() > b.getY() ? a : b);
+                }
+                for (var top : ceilings.values())
+                {
+                    int ground = level.getHeight(Heightmap.Types.OCEAN_FLOOR, top.getX(), top.getZ()) - 1;
+                    // The chunk a build stopped in: where the block on top is the one the dungeon sets there, the dungeon set it, and the terrain is found from
+                    // the generator instead. Natural ground where a wall will pass is not the wall's block, and stays the ground.
+                    if (partial && placed(piece.getValue(), new BlockPos(top.getX(), ground, top.getZ())))
+                        ground = height(top.getX(), top.getZ(), Heightmap.Types.OCEAN_FLOOR_WG);
+                    if (enforce && top.getY() - ground > MAX_TERRAIN_FILL)
+                        return "The underground rooms would emerge through the terrain at " + top + " above " + ground;
+                    if (level.getBlockState(top.above()).getBlock() instanceof net.minecraft.world.level.block.FallingBlock)
+                        piece.getValue().putIfAbsent(top.above(), Blocks.STONE.defaultBlockState());
+                    if (top.getY() < ground)
+                        continue;
+                    var cover = level.getBlockState(new BlockPos(top.getX(), ground, top.getZ()));
+                    if (partial && placed(piece.getValue(), new BlockPos(top.getX(), ground, top.getZ())) || cover.isAir() || cover.hasBlockEntity() || !cover.getFluidState().isEmpty() || cover.getBlock() instanceof net.minecraft.world.level.block.FallingBlock || cover.is(net.minecraft.tags.BlockTags.LEAVES))
+                        cover = Blocks.STONE.defaultBlockState();
+                    // Shallow terrain cover hides roofs on gentle slopes; there is no whole-site platform.
+                    for (int y = ground; y <= top.getY(); y++)
+                        piece.getValue().putIfAbsent(top.atY(y), Blocks.STONE.defaultBlockState());
+                    piece.getValue().put(top.above(), cover);
+                }
+            }
+            return null;
         }
 
         /**

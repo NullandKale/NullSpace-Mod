@@ -194,7 +194,7 @@ public final class ShipGameTests
                 TestWaits.hold(ctx, level, x, z);
     }
 
-    @GameTest(maxTicks = 800)
+    @GameTest(environment = "nullspace:ship_readiness", maxTicks = 800)
     public void readinessTimeoutsPreserveSourceAndQuarantineArrival(GameTestHelper ctx) throws java.io.IOException
     {
         var level = ctx.getLevel();
