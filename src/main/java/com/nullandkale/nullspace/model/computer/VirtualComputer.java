@@ -505,7 +505,7 @@ public final class VirtualComputer implements ScriptLanguage.Host
             case "ship" ->
             {
                 if (args.isEmpty())
-                    yield "ship status / rooms / power / doors / scan / jump / launch / land / fire /" + " cameras";
+                    yield "ship status / rooms / power / doors / scan / jump / launch / land / fire /" + " cameras / synth";
                 yield ScriptLanguage.text(devices.call(args.getFirst(), new ArrayList<Object>(args.subList(1, args.size()))));
             }
             default ->

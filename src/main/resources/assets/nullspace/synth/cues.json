@@ -1,0 +1,14 @@
+{
+  "ftl.jolt": ["tone sine 120 30 0.9 0.85; noise 0.75 0.16; env 0.004 0.1 1.2"],
+  "ftl.drone": ["tone sine 44 50 6 0.4; noise 0.3 0.08; env 2 0 2.5; loop on"],
+  "ftl.arrive": ["tone sine 660 660 0 0.6; env 0.005 0.08 0.7", "delay 0.18; tone sine 990 990 0 0.55; env 0.005 0.12 1.1"],
+  "air.hiss": ["tone off; noise 0.55 0.82; env 0.3 0 0.5; loop on"],
+  "air.refill": ["tone off; noise 0.3 0.5; env 1.2 0 1.5; loop on"],
+  "air.leak": ["tone sine 2700 3100 0.35 0.16; noise 0.45 0.95; env 0.2 0 0.4; loop on"],
+  "alarm.lowair": ["tone square 880 880 0 0.5; env 0.01 0 0.15; pulse 2 0.25; loop on"],
+  "alarm.breach": ["tone square 620 880 0.45 0.5; env 0.01 0 0.25; pulse 1.1 0.85; loop on"],
+  "engine.hum": ["tone square 55 55 0 0.3; noise 0.35 0.12; env 0.6 0 0.8; loop on"],
+  "dock.clamp": ["tone sine 70 45 0.12 0.9; noise 0.6 0.2; env 0.002 0.05 0.35", "delay 0.25; tone off; noise 0.4 0.75; env 0.05 0.1 0.9"],
+  "ui.blip": ["tone square 1320 1320 0 0.35; env 0.002 0.03 0.05"],
+  "ui.error": ["tone square 160 140 0.15 0.45; env 0.003 0.12 0.08"]
+}

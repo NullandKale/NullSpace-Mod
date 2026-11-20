@@ -62,9 +62,9 @@ public final class AirEffects
             data[i++] = f.cell();
             data[i++] = f.dx();
             data[i++] = f.dy();
-            data[i++] = f.dz();
+            data[i++] = f.dz() == GENTLE ? 0 : f.dz();
             data[i++] = f.amount();
-            data[i++] = f.exterior() ? 1 : 0;
+            data[i++] = f.exterior() ? 1 : f.dz() == GENTLE ? 2 : 0;
         }
         var packet = new FlowPacket(level.dimension().identifier().toString(), base, data);
         for (var p : level.players())
@@ -72,14 +72,18 @@ public final class AirEffects
                 ServerPlayNetworking.send(p, packet);
     }
 
-    public static void send(ServerLevel level, BlockPos base, List<SpatialAir.Flow> flows, Atmosphere.Grid grid)
+    /** A marker in a flow's dz, never a real direction: an Air Supply topping up a room that is already over 80%, sent as kind 2 and shown as a gentle wisp. */
+    private static final int GENTLE = Integer.MIN_VALUE;
+
+    public static void send(ServerLevel level, BlockPos base, List<SpatialAir.Flow> flows, Atmosphere.Grid grid, int[] air)
     {
         var sections = new HashMap<BlockPos, List<SpatialAir.Flow>>();
         for (var flow : flows)
         {
             int x = grid.x(flow.cell()), y = grid.y(flow.cell()), z = grid.z(flow.cell());
             var offset = new BlockPos(x / 32 * 32, y / 32 * 32, z / 32 * 32);
-            sections.computeIfAbsent(offset, k -> new ArrayList<>()).add(new SpatialAir.Flow(Atmosphere.index(x % 32, y % 32, z % 32), flow.dx(), flow.dy(), flow.dz(), flow.amount(), flow.exterior()));
+            boolean gentle = !flow.exterior() && air != null && flow.cell() >= 0 && flow.cell() < air.length && SpatialAir.percent(air[flow.cell()]) >= 80;
+            sections.computeIfAbsent(offset, k -> new ArrayList<>()).add(new SpatialAir.Flow(Atmosphere.index(x % 32, y % 32, z % 32), flow.dx(), flow.dy(), gentle ? GENTLE : flow.dz(), flow.amount(), flow.exterior()));
         }
         sections.forEach((offset, samples) -> send(level, base.offset(offset), samples));
     }

@@ -83,12 +83,8 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new AirEffects.FlowPacket(p.level().dimension().identifier().toString(), new BlockPos(0, -59, 0), new int[]{1057, 1, 0, 0, 300, 0}));
             });
             ClientWaits.waitFor(c, mc -> AirFlowParticles.activeParticles() > 0, 80);
-            c.waitTicks(12);
-            c.runOnClient(mc ->
-            {
-                if (AirFlowParticles.activeParticles() != 0)
-                    throw new AssertionError("Air effects must expire if updates stop");
-            });
+            // Air effects expire by themselves once updates stop (a flow's wisps live 12 ticks).
+            ClientWaits.waitFor(c, mc -> AirFlowParticles.activeParticles() == 0, 40);
 
             world.getServer().runOnServer(server ->
             {

@@ -184,7 +184,10 @@ final class AirSystem
                     occupants.merge(local(ship, BlockPos.containing(p.getEyePosition())), 1, Integer::sum);
             boolean vacuum = PlanetSurfaces.vacuum(level);
             var flow = SpatialAir.step(r.air, r.atmosphere, r.seals, supplies, occupants, 5, vacuum ? 0 : Atmosphere.FULL);
-            AirEffects.send(level, WorldStore.pos(ship, "base"), flow.flows(), grid(ship));
+            // Kept for the sounds of the air (AirSounds): where it moves and where it is supplied.
+            r.flows = flow.flows();
+            r.outlets = List.copyOf(outlets);
+            AirEffects.send(level, WorldStore.pos(ship, "base"), flow.flows(), grid(ship), r.air);
             AirStore.tick(s, r.air, grid(ship));
         }
     }

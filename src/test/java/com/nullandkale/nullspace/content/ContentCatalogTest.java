@@ -27,7 +27,7 @@ class ContentCatalogTest
                 assertNotNull(getClass().getResource("/data/nullspace/loot_table/blocks/" + d.id() + ".json"));
             }
         }
-        assertEquals(26, ContentCatalog.EQUIPMENT.size());
+        assertEquals(27, ContentCatalog.EQUIPMENT.size());
     }
 
     @Test

@@ -16,6 +16,7 @@
         "nullspace:ship_beacon",
         "nullspace:station_core",
         "nullspace:docking_base",
+        "nullspace:synth",
         "nullspace:broken_engine",
         "nullspace:broken_generator",
         "nullspace:broken_air_supply",

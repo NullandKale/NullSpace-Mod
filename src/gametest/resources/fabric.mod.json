@@ -58,6 +58,8 @@
       "com.nullandkale.nullspace.worldgen.stations.StationPiecesGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SiteResetGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SiteLeftoversGameTest",
+      "com.nullandkale.nullspace.gameplay.sound.SoundGameTest",
+      "com.nullandkale.nullspace.gameplay.systems.AirSoundsGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.JourneySignalGameTest",
       "com.nullandkale.nullspace.worldgen.sites.VillagePortGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SiteLootGameTest",
@@ -118,6 +120,7 @@
     "fabric-client-gametest": [
       "com.nullandkale.nullspace.gameplay.habs.NaturalHabClientGameTest",
       "com.nullandkale.nullspace.content.SpaceMaterialsClientGameTest",
+      "com.nullandkale.nullspace.content.synth.SynthClientGameTest",
       "com.nullandkale.nullspace.ui.screen.EquipmentUiClientGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.ScannerBlockClientGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.CourseClientGameTest",

@@ -470,6 +470,7 @@ public final class ComputerService
         return switch (name)
         {
             case "status" -> SystemsConsole.summary(l.level, ship);
+            case "synth" -> com.nullandkale.nullspace.content.synth.Synths.command(l.level, ship, l.position, args.stream().map(ScriptLanguage::text).toList());
             case "rooms" -> ShipAir.rooms(l.level, ship).stream().limit(128).map(r -> Map.of("id", r.number(), "oxygen", r.oxygenPercent(), "volume", r.volume(), "leaks", r.leaks())).toList();
             case "pressure" ->
             {

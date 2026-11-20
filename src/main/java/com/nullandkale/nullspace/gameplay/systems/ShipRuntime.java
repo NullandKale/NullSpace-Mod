@@ -42,6 +42,9 @@ final class ShipRuntime
     List<BlockPos> trees = List.of();
     List<Atmosphere.Room> rooms = List.of();
     Atmosphere.Topology atmosphere;
+    /** The air's last step: where it moved, and the cells in front of the working Air Supplies (for AirSounds). */
+    List<com.nullandkale.nullspace.model.air.SpatialAir.Flow> flows = List.of();
+    List<net.minecraft.core.BlockPos> outlets = List.of();
     int[] air;
     boolean[] seals;
     int revision;

@@ -49,8 +49,16 @@ public final class AirFlowParticles
             double x = packet.base().getX() + cell % 32 + .5;
             double y = packet.base().getY() + cell / 1024 + .5;
             double z = packet.base().getZ() + cell / 32 % 32 + .5;
-            double speed = Math.min(.35, .025 + data[i + 4] / 1000.0);
-            for (int n = 0; n < 2; n++)
+            // Kind 1 is air escaping or entering through a breach, 0 an Air Supply filling its room, 2 one topping up a room that is nearly full.
+            int kind = data[i + 5], amount = data[i + 4];
+            boolean gentle = kind == 2;
+            double strength = Math.min(1, amount / 200.0);
+            double speed = Math.min(.35, .025 + amount / 1000.0) * (gentle ? .4 : 1);
+            // Stronger flows show more often, larger and brighter; a room that is nearly full fills with a faint wisp.
+            int count = gentle ? 1 : kind == 1 ? 1 + (int) Math.min(3, amount / 40) : 2;
+            float scale = (float) (gentle ? .5 : .6 + .6 * strength);
+            float shade = (float) (gentle ? .85 : .65 + .35 * strength);
+            for (int n = 0; n < count; n++)
             {
                 double dx = Math.clamp(data[i + 1], -1, 1), dy = Math.clamp(data[i + 2], -1, 1), dz = Math.clamp(data[i + 3], -1, 1);
                 if (dx == 0 && dy == 0 && dz == 0)
@@ -62,7 +70,10 @@ public final class AirFlowParticles
                 var particle = client.particleEngine.createParticle(ParticleTypes.CLOUD, x + (world.getRandom().nextDouble() - .5) * .3, y + (world.getRandom().nextDouble() - .5) * .3, z + (world.getRandom().nextDouble() - .5) * .3, dx * speed, dy * speed, dz * speed);
                 if (particle != null)
                 {
-                    particle.setLifetime(8);
+                    particle.setLifetime(gentle ? 10 : 12);
+                    particle.scale(scale);
+                    if (particle instanceof net.minecraft.client.particle.SingleQuadParticle quad)
+                        quad.setColor(shade, shade, shade);
                     particles.add(particle);
                 }
             }

@@ -65,7 +65,8 @@ public final class ComputerTerminal
         PAD_PROBLEM, PAD_ADVANCED, // pad diagnostics
         RECALL_LIST, RECALL_SHIP, RECALL_CANCEL, RECALL_BACK, // recall
         CONTROLLER_BACK, // back to the controller screen
-        SHIP_STORE, SHIP_TITLE, STATION_CLAIM, SHIP_SHOW, SHIP_SCRAP // storage, titles, claims, scrapping
+        SHIP_STORE, SHIP_TITLE, STATION_CLAIM, SHIP_SHOW, SHIP_SCRAP, // storage, titles, claims, scrapping
+        SYNTH_SET, SYNTH_PRESET, SYNTH_PLAY, SYNTH_STOP // the Synth block
     }
 
     static final class Session
@@ -118,6 +119,8 @@ public final class ComputerTerminal
             return state.is(ModBlocks.SHIP_BEACON);
         if (s.mode.equals("pad") || s.mode.equals("recall"))
             return state.is(PadComputers.BLOCK);
+        if (s.mode.equals("synth"))
+            return state.is(ModBlocks.SYNTH);
         if (EquipmentMenus.supports(s.mode))
             return s.mode.equals(ModBlocks.equipmentMode(state));
         return ModBlocks.navigation(state) || s.mode.equals("systems") && state.is(ModBlocks.STATION_CORE);
@@ -125,7 +128,7 @@ public final class ComputerTerminal
 
     public static Open issue(ServerPlayer player, BlockPos pos, String message, String mode, String value)
     {
-        if (!mode.equals("recall") && !mode.equals("pad") && !mode.equals("ship") && !mode.equals("systems") && !mode.equals("navigation") && !mode.equals("shipyard") && !EquipmentMenus.supports(mode) && !StationMenus.supports(mode))
+        if (!mode.equals("recall") && !mode.equals("pad") && !mode.equals("ship") && !mode.equals("systems") && !mode.equals("navigation") && !mode.equals("shipyard") && !mode.equals("synth") && !EquipmentMenus.supports(mode) && !StationMenus.supports(mode))
             throw new IllegalArgumentException("Unknown controller mode");
         var candidate = new Session(player, pos, mode);
         candidate.expires = player.level().getServer().getTickCount() + 1200;
@@ -155,6 +158,12 @@ public final class ComputerTerminal
             var inspected = PadComputers.inspect(player, pos);
             boolean registered = PadRegistry.read(player.level().getServer()).stream().anyMatch(p -> p.dimension().equals(player.level().dimension().identifier().toString()) && p.computer().equals(pos));
             session.destinations.put("pad_status", new Destination("pad_status", inspected.valid() ? inspected.pad().width() + " x " + inspected.pad().depth() : "Needs repair", !inspected.valid() ? "INVALID" : registered ? "REGISTERED" : "VALID"));
+        }
+        if (mode.equals("synth"))
+        {
+            session.destinations.clear();
+            for (var entry : com.nullandkale.nullspace.content.synth.Synths.view(player.level(), pos))
+                session.destinations.put(entry.id(), entry);
         }
         if (mode.equals("navigation"))
         {
@@ -258,6 +267,7 @@ public final class ComputerTerminal
                 case "pad" -> EnumSet.of(Action.RECALL_LIST, Action.INSPECT, Action.REGISTER, Action.PREVIEW_PAD, Action.PAD_PROBLEM, Action.PAD_ADVANCED, Action.PREVIEW_SHIP);
                 case "ship" -> EnumSet.of(Action.INSPECT, Action.LAUNCH, Action.LAND, Action.DESTINATIONS, Action.SYSTEMS, Action.FIRE, Action.PILOT, Action.CHASE, Action.NAVIGATION);
                 case "navigation" -> EnumSet.of(Action.FAST_TRAVEL, Action.HELM);
+                case "synth" -> EnumSet.of(Action.SYNTH_SET, Action.SYNTH_PRESET, Action.SYNTH_PLAY, Action.SYNTH_STOP);
                 default -> EnumSet.of(Action.SYSTEMS, Action.UPGRADE, Action.CLOSE_DOORS, Action.OPEN_DOORS, Action.POWER_AIR, Action.POWER_ENGINES, Action.POWER_WEAPONS, Action.PRIORITY, Action.CONFIGURE);
             });
         return allowed;
@@ -293,7 +303,8 @@ public final class ComputerTerminal
             if (request.revision() != ShipSystems.revision(player.level(), vessel))
                 throw new IllegalArgumentException("Systems changed. Refresh before editing.");
         }
-        if (request.argument().length() > 32 || !request.argument().matches("[A-Za-z0-9 _-]*"))
+        // A Synth setting has decimals (0.45) and a cue name has dots (ftl.jolt).
+        if (request.argument().length() > 32 || !request.argument().matches(s.mode.equals("synth") ? "[A-Za-z0-9 ._-]*" : "[A-Za-z0-9 _-]*"))
             throw new IllegalArgumentException("Use at most 32 letters, numbers, spaces, underscores, or hyphens in this field.");
         String argument = request.argument();
         if ((request.action() == Action.SHIP_QUOTE || request.action() == Action.SHIP_BUY) && !s.destinations.containsKey(argument))
@@ -406,6 +417,8 @@ public final class ComputerTerminal
                 }
                 else if (a.mode().equals("shipyard"))
                     ShipYardService.action(player, a.position(), a.argument(), packet.action() == Action.SHIP_BUY);
+                else if (a.mode().equals("synth"))
+                    com.nullandkale.nullspace.content.synth.Synths.action(player, a.position(), packet.action(), a.argument());
                 else if (EquipmentMenus.supports(a.mode()))
                     EquipmentPanel.equipmentAction(player, a.position(), packet.action(), a.argument());
                 else

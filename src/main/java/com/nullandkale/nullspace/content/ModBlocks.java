@@ -69,6 +69,9 @@ public final class ModBlocks
     public static final Block MONITOR = machine("monitor");
     public static final Block WEAPON = machine("weapon");
 
+    /** Plays a programmable tone-and-noise patch: from its screen, a ship terminal ({@code ship synth}) or a redstone pulse. */
+    public static final Block SYNTH = machine("synth");
+
     /**
      * The starting space suit: vacuum and air protection with almost no armor, so new players do not
      * begin in the equivalent of iron armor. White with orange trim and a tinted visor.
@@ -111,6 +114,8 @@ public final class ModBlocks
     {
         if (name.equals("ship_computer") || name.equals("station_core"))
             return new Controller(props);
+        if (name.equals("synth"))
+            return new com.nullandkale.nullspace.content.synth.SynthBlock(props);
         return java.util.Set.of("generator", "battery", "engine", "local_scanner", "camera", "monitor", "air_supply", "weapon", "docking_base").contains(name) ? new InventoryMachine(props, name) : new Machine(props);
     }
 

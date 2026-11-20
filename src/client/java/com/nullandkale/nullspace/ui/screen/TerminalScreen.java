@@ -81,6 +81,8 @@ public final class TerminalScreen extends Screen
 
     private static ControllerApplication application(TerminalPackets.Open state)
     {
+        if (state.mode().equals("synth"))
+            return new com.nullandkale.nullspace.ui.apps.SynthTerminal(state.message(), state.destinations());
         return state.mode().equals("pad") ? new PadTerminal(state.message(), state.value(), state.destinations()) : state.mode().equals("station_core") ? new StationCoreTerminal(state.message(), state.destinations()) : state.mode().equals("recall") ? new MyShipsTerminal(state.message(), state.destinations()) : controller(state);
     }
 
@@ -166,6 +168,8 @@ public final class TerminalScreen extends Screen
             core.catalog(next.destinations());
         if (device instanceof MyShipsTerminal recall)
             recall.catalog(next.destinations());
+        if (device instanceof com.nullandkale.nullspace.ui.apps.SynthTerminal synth)
+            synth.catalog(next.destinations());
         state = next;
     }
 
@@ -196,6 +200,8 @@ public final class TerminalScreen extends Screen
             core.catalog(next.destinations());
         if (device instanceof MyShipsTerminal recall)
             recall.catalog(next.destinations());
+        if (device instanceof com.nullandkale.nullspace.ui.apps.SynthTerminal synth)
+            synth.catalog(next.destinations());
         if (device instanceof PadTerminal pad)
         {
             pad.catalog(next.destinations());

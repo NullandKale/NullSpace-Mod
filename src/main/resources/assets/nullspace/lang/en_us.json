@@ -64,5 +64,6 @@
   "block.nullspace.enchanted_golden_apple_sapling": "Enchanted Golden Apple Sapling",
   "block.nullspace.golden_apple_hanging": "Golden Apple",
   "block.nullspace.enchanted_golden_apple_hanging": "Enchanted Golden Apple",
-  "block.nullspace.door_panel": "Door Panel"
+  "block.nullspace.door_panel": "Door Panel",
+  "block.nullspace.synth": "Synth"
 }

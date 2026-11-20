@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IBI",
+    "INI"
+  ],
+  "key": {
+    "B": "nullspace:circuit_board",
+    "I": "minecraft:iron_ingot",
+    "N": "minecraft:note_block"
+  },
+  "result": {
+    "id": "nullspace:synth",
+    "count": 1
+  }
+}

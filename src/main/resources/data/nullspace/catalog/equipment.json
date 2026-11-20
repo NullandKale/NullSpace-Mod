@@ -247,5 +247,15 @@
     "unlock": {
       "items": "nullspace:advanced_system_upgrade"
     }
+  },
+  {
+    "id": "synth",
+    "kind": "block",
+    "capabilities": [
+      "device"
+    ],
+    "unlock": {
+      "items": "minecraft:note_block"
+    }
   }
 ]

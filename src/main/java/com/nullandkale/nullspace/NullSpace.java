@@ -91,6 +91,11 @@ public final class NullSpace implements ModInitializer
         ShipTitles.initialize();
         TerraHarbor.initialize();
         AirEffects.initialize();
+        com.nullandkale.nullspace.gameplay.sound.ShipSounds.initialize();
+        com.nullandkale.nullspace.content.synth.Synths.initialize();
+        com.nullandkale.nullspace.gameplay.sound.SoundCommand.initialize();
+        com.nullandkale.nullspace.gameplay.sound.TravelSounds.initialize();
+        com.nullandkale.nullspace.gameplay.systems.AirSounds.initialize();
         ShipSystems.initialize();
         SceneService.initialize();
         TerrainService.initialize();

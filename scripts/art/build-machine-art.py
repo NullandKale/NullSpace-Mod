@@ -210,6 +210,19 @@ def front(kind):
         d.rectangle((6, 6, 9, 9), fill='#5c6062')
         d.point((6, 6), fill=LIGHT)
         d.point((13, 3), fill=REDSTONE)
+    elif kind == 'synth':
+        # A speaker grille, two knobs and a short keyboard.
+        d.rectangle((1, 1, 14, 9), fill=INK, outline=EDGE)
+        d.ellipse((2, 2, 8, 8), fill=DARK, outline=EDGE)
+        d.ellipse((4, 4, 6, 6), fill=INK)
+        d.point((5, 5), fill=EDGE)
+        d.rectangle((10, 3, 12, 4), fill=AMBER)
+        d.point((11, 3), fill=LIGHT)
+        d.rectangle((10, 6, 12, 7), fill=COPPER)
+        d.point((12, 6), fill=LIGHT)
+        d.rectangle((1, 11, 14, 14), fill=LIGHT, outline=EDGE)
+        for x in (3, 5, 8, 10, 12):
+            d.line((x, 11, x, 12), fill=INK)
     elif kind == 'monitor':
         image = Image.new('RGB', (16, 16), INK)
         d = ImageDraw.Draw(image)
