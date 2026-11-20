@@ -5,7 +5,7 @@
 - **Release tags** run the full build and test suite ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)). The native server tests run as four parallel jobs (`-PgametestShard=N/4`, see [`build.gradle`](../../build.gradle)), the unit tests, asset check and JAR build as a fifth, and the release is published only when all five pass:
   - `vN.N.N` publishes a **full release**, marked Latest. `N.N.N` must equal `mod_version` in [`gradle.properties`](../../gradle.properties).
   - `vN.N.N_<label>`, for example `v0.1.0_rc1`, publishes a **prerelease** (not Latest). Its `N.N.N` must also equal `mod_version`; the asset is named after the whole tag (`nullspace-0.1.0_rc1.jar`).
-  - Any other tag fails. A tag whose release already exists fails: published releases are never changed, so fix a problem with a new tag.
+  - Any other tag fails. A tag whose release already exists replaces that release once the tests pass: the old release is deleted and published again from the tag's new commit, with the same version.
 - **Build and test** ([`build.yml`](../../.github/workflows/build.yml)) no longer runs on push or pull request. Start it by hand from the Actions tab when you want a check without releasing.
 - **Secret scan** ([`secrets.yml`](../../.github/workflows/secrets.yml)) still runs on every push and pull request. It is a security check, not a build.
 
@@ -20,4 +20,6 @@ Every release attaches the JAR and `SHA256SUMS.txt`. The workflow refuses a JAR 
 
 The server's address and key stay out of the repository: `Deploy-Playtest.ps1` reads them from `%USERPROFILE%/.nullspace/deploy.json`.
 
-A full release becomes Latest immediately. Prefer prerelease tags until the candidate has completed playtesting. Published releases are immutable; fixes need a new tag.
+A full release becomes Latest immediately. Prefer prerelease tags until the candidate has completed playtesting.
+
+To update a release, commit the fix, run the release check, and run `Publish-Release.ps1` again with the same `mod_version`: it moves the tag to the new commit, the workflow replaces the release, and the record in `docs/release/<version>.md` and the deployment are replaced too. Anyone who downloaded the earlier JAR has a different file under the same version number, so bump `mod_version` when players need to tell the two apart.

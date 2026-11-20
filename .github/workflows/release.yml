@@ -5,7 +5,7 @@ name: Release
 # asset check and JAR build run in a fifth; the release is published only when all five pass.
 #   vN.N.N             full release, marked Latest (N.N.N must equal mod_version)
 #   vN.N.N_<anything>  prerelease, for example v0.1.0_rc1 (N.N.N must equal mod_version)
-# Published releases are never changed; fix problems with a new tag. See docs/release/release-policy.md.
+# A tag moved to a new commit replaces its release (same version, new JAR and notes). See docs/release/release-policy.md.
 on:
   push:
     tags: ['v*']
@@ -103,7 +103,7 @@ jobs:
           [ "${BASH_REMATCH[1]}" = "$version" ] || {
             echo "::error::Tag $TAG is for ${BASH_REMATCH[1]} but mod_version is $version"; exit 1; }
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "::error::Release $TAG already exists. Published releases are immutable; push a new tag."; exit 1
+            echo "::notice::Release $TAG exists; it is replaced when the tests pass."
           fi
           { echo "VERSION=$version"; echo "KIND=$kind"; echo "LABEL=${TAG#v}"; } >> "$GITHUB_ENV"
           { echo "kind=$kind"; echo "label=${TAG#v}"; } >> "$GITHUB_OUTPUT"
@@ -173,6 +173,11 @@ jobs:
         run: |
           (cd dist && sha256sum -c SHA256SUMS.txt)
           notes="Alpha build for Minecraft 26.3 with Fabric Loader 0.19.5 and Fabric API 0.164.0+26.3. Install on both client and server. Verify the download against SHA256SUMS.txt."
+          # A moved tag replaces its release; the tag itself stays where it was pushed.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+            echo "Replaced the previous $TAG release." >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ "$KIND" = full ]; then
             gh release create "$TAG" dist/* --verify-tag --latest --title "NullSpace $LABEL" --generate-notes --notes "$notes"
           else

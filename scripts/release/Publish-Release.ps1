@@ -5,7 +5,8 @@
 .NOTES
   Run release-check.ps1 on the commit first. This refuses to tag sources that differ from the newest passing receipt, so the
   tag can only name what was tested. Needs a clean tree on main with mod_version equal to the tag. -SkipDeploy stops after the verified download.
-  The default tag is vMOD_VERSION from gradle.properties. A failed release is fixed by moving the same tag: see docs/release/release-policy.md.
+  The default tag is vMOD_VERSION from gradle.properties. Running it again for a version that is already tagged or released moves
+  the tag to this commit and replaces the release, its record and the deployment: see docs/release/release-policy.md.
 #>
 [CmdletBinding()]
 param(
@@ -38,13 +39,15 @@ if ($check.inputsSha256 -ne (Get-VerificationFingerprint $root)) { throw 'The so
 Write-Host "Local check $($receiptDir.Name) passed in $([Math]::Round($check.elapsedSeconds / 60, 1)) min for these exact sources."
 
 # 2. Tag and push
+# An existing tag on another commit is moved here: the Release workflow then replaces that version's release.
 $existing = (& git -C $root tag --list $Tag)
-if ($existing) {
-    if ((& git -C $root rev-parse "$Tag^{commit}").Trim() -ne $commit) { throw "Tag $Tag already names another commit; move it deliberately" }
-} else { & git -C $root tag -a $Tag -m "NullSpace $label" }
-& git -C $root push origin main $Tag
-if ($LASTEXITCODE -ne 0) { throw 'Push failed' }
-Write-Host "Pushed $Tag ($($commit.Substring(0, 7)))."
+$moved = $existing -and (& git -C $root rev-parse "$Tag^{commit}").Trim() -ne $commit
+if (-not $existing -or $moved) { & git -C $root tag -f -a $Tag -m "NullSpace $label" }
+& git -C $root push origin main
+if ($LASTEXITCODE -ne 0) { throw 'Pushing main failed' }
+& git -C $root push --force origin "refs/tags/$Tag"
+if ($LASTEXITCODE -ne 0) { throw "Pushing $Tag failed" }
+Write-Host "$(if ($moved) { 'Moved' } else { 'Pushed' }) $Tag ($($commit.Substring(0, 7)))."
 
 # 3. Release CI
 $deadline = (Get-Date).AddMinutes($CiTimeoutMinutes)
@@ -91,7 +94,9 @@ if (-not $NoRecord) {
     if ($deployment) {
         $lines += "- **Playtest server:** installed $($deployment.deployedUtc) (process $($deployment.pid), $($deployment.serverErrors) ERROR lines at startup); the previous JAR and world are backed up on the host. The same JAR is in the Modrinth testing profile."
     } else { $lines += '- **Deployment:** not deployed by this run.' }
+    # A re-release replaces the record of the previous one: the record is always the last section.
     $existing = if (Test-Path -LiteralPath $doc) { [IO.File]::ReadAllText($doc) } else { '' }
+    $existing = $existing -replace '(?s)\r?\n## Release record\r?\n.*$', ''
     [IO.File]::WriteAllText($doc, $existing.TrimEnd() + "`n" + ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
     & git -C $root add -- $doc
     & git -C $root commit -m "Record the $version release$(if ($deployment) { ' and deployment' })" -m 'Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>'
