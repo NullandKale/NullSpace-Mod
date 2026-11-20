@@ -104,7 +104,7 @@ class GameTestHygieneTest
         if (FIXTURES_AND_HELPERS.contains(source.name()))
             return List.of();
         var out = new ArrayList<String>();
-        var matcher = Pattern.compile("(?m)^\\s*PadComputers\\.register\\(").matcher(source.text());
+        var matcher = Pattern.compile("(?m)^\\s*(?:[a-z]\\w*\\.)*PadComputers\\.register\\(").matcher(source.text());
         while (matcher.find())
             out.add(source.name() + ": drops the result of PadComputers.register (at character " + matcher.start() + "); use TestPads.register");
         return out;
@@ -411,6 +411,7 @@ class GameTestHygieneTest
         assertEquals(1, droppedRegistrations(dropped).size());
         var used = new Source("SomeGameTest", withoutComments("void f() {\n    var text = PadComputers.register(level, at, pad, \"x\");\n}"));
         assertEquals(0, droppedRegistrations(used).size());
+        assertEquals(1, droppedRegistrations(new Source("SomeGameTest", withoutComments("void f() {\n    com.nullandkale.nullspace.gameplay.pads.PadComputers.register(level, at, pad, \"x\", false);\n}"))).size());
         var helper = new Source("TestPads", withoutComments("PadComputers.register(level, at, pad, \"x\");"));
         assertEquals(0, droppedRegistrations(helper).size());
 

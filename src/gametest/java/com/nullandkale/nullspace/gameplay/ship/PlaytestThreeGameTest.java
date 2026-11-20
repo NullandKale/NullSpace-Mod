@@ -30,7 +30,7 @@ public final class PlaytestThreeGameTest
         var level = ctx.getLevel();
         var base = ctx.absolutePos(new BlockPos(14000, 80, 14000));
         var helm = com.nullandkale.nullspace.testing.ShipTestFixture.build(level, base);
-        com.nullandkale.nullspace.gameplay.pads.PadComputers.register(level, base.offset(-1, 1, 3), new com.nullandkale.nullspace.gameplay.pads.PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Interior doors " + UUID.randomUUID().toString().substring(0, 8), false);
+        com.nullandkale.nullspace.testing.TestPads.register(level, base.offset(-1, 1, 3), new com.nullandkale.nullspace.gameplay.pads.PadScanner.Pad(base.getX(), base.getX() + 7, base.getY(), base.getZ(), base.getZ() + 7), "Interior doors " + UUID.randomUUID().toString().substring(0, 8), false);
         for (var at : BlockPos.betweenClosed(base.offset(1, 3, 4), base.offset(5, 5, 4)))
             level.setBlock(at, Blocks.STONE.defaultBlockState(), 18);
         var inner = base.offset(3, 3, 4);
