@@ -14,6 +14,9 @@ param(
     [ValidateRange(1, 8)] [int] $CrashWorkers = 2,
     # Run the optional scripts one after another, after the parallel check, instead of beside it.
     [switch] $Sequential,
+    # An optional part starts only with this much memory free. Starting the build-crash JVMs with 5 GB free took the machine to 0.5 GB, it paged, and a
+    # graphical test's server fell three minutes behind; held until 8 GB were free, a part waits for the graphical workers to finish instead.
+    [ValidateRange(0, 64)] [double] $StartFreeGB = 8,
     [ValidateRange(10, 240)] [int] $TimeoutMinutes = 90
 )
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -82,6 +85,7 @@ try {
     # its own clients when it is ready: the lanes wait for that, and then start their parts one at a time, 20 seconds apart.
     $lanesMayStart = (Get-Date).AddSeconds(90)
     $lastStart = [DateTime]::MinValue
+    $heldForMemory = $false
     while ($true) {
         foreach ($lane in $lanes) {
             if ($lane.current -and $lane.current.process.HasExited) {
@@ -89,6 +93,14 @@ try {
                 $lane.current = $null
             }
             if (-not $lane.current -and $lane.queue.Count -gt 0 -and (Test-Path -LiteralPath $ready) -and (Get-Date) -gt $lanesMayStart -and ((Get-Date) - $lastStart).TotalSeconds -ge 20) {
+                # Wait for memory while the parallel check runs; once it has finished, start regardless (nothing else will free memory).
+                $freeGB = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
+                if ($freeGB -lt $StartFreeGB -and -not $main.process.HasExited) {
+                    if (-not $heldForMemory) { Write-Host ("Holding {0}: {1:N1} GB free, {2} GB needed to start" -f $lane.queue.Peek().name, $freeGB, $StartFreeGB) }
+                    $heldForMemory = $true
+                    continue
+                }
+                $heldForMemory = $false
                 $next = $lane.queue.Dequeue()
                 $lane.current = Start-Part $next.name $next.command
                 $running += $lane.current

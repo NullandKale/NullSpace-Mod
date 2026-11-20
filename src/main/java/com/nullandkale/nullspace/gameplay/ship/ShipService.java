@@ -34,11 +34,11 @@ import com.mojang.brigadier.arguments.*;
 
 public final class ShipService
 {
-    private static final ServerContext.Key<Map<UUID, Long>> KEY = new ServerContext.Key<>();
+    private static final ServerContext.Key<com.nullandkale.nullspace.core.ActionLimit> KEY = new ServerContext.Key<>();
 
-    private static Map<UUID, Long> requests(net.minecraft.server.MinecraftServer server)
+    private static com.nullandkale.nullspace.core.ActionLimit requests(net.minecraft.server.MinecraftServer server)
     {
-        return ServerContext.get(server).service(KEY, HashMap::new);
+        return ServerContext.get(server).service(KEY, com.nullandkale.nullspace.core.ActionLimit::new);
     }
 
     public record Inspection(HullScan.Result scan, PadRegistry.Pad pad, net.minecraft.nbt.CompoundTag vessel, BlockPos base)
@@ -73,11 +73,8 @@ public final class ShipService
         }
         if (TransferLocks.busy(player) || TransferLocks.locked(player.level(), pos))
             return 0;
-        // One action every ten server ticks, a system action every two (half and a tenth of a second at full speed), counted in ticks like the computer
-        // terminal's: a limit in wall-clock time is a different length on every machine, and a test whose ticks race could not wait for it except by sleeping.
-        long now = player.level().getServer().getTickCount();
-        Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
-        if (previous != null && now - previous < (systemAction ? 2 : 10))
+        // One action every half second, a system action every tenth of a second: ten or two server ticks, or that much real time on a server that lags (see ActionLimit).
+        if (requests(player.level().getServer()).refuse(player.level().getServer(), player.getUUID(), systemAction ? 2 : 10))
         {
             feedback(player, pos, "Please wait a moment before the next action", systemAction);
             return 0;

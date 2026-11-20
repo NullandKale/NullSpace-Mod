@@ -29,11 +29,11 @@ public final class PadComputers
 {
     public static final Identifier ID = Identifier.parse("nullspace:pad_computer");
     public static final Block BLOCK = Registry.register(BuiltInRegistries.BLOCK, ID, new PadComputerBlock(BlockBehaviour.Properties.of().strength(3).setId(ResourceKey.create(Registries.BLOCK, ID))));
-    private static final ServerContext.Key<Map<UUID, Long>> KEY = new ServerContext.Key<>();
+    private static final ServerContext.Key<com.nullandkale.nullspace.core.ActionLimit> KEY = new ServerContext.Key<>();
 
-    private static Map<UUID, Long> requests(net.minecraft.server.MinecraftServer server)
+    private static com.nullandkale.nullspace.core.ActionLimit requests(net.minecraft.server.MinecraftServer server)
     {
-        return ServerContext.get(server).service(KEY, HashMap::new);
+        return ServerContext.get(server).service(KEY, com.nullandkale.nullspace.core.ActionLimit::new);
     }
 
     public static void initialize()
@@ -100,11 +100,8 @@ public final class PadComputers
             open(player, pos, "Cannot use this pad computer. Move within 8 blocks and check the computer still exists" + " and is accessible.");
             return 0;
         }
-        // One action every ten server ticks (half a second at full speed), counted in ticks like the computer terminal's: a limit in wall-clock time is a
-        // different length on every machine, and a test whose ticks race could not wait for it except by sleeping.
-        long now = player.level().getServer().getTickCount();
-        Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
-        if (previous != null && now - previous < 10)
+        // One action every half second: ten server ticks, or half a second of real time on a server that lags (see ActionLimit).
+        if (requests(player.level().getServer()).refuse(player.level().getServer(), player.getUUID(), 10))
         {
             open(player, pos, "Please wait a moment before the next action");
             return 0;

@@ -29,7 +29,51 @@ public final class ClientWaits
 
     public static int waitFor(ClientGameTestContext context, Predicate<Minecraft> predicate, int ticks)
     {
-        return untilFloor(() -> context.waitFor(predicate, ticks), ticks);
+        try
+        {
+            return untilFloor(() -> context.waitFor(predicate, ticks), ticks);
+        }
+        catch (AssertionError timeout)
+        {
+            if (!TIMED_OUT.equals(timeout.getMessage()))
+                throw timeout;
+            // Say what the client showed when the wait gave up: a bare "timed out" leaves the next run to find out.
+            AssertionError described = new AssertionError(TIMED_OUT + " after " + FLOOR_SECONDS + " s; the client showed " + describe(context), timeout);
+            throw described;
+        }
+    }
+
+    /** The screen, a terminal's status and rows, any overlay, and the player's position. */
+    private static String describe(ClientGameTestContext context)
+    {
+        try
+        {
+            return context.computeOnClient(mc ->
+            {
+                var out = new StringBuilder();
+                var screen = mc.gui.screen();
+                out.append("screen ").append(screen == null ? "none" : screen.getClass().getSimpleName());
+                if (screen instanceof com.nullandkale.nullspace.ui.screen.TerminalScreen terminal)
+                {
+                    out.append(", status \"").append(terminal.status()).append("\", rows");
+                    for (int row = 0; row < com.nullandkale.nullspace.ui.terminal.TerminalBuffer.ROWS; row++)
+                    {
+                        String text = terminal.buffer().row(row).strip();
+                        if (!text.isEmpty())
+                            out.append(" | ").append(row).append(": ").append(text);
+                    }
+                }
+                if (mc.gui.overlay() != null)
+                    out.append(", overlay ").append(mc.gui.overlay().getClass().getSimpleName());
+                if (mc.player != null)
+                    out.append(String.format(", player at %.2f %.2f %.2f in %s", mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.level().dimension().identifier()));
+                return out.toString();
+            });
+        }
+        catch (RuntimeException | AssertionError unreadable)
+        {
+            return "(the client state could not be read: " + unreadable + ")";
+        }
     }
 
     public static int waitFor(TestServerContext server, Predicate<MinecraftServer> predicate)
