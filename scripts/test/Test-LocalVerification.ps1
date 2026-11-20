@@ -29,6 +29,17 @@ $shader=Join-Path $fixture 'src/space.glsl'
 Reject { Assert-VerificationFingerprint $fixture $initial }
 Remove-Item -LiteralPath $shader
 Assert-VerificationFingerprint $fixture $initial
+$gradleProperties=Join-Path $fixture 'gradle.properties'
+[IO.File]::WriteAllText($gradleProperties,"minecraft_version=26.1`nmod_version=0.1.0`nloader_version=0.1`n")
+$withProperties=Get-VerificationFingerprint $fixture
+[IO.File]::WriteAllText($gradleProperties,"minecraft_version=26.1`nmod_version=0.1.1`nloader_version=0.1`n")
+Check ((Get-VerificationFingerprint $fixture) -eq $withProperties) 'A version bump must not invalidate a passing check'
+[IO.File]::WriteAllText($gradleProperties,"minecraft_version=26.1`nmod_version=0.1.1`nloader_version=0.2`n")
+Reject { Assert-VerificationFingerprint $fixture $withProperties }
+[IO.File]::WriteAllText($gradleProperties,"minecraft_version=26.1`nmod_version=0.1.1`nloader_version=0.1`nfabric_api_version=1`n")
+Reject { Assert-VerificationFingerprint $fixture $withProperties }
+Remove-Item -LiteralPath $gradleProperties
+Assert-VerificationFingerprint $fixture $initial
 Move-Item -LiteralPath $source -Destination (Join-Path $fixture 'src/Renamed.java')
 Reject { Assert-VerificationFingerprint $fixture $initial }
 $marker=Join-Path $ArtifactRoot 'marker'

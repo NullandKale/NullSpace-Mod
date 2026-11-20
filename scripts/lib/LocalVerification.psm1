@@ -18,6 +18,15 @@ function Assert-VerificationMarker([string] $Path, [string] $Expected = 'passed'
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Missing success marker: $Path" }
     if ((Get-Content -LiteralPath $Path -Raw).Trim() -ne $Expected) { throw "Invalid success marker: $Path" }
 }
+# The version number only names the JAR, so a passing check still certifies the sources after the release bump: the
+# mod_version line of the root gradle.properties is left out of its hash. Every other line, and every other file, counts.
+function Get-VerificationFileHash([string] $Path, [string] $Relative) {
+    if ($Relative -ne '/gradle.properties') { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
+    $kept=([IO.File]::ReadAllText($Path) -replace '(?m)^mod_version=.*(\r?\n|$)','')
+    $algorithm=[System.Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($kept)))).Replace('-','') }
+    finally { $algorithm.Dispose() }
+}
 function Get-VerificationFingerprint([string] $Root) {
     $absolute=[System.IO.Path]::GetFullPath($Root).TrimEnd('\','/')
     $files=@(& rg --files (Join-Path $absolute 'src') (Join-Path $absolute 'gradle') (Join-Path $absolute 'scripts'))
@@ -25,7 +34,7 @@ function Get-VerificationFingerprint([string] $Root) {
     $lines=@($files | Sort-Object -Unique | ForEach-Object {
         $path=[System.IO.Path]::GetFullPath($_)
         $relative=$path.Substring($absolute.Length).Replace('\','/')
-        "$relative`t$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)"
+        "$relative`t$(Get-VerificationFileHash $path $relative)"
     })
     $algorithm=[System.Security.Cryptography.SHA256]::Create()
     try { return ([BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))))).Replace('-','').ToLowerInvariant() }
