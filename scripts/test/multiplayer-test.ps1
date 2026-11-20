@@ -1,4 +1,4 @@
-param([int] $TimeoutSeconds = 360, [string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $Profile, [switch] $SkipBuild)
+param([int] $TimeoutSeconds = 1500, [int] $StallSeconds = 180, [string] $ArtifactRoot = '', [switch] $KeepWorlds, [switch] $Profile, [switch] $SkipBuild)
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $RepoRoot 'scripts/lib/LocalVerification.psm1') -Force -DisableNameChecking
@@ -36,11 +36,18 @@ try {
         # Clients that start in the same few seconds can freeze while they load (see Run-FocusedTests.ps1): the second waits for the first.
         if ($role -eq 'pilot') { Start-Sleep -Seconds 15 }
     }
+    # Judged by progress, not a fixed time (see Wait-VerificationProcess): it fails when no client's logs have grown for StallSeconds, or after TimeoutSeconds in all.
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $logs = @(foreach ($role in @('pilot','crew')) { (Join-Path $runRoot "$role/client.log"); (Join-Path $runRoot "$role/logs/debug.log") })
+    $size = [long] -1
+    $grew = Get-Date
     while (@($processes | Where-Object { -not $_.HasExited }).Count -gt 0) {
         $stalled = Join-Path $runRoot 'stalled'
         if (Test-Path $stalled) { Start-Sleep -Seconds 2; throw "Local multiplayer STALLED: $(Get-Content $stalled -Raw) Logs: $runRoot" }
-        if ((Get-Date) -gt $deadline) { throw "Local multiplayer test timed out. Logs: $runRoot" }
+        $current = Get-VerificationLogSize $logs
+        if ($current -ne $size) { $size = $current; $grew = Get-Date }
+        if (((Get-Date) - $grew).TotalSeconds -gt $StallSeconds) { throw "Local multiplayer made no progress for $StallSeconds seconds (the client logs stopped growing). Logs: $runRoot" }
+        if ((Get-Date) -gt $deadline) { throw "Local multiplayer test was still running after $TimeoutSeconds seconds. Logs: $runRoot" }
         foreach ($process in $processes) {
             if ($process.HasExited -and $process.ExitCode -ne 0) { throw "Local client failed. Logs: $runRoot" }
         }

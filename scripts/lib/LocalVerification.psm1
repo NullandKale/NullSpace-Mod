@@ -150,6 +150,32 @@ function Invoke-VerificationScriptShards([string] $Script, [string] $RunRoot, [s
     }
     return $children
 }
+# The total size of a set of logs, read through the file itself: a directory listing can lag behind a file another process is writing.
+function Get-VerificationLogSize([string[]] $Logs) {
+    [long] $total = 0
+    foreach ($log in $Logs) {
+        try {
+            $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+            try { $total += $stream.Length } finally { $stream.Dispose() }
+        } catch [IO.FileNotFoundException], [IO.DirectoryNotFoundException] { }
+    }
+    return $total
+}
+# Waits for a JVM under test by whether it is still making progress, not by how long it has run. A fixed limit measures how busy the machine is: a restart
+# stage that had passed was killed at 180 seconds while it saved its worlds on a machine at 95% CPU. This fails when none of the logs has grown for
+# StallSeconds (a hung JVM writes nothing), or after LimitSeconds in all, a cap well beyond any healthy run.
+function Wait-VerificationProcess([System.Diagnostics.Process] $Process, [string[]] $Logs, [string] $Name, [int] $StallSeconds = 180, [int] $LimitSeconds = 1800) {
+    $started = [DateTime]::UtcNow
+    $grew = $started
+    $size = [long] -1
+    while (-not $Process.WaitForExit(1000)) {
+        $now = [DateTime]::UtcNow
+        $current = Get-VerificationLogSize $Logs
+        if ($current -ne $size) { $size = $current; $grew = $now }
+        if (($now - $grew).TotalSeconds -gt $StallSeconds) { throw "$Name made no progress for $StallSeconds seconds (its logs stopped growing)" }
+        if (($now - $started).TotalSeconds -gt $LimitSeconds) { throw "$Name was still running after $LimitSeconds seconds" }
+    }
+}
 function Assert-VerificationDiskSpace([long] $AvailableBytes, [long] $RequiredBytes) {
     if ($AvailableBytes -lt 0 -or $RequiredBytes -le 0) { throw 'Invalid verification disk-space measurement' }
     if ($AvailableBytes -lt $RequiredBytes) {
@@ -184,4 +210,4 @@ function Assert-VerificationNativeRegistration([string] $Workspace) {
     $mod = Read-VerificationJson (Join-Path $Workspace 'src/gametest/resources/fabric.mod.json')
     Assert-VerificationInventory $declared @($mod.entrypoints.'fabric-gametest')
 }
-Export-ModuleMember -Function Quote-JavaArgument,Write-JavaArguments,Read-VerificationJson,Write-VerificationJson,Assert-VerificationMarker,Get-VerificationFingerprint,Assert-VerificationFingerprint,Assert-VerificationInventory,Get-VerificationShards,Get-VerificationDurations,Get-VerificationNativeDurations,Invoke-VerificationScriptShards,Get-VerificationNativeInventory,Assert-VerificationNativeRegistration,Assert-VerificationDiskSpace
+Export-ModuleMember -Function Quote-JavaArgument,Write-JavaArguments,Read-VerificationJson,Write-VerificationJson,Assert-VerificationMarker,Get-VerificationFingerprint,Assert-VerificationFingerprint,Assert-VerificationInventory,Get-VerificationShards,Get-VerificationDurations,Get-VerificationNativeDurations,Invoke-VerificationScriptShards,Get-VerificationNativeInventory,Assert-VerificationNativeRegistration,Assert-VerificationDiskSpace,Get-VerificationLogSize,Wait-VerificationProcess

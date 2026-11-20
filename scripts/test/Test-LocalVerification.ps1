@@ -75,6 +75,15 @@ Assert-VerificationDiskSpace 5GB 4GB
 Reject { Assert-VerificationDiskSpace 3GB 4GB }
 Reject { Assert-VerificationDiskSpace -1 4GB }
 Reject { Assert-VerificationDiskSpace 5GB 0 }
+$progressLog=Join-Path $fixture 'build/progress.log'
+$powershell=(Get-Process -Id $PID).Path
+$busy=Start-Process -FilePath $powershell -ArgumentList @('-NoProfile','-Command',"1..10 | ForEach-Object { Add-Content -LiteralPath '$progressLog' -Value line; Start-Sleep -Milliseconds 500 }") -WindowStyle Hidden -PassThru
+Wait-VerificationProcess $busy @($progressLog) 'A process that keeps logging' -StallSeconds 4 -LimitSeconds 60
+$silent=Start-Process -FilePath $powershell -ArgumentList @('-NoProfile','-Command','Start-Sleep -Seconds 30') -WindowStyle Hidden -PassThru
+try { Reject { Wait-VerificationProcess $silent @((Join-Path $fixture 'build/silent.log')) 'A silent process' -StallSeconds 3 -LimitSeconds 60 } }
+finally { if (-not $silent.HasExited) { Stop-Process -Id $silent.Id -ErrorAction SilentlyContinue } }
+$fixedWaits=@(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..') -Recurse -Filter '*.ps1' | Where-Object { [regex]::IsMatch([IO.File]::ReadAllText($_.FullName),'-not\s+\$[\w.]+\.WaitForExit\(\s*(?:[6-9]\d{4}|\d{6,})\s*\)\s*\)\s*\{\s*throw') } | ForEach-Object Name)
+Check ($fixedWaits.Count -eq 0) ("A script fails a JVM after a fixed time, which measures how busy the machine is; use Wait-VerificationProcess: " + ($fixedWaits -join ', '))
 $weighted=@(Get-VerificationShards @('A','B','C','D','E','F') 2 -Durations @{A=100;B=1;C=100;D=1;E=1;F=1})
 Assert-VerificationInventory @('A','B','C','D','E','F') @($weighted|ForEach-Object{$_.classes})
 Check (($weighted|Measure-Object cost -Maximum).Maximum -eq 102) 'Long tests must be separated instead of clustered by registration order'
@@ -113,5 +122,5 @@ Write-VerificationJson (Join-Path $fixture 'src/gametest/resources/fabric.mod.js
 Assert-VerificationNativeRegistration $fixture
 [IO.File]::WriteAllText((Join-Path $nativeSources 'LostGameTest.java'),"package example;`nclass LostGameTest {`n@GameTest`npublic void unregisteredCase() {}`n}")
 Reject { Assert-VerificationNativeRegistration $fixture }
-Write-VerificationJson (Join-Path $ArtifactRoot 'result.json') @{status='passed';checks=38;shardWorkers=@(1,2,6,8);retentionResult='retention/result.json';parallelRetentionResult='parallel-retention/result.json';worldCleanupResult='world-cleanup/result.json';localRetentionResult='local-retention/result.json';localPlayResult='local-play/result.json';windowLayoutResult='window-layout/result.json';fingerprint=$initial}
+Write-VerificationJson (Join-Path $ArtifactRoot 'result.json') @{status='passed';checks=41;shardWorkers=@(1,2,6,8);retentionResult='retention/result.json';parallelRetentionResult='parallel-retention/result.json';worldCleanupResult='world-cleanup/result.json';localRetentionResult='local-retention/result.json';localPlayResult='local-play/result.json';windowLayoutResult='window-layout/result.json';fingerprint=$initial}
 Write-Host 'Local verification harness checks passed'

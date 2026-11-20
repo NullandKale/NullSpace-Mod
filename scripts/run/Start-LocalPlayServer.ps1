@@ -24,7 +24,8 @@ try {
         if ($SmokeTest -and (Test-Path -LiteralPath (Join-Path $Session 'stop-server'))) {
             $process.StandardInput.WriteLine('stop')
             $process.StandardInput.Flush()
-            if (-not $process.WaitForExit(60000)) { throw 'Server did not stop after its save request' }
+            # A save on a busy machine can take minutes: judged by the server's logs still growing, not by a fixed time.
+            Wait-VerificationProcess $process @((Join-Path $Work 'logs/latest.log'), (Join-Path $Work 'logs/debug.log')) 'The server stopping after its save request'
         }
     }
     Write-VerificationJson (Join-Path $Session 'server-exit.json') @{exitCode=$process.ExitCode;finishedUtc=[DateTime]::UtcNow.ToString('o')}

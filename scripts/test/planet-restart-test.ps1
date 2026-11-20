@@ -28,7 +28,8 @@ foreach ($stage in @('surfaces')) {
         $process = Start-Process -FilePath $spec.executable -ArgumentList ('@"' + $argFile + '"') -WorkingDirectory $work -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work "$mode.log") -RedirectStandardError (Join-Path $work "$mode.err.log")
         $null = $process.Handle
         try {
-            if (-not $process.WaitForExit(180000)) { throw "Planet restart test timed out at $stage/$mode. Logs: $work" }
+            try { Wait-VerificationProcess $process @((Join-Path $work "$mode.log"), (Join-Path $work 'logs/debug.log')) "Planet restart test $stage/$mode" }
+            catch { throw "$($_.Exception.Message). Logs: $work" }
             $expected = if ($mode -eq 'prepare') { 86 } else { 0 }
             if ($process.ExitCode -ne $expected) { throw "Planet restart test failed at $stage/$mode (exit $($process.ExitCode), expected $expected). Logs: $work" }
         } finally {
