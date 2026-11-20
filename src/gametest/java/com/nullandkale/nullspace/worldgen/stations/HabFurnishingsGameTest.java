@@ -21,6 +21,8 @@ public final class HabFurnishingsGameTest
                 var hab = cached.hab();
                 var build = cached.build();
                 var blocks = build.plan().blocks();
+                var spikes = StationStructure.lonePosts(blocks);
+                ctx.assertTrue(spikes.isEmpty(), maker + " " + size + ": " + spikes.size() + " iron bars or glass panes join nothing and stand as spikes" + (spikes.isEmpty() ? "" : ", first " + spikes.getFirst().toShortString()));
                 var hall = hab.entry().interior();
                 int stand = hab.groundY() + 1, barrels = 0, ferns = 0;
                 for (int x = hall.x0(); x <= hall.x1(); x++)

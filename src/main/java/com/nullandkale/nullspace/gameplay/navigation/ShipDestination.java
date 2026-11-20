@@ -12,6 +12,7 @@ import java.util.*;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /** One final destination, independent of the intermediate launch/jump/arrival operations. */
@@ -99,13 +100,64 @@ public record ShipDestination(Kind kind, String reference, BlockPos port, String
             result.add(new ShipDestination(Kind.VESSEL, first.reference(), BlockPos.ZERO, first.region(), vessel.getStringOr("home", "Vessel"), (StationAccess.station(vessel) ? "Station" : "Ship") + ": " + free + "/" + ports.size() + " free"));
         }
         result.addAll(raw);
+        // A region's places are fixed by the world seed before anyone goes there, but are built only after the first visit: list them as charted, so the
+        // scanner shows which places have a station. Choosing one sets a course to its region; once it is built, its own entry offers its ports. They come
+        // last, so a long list that a screen cuts short loses them before any place that can be reached.
+        var server = player.level().getServer();
+        for (var region : LocalSpaces.destinations(server))
+            for (var site : com.nullandkale.nullspace.worldgen.encounters.SpacePopulation.unbuilt(server, region.id()))
+                result.add(new ShipDestination(Kind.VESSEL, PLANNED + site.id(), BlockPos.ZERO, region.id(), site.name(), (site.role().equals("orbital") ? "Station" : "Ship") + ": charted"));
+        // So are the pads that are built on first need: a planet's landing pad (made when someone first jumps there) and the Terra Harbor (made for the first
+        // rescue). Choosing one builds it then, so a course can end by landing on it.
+        var pads = PadRegistry.read(server);
+        var surfaces = WorldStore.get(server).section("surfaceSites");
+        for (var region : LocalSpaces.destinations(server))
+        {
+            var surface = region.id().equals(LocalSpaces.HOME) ? null : PlanetSurfaces.dimension(server, region.id());
+            if (surface == null || surfaces.getBooleanOr(region.id(), false) || pads.stream().anyMatch(p -> p.dimension().equals(surface.identifier().toString())))
+                continue;
+            result.add(new ShipDestination(Kind.PAD, PLANNED_LANDING + region.id(), BlockPos.ZERO, region.id(), region.name() + " Landing", "Charted"));
+        }
+        if (!WorldStore.get(server).section("harbor").getBooleanOr("built", false) && pads.stream().noneMatch(p -> p.name().equals(HARBOR)))
+            result.add(new ShipDestination(Kind.PAD, PLANNED_HARBOR, BlockPos.ZERO, LocalSpaces.HOME, HARBOR, "Charted"));
         return List.copyOf(result);
     }
 
-    public static void select(ServerPlayer p, CompoundTag ship, ShipDestination destination)
+    /** The reference of a place that is planned but not built yet (see {@link #navigationCatalog}). */
+    static final String PLANNED = "planned:";
+    static final String PLANNED_LANDING = PLANNED + "landing:", PLANNED_HARBOR = PLANNED + "harbor", HARBOR = "Terra Harbor";
+
+    /**
+     * The destination a choice stands for. A charted station or ship that is not built has no ports, so the course is to its region; a charted pad is built
+     * now, and the course is to the pad itself.
+     */
+    static ShipDestination charted(MinecraftServer server, ShipDestination chosen)
+    {
+        if (!chosen.reference().startsWith(PLANNED))
+            return chosen;
+        if (chosen.kind() != Kind.PAD)
+            return region(server, chosen.region());
+        java.util.function.Predicate<PadRegistry.Pad> built;
+        if (chosen.reference().equals(PLANNED_HARBOR))
+        {
+            com.nullandkale.nullspace.worldgen.sites.TerraHarbor.ensure(server);
+            built = pad -> pad.name().equals(HARBOR);
+        }
+        else
+        {
+            PlanetSurfaces.ensureLanding(server, chosen.region());
+            String surface = PlanetSurfaces.dimension(server, chosen.region()).identifier().toString();
+            built = pad -> pad.dimension().equals(surface);
+        }
+        var pad = PadRegistry.read(server).stream().filter(built).findFirst().orElseThrow(() -> new IllegalArgumentException(chosen.name() + " could not be made; choose the planet instead"));
+        return new ShipDestination(Kind.PAD, pad.id(), BlockPos.ZERO, chosen.region(), pad.name(), PadRegistry.state(server, pad).state().name());
+    }
+
+    public static void select(ServerPlayer p, CompoundTag ship, ShipDestination chosen)
     {
         if (JourneyService.cruising(ship))
             throw new IllegalArgumentException("Journey underway: investigate a signal or arrive before changing destination");
+        var destination = charted(p.level().getServer(), chosen);
         WorldStore.get(p.level().getServer()).repository().mutate(new ShipRepository.ShipId(ship.getStringOr("id", "")), ShipRepository.Mutation.CONFIGURATION, candidate -> candidate.put("destination", destination.save()));
         WorldStore.get(p.level().getServer()).requestSave();
     }

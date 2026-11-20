@@ -585,7 +585,7 @@ public final class StationGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:station_building", maxTicks = 160)
+    @GameTest(environment = "nullspace:station_building", maxTicks = 900)
     public void stationDeploymentIsBoundedIdempotentAndPreservesEdits(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
@@ -593,8 +593,19 @@ public final class StationGameTest
         var plan = StationBlueprint.build(StationLayout.waypoint());
         var station = StationBuilds.queue(server, id, "Saved station", "sol_luna", new Vec3(-2000, 0, -2000), "", plan, false);
         ctx.assertTrue(StationBuilds.queue(server, id, "Saved station", "sol_luna", new Vec3(0, 0, 0), "", plan, false) == station, "A repeated deployment reuses its reserved identity and section");
-        ctx.runAfterDelay(55, () ->
+        // A finished build keeps its area locked against edits until its journal is released at a save, which a busy run reaches later: wait for both.
+        int[] tries = {0};
+        Runnable[] poll = {null};
+        poll[0] = () ->
         {
+            if (!StationAccess.ready(station) || com.nullandkale.nullspace.gameplay.travel.BuildJournal.pending(server, id))
+            {
+                if (++tries[0] > 160)
+                    ctx.fail("The station was never published ready with its build released: ready " + StationAccess.ready(station));
+                else
+                    ctx.runAfterDelay(5, () -> poll[0].run());
+                return;
+            }
             try
             {
                 ctx.assertTrue(StationAccess.ready(station), "Bounded placement publishes a completed station");
@@ -611,7 +622,8 @@ public final class StationGameTest
             {
                 cleanup(server.getLevel(TravelService.SPACE), station);
             }
-        });
+        };
+        ctx.runAfterDelay(5, () -> poll[0].run());
     }
 
     @GameTest(environment = "nullspace:station_cancel", maxTicks = 1800)

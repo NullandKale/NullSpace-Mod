@@ -37,9 +37,13 @@ The visuals are cosmetic. They never change journey duration, fuel charges or th
 
 ## Moving between places on screen
 
-Changing region or dimension needs the client to discard one scene and load another. The fade hides this ([`TransitFade`](../../src/main/java/com/nullandkale/nullspace/model/flight/TransitFade.java)):
+Changing region or dimension needs the client to discard one scene and load another.
 
-- Region and dimension transfers fade out over **0.4 seconds**, switch, and fade back in once the destination is ready.
+- **A jump in space** (entering FTL, visiting a signal, resuming, arriving) moves nobody: only the ship's region and the sky change. It has no screen and waits for no client. A flash ([`JumpFlash`](../../src/main/java/com/nullandkale/nullspace/model/flight/JumpFlash.java)) rises in 0.08 seconds, holds while the new sky loads (at most half a second from the start) and fades over 0.6 seconds; the crew keep moving through it.
+
+Launching, landing and boarding move players and blocks, and keep a fade ([`TransitFade`](../../src/main/java/com/nullandkale/nullspace/model/flight/TransitFade.java)):
+
+- Dimension transfers fade out over **0.4 seconds**, switch, and fade back in once the destination is ready.
 - Walking through a docking door (boarding) uses a shorter **0.12-second** fade.
 - The curve is a smoothstep from the clock, not from frames or loading time, so it looks the same on a slow load.
 - Physical transfers also wait for the player's terrain section to be compiled before revealing, and the existing scene readiness and arrival acknowledgements still protect loading (see [independent ship actions](independent-ship-actions.md)).

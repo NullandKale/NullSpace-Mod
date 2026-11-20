@@ -57,6 +57,7 @@
       "com.nullandkale.nullspace.worldgen.condition.ConditionGameTest",
       "com.nullandkale.nullspace.worldgen.stations.StationPiecesGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SiteResetGameTest",
+      "com.nullandkale.nullspace.worldgen.encounters.SiteLeftoversGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.JourneySignalGameTest",
       "com.nullandkale.nullspace.worldgen.sites.VillagePortGameTest",
       "com.nullandkale.nullspace.worldgen.encounters.SiteLootGameTest",

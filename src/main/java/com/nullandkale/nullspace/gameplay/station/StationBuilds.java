@@ -357,6 +357,17 @@ public final class StationBuilds
         });
     }
 
+    /** Whether every chunk of an area has loaded its entities (they load after the chunk, on other threads). */
+    static boolean entitiesLoaded(net.minecraft.server.level.ServerLevel level, HullScan.Bounds bounds)
+    {
+        var entities = ((com.nullandkale.nullspace.core.mixin.ServerLevelEntitiesAccessor) level).nullspace$entities();
+        for (int x = bounds.min().getX() >> 4; x <= bounds.max().getX() >> 4; x++)
+            for (int z = bounds.min().getZ() >> 4; z <= bounds.max().getZ() >> 4; z++)
+                if (!entities.areEntitiesLoaded(net.minecraft.world.level.ChunkPos.pack(x, z)))
+                    return false;
+        return true;
+    }
+
     public static void tickBuilds(MinecraftServer server)
     {
         var progress = ServerContext.get(server).service(StationService.PROGRESS, HashMap::new);
@@ -389,13 +400,18 @@ public final class StationBuilds
                 var blocks = s.getListOrEmpty("stationBuild");
                 String id = s.getStringOr("id", "");
                 int index = progress.getOrDefault(id, 0);
-                if (s.getBooleanOr("stationRegeneration", false))
+                boolean regeneration = s.getBooleanOr("stationRegeneration", false);
+                if (regeneration && level.getEntities(null, WorldStore.bounds(s).box()).stream().anyMatch(e -> e instanceof ServerPlayer))
+                    return null;
+                if (index == 0 && (regeneration || s.getBooleanOr("worldGenerated", false)))
                 {
-                    var occupants = level.getEntities(null, WorldStore.bounds(s).box());
-                    if (occupants.stream().anyMatch(e -> e instanceof ServerPlayer))
+                    // A storage area is used again once a place in it is gone, and the place before may have left entities behind: item frames with their
+                    // items, stands, drops. They load after their chunks, so a removal that runs while nobody is near misses them, and they would float in
+                    // the new place. Wait until every chunk of the area has its entities, then clear all but players before the first block goes down.
+                    if (!entitiesLoaded(level, WorldStore.bounds(s)))
                         return null;
-                    if (index == 0)
-                        for (var entity : occupants)
+                    for (var entity : level.getEntities(null, WorldStore.bounds(s).box()))
+                        if (!(entity instanceof net.minecraft.world.entity.player.Player))
                             entity.discard();
                 }
 

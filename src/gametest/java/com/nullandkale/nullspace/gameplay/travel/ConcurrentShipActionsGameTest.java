@@ -297,8 +297,8 @@ public final class ConcurrentShipActionsGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 200)
-    public void independentJumpsAndPhysicalTravelDoNotBlockOrAcknowledgeEachOther(GameTestHelper ctx) throws Exception
+    @GameTest(environment = "nullspace:concurrent_ship_actions", maxTicks = 400)
+    public void independentJumpsCommitWithoutWaitingForAnyClientWhilePhysicalTravelWaitsForItsOwn(GameTestHelper ctx) throws Exception
     {
         var a = client(ctx, 23);
         var b = client(ctx, 24);
@@ -313,32 +313,21 @@ public final class ConcurrentShipActionsGameTest
             var jumpB = Jumps.jump(b.player(), WorldStore.pos(b.fixture.ship(), "controller"), "sol_ares");
             var land = c.land(c.pad());
             ctx.assertTrue(ShipDestination.selected(a.fixture.ship()).region().equals("sol_luna") && ShipDestination.selected(b.fixture.ship()).region().equals("sol_ares"), "Direct jump calls retain the actual paid destination in each controller");
-            ctx.assertTrue(!jumpA.equals(jumpB) && NavigationService.pending(server, a.fixture.id) && NavigationService.pending(server, b.fixture.id), "Two ships can prepare distinct jumps alongside physical travel");
-            NavigationService.ready(a.player(), new TravelPackets.Ready(jumpA, false));
-            NavigationService.ready(b.player(), new TravelPackets.Ready(jumpA, false));
+            ctx.assertTrue(!jumpA.equals(jumpB) && NavigationService.pending(server, a.fixture.id) && NavigationService.pending(server, b.fixture.id), "Two ships can start distinct jumps alongside physical travel");
+            // A landing moves blocks and players, so it still waits for its client; the jumps move nobody and wait for none.
             c.ready(land, false);
             TestWaits.afterLoaded(ctx, 40, () ->
             {
-                ctx.assertTrue(JourneyService.cruising(a.fixture.ship()) && a.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_luna") && LocalSpaces.address(b.fixture.ship()).equals(LocalSpaces.HOME), "Only A's matching acknowledgement commits its jump");
-                ctx.assertTrue(c.player().level() == c.fixture.surface, "An unrelated physical transfer proceeds while both jumps are pending");
-                NavigationService.ready(a.player(), new TravelPackets.Ready(jumpA, true));
+                ctx.assertTrue(JourneyService.cruising(a.fixture.ship()) && a.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_luna") && JourneyService.cruising(b.fixture.ship()) && b.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_ares"), "Both jumps commit, each to its own destination, with no client acknowledging them");
+                ctx.assertTrue(!NavigationService.pending(server, a.fixture.id) && !NavigationService.pending(server, b.fixture.id), "No jump is left waiting for a client");
+                ctx.assertTrue(c.player().level() == c.fixture.surface, "An unrelated physical transfer proceeds beside both jumps");
                 c.ready(land, true);
                 TestWaits.afterLoaded(ctx, 5, () ->
                 {
-                    ctx.assertTrue(!NavigationService.pending(server, a.fixture.id) && NavigationService.pending(server, b.fixture.id), "Finishing A leaves B's jump intact");
-                    NavigationService.ready(b.player(), new TravelPackets.Ready(jumpB, false));
-                    TestWaits.afterLoaded(ctx, 30, () ->
-                    {
-                        ctx.assertTrue(JourneyService.cruising(b.fixture.ship()) && b.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_ares") && JourneyService.cruising(a.fixture.ship()) && a.fixture.ship().getCompoundOrEmpty("journey").getStringOr("destination", "").equals("sol_luna"), "Each jump preserves the other ship's destination");
-                        NavigationService.ready(b.player(), new TravelPackets.Ready(jumpB, true));
-                        TestWaits.afterLoaded(ctx, 5, () ->
-                        {
-                            a.close();
-                            b.close();
-                            c.close();
-                            ctx.succeed();
-                        });
-                    });
+                    a.close();
+                    b.close();
+                    c.close();
+                    ctx.succeed();
                 });
             });
         });

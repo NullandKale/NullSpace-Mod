@@ -158,6 +158,29 @@ public final class SpacePopulation
         NullSpace.LOGGER.info("Reset derelict site {} ({})", site.getStringOr("id", ""), resets);
     }
 
+    private static final ServerContext.Key<Map<String, List<SpacePopulationPlan.Site>>> UNVISITED = new ServerContext.Key<>();
+
+    /**
+     * The places of a region that are planned but not built yet, for the scanner to list before anyone goes there. A region a player has been to answers from
+     * its saved record (a removed or salvaged place stays gone, a reset one is planned again); any other from the world seed, as its first visit will record it.
+     */
+    public static List<SpacePopulationPlan.Site> unbuilt(MinecraftServer server, String address)
+    {
+        var store = WorldStore.get(server);
+        var ledger = store.section("spacePopulation");
+        if (!ledger.contains(address))
+            return ServerContext.get(server).service(UNVISITED, HashMap::new).computeIfAbsent(address, a -> plan(server, a));
+        var out = new ArrayList<SpacePopulationPlan.Site>();
+        for (var tag : ledger.getCompoundOrEmpty(address).getListOrEmpty("sites"))
+        {
+            var site = (CompoundTag) tag;
+            String id = site.getStringOr("id", "");
+            if (!retired(site.getStringOr("role", "")) && site.getStringOr("state", "").equals("planned") && store.repository().find(id) == null)
+                out.add(new SpacePopulationPlan.Site(site.getStringOr("role", ""), id, site.getStringOr("name", "Unknown place"), site.getLongOr("seed", 0)));
+        }
+        return out;
+    }
+
     /** The places this region starts with, as the galaxy chart allocates them (P9). */
     public static List<SpacePopulationPlan.Site> plan(MinecraftServer server, String address)
     {

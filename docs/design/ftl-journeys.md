@@ -6,7 +6,7 @@ A jump between places in space is not a loading screen. It is a **journey**: a t
 
 ## The idea
 
-Space travel should take time that the player can use. A short loading screen would make jumping feel like a menu action. Instead, the loading screen only covers the one moment the ship changes region, and the journey itself runs as ordinary gameplay: walking the cabin, crafting, tending machines, building. Because the journey has duration, it also has room for something to happen in it.
+Space travel should take time that the player can use. A short loading screen would make jumping feel like a menu action. No screen covers a jump at all: nobody moves, so the moment the ship changes region is a short flash over the world while the crew keep moving, and the journey itself runs as ordinary gameplay: walking the cabin, crafting, tending machines, building. Because the journey has duration, it also has room for something to happen in it.
 
 ## Player walkthrough
 

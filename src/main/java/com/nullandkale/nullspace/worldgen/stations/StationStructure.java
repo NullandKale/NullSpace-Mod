@@ -178,6 +178,7 @@ public final class StationStructure
         for (var e : new ArrayList<>(out.entrySet()))
             if (e.getValue().is(ModBlocks.AIR_SUPPLY))
                 occupied.add(e.getKey().relative(e.getValue().getValue(HorizontalDirectionalBlock.FACING)));
+        removeLonePosts(out);
         light(out, plan, occupied);
         mark = lap(laps, "light", mark);
         if (plan.rooms().size() > 60)
@@ -342,8 +343,42 @@ public final class StationStructure
                 for (int y = lobby.standY(); y <= lobby.standY() + 2; y++)
                     out.put(new BlockPos(x + dx, y, lobby.z()), Blocks.AIR.defaultBlockState());
         }
+        removeLonePosts(out);
         light(out, plan, occupied);
         return new StationBlueprint.Plan(out, BlockPos.ZERO, List.of(), points);
+    }
+
+    /**
+     * An iron bar or glass pane with nothing beside it to join stands as a bare upright post, a spike: the top bar of a stair rail, whose two-bar columns
+     * each join the next only at a shared level, a bar left above a rail line, a lone pane in furniture. The last pass before the light removes every bar and
+     * pane that joins nothing on any side, so every rail ends where its line ends.
+     */
+    public static void removeLonePosts(Map<BlockPos, BlockState> out)
+    {
+        for (var at : lonePosts(out))
+            out.put(at, Blocks.AIR.defaultBlockState());
+    }
+
+    /** The bars and panes in the map that join nothing on any side (see {@link #removeLonePosts}). */
+    public static List<BlockPos> lonePosts(Map<BlockPos, BlockState> out)
+    {
+        var lone = new ArrayList<BlockPos>();
+        for (var e : out.entrySet())
+            if (e.getValue().getBlock() instanceof IronBarsBlock bars && !joins(out, e.getKey(), bars))
+                lone.add(e.getKey());
+        return lone;
+    }
+
+    /** Whether the bar or pane at a cell joins a neighbour, by the block's own rule: another bar or pane, a wall, or a sturdy face. */
+    private static boolean joins(Map<BlockPos, BlockState> out, BlockPos at, IronBarsBlock bars)
+    {
+        for (var side : Direction.Plane.HORIZONTAL)
+        {
+            var next = out.get(at.relative(side));
+            if (next != null && !next.isAir() && bars.attachsTo(next, next.isFaceSturdy(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO, side.getOpposite())))
+                return true;
+        }
+        return false;
     }
 
     // ---- Shells ----

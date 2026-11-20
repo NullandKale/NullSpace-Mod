@@ -10,7 +10,9 @@ import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
+import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.testing.TestZones;
+import com.nullandkale.nullspace.worldgen.encounters.SpacePopulation;
 
 import java.util.*;
 
@@ -93,6 +95,75 @@ public final class ShipControlGameTest
             server.getPlayerList().remove(player);
             WorldStore.get(server).ships().remove(own);
             WorldStore.get(server).ships().remove(station);
+        }
+        ctx.succeed();
+    }
+
+    @GameTest(environment = "nullspace:ship_control")
+    public void theScannerListsAPlacesStationsBeforeAnyoneHasBeenThereAndChoosingOneSetsACourseToItsRegion(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var level = server.getLevel(TravelService.SPACE);
+        var ship = StationGameTest.fixture(level, new BlockPos(349000, 96, 350000), true);
+        var player = ctx.makeMockServerPlayerInLevel();
+        var at = StationGameTest.boardingPoint(level, ship);
+        player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
+        try
+        {
+            var ledger = WorldStore.get(server).section("spacePopulation");
+            var region = LocalSpaces.destinations(server).stream().filter(r -> !ledger.contains(r.id()) && SpacePopulation.unbuilt(server, r.id()).stream().anyMatch(s -> s.role().equals("orbital"))).findFirst().orElseThrow(() -> new AssertionError("Some region nobody has visited has a planned station"));
+            var planned = SpacePopulation.unbuilt(server, region.id());
+            var catalog = ShipDestination.navigationCatalog(player, ship);
+            for (var site : planned)
+                ctx.assertTrue(catalog.stream().anyMatch(d -> d.kind() == ShipDestination.Kind.VESSEL && d.region().equals(region.id()) && d.name().equals(site.name()) && d.state().startsWith(site.role().equals("orbital") ? "Station" : "Ship")), "The catalog charts " + site.name() + " in " + region.id() + " before anyone has been there");
+            var station = catalog.stream().filter(d -> d.kind() == ShipDestination.Kind.VESSEL && d.region().equals(region.id()) && d.state().startsWith("Station")).findFirst().orElseThrow();
+            int index = catalog.indexOf(station);
+            ctx.assertTrue(index < 512, "A charted station is within the 512 entries a terminal lists and accepts: it is entry " + index + " of " + catalog.size());
+            var view = ShipControl.open(player, WorldStore.pos(ship, "controller"), "Ready");
+            var result = ShipControl.input(player, new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, station.id()));
+            ctx.assertTrue(result.startsWith("Destination set:"), "A charted station can be chosen: " + result);
+            var saved = ShipDestination.selected(WorldStore.get(server).repository().find(ship.getStringOr("id", "")));
+            ctx.assertTrue(saved != null && saved.kind() == ShipDestination.Kind.REGION && saved.region().equals(region.id()), "Choosing a station that is not built yet sets a course to its region: " + (saved == null ? "none" : saved.kind() + " " + saved.region()));
+        }
+        finally
+        {
+            WorldStore.get(server).ships().remove(ship);
+        }
+        ctx.succeed();
+    }
+
+    @GameTest(environment = "nullspace:ship_control", maxTicks = 400)
+    public void theScannerChartsLandingPadsNotBuiltYetAndChoosingOneBuildsItAsTheDestination(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var level = server.getLevel(TravelService.SPACE);
+        var ship = StationGameTest.fixture(level, new BlockPos(348000, 96, 350000), true);
+        var player = ctx.makeMockServerPlayerInLevel();
+        var at = StationGameTest.boardingPoint(level, ship);
+        player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
+        try
+        {
+            var pads = com.nullandkale.nullspace.gameplay.pads.PadRegistry.read(server);
+            var surfaces = WorldStore.get(server).section("surfaceSites");
+            var region = LocalSpaces.destinations(server).stream().filter(r -> !r.id().equals(LocalSpaces.HOME) && PlanetSurfaces.dimension(server, r.id()) != null && !surfaces.getBooleanOr(r.id(), false) && pads.stream().noneMatch(p -> p.dimension().equals(PlanetSurfaces.dimension(server, r.id()).identifier().toString()))).findFirst().orElseThrow(() -> new AssertionError("Some landable world has no landing pad yet"));
+            var catalog = ShipDestination.navigationCatalog(player, ship);
+            var charted = catalog.stream().filter(d -> d.kind() == ShipDestination.Kind.PAD && d.region().equals(region.id()) && d.state().equals("Charted")).findFirst().orElseThrow(() -> new AssertionError("The catalog charts the landing pad of " + region.id()));
+            boolean harborBuilt = WorldStore.get(server).section("harbor").getBooleanOr("built", false);
+            ctx.assertTrue(harborBuilt == catalog.stream().noneMatch(d -> d.kind() == ShipDestination.Kind.PAD && d.name().equals("Terra Harbor") && d.state().equals("Charted")), "The Terra Harbor is charted exactly while it is not built (built " + harborBuilt + ")");
+            ctx.assertTrue(catalog.indexOf(charted) < 512, "A charted pad is within the 512 entries a terminal lists and accepts: entry " + catalog.indexOf(charted) + " of " + catalog.size());
+            var view = ShipControl.open(player, WorldStore.pos(ship, "controller"), "Ready");
+            var result = ShipControl.input(player, new ControllerPackets.Input(view.session(), ShipControl.Action.SELECT, charted.id()));
+            ctx.assertTrue(result.startsWith("Destination set:"), "A charted landing pad can be chosen: " + result);
+            String surface = PlanetSurfaces.dimension(server, region.id()).identifier().toString();
+            var built = com.nullandkale.nullspace.gameplay.pads.PadRegistry.read(server).stream().filter(p -> p.dimension().equals(surface)).findFirst();
+            ctx.assertTrue(built.isPresent(), "Choosing the charted pad built the landing pad on " + region.id());
+            var saved = ShipDestination.selected(WorldStore.get(server).repository().find(ship.getStringOr("id", "")));
+            ctx.assertTrue(saved != null && saved.kind() == ShipDestination.Kind.PAD && saved.reference().equals(built.get().id()) && saved.region().equals(region.id()), "The course is to the pad itself, so it can end by landing: " + (saved == null ? "none" : saved.kind() + " " + saved.reference()));
+            ctx.assertTrue(ShipDestination.navigationCatalog(player, ship).stream().noneMatch(d -> d.kind() == ShipDestination.Kind.PAD && d.region().equals(region.id()) && d.state().equals("Charted")), "A built pad is listed as itself, no longer as charted");
+        }
+        finally
+        {
+            WorldStore.get(server).ships().remove(ship);
         }
         ctx.succeed();
     }

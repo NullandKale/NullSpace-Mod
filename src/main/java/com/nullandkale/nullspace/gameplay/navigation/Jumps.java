@@ -37,7 +37,7 @@ public final class Jumps
         final UUID token = UUID.randomUUID(), actor;
         final String ship, destination;
         final BlockPos helm;
-        final Set<UUID> crew = new HashSet<>(), ready = new HashSet<>(), arrived = new HashSet<>();
+        final Set<UUID> crew = new HashSet<>();
         int ticks;
         boolean committed;
         Mode mode = Mode.START;
@@ -169,16 +169,14 @@ public final class Jumps
     static UUID begin(ServerPlayer p, CompoundTag s, Jump j)
     {
         var server = p.level().getServer();
+        // Nobody moves, so the crew keep whatever they have open.
         for (var crew : p.level().players())
             if (SceneService.observer(crew) == s)
-            {
                 j.crew.add(crew.getUUID());
-                crew.closeContainer();
-            }
         NavigationService.closeShip(server, j.ship);
         ShipSystems.cancelTransit(p.level(), s);
+        // Committed on the next navigation tick: nobody moves, so there is no screen to wait behind (see NavigationService.tick).
         NavigationService.state(server).jumps.put(j.ship, j);
-        NavigationService.broadcast(server, j, "Preparing fast travel", "", false);
         return j.token;
     }
 

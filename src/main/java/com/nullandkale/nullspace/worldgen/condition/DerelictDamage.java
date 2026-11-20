@@ -110,6 +110,8 @@ public final class DerelictDamage
                 powerFailure();
             doors();
             settle();
+            // Wrecking can take away what a rail bar or pane joined, leaving it standing as a spike.
+            com.nullandkale.nullspace.worldgen.stations.StationStructure.removeLonePosts(blocks);
             var kept = filterPoints();
             int removed = gone.size();
             var plan = new StationBlueprint.Plan(blocks, core, docks, kept);

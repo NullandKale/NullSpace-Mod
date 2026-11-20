@@ -275,6 +275,17 @@ public final class StationStructureGameTest
                             problems.add(spec.description() + ": no roof shapes above the rooms");
                         if (plan.rooms(Use.ARRIVAL).getFirst().levels() >= 2 && blocks.values().stream().noneMatch(st -> st.is(Blocks.IRON_BARS) || st.is(Blocks.GLASS_PANE)))
                             problems.add(spec.description() + ": the gallery has no rail");
+                        // A bar or pane that joins nothing stands as a spike.
+                        var spikes = StationStructure.lonePosts(blocks);
+                        if (!spikes.isEmpty())
+                            problems.add(spec.description() + ": " + spikes.size() + " iron bars or glass panes join nothing and stand as spikes, first " + spikes.getFirst().toShortString());
+                        // Nor in the same station wrecked at the highest danger, whose damage takes away what rails joined.
+                        if (seed == 1)
+                        {
+                            var wreckSpikes = StationStructure.lonePosts(EncounterStations.build(spec, 3).blocks());
+                            if (!wreckSpikes.isEmpty())
+                                problems.add(spec.description() + " wrecked: " + wreckSpikes.size() + " iron bars or glass panes join nothing and stand as spikes, first " + wreckSpikes.getFirst().toShortString());
+                        }
                         var dark = darkCells(plan, blocks);
                         if (!dark.isEmpty())
                         {

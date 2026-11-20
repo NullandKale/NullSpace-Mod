@@ -15,6 +15,7 @@ import com.nullandkale.nullspace.testing.ClientTestEvidence;
 import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.testing.TestZones;
+import com.nullandkale.nullspace.ui.screen.JumpFlashOverlay;
 import com.nullandkale.nullspace.ui.screen.ShipPilotScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
@@ -182,8 +183,21 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.destination(c, world, bodyName[0], "Regions");
                 c.takeScreenshot("nullspace-unified-destination");
                 ShipControlTestUi.action(c, ShipControl.Action.JUMP);
-                ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TravelScreen, 100);
-                ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 300);
+                // A jump has no screen: the crew see a flash while the sky changes and keep their controls.
+                ClientWaits.waitFor(c, mc ->
+                {
+                    if (mc.gui.screen() instanceof TravelScreen)
+                        throw new AssertionError("A jump opened the transit screen");
+                    return JumpFlashOverlay.opacity() > .5;
+                }, 100);
+                c.takeScreenshot("nullspace-ftl-flash");
+                // The cabin once the flash has passed: the crew are where they were, under the FTL sky.
+                ClientWaits.waitFor(c, mc ->
+                {
+                    if (mc.gui.screen() instanceof TravelScreen)
+                        throw new AssertionError("A jump opened the transit screen");
+                    return mc.gui.screen() == null && !JumpFlashOverlay.active() && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_");
+                }, 300);
                 c.takeScreenshot("nullspace-ftl-walkable-cabin");
                 if (destination.equals("sol_luna"))
                 {

@@ -52,8 +52,21 @@ public final class TravelScreen extends Screen
 
     public static void initialize()
     {
+        JumpFlashOverlay.initialize();
         ClientPlayNetworking.registerGlobalReceiver(TravelPackets.Progress.TYPE, (packet, context) -> context.client().execute(() ->
         {
+            // A jump moves nobody: it flashes while the sky changes, with no screen and no acknowledgement.
+            if (packet.kind() == TravelPackets.Kind.JUMP)
+            {
+                if (!packet.done())
+                {
+                    JumpFlashOverlay.start(packet.dimension());
+                    // The ship's terminal steps aside so the crew see the sky change; inventories and other screens stay open.
+                    if (context.client().gui.screen() instanceof TerminalScreen)
+                        context.client().gui.setScreen(null);
+                }
+                return;
+            }
             if (packet.done())
             {
                 if (active == null || !active.id().equals(packet.id()))

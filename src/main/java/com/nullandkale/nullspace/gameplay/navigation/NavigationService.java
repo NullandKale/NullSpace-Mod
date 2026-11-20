@@ -211,16 +211,10 @@ public final class NavigationService
         ScenePanels.shipView(p, vessel, l.token, ++l.revision, l.pilot, propulsion(p.level(), vessel));
     }
 
+    /** A jump waits for no client, so an acknowledgement of one (from a client of an earlier version) is accepted and changes nothing. */
     public static boolean ready(ServerPlayer p, TravelPackets.Ready packet)
     {
-        for (var j : state(p.level().getServer()).jumps.values())
-            if (j.token.equals(packet.id()) && j.crew.contains(p.getUUID()))
-            {
-                if (packet.arrived() == j.committed)
-                    (packet.arrived() ? j.arrived : j.ready).add(p.getUUID());
-                return true;
-            }
-        return false;
+        return state(p.level().getServer()).jumps.values().stream().anyMatch(j -> j.token.equals(packet.id()) && j.crew.contains(p.getUUID()));
     }
 
     static void broadcast(MinecraftServer server, Jump j, String text, String target, boolean done)
@@ -231,11 +225,6 @@ public final class NavigationService
             if (p != null)
                 ServerPlayNetworking.send(p, new TravelPackets.Progress(j.token, text, target, done, TravelPackets.Kind.JUMP));
         }
-    }
-
-    static boolean allOnline(MinecraftServer server, Jump j, Set<UUID> ready)
-    {
-        return j.crew.stream().filter(id -> server.getPlayerList().getPlayer(id) != null).allMatch(ready::contains);
     }
 
     /** An engine counts when it is on and the block behind it is clear for the exhaust. */
@@ -433,6 +422,8 @@ public final class NavigationService
             }
         }
         unattended(server, r);
+        // A jump moves no blocks and no players: the ship's saved region and the sky change. It is committed on the first tick after the request, and each crew
+        // client flashes while its sky changes; nothing waits for the clients and nobody is held.
         for (var j : List.copyOf(r.jumps.values()))
         {
             j.ticks++;
@@ -444,13 +435,6 @@ public final class NavigationService
                     finish(server, j, "Fast travel cancelled: pilot disconnected");
                     continue;
                 }
-                if (j.ticks > 200)
-                {
-                    finish(server, j, "Fast travel cancelled: readiness timeout");
-                    continue;
-                }
-                if (j.ticks < 20 || !allOnline(server, j, j.ready))
-                    continue;
                 try
                 {
                     var s = ship(server, j.ship);
@@ -508,32 +492,22 @@ public final class NavigationService
                         throw save;
                     }
                     j.committed = true;
-                    j.ticks = 0;
                     SceneService.refresh(server);
                     var target = SceneCatalog.forShip(server, s).getStringOr("id", "");
+                    // The flash: the scene to show is named so each client can hold the flash until its sky has changed.
                     broadcast(server, j, switch (j.mode)
                     {
-                        case START -> "Entering FTL: synchronizing the view";
-                        case RESUME -> "Resuming FTL: synchronizing the view";
-                        case INVESTIGATE -> "Reaching the signal: synchronizing the view";
+                        case START -> "Entering FTL";
+                        case RESUME -> "Resuming FTL";
+                        case INVESTIGATE -> "Reaching the signal";
                         case ARRIVE -> "Arriving at " + LocalSpaces.label(server, s);
                     }, "scene:" + target, false);
+                    finish(server, j, underwayMessage(server, j));
                 }
                 catch (RuntimeException error)
                 {
                     finish(server, j, "Fast travel cancelled: " + error.getMessage());
                 }
-            }
-            else if (allOnline(server, j, j.arrived) || j.ticks > 200)
-            {
-                if (j.ticks > 200)
-                    for (var id : j.crew)
-                    {
-                        var p = server.getPlayerList().getPlayer(id);
-                        if (p != null && !j.arrived.contains(id))
-                            p.connection.disconnect(net.minecraft.network.chat.Component.literal("Reconnect to synchronize the destination scene"));
-                    }
-                finish(server, j, underwayMessage(server, j));
             }
         }
         if (!r.pilots.isEmpty() && server.getTickCount() % 100 == 0)
