@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.gameplay.start;
 import com.nullandkale.nullspace.content.BrokenMachines;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.ui.screen.WorldStartAccess;
 
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
             return;
         var failure = new AtomicReference<Throwable>();
         c.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
-        c.waitFor(mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
         c.runOnClient(mc ->
         {
             var screen = (CreateWorldScreen) mc.gui.screen();
@@ -66,7 +67,7 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
         });
         c.takeScreenshot("nullspace-crash-start-options");
         c.runOnClient(mc -> click(mc.gui.screen(), "Create New World"));
-        c.waitFor(mc ->
+        ClientWaits.waitFor(c, mc ->
         {
             if (mc.gui.screen() instanceof ConfirmScreen screen)
                 screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast).filter(b -> java.util.Set.of("Proceed", "Yes").contains(b.getMessage().getString())).findFirst().ifPresent(b -> click(screen, b.getMessage().getString()));
@@ -143,7 +144,7 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
             throw new AssertionError("Crash start validation failed", failure.get());
         if (!done.get())
             throw new AssertionError("The crash start never finished");
-        c.waitFor(mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && mc.level.dimension().equals(Level.OVERWORLD) && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && mc.level.dimension().equals(Level.OVERWORLD) && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
         c.waitTicks(60);
         c.takeScreenshot("nullspace-crash-cabin");
         c.runOnClient(mc ->
@@ -173,7 +174,7 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
             closing.set(mc.getSingleplayerServer());
             mc.disconnectWithSavingScreen();
         });
-        c.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
         c.runOnClient(mc -> mc.gui.setScreen(new TitleScreen()));
         ClientTestEvidence.passed(getClass());
     }

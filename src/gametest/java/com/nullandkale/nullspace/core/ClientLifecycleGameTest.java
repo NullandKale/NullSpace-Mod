@@ -11,6 +11,7 @@ import com.nullandkale.nullspace.model.space.SpaceDefinitionCodec;
 import com.nullandkale.nullspace.render.compute.SpaceComputeRenderer;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.lang.reflect.*;
 import java.util.*;
@@ -97,7 +98,7 @@ public final class ClientLifecycleGameTest implements FabricClientGameTest
             final int number = worldNumber;
             try (var world = context.worldBuilder().create())
             {
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 world.getServer().runOnServer(server ->
                 {
                     check(previous.get() != server, "Each world must own a different integrated server");

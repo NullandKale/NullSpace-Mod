@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 import com.nullandkale.nullspace.ui.screen.MachineScreen;
 import com.nullandkale.nullspace.ui.screen.ViewportScreen;
@@ -42,12 +43,12 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
                 p.getInventory().add(new ItemStack(ModBlocks.EXOTIC_UPGRADE));
                 MachineMenus.open(p, positions[0]);
             });
-            world.getConnection().waitForChunksRender();
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("engine"), 200);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("engine"), 200);
             MachineTestUi.shiftItem(c, ModBlocks.SYSTEM_UPGRADE);
             MachineTestUi.shiftItem(c, ModBlocks.ADVANCED_UPGRADE);
             MachineTestUi.shiftItem(c, ModBlocks.EXOTIC_UPGRADE);
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("tier", 0) == 3, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("tier", 0) == 3, 200);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -57,6 +58,7 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
             });
             c.takeScreenshot("nullspace-engine-upgrades");
             MachineTestUi.click(c, 140, 24);
+            ClientWaits.withoutOverlay(c);
             c.runOnClient(mc ->
             {
                 mc.keyboardHandler.textInput(mc.getWindow().handle(), "Main engine");
@@ -74,7 +76,7 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.getX() + .5, at.getY() - 1, at.getZ() + 1.5);
                 MachineMenus.open(p, at);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("camera"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("camera"), 200);
             c.waitTicks(40);
             c.runOnClient(mc ->
             {
@@ -83,13 +85,14 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
                 if (!m.previewStatus().startsWith("LIVE"))
                     throw new AssertionError("Embedded camera: " + m.previewStatus() + " | " + m.getMenu().reading);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
             c.takeScreenshot("nullspace-camera-setup");
             MachineTestUi.click(c, 120, 24);
+            ClientWaits.withoutOverlay(c);
             c.runOnClient(mc -> mc.keyboardHandler.textInput(mc.getWindow().handle(), "Draft camera"));
             MachineTestUi.clickLabel(c, "View fullscreen");
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen, 200);
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().target.width == SpaceSettings.cameraWidth() && v.viewport().renderedFrames() > 0, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().target.width == SpaceSettings.cameraWidth() && v.viewport().renderedFrames() > 0, 200);
             c.runOnClient(mc ->
             {
                 var screen = (ViewportScreen) mc.gui.screen();
@@ -99,7 +102,7 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
             });
             c.takeScreenshot("nullspace-camera-fullscreen");
             c.runOnClient(mc -> mc.gui.screen().onClose());
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen, 200);
             c.runOnClient(mc ->
             {
                 var field = ((MachineScreen) mc.gui.screen()).children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.EditBox).map(w -> (net.minecraft.client.gui.components.EditBox) w).findFirst().orElseThrow();
@@ -107,7 +110,7 @@ public final class ShipHardwareClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Returning from fullscreen must preserve unsaved name input");
             });
             MachineTestUi.clickLabel(c, "View fullscreen");
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen, 200);
             world.getServer().runOnServer(server -> world.getConnection().getServerPlayer().level().setBlock(positions[1], net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18));
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(25);

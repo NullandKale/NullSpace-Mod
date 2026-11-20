@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
@@ -48,7 +49,7 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 {}, () -> closed[0]++));
             });
             shiftEscape(context, modifiers);
-            context.waitFor(client -> client.gui.screen() == null, 100);
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null, 100);
             context.runOnClient(client ->
             {
                 if (closed[0] != 1 || !bytes.isEmpty())
@@ -70,7 +71,8 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
         }
         try (TestSingleplayerContext singleplayer = context.worldBuilder().create())
         {
-            singleplayer.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(singleplayer.getConnection());
+            ClientWaits.withoutOverlay(context);
             context.runOnClient(client ->
             {
                 var terminal = new TerminalScreen(new TerminalPackets.Open(new net.minecraft.core.BlockPos(0, 0, 0), ""));
@@ -128,9 +130,11 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 if (named != 1)
                     throw new AssertionError("Pad registration was not persisted");
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen);
-            long ready = System.nanoTime();
-            context.waitFor(client -> System.nanoTime() - ready > 600_000_000L);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen);
+            // The terminal takes a name once the server has reported the pad: until then its status line reads "Checking..." and Register is disabled,
+            // and a click on it does nothing. Wait for that report (and for native text input), not for a fixed time.
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.buffer().row(3).contains("registered as Test Pad") && org.lwjgl.sdl.SDLKeyboard.SDL_TextInputActive(client.getWindow().handle()));
+            ClientWaits.withoutOverlay(context);
             context.runOnClient(client ->
             {
                 var terminal = (TerminalScreen) client.gui.screen();
@@ -139,20 +143,46 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 click(terminal, 10, 5);
                 terminal.keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_A, 0, com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL));
                 client.keyboardHandler.textInput(client.getWindow().handle(), "Terminal Pad");
-                click(terminal, 4, 7);
             });
-            singleplayer.getServer().waitFor(server ->
+            // The name must be in the field before Save is pressed; if not, say what the terminal holds instead of waiting for a save that cannot come.
+            try
             {
-                try
+                ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.fieldValue().contains("Terminal Pad"), 100);
+            }
+            catch (AssertionError notTyped)
+            {
+                context.runOnClient(client ->
                 {
-                    var file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace-pads.json");
-                    return java.nio.file.Files.readString(file).contains("Terminal Pad");
-                }
-                catch (java.io.IOException error)
+                    throw new AssertionError("The pad's new name did not reach its field: " + describePad(client), notTyped);
+                });
+                throw notTyped;
+            }
+            // The server takes one pad action every ten ticks (PadComputers), and registering the pad by command was one.
+            context.waitTicks(10);
+            context.runOnClient(client -> click((TerminalScreen) client.gui.screen(), 4, 7));
+            try
+            {
+                ClientWaits.waitFor(singleplayer.getServer(), server ->
                 {
-                    throw new java.io.UncheckedIOException(error);
-                }
-            });
+                    try
+                    {
+                        var file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("nullspace-pads.json");
+                        return java.nio.file.Files.readString(file).contains("Terminal Pad");
+                    }
+                    catch (java.io.IOException error)
+                    {
+                        throw new java.io.UncheckedIOException(error);
+                    }
+                });
+            }
+            catch (AssertionError notSaved)
+            {
+                context.runOnClient(client ->
+                {
+                    throw new AssertionError("Save name did not save the pad's new name: " + describePad(client), notSaved);
+                });
+                throw notSaved;
+            }
             context.takeScreenshot("nullspace-pad-computer");
             context.runOnClient(client ->
             {
@@ -161,10 +191,10 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Closing a terminal must release native text input");
             });
             singleplayer.getServer().runOnServer(server -> PadComputers.open(singleplayer.getConnection().getServerPlayer(), new net.minecraft.core.BlockPos(-1, -59, 3), "Reopened registered pad"));
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.fieldValue().equals("Terminal Pad"));
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.fieldValue().equals("Terminal Pad"));
 
-            long padSaved = System.nanoTime();
-            context.waitFor(client -> System.nanoTime() - padSaved > 600_000_000L);
+            // A short settle in game time before the ship terminal opens (a pause in real time is a different length on every machine).
+            context.waitTicks(12);
             singleplayer.getServer().runOnServer(server ->
             {
                 var player = singleplayer.getConnection().getServerPlayer();
@@ -183,15 +213,15 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 ShipService.open(player, computer, "Ready for launch test");
                 ShipService.inspect(level, computer);
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen);
-            long shipReady = System.nanoTime();
-            context.waitFor(client -> System.nanoTime() - shipReady > 600_000_000L);
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.shipController());
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.shipController() && t.status().contains("Ready for launch test"));
+            // The server takes one ship action every ten ticks (ShipService), and opening and inspecting the ship just now were actions.
+            context.waitTicks(10);
             ShipControlTestUi.action(context, ShipControl.Action.LAUNCH);
             context.takeScreenshot("nullspace-launch-request");
-            context.waitFor(client -> client.gui.screen() instanceof TravelScreen);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TravelScreen);
             context.takeScreenshot("nullspace-loading");
-            singleplayer.getServer().waitFor(server -> singleplayer.getConnection().getServerPlayer().level().dimension().equals(TravelService.SPACE));
+            ClientWaits.waitFor(singleplayer.getServer(), server -> singleplayer.getConnection().getServerPlayer().level().dimension().equals(TravelService.SPACE));
             singleplayer.getServer().runOnServer(server ->
             {
                 var player = singleplayer.getConnection().getServerPlayer();
@@ -202,8 +232,8 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 if (player.level().setBlock(computer, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 18))
                     throw new AssertionError("Arrival must reject environmental block mutation");
             });
-            context.waitFor(client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(TravelService.SPACE));
-            singleplayer.getConnection().waitForChunksRender();
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(TravelService.SPACE));
+            ClientWaits.chunksRendered(singleplayer.getConnection());
             context.takeScreenshot("nullspace-space-cabin");
             singleplayer.getServer().runOnServer(server ->
             {
@@ -212,8 +242,8 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
                 var computer = WorldStore.pos(vessel, "controller");
                 server.getCommands().performPrefixedCommand(player.createCommandSourceStack(), "nullspace ship " + computer.getX() + " " + computer.getY() + " " + computer.getZ() + " land " + vessel.getStringOr("home", ""));
             });
-            singleplayer.getServer().waitFor(server -> singleplayer.getConnection().getServerPlayer().level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD));
-            context.waitFor(client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD));
+            ClientWaits.waitFor(singleplayer.getServer(), server -> singleplayer.getConnection().getServerPlayer().level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD));
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD));
             singleplayer.getServer().runOnServer(server ->
             {
                 var player = singleplayer.getConnection().getServerPlayer();
@@ -224,6 +254,17 @@ public final class NullSpaceClientGameTest implements FabricClientGameTest
             context.takeScreenshot("nullspace-returned");
         }
         ClientTestEvidence.passed(getClass());
+    }
+
+    /** What a pad terminal shows, for a failure message: its field, its pad line, its Save button row, its status lines and any overlay over it. */
+    private static String describePad(net.minecraft.client.Minecraft client)
+    {
+        if (!(client.gui.screen() instanceof TerminalScreen terminal))
+            return "screen=" + client.gui.screen();
+        var rows = new StringBuilder();
+        for (int row : new int[]{3, 7, 15, 16, 17, 18, 21})
+            rows.append(" | ").append(row).append(": ").append(terminal.buffer().row(row).strip());
+        return "field=\"" + terminal.fieldValue() + "\" overlay=" + client.gui.overlay() + rows;
     }
 
     private static void click(TerminalScreen terminal, int column, int row)

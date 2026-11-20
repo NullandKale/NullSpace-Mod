@@ -12,6 +12,18 @@ The native GameTests run about ninety at a time on one server in one world, so a
 
 The test also checks that every environment a test names has its file, and that the scan still sees the tests (so a moved folder cannot make the rules pass by finding nothing). Its last test feeds each rule a sample that must be found and one that must not.
 
+## Graphical tests
+
+The graphical tests run one class after another in each of four client JVMs, and the same weaknesses apply in their own form.
+
+- **Wait through [`ClientWaits`](../../src/gametest/java/com/nullandkale/nullspace/testing/ClientWaits.java), not the context.** Fabric's `waitFor` and `waitForChunksRender` count ticks, and a client's ticks pass as fast as frames are drawn: a limit of 200 ticks is a second or two, and on a busy machine the threads that load chunks, build meshes or work out the sky are starved while the ticks race on. `ClientWaits.waitFor` and `ClientWaits.chunksRendered` are Fabric's own waits, failing with the same message, except that a timeout counts only after 60 seconds of real time.
+- **Clear the overlays before typing.** The keyboard handler drops characters typed under an overlay without a word, and the loading overlay fades out over a second of real time: a test that typed there would fail later, somewhere else. Call `ClientWaits.withoutOverlay` before every block that types with `keyboardHandler.textInput`.
+- **Never wait for real time.** A wait whose condition is `System.nanoTime()` passing a mark is a different length on every machine. The 600 ms pauses this replaced were waiting out the server's limit of one pad or ship action per half second, which was counted in wall-clock time; it now counts ten server ticks, like the computer terminal's, and the test waits ten ticks. Wait for what a pause was for, or for game ticks with `waitTicks`.
+
+[`GameTestHygieneTest`](../../src/test/java/com/nullandkale/nullspace/testing/GameTestHygieneTest.java) fails on a direct context wait, on typing without the overlay wait, and on a wait for real time.
+
+A failing graphical class ends its client JVM, and Fabric runs none of the classes after it. [`parallel-test.ps1`](../../scripts/test/parallel-test.ps1) therefore starts a client for the classes that did not run (the failed one is named by the evidence the client left), until every class has run, and reports every failure of the run together. A client that dies before starting any test failed in start-up, which is reported as such and not continued. Fabric itself restores the default game options before each class, so one class's settings do not reach the next.
+
 ## What is exempt
 
 - [`CrashRecoveryGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/travel/CrashRecoveryGameTest.java) and [`ShipYardCrashGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/ShipYardCrashGameTest.java): their `restart` test returns at once unless a crash script sets a mode, and then runs alone in its own JVM.

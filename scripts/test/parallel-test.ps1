@@ -203,10 +203,44 @@ try {
         $last = if (Test-Path -LiteralPath $log) { (Get-Item -LiteralPath $log).LastWriteTimeUtc } else { $item.startedAt }
         return (($now - $last).TotalMinutes -ge 3)
     }
+    # The classes of a client job that a client has finished, by the evidence each of its parts left.
+    function Get-ClientDone($item) {
+        $done = @($item.done)
+        foreach ($part in @($item.parts)) {
+            $path = Join-Path $part 'nullspace-test-evidence.json'
+            if (Test-Path -LiteralPath $path) {
+                try { foreach ($name in @((Read-VerificationJson $path).completed)) { if ($done -notcontains $name) { $done += $name } } } catch { }
+            }
+        }
+        return ,$done
+    }
+    # After a client part exits with a failure: the class it was running failed (its evidence names it), and a new client runs the classes that
+    # come after it. A part that never started a test failed in start-up, not in a test: that is reported as is and nothing is continued.
+    function Start-Continuation($item, $jobState) {
+        $path = Join-Path $item.work 'nullspace-test-evidence.json'
+        $live = $null
+        if (Test-Path -LiteralPath $path) { try { $live = Read-VerificationJson $path } catch { } }
+        if (-not $live -or (-not @($live.completed).Count -and -not $live.running)) { return $false }
+        $item.done = Get-ClientDone $item
+        $failedClass = if ($live.running) { [string]$live.running } else { @($item.current.expected | Where-Object { $item.done -notcontains $_ })[0] }
+        if ($failedClass -and $item.failed -notcontains $failedClass) { $item.failed += $failedClass }
+        $rest = @($item.job.expected | Where-Object { $item.done -notcontains $_ -and $item.failed -notcontains $_ })
+        $jobState.failedCases = @($item.failed)
+        if (-not $rest.Count) { return $false }
+        $item.continuations++
+        $item.current = [pscustomobject]@{name=$item.job.name; kind='client'; expected=$rest; windowBounds=$item.job.windowBounds}
+        Write-Warning ("Worker {0}: {1} failed; starting a client for the {2} class(es) after it" -f $item.job.name, $failedClass, $rest.Count)
+        $started = Start-Worker $item.current ('-after' + $item.continuations)
+        $item.process = $started.process; $item.work = $started.work; $item.parts += $started.work
+        $item.startedAt = [DateTime]::UtcNow; $item.restarts = 0; $item.windowHandle = 0L
+        $jobState.pid = $started.process.Id; $jobState.continuations = $item.continuations; $jobState.workDirectory = Split-Path -Leaf $started.work
+        Save-Manifest
+        return $true
+    }
     foreach ($job in $jobs) {
         $started = Start-Worker $job
         $process = $started.process; $work = $started.work
-        $processes += [pscustomobject]@{job=$job;process=$process;work=$work;windowHandle=0L;startedAt=[DateTime]::UtcNow;restarts=0}
+        $processes += [pscustomobject]@{job=$job;current=$job;process=$process;work=$work;parts=@($work);done=@();failed=@();continuations=0;windowHandle=0L;startedAt=[DateTime]::UtcNow;restarts=0}
         $manifest.jobs += [ordered]@{name=$job.name;workDirectory=$job.name;kind=$job.kind;pid=$process.Id;startedUtc=[DateTime]::UtcNow.ToString('o');expected=@($job.expected);status='running'}
         if ($job.kind -eq 'client') { $manifest.jobs[-1].windowBounds = $job.windowBounds }
         Write-Host ("Started {0}: {1} test classes, PID {2}" -f $job.name,$job.expected.Count,$process.Id)
@@ -215,12 +249,16 @@ try {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     # Wait for ALL workers. A worker that exits with a failure is only noted (see the warning below): the others are left to finish, because the whole
     # list of failures is the result this script exists to produce.
-    while (@($processes | Where-Object { -not $_.process.HasExited }).Count -gt 0) {
+    # Until every worker has exited AND been handled: the last client to fail may exit after the final look, and its continuation must still start.
+    while (@(0..($processes.Count - 1) | Where-Object { -not $processes[$_].process.HasExited -or -not $manifest.jobs[$_].Contains('finishedUtc') }).Count -gt 0) {
         if ((Get-Date) -gt $deadline) { throw "Parallel tests timed out. Logs: $runRoot" }
         for($i=0;$i -lt $processes.Count;$i++) {
             $item=$processes[$i];$jobState=$manifest.jobs[$i]
             if($item.process.HasExited) {
                 $item.process.WaitForExit()
+                # CONTINUATION: a failed client test ends its JVM and Fabric runs none of the classes after it, so the classes that did not run get a
+                # client of their own; every graphical failure is then found in this run, not one per worker per run.
+                if ($item.job.kind -eq 'client' -and $item.process.ExitCode -ne 0 -and -not $jobState.Contains('finishedUtc') -and (Start-Continuation $item $jobState)) { continue }
                 if(-not $jobState.Contains('finishedUtc')) {
                     $jobState.finishedUtc=[DateTime]::UtcNow.ToString('o')
                     $jobState.elapsedSeconds=([DateTimeOffset]::UtcNow-[DateTimeOffset]::Parse($jobState.startedUtc)).TotalSeconds
@@ -235,10 +273,12 @@ try {
                     Write-Warning "Worker $($item.job.name) has done nothing for minutes (a start-up freeze): restarting it once."
                     Stop-Process -Id $item.process.Id -Force -ErrorAction SilentlyContinue
                     $null = $item.process.WaitForExit(15000)
-                    $restarted = Start-Worker $item.job '-retry'
+                    $suffix = if ($item.continuations) { "-after$($item.continuations)-retry" } else { '-retry' }
+                    $restarted = Start-Worker $item.current $suffix
+                    $item.parts = @($item.parts | Where-Object { $_ -ne $item.work }) + @($restarted.work)
                     $item.process = $restarted.process; $item.work = $restarted.work; $item.startedAt = [DateTime]::UtcNow; $item.restarts = 1; $item.windowHandle = 0L
                     $jobState.pid = $restarted.process.Id; $jobState.restartedUtc = [DateTime]::UtcNow.ToString('o'); $jobState.restarts = 1
-                    $jobState.workDirectory = $item.job.name + '-retry'
+                    $jobState.workDirectory = Split-Path -Leaf $restarted.work
                     Save-Manifest
                     continue
                 }
@@ -263,6 +303,11 @@ try {
         # The `throw`s inside only leave this job's own check; the catch below turns them into entries in the list instead of ending the run.
         $item = $processes[$i]; $item.process.WaitForExit()
         try {
+        if ($item.job.kind -eq 'client' -and @($item.failed).Count) {
+            $item.done = Get-ClientDone $item
+            $notRun = @($item.job.expected | Where-Object { $item.done -notcontains $_ -and $item.failed -notcontains $_ })
+            throw ("Graphical test(s) failed in {0}: {1}{2}. Logs: {3}" -f $item.job.name, (@($item.failed) -join ', '), $(if ($notRun.Count) { "; not run: " + ($notRun -join ', ') } else { '' }), (@($item.parts) -join ', '))
+        }
         if ($item.process.ExitCode -ne 0) { throw "Test job $($item.job.name) failed (exit $($item.process.ExitCode))" }
         $manifest.jobs[$i].exitCode = $item.process.ExitCode
         if(-not $manifest.jobs[$i].Contains('finishedUtc')) {
@@ -270,11 +315,11 @@ try {
             $manifest.jobs[$i].elapsedSeconds=([DateTimeOffset]::UtcNow-[DateTimeOffset]::Parse($manifest.jobs[$i].startedUtc)).TotalSeconds
         }
         if ($item.job.kind -eq 'client') {
-            $evidence = Get-Content -LiteralPath (Join-Path $item.work 'nullspace-test-evidence.json') -Raw | ConvertFrom-Json
-            Assert-VerificationInventory @($item.job.expected) @($evidence.completed)
-            $actualGraphics += @($evidence.completed)
-            $manifest.jobs[$i].tests = @($evidence.completed).Count
-            $manifest.jobs[$i].completed = @($evidence.completed).Count
+            $done = Get-ClientDone $item
+            Assert-VerificationInventory @($item.job.expected) @($done)
+            $actualGraphics += @($done)
+            $manifest.jobs[$i].tests = @($done).Count
+            $manifest.jobs[$i].completed = @($done).Count
             $manifest.jobs[$i].runningCase = ''
         } else {
             $native = Get-Content -LiteralPath (Join-Path $item.work 'test.log') -Raw

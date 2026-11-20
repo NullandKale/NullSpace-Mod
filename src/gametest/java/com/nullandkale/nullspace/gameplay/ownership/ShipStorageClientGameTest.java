@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.pads.PadScanner;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.testing.TestPads;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
@@ -65,34 +66,34 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
                 var at = StationGameTest.boardingPoint(space, ship);
                 p.teleportTo(space, at.x, at.y, at.z, Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(20);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 p.hurtServer(p.level(), p.damageSources().genericKill(), Float.MAX_VALUE);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof DeathScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof DeathScreen, 200);
             c.waitTicks(25);
             c.runOnClient(mc ->
             {
                 var screen = mc.gui.screen();
                 screen.mouseClicked(new MouseButtonEvent(screen.width / 2.0, screen.height / 4.0 + 82, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
             });
-            c.waitFor(mc -> mc.player != null && mc.player.isAlive() && mc.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 400);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.isAlive() && mc.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 400);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(server.overworld(), computer.getX() + .5, computer.getY(), computer.getZ() + .5, Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(8);
             c.getInput().lookAt(computer);
             c.waitTicks(4);
             c.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("PAD"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("PAD"), 200);
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 4, 23));
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("MY SHIPS"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("MY SHIPS"), 200);
             c.takeScreenshot("nullspace-ship-recall");
             c.waitTicks(4);
             c.runOnClient(mc ->
@@ -101,8 +102,8 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.click(screen, 4, 6);
                 ShipControlTestUi.click(screen, 4, 18);
             });
-            world.getServer().waitFor(server -> WorldStore.get(server).repository().find(id[0]).getStringOr("dimension", "").equals("minecraft:overworld"), 400);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Ship recalled"), 200);
+            ClientWaits.waitFor(world.getServer(), server -> WorldStore.get(server).repository().find(id[0]).getStringOr("dimension", "").equals("minecraft:overworld"), 400);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Ship recalled"), 200);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -123,11 +124,11 @@ public final class ShipStorageClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.click(screen, 4, 6);
                 ShipControlTestUi.click(screen, 21, 18);
             });
-            world.getServer().waitFor(server -> WorldStore.get(server).repository().find(id[0]).getBooleanOr("stored", false), 400);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("MY SHIPS") && t.status().contains("stored"), 200);
+            ClientWaits.waitFor(world.getServer(), server -> WorldStore.get(server).repository().find(id[0]).getBooleanOr("stored", false), 400);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("MY SHIPS") && t.status().contains("stored"), 200);
             c.takeScreenshot("nullspace-ship-stored");
             c.runOnClient(mc -> mc.gui.screen().keyPressed(new net.minecraft.client.input.KeyEvent(InputConstants.KEY_ESCAPE, 0, 0)));
-            c.waitFor(mc -> mc.gui.screen() == null, 60);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() == null, 60);
             c.waitTicks(60);
             c.runOnClient(mc ->
             {

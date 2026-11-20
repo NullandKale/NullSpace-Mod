@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.worldgen.sites;
 
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -27,7 +28,7 @@ public final class VillagePortClientGameTest implements FabricClientGameTest
         // Real terrain and villages: the default preset with a fixed seed.
         try (var world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(s -> s.setSeed("nullspace-village-ports")).create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             // Find a village whose start chunk is chosen for a port.
             BlockPos village = world.getServer().computeOnServer(server ->
             {
@@ -77,7 +78,7 @@ public final class VillagePortClientGameTest implements FabricClientGameTest
                 // Above and behind the hut, looking over it to the pad.
                 p.teleportTo(server.overworld(), at.getX() - 10, at.getY() + 12, at.getZ() - 14, Set.of(), -35, 35, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(20);
             c.takeScreenshot("nullspace-village-port");
             world.getServer().runOnServer(server ->

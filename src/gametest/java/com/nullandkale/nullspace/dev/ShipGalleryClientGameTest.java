@@ -5,6 +5,7 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 
@@ -49,12 +50,12 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
                 var level = p.level();
                 ((DoorBlock) level.getBlockState(door).getBlock()).setOpen(null, level, level.getBlockState(door), door, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.getInput().lookAt(0, 0);
             context.getInput().holdKey(InputConstants.KEY_W);
             try
             {
-                context.waitFor(c -> c.player != null && c.player.getZ() > base.getZ() + 5, 200);
+                ClientWaits.waitFor(context, c -> c.player != null && c.player.getZ() > base.getZ() + 5, 200);
             }
             finally
             {
@@ -71,28 +72,29 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
             context.getInput().lookAt(controller);
             context.waitTicks(2);
             context.takeScreenshot("nullspace-gallery-controller-approach");
-            context.waitFor(c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(controller), 40);
+            ClientWaits.waitFor(context, c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(controller), 40);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.action(context, ShipControl.Action.INSPECT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 200);
             context.takeScreenshot("nullspace-gallery-scout-terminal");
-            pause(context);
+            // A short settle in game time before the launch (a pause in real time is a different length on every machine).
+            context.waitTicks(12);
             ShipControlTestUi.action(context, ShipControl.Action.LAUNCH);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
             var spaceComputer = world.getServer().computeOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 return WorldStore.pos(WorldStore.get(server).at(p.level(), p.blockPosition()), "controller");
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.getInput().lookAt(spaceComputer);
             context.waitTicks(2);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.destination(context, gallery.name(ShipGallery.PLOTS.get(12)), "Pads");
             ShipControlTestUi.action(context, ShipControl.Action.LAND);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -125,7 +127,7 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
             try
             {
                 // Wait for this gallery, rather than every distant background chunk at view distance 12.
-                context.waitFor(c -> c.level.hasChunkAt(gallery.origin()) && c.level.hasChunkAt(gallery.origin().offset(ShipGallery.WIDTH - 1, 0, ShipGallery.DEPTH - 1)), 600);
+                ClientWaits.waitFor(context, c -> c.level.hasChunkAt(gallery.origin()) && c.level.hasChunkAt(gallery.origin().offset(ShipGallery.WIDTH - 1, 0, ShipGallery.DEPTH - 1)), 600);
                 context.waitTicks(40);
                 context.takeScreenshot("nullspace-gallery-overview");
             }
@@ -142,9 +144,4 @@ public final class ShipGalleryClientGameTest implements FabricClientGameTest
         ClientTestEvidence.passed(getClass());
     }
 
-    private static void pause(ClientGameTestContext ctx)
-    {
-        long now = System.nanoTime();
-        ctx.waitFor(c -> System.nanoTime() - now > 600_000_000L);
-    }
 }

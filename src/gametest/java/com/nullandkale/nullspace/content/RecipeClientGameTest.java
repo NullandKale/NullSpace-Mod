@@ -11,6 +11,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology;
 import com.nullandkale.nullspace.gameplay.systems.SystemsConsole;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.testing.SurvivalCrafting;
@@ -54,12 +55,12 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                 player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
                 player.teleportTo(server.overworld(), at.getX() + .5, at.getY(), at.getZ() - 2.5, Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.waitTicks(10);
             context.getInput().lookAt(boardChest);
             context.waitTicks(2);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof ContainerScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof ContainerScreen, 200);
             context.runOnClient(c ->
             {
                 var screen = (ContainerScreen) c.gui.screen();
@@ -71,7 +72,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
             });
             context.takeScreenshot("nullspace-recipe-chest");
             context.runOnClient(c -> c.player.closeContainer());
-            context.waitFor(c -> c.gui.screen() == null, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() == null, 200);
             world.getServer().runOnServer(server ->
             {
                 var player = world.getConnection().getServerPlayer();
@@ -86,7 +87,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
             context.getInput().lookAt(boardChest.offset(2, 0, 0));
             context.waitTicks(2);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof CraftingScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof CraftingScreen, 200);
             // Pick up each hotbar stack, place one per corresponding cell, then return any remainder.
             context.runOnClient(c ->
             {
@@ -101,7 +102,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                         c.gameMode.handleContainerInput(c.player.containerMenu.containerId, sources[i], 0, ContainerInput.PICKUP, c.player);
                 }
             });
-            context.waitFor(c -> c.player.containerMenu.getSlot(0).getItem().is(ModBlocks.CIRCUIT_BOARD), 200);
+            ClientWaits.waitFor(context, c -> c.player.containerMenu.getSlot(0).getItem().is(ModBlocks.CIRCUIT_BOARD), 200);
             context.takeScreenshot("nullspace-shaped-crafting");
             context.runOnClient(c -> c.gameMode.handleContainerInput(c.player.containerMenu.containerId, 0, 0, ContainerInput.QUICK_MOVE, c.player));
             context.waitTicks(5);
@@ -112,7 +113,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Real survival click must craft exactly four boards and consume ingredients");
                 p.closeContainer();
             });
-            context.waitFor(c -> c.gui.screen() == null, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() == null, 200);
             var base = world.getServer().computeOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -143,7 +144,7 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                 MachineMenus.open(p, home.offset(1, 3, 6));
                 return home;
             });
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getStringOr("mode", "").equals("generator"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getStringOr("mode", "").equals("generator"), 200);
             MachineTestUi.shiftItem(context, Items.COAL);
             context.runOnClient(c -> c.gui.screen().onClose());
             context.waitTicks(40);
@@ -154,20 +155,20 @@ public final class RecipeClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Crafted empty battery must charge before launch");
                 ShipService.open(world.getConnection().getServerPlayer(), base.offset(6, 3, 3), "Crafted ship ready");
             });
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Crafted ship ready"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Crafted ship ready"), 200);
             context.waitTicks(20);
             send(context, ComputerTerminal.Action.LAUNCH);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 var ship = WorldStore.get(server).at(p.level(), p.blockPosition());
                 ShipService.open(p, WorldStore.pos(ship, "controller"), "Crafted ship return");
             });
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen, 200);
             context.waitTicks(20);
             send(context, ComputerTerminal.Action.LAND);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
         }
         catch (java.io.IOException error)
         {

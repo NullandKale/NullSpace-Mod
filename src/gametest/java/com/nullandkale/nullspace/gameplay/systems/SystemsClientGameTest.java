@@ -14,6 +14,7 @@ import com.nullandkale.nullspace.render.compute.NativeVolumeUniforms;
 import com.nullandkale.nullspace.render.scene.MonitorRenderer;
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.MachineScreen;
@@ -71,12 +72,12 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(level, base.getX() + 16.5, base.getY() + 16, base.getZ() + 23.5, java.util.Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.waitTicks(20);
             world.getServer().runOnServer(server -> SystemsConsole.action(world.getConnection().getServerPlayer(), SphereLab.controller(base), ComputerTerminal.Action.SYSTEMS));
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 200);
             world.getServer().runOnServer(server -> SystemsConsole.action(world.getConnection().getServerPlayer(), SphereLab.controller(base), ComputerTerminal.Action.CONFIGURE, "rooms"));
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("ROOMS"), 100);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("ROOMS"), 100);
             context.waitTicks(25);
             context.runOnClient(c ->
             {
@@ -85,11 +86,11 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             });
             context.takeScreenshot("nullspace-room-telemetry");
             world.getServer().runOnServer(server -> SystemsConsole.action(world.getConnection().getServerPlayer(), SphereLab.controller(base), ComputerTerminal.Action.SYSTEMS));
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 100);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 100);
             world.getServer().runOnServer(server -> ShipTopology.resolve(server.overworld(), SphereLab.controller(base)).getCompoundOrEmpty("systems").putBoolean("supplyDisabled", true));
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 0"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 0"), 200);
             world.getServer().runOnServer(server -> ShipTopology.resolve(server.overworld(), SphereLab.controller(base)).getCompoundOrEmpty("systems").putBoolean("supplyDisabled", false));
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().contains("Generation 16"), 200);
             context.takeScreenshot("nullspace-systems-controller");
             context.runOnClient(c -> c.gui.setScreen(null));
             context.waitTicks(40);
@@ -108,7 +109,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     throw new AssertionError("No installed display: " + MonitorRenderer.status());
             });
             world.getServer().runOnServer(server -> world.getConnection().getServerPlayer().teleportTo(server.overworld(), base.getX() + 18.5, base.getY() + 6, base.getZ() + 19.5, java.util.Set.of(), 0, 0, true));
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.waitTicks(10);
             context.getInput().lookAt(base.offset(19, 6, 21));
             context.waitTicks(10);
@@ -196,13 +197,13 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     var p = world.getConnection().getServerPlayer();
                     p.teleportTo(server.overworld(), pos.getX() + .5, base.getY() + 6, pos.getZ() - 2, java.util.Set.of(), 0, 0, true);
                 });
-                context.waitFor(c -> c.player.position().distanceToSqr(new net.minecraft.world.phys.Vec3(pos.getX() + .5, base.getY() + 6, pos.getZ() - 2)) < .1, 100);
+                ClientWaits.waitFor(context, c -> c.player.position().distanceToSqr(new net.minecraft.world.phys.Vec3(pos.getX() + .5, base.getY() + 6, pos.getZ() - 2)) < .1, 100);
                 context.waitTicks(4);
                 context.getInput().lookAt(pos);
                 context.waitTicks(2);
                 try
                 {
-                    context.waitFor(c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(pos), 100);
+                    ClientWaits.waitFor(context, c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(pos), 100);
                 }
                 catch (AssertionError miss)
                 {
@@ -214,14 +215,14 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     throw miss;
                 }
                 context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-                context.waitFor(c -> mode.equals("door_control") ? c.gui.screen() instanceof TerminalScreen : c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getStringOr("mode", "").equals(mode), 100);
+                ClientWaits.waitFor(context, c -> mode.equals("door_control") ? c.gui.screen() instanceof TerminalScreen : c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getStringOr("mode", "").equals(mode), 100);
                 if (mode.equals("battery"))
                 {
                     MachineTestUi.click(context, 40, 24);
-                    context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getBooleanOr("enabled", true), 100);
+                    ClientWaits.waitFor(context, c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getBooleanOr("enabled", true), 100);
                     context.waitTicks(3);
                     MachineTestUi.click(context, 40, 24);
-                    context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getBooleanOr("enabled", false), 100);
+                    ClientWaits.waitFor(context, c -> c.gui.screen() instanceof MachineScreen screen && screen.getMenu().reading.getBooleanOr("enabled", false), 100);
                 }
                 if (mode.equals("air_supply"))
                     context.takeScreenshot("nullspace-equipment-air");
@@ -231,13 +232,13 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 context.waitTicks(3);
             }
             context.takeScreenshot("nullspace-equipment-monitor");
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof MachineScreen m && m.previewFrames() > 0, 400);
             // A monitor nobody has set shows the camera nearest it, so which feed Next lands on depends on where it started: the server says which it
             // chose, once it has set the monitor's feed, and the fullscreen view must still show that one after the keepalives.
             var feedMonitor = new BlockPos[1];
             context.runOnClient(c -> feedMonitor[0] = ((MachineScreen) c.gui.screen()).getMenu().at);
             MachineTestUi.clickLabel(context, "Next camera");
-            context.waitFor(c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getStringOr("feed", "").isBlank(), 400);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof MachineScreen screen && !screen.getMenu().reading.getStringOr("feed", "").isBlank(), 400);
             context.waitTicks(8);
             var chosen = new String[1];
             chosen[0] = world.getServer().computeOnServer(server ->
@@ -248,7 +249,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             });
             context.takeScreenshot("nullspace-monitor-centered-feed");
             MachineTestUi.clickLabel(context, "View fullscreen");
-            context.waitFor(c -> c.gui.screen() instanceof ViewportScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof ViewportScreen, 200);
             context.waitTicks(45);
             context.runOnClient(c ->
             {
@@ -276,24 +277,24 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 counts[0] = v.renderedFrames();
                 ((ViewportScreen) c.gui.screen()).keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT, 0, 0));
             });
-            context.waitFor(c -> ((ViewportScreen) c.gui.screen()).viewport().renderedFrames() > counts[0], 100);
+            ClientWaits.waitFor(context, c -> ((ViewportScreen) c.gui.screen()).viewport().renderedFrames() > counts[0], 100);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(server.overworld(), base.getX() + 17.5, base.getY() + 6, base.getZ() + 18, java.util.Set.of(), 0, 0, true);
             });
-            context.waitFor(c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() > 0, 200);
+            ClientWaits.waitFor(context, c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() > 0, 200);
             context.waitTicks(5);
             var withPlayer = cameraPixels(context);
             context.runOnClient(c -> c.player.setInvisible(true));
-            context.waitFor(c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() == 0, 100);
+            ClientWaits.waitFor(context, c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() == 0, 100);
             var withoutPlayer = cameraPixels(context);
             int playerPixels = 0;
             for (int i = 0; i < withPlayer.length; i++)
                 if (withPlayer[i] != withoutPlayer[i])
                     playerPixels++;
             context.runOnClient(c -> c.player.setInvisible(false));
-            context.waitFor(c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() > 0, 100);
+            ClientWaits.waitFor(context, c -> ((ViewportScreen) c.gui.screen()).viewport().playerCount() > 0, 100);
             if (playerPixels < 100)
                 throw new AssertionError("Native full-body player must change visible camera pixels, got " + playerPixels);
             var variation = new java.util.concurrent.atomic.AtomicInteger(-1);
@@ -313,7 +314,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     image.close();
                 }
             }));
-            context.waitFor(c -> variation.get() >= 0, 200);
+            ClientWaits.waitFor(context, c -> variation.get() >= 0, 200);
             context.runOnClient(c ->
             {
                 if (NullSpaceClient.sceneVolumes().reused() == 0 || NullSpaceClient.sceneVolumes().size() > 64 || ((ViewportScreen) c.gui.screen()).viewport().cachedSubjects() > SceneService.MAX_SUBJECTS)
@@ -341,7 +342,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 }
                 ((ViewportScreen) c.gui.screen()).keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_F2, 0, 0));
             });
-            context.waitFor(c ->
+            ClientWaits.waitFor(context, c ->
             {
                 try (var files = java.nio.file.Files.list(exported[0]))
                 {
@@ -371,17 +372,17 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(level, base.getX() + 16.5, base.getY() + 16, base.getZ() + 23.5, java.util.Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
-            context.waitFor(c -> c.player != null && c.player.position().distanceTo(new net.minecraft.world.phys.Vec3(base.getX() + 16.5, base.getY() + 16, base.getZ() + 23.5)) < .25, 100);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(context, c -> c.player != null && c.player.position().distanceTo(new net.minecraft.world.phys.Vec3(base.getX() + 16.5, base.getY() + 16, base.getZ() + 23.5)) < .25, 100);
             context.waitTicks(4);
             context.getInput().lookAt(SphereLab.controller(base));
             context.waitTicks(2);
-            context.waitFor(c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(SphereLab.controller(base)), 100);
+            ClientWaits.waitFor(context, c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(SphereLab.controller(base)), 100);
             context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
             context.waitTicks(12);
             ShipControlTestUi.action(context, ShipControl.Action.LAUNCH);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -403,7 +404,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 p.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
                 p.teleportTo(space, origin.getX() + 16.5, origin.getY() + 18, origin.getZ() + 42.5, java.util.Set.of(), -15, 18, true);
             });
-            context.waitFor(c -> SpaceSceneRenderer.viewport() != null, 200);
+            ClientWaits.waitFor(context, c -> SpaceSceneRenderer.viewport() != null, 200);
             context.waitTicks(40);
             variation.set(-1);
             context.runOnClient(c -> net.minecraft.client.Screenshot.takeScreenshot(SpaceSceneRenderer.viewport().target, image ->
@@ -422,7 +423,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     image.close();
                 }
             }));
-            context.waitFor(c -> variation.get() >= 0, 200);
+            ClientWaits.waitFor(context, c -> variation.get() >= 0, 200);
             if (variation.get() < 100)
                 throw new AssertionError("EVA space scene must contain real remote geometry and celestial bodies");
             context.takeScreenshot("nullspace-space-scene");
@@ -433,7 +434,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                     for (int y = -2; y <= 3; y++)
                         p.level().setBlock(p.blockPosition().offset(x, y, 6), net.minecraft.world.level.block.Blocks.STAINED_GLASS.cyan().defaultBlockState(), 18);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var originalSize = new int[2];
             context.runOnClient(c ->
             {
@@ -450,7 +451,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                         previousWidth[0] = c.getWindow().getWidth();
                         c.getWindow().setWindowed(size[0], size[1]);
                     });
-                    context.waitFor(c -> c.gameRenderer.mainRenderTarget().width != previousWidth[0] && SpaceSceneRenderer.computeReady() && SpaceSceneRenderer.viewport().compute().depth().texture().getWidth(0) == c.gameRenderer.mainRenderTarget().width, 200);
+                    ClientWaits.waitFor(context, c -> c.gameRenderer.mainRenderTarget().width != previousWidth[0] && SpaceSceneRenderer.computeReady() && SpaceSceneRenderer.viewport().compute().depth().texture().getWidth(0) == c.gameRenderer.mainRenderTarget().width, 200);
                     context.runOnClient(c ->
                     {
                         if (org.lwjgl.opengl.GL43C.glGetError() != org.lwjgl.opengl.GL43C.GL_NO_ERROR)
@@ -475,7 +476,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                         before[0] = NativeVolumeUniforms.binds();
                         c.options.improvedTransparency().set(oit);
                     });
-                    world.getConnection().waitForChunksRender();
+                    ClientWaits.chunksRendered(world.getConnection());
                     context.waitTicks(20);
                     context.runOnClient(c ->
                     {
@@ -499,7 +500,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 p.teleportTo(p.level(), monitor.getX() + .5, monitor.getY(), monitor.getZ() - 2, java.util.Set.of(), 0, 0, true);
                 SceneService.open(p, monitor);
             });
-            context.waitFor(c -> c.gui.screen() instanceof ViewportScreen view && view.viewport() != null && view.viewport().compute() != null, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof ViewportScreen view && view.viewport() != null && view.viewport().compute() != null, 200);
             context.waitTicks(5);
             context.takeScreenshot("nullspace-space-camera-compute");
             var spaceExports = new java.util.HashSet<java.nio.file.Path>();
@@ -515,7 +516,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 }
                 ((ViewportScreen) c.gui.screen()).keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_F2, 0, 0));
             });
-            context.waitFor(c ->
+            ClientWaits.waitFor(context, c ->
             {
                 try (var files = java.nio.file.Files.list(exported[0]))
                 {
@@ -542,7 +543,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
                 p.teleportTo(p.level(), roof.getX() + .5, roof.getY() + 1, roof.getZ() + .5, java.util.Set.of(), 0, 0, true);
             });
-            context.waitFor(c -> c.player.onGround() && c.player.getAbilities().mayfly && !c.player.getAbilities().flying, 200);
+            ClientWaits.waitFor(context, c -> c.player.onGround() && c.player.getAbilities().mayfly && !c.player.getAbilities().flying, 200);
             var groundY = new double[1];
             context.runOnClient(c -> groundY[0] = c.player.getY());
             for (int tick = 0; tick < 40; tick++)
@@ -557,7 +558,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
             context.getInput().holdKey(com.mojang.blaze3d.platform.InputConstants.KEY_SPACE);
             try
             {
-                context.waitFor(c -> c.player.getAbilities().flying && c.player.getY() > groundY[0] + .2, 100);
+                ClientWaits.waitFor(context, c -> c.player.getAbilities().flying && c.player.getY() > groundY[0] + .2, 100);
             }
             finally
             {
@@ -585,7 +586,7 @@ public final class SystemsClientGameTest implements FabricClientGameTest
                 image.close();
             }
         }));
-        context.waitFor(c -> result.get() != null, 100);
+        ClientWaits.waitFor(context, c -> result.get() != null, 100);
         return result.get();
     }
 }

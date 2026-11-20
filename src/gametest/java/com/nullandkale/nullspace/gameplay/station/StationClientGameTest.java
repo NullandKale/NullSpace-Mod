@@ -16,6 +16,7 @@ import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.power.PowerBus;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.MachineScreen;
@@ -45,7 +46,7 @@ public final class StationClientGameTest implements FabricClientGameTest
             var at = port.anchors().getFirst();
             p.teleportTo(p.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), port.facing().toYRot(), 0, true);
         });
-        c.waitFor(mc -> mc.gui.screen() == null, 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() == null, 100);
         c.waitTicks(8);
         c.getInput().lookAt(base.above());
         c.waitTicks(3);
@@ -53,7 +54,7 @@ public final class StationClientGameTest implements FabricClientGameTest
         if (!open)
         {
             c.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            world.getServer().waitFor(server -> ShipDoors.open(world.getConnection().getServerPlayer().level().getBlockState(base.above())), 100);
+            ClientWaits.waitFor(world.getServer(), server -> ShipDoors.open(world.getConnection().getServerPlayer().level().getBlockState(base.above())), 100);
         }
         float yaw = world.getServer().computeOnServer(server -> DockingPorts.readPort(world.getConnection().getServerPlayer().level(), vessel, base, false).facing().toYRot());
         c.getInput().lookAt(yaw, 0);
@@ -61,7 +62,7 @@ public final class StationClientGameTest implements FabricClientGameTest
         c.getInput().holdKey(InputConstants.KEY_W);
         try
         {
-            c.waitFor(mc -> mc.gui.screen() == null && mc.player != null && Math.abs(mc.player.getX() - startX) > 100, 600);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.player != null && Math.abs(mc.player.getX() - startX) > 100, 600);
         }
         finally
         {
@@ -100,8 +101,8 @@ public final class StationClientGameTest implements FabricClientGameTest
                 doors[1] = DockingPorts.ports(level, vessels[1]).getFirst().controller();
                 ShipService.open(p, WorldStore.pos(vessels[0], "controller"), "Station docking test");
             });
-            world.getConnection().waitForChunksRender();
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -110,7 +111,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(scanner.getX() + .5, scanner.getY(), scanner.getZ() + 1.5);
                 MachineMenus.open(p, scanner);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 200);
             c.runOnClient(mc ->
             {
                 var screen = (MachineScreen) mc.gui.screen();
@@ -120,7 +121,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 var open = buttons.stream().filter(b -> b.getMessage().getString().equals("Open scanner")).findFirst().orElseThrow();
                 screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(open.getX() + open.getWidth() / 2.0, open.getY() + open.getHeight() / 2.0, new net.minecraft.client.input.MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
             ShipControlTestUi.scannerDestination(c, "Test station", "Stations");
             world.getServer().runOnServer(server ->
             {
@@ -136,10 +137,10 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.x, at.y, at.z);
                 ShipService.open(p, WorldStore.pos(vessels[0], "controller"), "Scanner target selected");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(5).contains("Test station"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(5).contains("Test station"), 200);
             c.takeScreenshot("nullspace-unified-docking");
             ShipControlTestUi.action(c, ShipControl.Action.ENGAGE);
-            world.getServer().waitFor(server -> vessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, vessels[0]) && !CourseService.active(vessels[0]), 1800);
+            ClientWaits.waitFor(world.getServer(), server -> vessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, vessels[0]) && !CourseService.active(vessels[0]), 1800);
             c.runOnClient(mc ->
             {
                 if (mc.gui.screen() != null)
@@ -154,7 +155,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
                 MachineMenus.open(p, doors[0]);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen, 200);
             c.takeScreenshot("nullspace-station-dock-controls");
             c.runOnClient(mc -> mc.gui.screen().onClose());
             world.getServer().runOnServer(server ->
@@ -180,7 +181,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                     ShipSystems.tick(server.getLevel(TravelService.SPACE), vessels[i]);
                 }
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -202,7 +203,8 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(core.getX() + .5, core.getY(), core.getZ() + 1.5);
                 StationService.open(p, core, "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("STATION CORE"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("STATION CORE"), 200);
+            ClientWaits.withoutOverlay(c);
             c.runOnClient(mc ->
             {
                 var t = (TerminalScreen) mc.gui.screen();
@@ -211,10 +213,10 @@ public final class StationClientGameTest implements FabricClientGameTest
                 mc.keyboardHandler.textInput(mc.getWindow().handle(), "Test station updated");
                 ShipControlTestUi.click(t, 60, 3);
             });
-            world.getServer().waitFor(server -> vessels[1].getStringOr("home", "").equals("Test station updated"), 100);
+            ClientWaits.waitFor(world.getServer(), server -> vessels[1].getStringOr("home", "").equals("Test station updated"), 100);
             c.waitTicks(6);
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 4, 14));
-            world.getServer().waitFor(server -> vessels[1].getStringOr("access", "").equals("private"), 100);
+            ClientWaits.waitFor(world.getServer(), server -> vessels[1].getStringOr("access", "").equals("private"), 100);
             c.takeScreenshot("nullspace-station-core");
             world.getServer().runOnServer(server ->
             {
@@ -228,7 +230,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(p.level(), core.getX() + .5, core.getY(), core.getZ() + 1.5, Set.of(), 0, 0, true);
                 StationService.open(p, core, "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("STATION VISITOR"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("STATION VISITOR"), 100);
             c.takeScreenshot("nullspace-encounter-station-visitor");
             world.getServer().runOnServer(server ->
             {
@@ -237,7 +239,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 StationService.open(world.getConnection().getServerPlayer(), WorldStore.pos(vessels[1], "controller"), "");
             });
             // Claiming is off in the game: a derelict is a wreck with no claim button.
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("DERELICT VESSEL"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("DERELICT VESSEL"), 100);
             c.runOnClient(mc ->
             {
                 if (ShipControlTestUi.clickLabel((TerminalScreen) mc.gui.screen(), "[ Claim vessel ]"))
@@ -249,17 +251,17 @@ public final class StationClientGameTest implements FabricClientGameTest
                 com.nullandkale.nullspace.gameplay.ownership.Claims.enable(true);
                 StationService.open(world.getConnection().getServerPlayer(), WorldStore.pos(vessels[1], "controller"), "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("UNCLAIMED VESSEL"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("UNCLAIMED VESSEL"), 100);
             c.takeScreenshot("nullspace-derelict-claim-explanation");
             c.runOnClient(mc ->
             {
                 if (!ShipControlTestUi.clickLabel((TerminalScreen) mc.gui.screen(), "[ Claim vessel ]"))
                     throw new AssertionError("A derelict must offer claiming as its main action");
             });
-            world.getServer().waitFor(server -> vessels[1].getStringOr("owner", "").equals(world.getConnection().getServerPlayer().getUUID().toString()) && server.getLevel(TravelService.SPACE).getBlockState(WorldStore.pos(vessels[1], "controller")).is(ModBlocks.COMPUTER), 100);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER"), 100);
+            ClientWaits.waitFor(world.getServer(), server -> vessels[1].getStringOr("owner", "").equals(world.getConnection().getServerPlayer().getUUID().toString()) && server.getLevel(TravelService.SPACE).getBlockState(WorldStore.pos(vessels[1], "controller")).is(ModBlocks.COMPUTER), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER"), 100);
             world.getServer().runOnServer(server -> com.nullandkale.nullspace.gameplay.ownership.Claims.enable(false));
-            world.getServer().waitFor(server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
+            ClientWaits.waitFor(world.getServer(), server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);
             world.getServer().runOnServer(server ->
@@ -286,11 +288,11 @@ public final class StationClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Station return changed inventory");
                 ShipService.open(p, WorldStore.pos(vessels[0], "controller"), "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             c.waitTicks(4);
             ShipControlTestUi.action(c, ShipControl.Action.UNDOCK);
-            world.getServer().waitFor(server -> !vessels[0].contains("dock"), 600);
-            world.getServer().waitFor(server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
+            ClientWaits.waitFor(world.getServer(), server -> !vessels[0].contains("dock"), 600);
+            ClientWaits.waitFor(world.getServer(), server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
             ClientTestEvidence.passed(getClass());
         }
     }

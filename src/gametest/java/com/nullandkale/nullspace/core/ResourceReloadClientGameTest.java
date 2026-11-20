@@ -12,6 +12,7 @@ import com.nullandkale.nullspace.render.compute.ComputeStateScope;
 import com.nullandkale.nullspace.render.compute.SpaceComputeRenderer;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.nio.file.*;
 import java.util.*;
@@ -54,7 +55,7 @@ public final class ResourceReloadClientGameTest implements FabricClientGameTest
     {
         var future = new AtomicReference<CompletableFuture<Void>>();
         context.runOnClient(client -> future.set(client.reloadResourcePacks()));
-        context.waitFor(client -> future.get().isDone(), 6000);
+        ClientWaits.waitFor(context, client -> future.get().isDone(), 6000);
         context.runOnClient(client -> future.get().join());
     }
 
@@ -135,7 +136,7 @@ public final class ResourceReloadClientGameTest implements FabricClientGameTest
         var before = new float[1][];
         try (var world = context.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var dataReload = new AtomicReference<CompletableFuture<Void>>();
             var book = new net.minecraft.world.item.ItemStack(FieldGuide.ITEM);
             world.getServer().runOnServer(server ->
@@ -155,7 +156,7 @@ public final class ResourceReloadClientGameTest implements FabricClientGameTest
                 packs.add("file/nullspace-guide-regression");
                 dataReload.set(server.reloadResources(packs));
             });
-            context.waitFor(client -> dataReload.get().isDone(), 6000);
+            ClientWaits.waitFor(context, client -> dataReload.get().isDone(), 6000);
             world.getServer().runOnServer(server ->
             {
                 dataReload.get().join();

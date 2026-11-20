@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.content;
 import com.nullandkale.nullspace.gameplay.navigation.OreSurvey;
 import com.nullandkale.nullspace.gameplay.shipyard.MaterialsGallery;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -28,7 +29,7 @@ public final class SpaceMaterialsClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var origin = new BlockPos[1];
             world.getServer().runOnServer(server ->
             {
@@ -67,7 +68,7 @@ public final class SpaceMaterialsClientGameTest implements FabricClientGameTest
             p.teleportTo((ServerLevel) p.level(), origin.getX() + x, origin.getY() + y, origin.getZ() + z, Set.of(), yaw, pitch, true);
         });
         c.waitTicks(160);
-        world.getConnection().waitForChunksRender();
+        ClientWaits.chunksRendered(world.getConnection());
         c.takeScreenshot(name);
     }
 }

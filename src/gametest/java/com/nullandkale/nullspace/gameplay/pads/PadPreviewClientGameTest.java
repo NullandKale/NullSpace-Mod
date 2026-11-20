@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.render.effects.PreviewRenderer;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.TravelScreen;
@@ -90,14 +91,14 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     p.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(PadComputers.BLOCK));
                     p.inventoryMenu.broadcastChanges();
                 });
-                world.getConnection().waitForChunksRender();
-                ctx.waitFor(c -> c.player != null && c.player.getMainHandItem().is(PadComputers.BLOCK.asItem()), 200);
+                ClientWaits.chunksRendered(world.getConnection());
+                ClientWaits.waitFor(ctx, c -> c.player != null && c.player.getMainHandItem().is(PadComputers.BLOCK.asItem()), 200);
                 ctx.waitTicks(10);
                 ctx.getInput().lookAt(support);
                 ctx.waitTicks(3);
-                ctx.waitFor(c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(support) && hit.getDirection() == Direction.UP, 100);
+                ClientWaits.waitFor(ctx, c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(support) && hit.getDirection() == Direction.UP, 100);
                 ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-                world.getServer().waitFor(server -> server.overworld().getBlockState(control).is(PadComputers.BLOCK), 100);
+                ClientWaits.waitFor(world.getServer(), server -> server.overworld().getBlockState(control).is(PadComputers.BLOCK), 100);
                 world.getServer().runOnServer(server ->
                 {
                     var state = server.overworld().getBlockState(control);
@@ -107,16 +108,16 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     p.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
                     p.inventoryMenu.broadcastChanges();
                 });
-                ctx.waitFor(c -> c.player.getMainHandItem().isEmpty(), 100);
+                ClientWaits.waitFor(ctx, c -> c.player.getMainHandItem().isEmpty(), 100);
                 ctx.getInput().lookAt(control);
                 ctx.waitTicks(3);
                 ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 100);
                 choose(ctx, 3);
-                ctx.waitFor(c -> PreviewRenderer.count(false) == 100, 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(false) == 100, 100);
                 ctx.waitTicks(3);
                 choose(ctx, 4);
-                ctx.waitFor(c -> PreviewRenderer.count(true) > 100, 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(true) > 100, 100);
                 ctx.runOnClient(c -> c.gui.screen().onClose());
                 ctx.getInput().lookAt(base.offset(3, 3, 3));
                 ctx.waitTicks(3);
@@ -140,7 +141,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                         image.close();
                     }
                 }));
-                ctx.waitFor(c -> visible.get() >= 0, 100);
+                ClientWaits.waitFor(ctx, c -> visible.get() >= 0, 100);
                 if (visible.get() < 30)
                     throw new AssertionError("Pad preview must draw visible cyan geometry, got " + visible.get() + " pixels");
                 ctx.takeScreenshot("nullspace-pad-and-ship-preview");
@@ -152,7 +153,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     alpha[0] = PreviewRenderer.alpha(true);
                 });
                 world.getServer().runOnServer(server -> server.overworld().setBlock(base.offset(7, 3, 4), Blocks.GOLD_BLOCK.defaultBlockState(), 18));
-                ctx.waitFor(c -> PreviewRenderer.count(true) == count[0] + 1, 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(true) == count[0] + 1, 100);
                 ctx.waitTicks(10);
                 ctx.runOnClient(c ->
                 {
@@ -160,16 +161,16 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                         throw new AssertionError("Refreshing geometry must not restart the 30-second fade");
                 });
                 world.getServer().runOnServer(server -> server.overworld().setBlock(base.offset(7, 3, 4), Blocks.AIR.defaultBlockState(), 18));
-                ctx.waitFor(c -> PreviewRenderer.count(true) == count[0], 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(true) == count[0], 100);
                 ctx.getInput().lookAt(control);
                 ctx.waitTicks(3);
                 ctx.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 100);
                 choose(ctx, 3);
-                ctx.waitFor(c -> PreviewRenderer.count(false) == 0 && PreviewRenderer.count(true) > 0, 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(false) == 0 && PreviewRenderer.count(true) > 0, 100);
                 ctx.waitTicks(3);
                 choose(ctx, 4);
-                ctx.waitFor(c -> PreviewRenderer.count(true) == 0, 100);
+                ClientWaits.waitFor(ctx, c -> PreviewRenderer.count(true) == 0, 100);
                 ctx.runOnClient(c ->
                 {
                     PreviewRenderer.accept(new BuildPreviews.Preview(UUID.randomUUID(), control, c.level.dimension().identifier().toString(), true, 2, new long[]{helm.asLong()}));
@@ -182,6 +183,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     if (PreviewRenderer.count(true) != 0 || PreviewRenderer.alpha(true) != 0)
                         throw new AssertionError("Expired overlays must disappear without another server packet");
                 });
+                ClientWaits.withoutOverlay(ctx);
                 ctx.runOnClient(c ->
                 {
                     var t = (TerminalScreen) c.gui.screen();
@@ -190,7 +192,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     c.keyboardHandler.textInput(c.getWindow().handle(), "Survival Pad");
                 });
                 choose(ctx, 2);
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Registered Survival Pad"), 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Registered Survival Pad"), 100);
                 ctx.runOnClient(c -> c.gui.screen().onClose());
                 var furnacePositions = List.of(base.offset(1, 3, 6), base.offset(2, 3, 6), base.offset(4, 3, 6));
                 var snapshots = new CompoundTag[3];
@@ -222,9 +224,9 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                                 snapshots[i] = furnace(level, furnacePositions.get(i));
                     };
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 ctx.waitTicks(15);
-                world.getServer().waitFor(server ->
+                ClientWaits.waitFor(world.getServer(), server ->
                 {
                     try
                     {
@@ -237,10 +239,10 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                     }
                 }, 200);
                 world.getServer().runOnServer(server -> ShipService.open(world.getConnection().getServerPlayer(), helm, "Live furnace transfer test"));
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 100);
                 ctx.waitTicks(12);
                 choose(ctx, 1);
-                ctx.waitFor(c -> c.gui.screen() instanceof TravelScreen, 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TravelScreen, 100);
                 var token = new UUID[1];
                 world.getServer().runOnServer(server ->
                 {
@@ -254,8 +256,8 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                         throw new AssertionError("Guard did not receive travel readiness token");
                     TravelService.ready(guard[0], new TravelPackets.Ready(token[0], false));
                 });
-                ctx.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE), 300);
-                world.getServer().waitFor(server -> world.getConnection().getServerPlayer().level().dimension().equals(TravelService.SPACE), 100);
+                ClientWaits.waitFor(ctx, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE), 300);
+                ClientWaits.waitFor(world.getServer(), server -> world.getConnection().getServerPlayer().level().dimension().equals(TravelService.SPACE), 100);
                 var target = new BlockPos[3];
                 world.getServer().runOnServer(server ->
                 {
@@ -281,7 +283,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                             throw new AssertionError("A quarantined furnace advanced: " + i);
                     TravelService.ready(guard[0], new TravelPackets.Ready(token[0], true));
                 });
-                ctx.waitFor(c -> c.gui.screen() == null, 200);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() == null, 200);
                 world.getServer().runOnServer(server ->
                 {
                     server.getPlayerList().remove(guard[0]);
@@ -297,10 +299,10 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                             throw new AssertionError("Furnaces must resume after arrival: " + i);
                     ShipService.open(p, WorldStore.pos(WorldStore.get(server).at(p.level(), p.blockPosition()), "controller"), "Return furnace test");
                 });
-                ctx.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 100);
+                ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 100);
                 ctx.waitTicks(12);
                 choose(ctx, 3);
-                ctx.waitFor(c -> c.level != null && c.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && c.gui.screen() == null, 500);
+                ClientWaits.waitFor(ctx, c -> c.level != null && c.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && c.gui.screen() == null, 500);
                 world.getServer().runOnServer(server ->
                 {
                     for (int i = 0; i < 3; i++)

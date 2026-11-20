@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.gameplay.shipyard;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -23,7 +24,7 @@ public final class HabGalleryClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var hab = new HabGallery.Placed[1];
             var all = new java.util.List[1];
             world.getServer().runOnServer(server ->
@@ -122,7 +123,7 @@ public final class HabGalleryClientGameTest implements FabricClientGameTest
             p.teleportTo((ServerLevel) p.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), yaw, pitch, true);
         });
         c.waitTicks(160);
-        world.getConnection().waitForChunksRender();
+        ClientWaits.chunksRendered(world.getConnection());
         c.takeScreenshot(name);
     }
 }

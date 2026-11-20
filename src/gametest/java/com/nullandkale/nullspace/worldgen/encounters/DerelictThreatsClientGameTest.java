@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 
@@ -47,7 +48,7 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
         String worldSeed = Long.toString(seed);
         try (var world = c.worldBuilder().adjustSettings(s -> s.setSeed(worldSeed)).create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
                 var level = server.overworld();
@@ -85,7 +86,7 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                 p.setGameMode(GameType.SPECTATOR);
                 p.teleportTo(level, floor.getX() + 2.5, floor.getY() + 2.2, floor.getZ() - 5.5, Set.of(), 0, 12, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(20);
             c.takeScreenshot("nullspace-derelict-threats");
             world.getServer().runOnServer(server ->
@@ -138,7 +139,7 @@ public final class DerelictThreatsClientGameTest implements FabricClientGameTest
                     p.getAbilities().flying = true;
                     p.onUpdateAbilities();
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 c.waitTicks(60);
                 for (int heading = 0; heading < 6; heading++)
                 {

@@ -73,9 +73,11 @@ public final class ShipService
         }
         if (TransferLocks.busy(player) || TransferLocks.locked(player.level(), pos))
             return 0;
-        long now = System.nanoTime();
+        // One action every ten server ticks, a system action every two (half and a tenth of a second at full speed), counted in ticks like the computer
+        // terminal's: a limit in wall-clock time is a different length on every machine, and a test whose ticks race could not wait for it except by sleeping.
+        long now = player.level().getServer().getTickCount();
         Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
-        if (previous != null && now - previous < (systemAction ? 100_000_000L : 500_000_000L))
+        if (previous != null && now - previous < (systemAction ? 2 : 10))
         {
             feedback(player, pos, "Please wait a moment before the next action", systemAction);
             return 0;

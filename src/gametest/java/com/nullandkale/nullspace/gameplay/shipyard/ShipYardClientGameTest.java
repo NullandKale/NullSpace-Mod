@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.gameplay.station.StationAccess;
 import com.nullandkale.nullspace.gameplay.station.StationClientGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.ShipyardScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
@@ -91,20 +92,20 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                 player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
                 player.teleportTo(server.overworld(), -2.5, base.getY() + 1, 1.5, Set.of(), -90, 25, true);
             });
-            world.getConnection().waitForChunksRender();
-            context.waitFor(client -> client.player != null && client.player.distanceToSqr(-2.5, base.getY() + 1, 1.5) < 1, 150);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(context, client -> client.player != null && client.player.distanceToSqr(-2.5, base.getY() + 1, 1.5) < 1, 150);
             context.waitTicks(10);
             context.getInput().lookAt(beacon);
             context.waitTicks(5);
-            context.waitFor(client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(beacon), 100);
+            ClientWaits.waitFor(context, client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(beacon), 100);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen, 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof ShipyardScreen, 150);
             choose(context, java.util.stream.IntStream.range(0, ShipBlueprints.PRESETS.size()).filter(i -> ShipBlueprints.PRESETS.get(i).id().equals(design)).findFirst().orElseThrow());
-            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.selected().equals(design) && t.ready(), 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof ShipyardScreen t && t.selected().equals(design) && t.ready(), 150);
             context.takeScreenshot("nullspace-ship-beacon-catalog");
             context.waitTicks(3);
             choose(context, ShipBlueprints.PRESETS.size());
-            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.status().contains("DELIVERED"), 300);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof ShipyardScreen t && t.status().contains("DELIVERED"), 300);
             world.getServer().runOnServer(server ->
             {
                 purchased[0] = WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getStringOr("blueprint", "").equals(design)).findFirst().orElseThrow();
@@ -113,7 +114,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             });
             context.waitTicks(3);
             choose(context, ShipBlueprints.PRESETS.size());
-            context.waitFor(client -> client.gui.screen() instanceof ShipyardScreen t && t.status().contains("Clear the pad"), 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof ShipyardScreen t && t.status().contains("Clear the pad"), 150);
             context.runOnClient(client -> client.gui.screen().onClose());
             world.getServer().runOnServer(server ->
             {
@@ -125,11 +126,11 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                 player.teleportTo(player.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), -90, 0, true);
                 ShipService.open(player, helm, "Purchased ship ready");
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
             context.waitTicks(12);
             choose(context, 1);
-            context.waitFor(client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(TravelService.SPACE), 400);
-            world.getConnection().waitForChunksRender();
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(TravelService.SPACE), 400);
+            ClientWaits.chunksRendered(world.getConnection());
             context.takeScreenshot("nullspace-purchased-ship-in-space");
             if (ShipBlueprints.get(design).tiny())
                 reviewTiny(context, world, purchased[0], design);
@@ -144,10 +145,10 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Purchase identity did not survive launch");
                 ShipService.open(player, WorldStore.pos(dockingVessels[0], "controller"), "Choose a station from the destination picker");
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
             // Sol's home orbit always has a planned orbital station (the old Waypoint is gone); the picker lists it by name.
             var station = new String[1];
-            world.getServer().waitFor(server ->
+            ClientWaits.waitFor(world.getServer(), server ->
             {
                 var found = WorldStore.get(server).ships().stream().map(t -> (CompoundTag) t).filter(s -> s.getBooleanOr("worldGenerated", false) && s.getStringOr("populationRole", "").equals("orbital") && StationAccess.ready(s)).findFirst();
                 found.ifPresent(s -> station[0] = s.getStringOr("home", ""));
@@ -161,7 +162,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             // Engage carries out the whole trip; the berth is assigned on final approach.
             ShipControlTestUi.action(context, ShipControl.Action.ENGAGE);
             // The orbital station sits 900 blocks out (the old Waypoint was 640), so the autopilot needs about twice as long to arrive.
-            world.getServer().waitFor(server -> dockingVessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 4000);
+            ClientWaits.waitFor(world.getServer(), server -> dockingVessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 4000);
             world.getServer().runOnServer(server ->
             {
                 var dock = dockingVessels[0].getCompoundOrEmpty("dock");
@@ -186,9 +187,9 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                 player.teleportTo(player.level(), front.getX() + .5, front.getY(), front.getZ() + .5, Set.of(), -90, 0, true);
                 ShipService.open(player, helm, "Return from the station");
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
             ShipControlTestUi.action(context, ShipControl.Action.UNDOCK);
-            world.getServer().waitFor(server -> !dockingVessels[0].contains("dock"), 1200);
+            ClientWaits.waitFor(world.getServer(), server -> !dockingVessels[0].contains("dock"), 1200);
             context.runOnClient(client ->
             {
                 if (client.gui.screen() != null)
@@ -202,10 +203,10 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Purchase identity did not survive launch");
                 ShipService.open(player, WorldStore.pos(ship, "controller"), "Return to delivery pad");
             });
-            context.waitFor(client -> client.gui.screen() instanceof TerminalScreen, 150);
+            ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen, 150);
             ShipControlTestUi.destination(context, "Beacon Test", "Pads");
             choose(context, 3);
-            context.waitFor(client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 400);
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 400);
             world.getServer().runOnServer(server ->
             {
                 var player = world.getConnection().getServerPlayer();
@@ -242,12 +243,12 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                     client.options.renderDistance().set(12);
                     client.options.broadcastOptions();
                 });
-                context.waitFor(client -> client.level != null && client.level.hasChunkAt(showroom[0].origin()) && client.level.hasChunkAt(showroom[0].origin().offset(ShipYard.WIDTH - 1, 0, ShipYard.DEPTH - 1)), 600);
-                context.waitFor(client -> client.player != null && client.player.distanceToSqr(showroom[0].origin().getX() + 59, showroom[0].origin().getY() + 65, showroom[0].origin().getZ() + 50) < 1, 200);
+                ClientWaits.waitFor(context, client -> client.level != null && client.level.hasChunkAt(showroom[0].origin()) && client.level.hasChunkAt(showroom[0].origin().offset(ShipYard.WIDTH - 1, 0, ShipYard.DEPTH - 1)), 600);
+                ClientWaits.waitFor(context, client -> client.player != null && client.player.distanceToSqr(showroom[0].origin().getX() + 59, showroom[0].origin().getY() + 65, showroom[0].origin().getZ() + 50) < 1, 200);
                 context.getInput().lookAt(showroom[0].origin().offset(59, 0, ShipYard.DEPTH / 2));
                 context.waitTicks(5);
                 // Wait for the showroom's meshes, not every background section at distance 12.
-                context.waitFor(client -> java.util.stream.IntStream.of(1, 4).allMatch(index ->
+                ClientWaits.waitFor(context, client -> java.util.stream.IntStream.of(1, 4).allMatch(index ->
                 {
                     var at = showroom[0].pad(index).offset(15, 3, 16);
                     long section = net.minecraft.core.SectionPos.asLong(at.getX() >> 4, at.getY() >> 4, at.getZ() >> 4);
@@ -281,7 +282,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
                         var player = world.getConnection().getServerPlayer();
                         player.teleportTo(server.overworld(), origin.getX() - 5, origin.getY() + 8, origin.getZ() - 8, Set.of(), 0, 25, true);
                     });
-                    context.waitFor(client -> client.player.distanceToSqr(origin.getX() - 5, origin.getY() + 8, origin.getZ() - 8) < 1, 200);
+                    ClientWaits.waitFor(context, client -> client.player.distanceToSqr(origin.getX() - 5, origin.getY() + 8, origin.getZ() - 8) < 1, 200);
                     context.getInput().lookAt(origin.offset(4, 2, 6));
                     context.waitTicks(25);
                     context.takeScreenshot("nullspace-tiny-" + preset.id() + "-exterior");
@@ -304,20 +305,20 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             var player = world.getConnection().getServerPlayer();
             player.teleportTo(player.level(), origin.getX() + 4.5, origin.getY() + 1, origin.getZ() + 5.5, Set.of(), 180, 0, true);
         });
-        context.waitFor(client -> client.player != null && client.player.distanceToSqr(origin.getX() + 4.5, origin.getY() + 1, origin.getZ() + 5.5) < 1, 200);
+        ClientWaits.waitFor(context, client -> client.player != null && client.player.distanceToSqr(origin.getX() + 4.5, origin.getY() + 1, origin.getZ() + 5.5) < 1, 200);
         context.getInput().lookAt(origin.offset(5, 2, 2));
         context.waitTicks(10);
         context.takeScreenshot("nullspace-tiny-bridge");
         var door = origin.offset(4, 1, 8);
         context.getInput().lookAt(door);
-        context.waitFor(client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(door), 100);
+        ClientWaits.waitFor(context, client -> client.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(door), 100);
         context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-        context.waitFor(client -> client.level.getBlockState(door).getValue(net.minecraft.world.level.block.DoorBlock.OPEN), 100);
+        ClientWaits.waitFor(context, client -> client.level.getBlockState(door).getValue(net.minecraft.world.level.block.DoorBlock.OPEN), 100);
         context.getInput().lookAt(0, 0);
         context.getInput().holdKey(InputConstants.KEY_W);
         try
         {
-            context.waitFor(client -> client.player.getZ() > origin.getZ() + 10, 150);
+            ClientWaits.waitFor(context, client -> client.player.getZ() > origin.getZ() + 10, 150);
         }
         finally
         {

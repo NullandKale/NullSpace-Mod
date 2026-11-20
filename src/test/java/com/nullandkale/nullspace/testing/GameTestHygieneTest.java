@@ -247,6 +247,55 @@ class GameTestHygieneTest
         return out;
     }
 
+    /**
+     * A graphical test's wait through the context itself. Fabric's waits count ticks, and a client's ticks pass as fast as frames are drawn, so on a busy
+     * machine a wait for work on other threads (chunks, meshes, terrain, the sky) times out though nothing is wrong. {@code ClientWaits} waits the same way
+     * but accepts a timeout only after a floor of real time.
+     */
+    static List<String> directClientWaits(Source source)
+    {
+        if (source.name().equals("ClientWaits"))
+            return List.of();
+        var out = new ArrayList<String>();
+        var call = Pattern.compile("(\\w+)(?:\\(\\))?\\.(waitFor|waitForChunksRender)\\(").matcher(source.text());
+        while (call.find())
+            if (!call.group(1).equals("ClientWaits"))
+                out.add(source.name() + ": waits with " + call.group(1) + "." + call.group(2) + " (at character " + call.start() + "); use ClientWaits." + (call.group(2).equals("waitFor") ? "waitFor" : "chunksRendered"));
+        return out;
+    }
+
+    /**
+     * Typing through the keyboard handler with no wait for the screen to be free of overlays. The handler drops typed characters under an overlay without a
+     * word (the loading overlay fades out over a second of real time), and a test that typed a name there failed later, waiting for a save that never came.
+     * Each block that types needs {@code ClientWaits.withoutOverlay} before it; a file is checked by counting the two.
+     */
+    static List<String> typingUnderOverlays(Source source)
+    {
+        int typed = count(source.text(), "keyboardHandler.textInput(");
+        int cleared = count(source.text(), "ClientWaits.withoutOverlay(");
+        if (typed > cleared)
+            return List.of(source.name() + ": types with keyboardHandler.textInput " + typed + " time(s) but waits with ClientWaits.withoutOverlay only " + cleared + "; wait before every block that types");
+        return List.of();
+    }
+
+    private static int count(String text, String token)
+    {
+        int n = 0;
+        for (int at = text.indexOf(token); at >= 0; at = text.indexOf(token, at + token.length()))
+            n++;
+        return n;
+    }
+
+    /** A wait whose condition is real time passing: it is a different length on every machine. Wait for the thing itself, or for game ticks. */
+    static List<String> wallClockWaits(Source source)
+    {
+        var out = new ArrayList<String>();
+        var wait = Pattern.compile("waitFor\\([^;]*(nanoTime|currentTimeMillis)\\(\\)").matcher(source.text());
+        while (wait.find())
+            out.add(source.name() + ": a wait for real time to pass (at character " + wait.start() + "); wait for what it is waiting for, or use waitTicks");
+        return out;
+    }
+
     /** An environment that a test names and that has no file: the test would not start. */
     static List<String> missingEnvironments(Source source)
     {
@@ -306,6 +355,24 @@ class GameTestHygieneTest
     }
 
     @Test
+    void graphicalTestsWaitThroughClientWaits() throws IOException
+    {
+        none(sources().stream().flatMap(s -> directClientWaits(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void graphicalTestsTypeOnlyWithNoOverlayUp() throws IOException
+    {
+        none(sources().stream().flatMap(s -> typingUnderOverlays(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void noTestWaitsForRealTimeToPass() throws IOException
+    {
+        none(sources().stream().flatMap(s -> wallClockWaits(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
     void everyNamedEnvironmentHasItsFile() throws IOException
     {
         none(sources().stream().flatMap(s -> missingEnvironments(s).stream()).collect(Collectors.toList()));
@@ -355,6 +422,12 @@ class GameTestHygieneTest
 
         var itself = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, poll[0]);\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
         assertEquals(1, selfSchedulingCallbacks(itself).size());
+        assertEquals(2, directClientWaits(new Source("SomeClientGameTest", withoutComments("void f() {\n    context.waitFor(c -> c.level != null, 200);\n    world.getConnection().waitForChunksRender();\n}"))).size());
+        assertEquals(0, directClientWaits(new Source("SomeClientGameTest", withoutComments("void f() {\n    ClientWaits.waitFor(context, c -> c.level != null, 200);\n    ClientWaits.chunksRendered(world.getConnection());\n}"))).size());
+        assertEquals(1, wallClockWaits(new Source("SomeClientGameTest", withoutComments("void f() {\n    long now = System.nanoTime();\n    ClientWaits.waitFor(context, c -> System.nanoTime() - now > 600_000_000L);\n}"))).size());
+        assertEquals(0, wallClockWaits(new Source("SomeClientGameTest", withoutComments("void f() {\n    long seed = System.nanoTime();\n    ClientWaits.waitFor(context, c -> c.level != null);\n}"))).size());
+        assertEquals(1, typingUnderOverlays(new Source("SomeClientGameTest", withoutComments("void f() {\n    c.runOnClient(mc -> mc.keyboardHandler.textInput(mc.getWindow().handle(), \"name\"));\n}"))).size());
+        assertEquals(0, typingUnderOverlays(new Source("SomeClientGameTest", withoutComments("void f() {\n    ClientWaits.withoutOverlay(c);\n    c.runOnClient(mc -> mc.keyboardHandler.textInput(mc.getWindow().handle(), \"name\"));\n}"))).size());
         var observed = new Source("SomeGameTest", withoutComments("@GameTest(maxTicks = 100)\npublic void observes(GameTestHelper ctx)\n{\n    ShipYardService.placementObserver = count -> {};\n    var local = 3;\n}"));
         assertEquals(1, sharedWithoutEnvironment(observed).size());
         var compared = new Source("SomeGameTest", withoutComments("@GameTest(maxTicks = 100)\npublic void compares(GameTestHelper ctx)\n{\n    ctx.assertTrue(Blocks.STONE == Blocks.STONE, \"same\");\n}"));

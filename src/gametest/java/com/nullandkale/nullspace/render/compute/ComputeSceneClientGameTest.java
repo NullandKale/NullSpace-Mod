@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.model.space.SpaceShapes;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 
@@ -235,7 +236,7 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest
             return;
         try (var world = context.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.runOnClient(client ->
             {
                 String previousJitter = System.getProperty("nullspace.compute.noJitter");
@@ -446,7 +447,7 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest
                 surviving[0].render(frame(definition(40, List.of()), new int[32768]), 0, 0, 70);
                 reload.set(client.reloadResourcePacks());
             });
-            context.waitFor(client -> reload.get().isDone(), 6000);
+            ClientWaits.waitFor(context, client -> reload.get().isDone(), 6000);
             context.runOnClient(client ->
             {
                 try
@@ -573,7 +574,7 @@ public final class ComputeSceneClientGameTest implements FabricClientGameTest
                         image.close();
                     }
                 }));
-                context.waitFor(client -> captured.get(), 200);
+                ClientWaits.waitFor(context, client -> captured.get(), 200);
             }
             finally
             {

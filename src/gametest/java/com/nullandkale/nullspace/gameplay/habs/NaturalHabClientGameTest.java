@@ -4,6 +4,7 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
 import com.nullandkale.nullspace.gameplay.travel.BuildJournal;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.worldgen.stations.HabPlanner;
 import com.nullandkale.nullspace.worldgen.stations.HabStructure;
 import com.nullandkale.nullspace.worldgen.stations.StationSpec;
@@ -30,7 +31,7 @@ public final class NaturalHabClientGameTest implements FabricClientGameTest
         System.setProperty("nullspace.habs.enabled", "false");
         try (var world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(settings -> settings.setSeed("79419843")).create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var found = new CompoundTag[1];
             var surface = new ServerLevel[1];
             world.getServer().runOnServer(server ->
@@ -113,7 +114,7 @@ public final class NaturalHabClientGameTest implements FabricClientGameTest
             player.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), yaw, pitch, true);
         });
         c.waitTicks(100);
-        world.getConnection().waitForChunksRender();
+        ClientWaits.chunksRendered(world.getConnection());
         c.takeScreenshot(name);
     }
 }

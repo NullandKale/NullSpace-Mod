@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.render.compute;
 
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -40,7 +41,7 @@ public final class SkyFallClientGameTest implements FabricClientGameTest
         System.out.println("SKYFALL seed " + seed);
         try (var world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(settings -> settings.setSeed(Long.toString(seed))).create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             double[] site = new double[3];
             world.getServer().runOnServer(server ->
             {
@@ -76,7 +77,7 @@ public final class SkyFallClientGameTest implements FabricClientGameTest
             c.waitTicks(500);
             world.getServer().runOnServer(server -> world.getConnection().getServerPlayer().teleportTo(server.overworld(), site[0], START_HEIGHT, site[2], Set.of(), -90, -28, true));
             c.waitTicks(10);
-            c.waitFor(client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 600);
+            ClientWaits.waitFor(c, client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 600);
             c.waitTicks(10);
             int landedFrames = 0;
             for (int tick = 0; tick < 3200 && landedFrames < 4; tick += 2)

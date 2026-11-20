@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.render.effects.AirFlowParticles;
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
 import com.nullandkale.nullspace.render.scene.TerrainClient;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.ui.screen.SpaceSettingsScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.screen.ViewportScreen;
@@ -57,13 +58,13 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new AirEffects.FlowPacket(p.level().dimension().identifier().toString(), new BlockPos(0, -59, 0), new int[]{1057, 1, 0, 0, 300, 0}));
             });
-            c.waitFor(mc -> AirFlowParticles.activeParticles() > 0, 80);
+            ClientWaits.waitFor(c, mc -> AirFlowParticles.activeParticles() > 0, 80);
             c.runOnClient(mc ->
             {
                 var p = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.CLOUD, 0, -58, 0, 0, 0, 0);
@@ -75,13 +76,13 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new AirEffects.FlowPacket(p.level().dimension().identifier().toString(), new BlockPos(0, -59, 0), new int[0]));
             });
-            c.waitFor(mc -> AirFlowParticles.activeParticles() == 0, 80);
+            ClientWaits.waitFor(c, mc -> AirFlowParticles.activeParticles() == 0, 80);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, new AirEffects.FlowPacket(p.level().dimension().identifier().toString(), new BlockPos(0, -59, 0), new int[]{1057, 1, 0, 0, 300, 0}));
             });
-            c.waitFor(mc -> AirFlowParticles.activeParticles() > 0, 80);
+            ClientWaits.waitFor(c, mc -> AirFlowParticles.activeParticles() > 0, 80);
             c.waitTicks(12);
             c.runOnClient(mc ->
             {
@@ -98,27 +99,27 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 p.teleportTo(p.level(), 8.5, -59, 6.5, Set.of(), 0, 0, true);
                 ComputerService.open(p, at);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && contains(t, "NullOS"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && contains(t, "NullOS"), 200);
             type(c, "echo original > log\r");
             c.waitTicks(4);
             type(c, "cat log\r");
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && contains(t, "original"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && contains(t, "original"), 100);
             type(c, "edit test.py\r");
             c.waitTicks(3);
             type(c, "x = 2\rfor i in range(3):\r    x = x + i\rprint(x)\r.\r");
             c.waitTicks(3);
             type(c, "python test.py\r");
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).strip().equals("5")), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).strip().equals("5")), 100);
             c.takeScreenshot("nullspace-computer-python");
             type(c, "edit test.sh\r");
             c.waitTicks(3);
             type(c, "i=0\rwhile [ \"$i\" -lt 3 ]; do\recho \"$i\"\ri=$((i+1))\rdone\r.\r");
             c.waitTicks(3);
             type(c, "bash test.sh\r");
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).strip().equals("2")), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && java.util.stream.IntStream.range(0, 25).anyMatch(row -> t.buffer().row(row).strip().equals("2")), 100);
             c.takeScreenshot("nullspace-computer-bash");
             NullSpaceClientGameTest.shiftEscape(c, 1);
-            c.waitFor(mc -> mc.gui.screen() == null, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() == null, 100);
             c.waitTicks(2);
             // The close travels to the server as a packet, which a busy machine can take longer than two ticks to deliver: wait for it, up to ten seconds.
             var closed = new boolean[1];
@@ -158,9 +159,9 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 level.addFreshEntity(sheep);
                 SceneService.open(p, new BlockPos(16, 67, 0));
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().cachedTerrain() > 4, 600);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().cachedTerrain() > 4, 600);
             c.waitTicks(40);
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport().blockEntityCount() > 0 && v.viewport().entityCount() > 0, 300);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport().blockEntityCount() > 0 && v.viewport().entityCount() > 0, 300);
             c.runOnClient(mc ->
             {
                 var v = (ViewportScreen) mc.gui.screen();
@@ -181,9 +182,9 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 level.setBlock(new BlockPos(16, 67, 36), Blocks.AIR.defaultBlockState(), 18);
                 SceneService.open(world.getConnection().getServerPlayer(), new BlockPos(16, 67, 0));
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen && TerrainClient.state("nullspace:sol_luna", new BlockPos(16, 67, 36)) == Block.getId(Blocks.AIR.defaultBlockState()), 600);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen && TerrainClient.state("nullspace:sol_luna", new BlockPos(16, 67, 36)) == Block.getId(Blocks.AIR.defaultBlockState()), 600);
             c.runOnClient(mc -> mc.gui.setScreen(null));
-            c.waitFor(mc -> SpaceSceneRenderer.planetSkyReady(), 200);
+            ClientWaits.waitFor(c, mc -> SpaceSceneRenderer.planetSkyReady(), 200);
             c.takeScreenshot("nullspace-luna-surface-sky");
             c.runOnClient(mc -> mc.gui.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(null, mc, mc.options)));
             c.waitTicks(2);
@@ -215,7 +216,7 @@ public final class ExpansionClientGameTest implements FabricClientGameTest
                 p.teleportTo(level, ownBase.getX() + 5.5, ownBase.getY() + 3, ownBase.getZ() + 3.5, Set.of(), -90, 0, true);
                 SceneService.open(p, camera);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().entityCount() > 0, 600);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ViewportScreen v && v.viewport() != null && v.viewport().entityCount() > 0, 600);
             c.waitTicks(30);
             c.takeScreenshot("nullspace-remote-vessel-enemies");
             c.runOnClient(mc -> mc.gui.setScreen(null));

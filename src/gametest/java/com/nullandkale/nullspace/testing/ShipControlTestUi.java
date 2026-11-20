@@ -95,7 +95,7 @@ public final class ShipControlTestUi
             wanted[0] = label;
         });
         // A committed docking collar can still be waiting for the batched save boundary.
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen screen && visible(screen, wanted[0]), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen screen && visible(screen, wanted[0]), 100);
         c.runOnClient(mc ->
         {
             if (!clickLabel((TerminalScreen) mc.gui.screen(), wanted[0]))
@@ -106,6 +106,7 @@ public final class ShipControlTestUi
     public static void destination(ClientGameTestContext c, String name, String kind)
     {
         // Select a controller destination. Remote contacts require the overload with a world and a physical Scanner.
+        ClientWaits.withoutOverlay(c);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
@@ -125,7 +126,7 @@ public final class ShipControlTestUi
             click(screen, 3, 3);
             click(screen, 3, 23);
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
     }
 
     public static void destination(ClientGameTestContext c, net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world, String name, String kind)
@@ -149,13 +150,14 @@ public final class ShipControlTestUi
             p.teleportTo(at.x, at.y, at.z);
             ShipService.open(p, WorldStore.pos(ship, "controller"), "Scanner destination selected");
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
     }
 
     /** Selects from the existing Scanner session without toggling the physical block again. */
     public static void scannerDestination(ClientGameTestContext c, String name, String kind)
     {
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+        ClientWaits.withoutOverlay(c);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
@@ -165,7 +167,7 @@ public final class ShipControlTestUi
             click(screen, 3, 3);
             click(screen, 3, 23);
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
     }
 
     /** Opens the Scanner, backs out to the star map (P9), screenshots it and closes. */
@@ -181,7 +183,7 @@ public final class ShipControlTestUi
             p.teleportTo(scanner.getX() + .5, scanner.getY(), scanner.getZ() + 1.5);
             p.gameMode.useItemOn(p, p.level(), net.minecraft.world.item.ItemStack.EMPTY, net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(scanner), net.minecraft.core.Direction.SOUTH, scanner, false));
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
@@ -218,7 +220,7 @@ public final class ShipControlTestUi
         c.waitTicks(4);
         c.takeScreenshot("nullspace-star-map-selected");
         c.runOnClient(mc -> click((TerminalScreen) mc.gui.screen(), 67, 24));
-        c.waitFor(mc -> mc.gui.screen() == null, 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() == null, 100);
         world.getServer().runOnServer(server ->
         {
             var p = world.getConnection().getServerPlayer();

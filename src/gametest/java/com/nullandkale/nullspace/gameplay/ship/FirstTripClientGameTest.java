@@ -10,6 +10,7 @@ import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.MachineScreen;
@@ -69,19 +70,19 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
                 if (WorldStore.get(server).at(level, helm) != null)
                     throw new AssertionError("Unregistered setup must not allocate a ship");
             });
-            world.getConnection().waitForChunksRender();
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController() && t.status().contains("Register the pad"), 200);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController() && t.status().contains("Register the pad"), 200);
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);
             world.getServer().runOnServer(server -> PadComputers.open(world.getConnection().getServerPlayer(), pad, "Check and register this pad"));
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("PAD COMPUTER"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("PAD COMPUTER"), 100);
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 4, 7));
-            world.getServer().waitFor(server -> PadRegistry.read(server).stream().anyMatch(p -> p.name().equals("Home")), 100);
+            ClientWaits.waitFor(world.getServer(), server -> PadRegistry.read(server).stream().anyMatch(p -> p.name().equals("Home")), 100);
             c.takeScreenshot("nullspace-first-trip-pad");
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);
             world.getServer().runOnServer(server -> ShipControl.open(world.getConnection().getServerPlayer(), helm, "First launch"));
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
             c.runOnClient(mc ->
             {
                 var buffer = ((TerminalScreen) mc.gui.screen()).buffer();
@@ -98,7 +99,7 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Fuel repair must be visible before a blocked launch click: " + rows);
             });
             ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("blocked"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("blocked"), 100);
             world.getServer().runOnServer(server ->
             {
                 if (TransferLocks.active(server))
@@ -107,9 +108,9 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);
             world.getServer().runOnServer(server -> MachineMenus.open(world.getConnection().getServerPlayer(), generator));
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("generator"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("generator"), 100);
             MachineTestUi.shiftItem(c, Items.COAL);
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("fuelHere", 0) > 0, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("fuelHere", 0) > 0, 100);
             c.takeScreenshot("nullspace-first-trip-fuel");
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(4);
@@ -118,10 +119,10 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
                 server.overworld().setBlock(obstruction, Blocks.COBBLESTONE.defaultBlockState(), 18);
                 ShipControl.open(world.getConnection().getServerPlayer(), helm, "Launch checks your ship before leaving");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
             c.waitTicks(12);
             ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().toLowerCase(Locale.ROOT).contains("exhaust"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().toLowerCase(Locale.ROOT).contains("exhaust"), 100);
             world.getServer().runOnServer(server ->
             {
                 if (TransferLocks.active(server))
@@ -131,26 +132,26 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
             c.takeScreenshot("nullspace-first-trip-repair");
             c.waitTicks(4);
             ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
-            c.waitFor(mc -> mc.player != null && mc.player.level().dimension().equals(TravelService.SPACE) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
-            world.getConnection().waitForChunksRender();
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(TravelService.SPACE) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
+            ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 var ship = WorldStore.get(server).at(p.level(), p.blockPosition());
                 ShipControl.open(p, WorldStore.pos(ship, "controller"), "In orbit");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
             ShipControlTestUi.action(c, ShipControl.Action.CAMERA);
-            c.waitFor(mc -> mc.gui.screen() instanceof ShipPilotScreen, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ShipPilotScreen, 100);
             c.runOnClient(mc -> mc.gui.screen().onClose());
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
             c.runOnClient(mc ->
             {
                 if (!((TerminalScreen) mc.gui.screen()).buffer().row(5).contains("Home"))
                     throw new AssertionError("Home must stay selected without a second picker trip");
             });
             ShipControlTestUi.action(c, ShipControl.Action.LAND);
-            c.waitFor(mc -> mc.player != null && mc.player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();

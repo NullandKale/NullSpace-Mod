@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.render.compute;
 
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.awt.image.BufferedImage;
 import java.util.Set;
@@ -59,7 +60,7 @@ public final class FogBlendClientGameTest implements FabricClientGameTest
         try (var world = c.worldBuilder().create())
         {
             world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(RENDER_CHUNKS));
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.runOnClient(mc -> mc.options.renderDistance().set(RENDER_CHUNKS));
             world.getServer().runOnServer(server ->
             {
@@ -78,7 +79,7 @@ public final class FogBlendClientGameTest implements FabricClientGameTest
                 player.setGameMode(GameType.CREATIVE);
                 player.teleportTo(level, CENTER_X + .5, GROUND + 1, CENTER_Z + .5, Set.of(), 0, 0, true);
             });
-            c.waitFor(client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 300);
+            ClientWaits.waitFor(c, client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 300);
             // The server sends the chunks a few at a time, so give it long enough for the terrain to reach the render edge.
             c.waitTicks(600);
             c.runOnClient(mc ->

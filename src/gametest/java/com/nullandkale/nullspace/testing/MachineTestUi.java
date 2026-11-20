@@ -13,7 +13,7 @@ public final class MachineTestUi
 {
     public static void clickLabel(ClientGameTestContext context, String label)
     {
-        context.waitFor(mc -> mc.gui.screen() instanceof MachineScreen s && s.children().stream().anyMatch(w -> w instanceof net.minecraft.client.gui.components.Button b && b.visible && b.active && b.getMessage().getString().equals(label)), 200);
+        ClientWaits.waitFor(context, mc -> mc.gui.screen() instanceof MachineScreen s && s.children().stream().anyMatch(w -> w instanceof net.minecraft.client.gui.components.Button b && b.visible && b.active && b.getMessage().getString().equals(label)), 200);
         context.runOnClient(mc ->
         {
             var screen = (MachineScreen) mc.gui.screen();

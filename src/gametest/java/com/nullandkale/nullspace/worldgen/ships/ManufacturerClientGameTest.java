@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.worldgen.ships;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 
@@ -21,7 +22,7 @@ public final class ManufacturerClientGameTest implements FabricClientGameTest
             var p = world.getConnection().getServerPlayer();
             p.teleportTo(server.overworld(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), 0, 0, true);
         });
-        world.getConnection().waitForChunksRender();
+        ClientWaits.chunksRendered(world.getConnection());
         c.waitTicks(10);
         c.getInput().lookAt(target);
         c.waitTicks(10);

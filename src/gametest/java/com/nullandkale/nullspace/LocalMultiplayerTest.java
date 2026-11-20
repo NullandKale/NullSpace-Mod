@@ -35,6 +35,7 @@ import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.compute.SpaceComputeRenderer;
 import com.nullandkale.nullspace.render.effects.PreviewRenderer;
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.ShipPilotScreen;
 import com.nullandkale.nullspace.ui.screen.ShipyardScreen;
@@ -122,7 +123,7 @@ public final class LocalMultiplayerTest
         boolean[] other = {false};
         try
         {
-            ctx.waitFor(c ->
+            ClientWaits.waitFor(ctx, c ->
             {
                 if (Files.exists(stalled))
                 {
@@ -340,7 +341,7 @@ public final class LocalMultiplayerTest
             signal("server-ready");
             try (var connection = dedicated.connect())
             {
-                dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 2, 6000);
+                ClientWaits.waitFor(dedicated, s -> s.getPlayerList().getPlayers().size() == 2, 6000);
                 dedicated.runOnServer(server -> net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(ticking ->
                 {
                     if (ticking == server)
@@ -575,7 +576,7 @@ public final class LocalMultiplayerTest
                     }
                 }
                 signal("disconnect-crew");
-                dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 1, 6000);
+                ClientWaits.waitFor(dedicated, s -> s.getPlayerList().getPlayers().size() == 1, 6000);
                 dedicated.runOnServer(s ->
                 {
                     var p = s.getPlayerList().getPlayers().getFirst();
@@ -588,7 +589,7 @@ public final class LocalMultiplayerTest
                 waitFor(ctx, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && c.gui.screen() == null, 6000);
                 signal("reconnect-crew");
                 await(ctx, "crew-returned");
-                dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 2, 6000);
+                ClientWaits.waitFor(dedicated, s -> s.getPlayerList().getPlayers().size() == 2, 6000);
                 dedicated.runOnServer(server ->
                 {
                     var ship = WorldStore.get(server).at(server.overworld(), base.offset(4, 4, 6));
@@ -808,7 +809,7 @@ public final class LocalMultiplayerTest
                 // Keep live refresh running while the other client disconnects from its open shipyard.
                 ctx.waitTicks(40);
                 await(ctx, "crew-finished");
-                dedicated.waitFor(s -> s.getPlayerList().getPlayers().size() == 1, 6000);
+                ClientWaits.waitFor(dedicated, s -> s.getPlayerList().getPlayers().size() == 1, 6000);
             }
         }
     }

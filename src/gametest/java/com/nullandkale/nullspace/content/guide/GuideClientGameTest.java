@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.content.guide;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.ui.guide.GuideRecipeRenderer;
 
 import net.fabricmc.fabric.api.client.gametest.v1.*;
@@ -28,16 +29,16 @@ public final class GuideClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(FieldGuide.ITEM));
                 p.inventoryMenu.broadcastChanges();
             });
-            c.waitFor(mc -> mc.player.getMainHandItem().is(FieldGuide.ITEM), 100);
+            ClientWaits.waitFor(c, mc -> mc.player.getMainHandItem().is(FieldGuide.ITEM), 100);
             c.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
-            c.waitFor(mc -> mc.gui.screen() instanceof BookViewScreen, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof BookViewScreen, 100);
             c.runOnClient(mc ->
             {
                 var content = mc.player.getMainHandItem().get(DataComponents.WRITTEN_BOOK_CONTENT);
@@ -120,7 +121,7 @@ public final class GuideClientGameTest implements FabricClientGameTest
                 LecternBlock.tryPlaceBook(p, level, pos, level.getBlockState(pos), guide);
                 p.openMenu((LecternBlockEntity) level.getBlockEntity(pos));
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof LecternScreen, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof LecternScreen, 100);
             c.runOnClient(mc ->
             {
                 var screen = (LecternScreen) mc.gui.screen();

@@ -8,6 +8,7 @@ import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 
@@ -64,8 +65,8 @@ public final class CourseClientGameTest implements FabricClientGameTest
                 p.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
                 ShipControl.open(p, WorldStore.pos(vessels[0], "controller"), "Course round trip");
             });
-            world.getConnection().waitForChunksRender();
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.chunksRendered(world.getConnection());
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.destination(c, world, "Course Outpost", "Stations");
             c.takeScreenshot("nullspace-course-outbound");
             ShipControlTestUi.action(c, ShipControl.Action.ENGAGE);
@@ -100,7 +101,7 @@ public final class CourseClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Engage must select a real free berth at the chosen station");
                 ShipControl.open(p, WorldStore.pos(ship, "controller"), "Return home");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             c.waitTicks(12);
             ShipControlTestUi.destination(c, world, "Course Home", "Pads");
             c.takeScreenshot("nullspace-course-return");

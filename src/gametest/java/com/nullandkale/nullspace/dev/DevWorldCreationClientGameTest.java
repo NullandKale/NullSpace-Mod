@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.dev;
 
 import com.nullandkale.nullspace.gameplay.pads.PadRegistry;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.ui.screen.WorldStartAccess;
 
 import java.nio.file.*;
@@ -43,7 +44,7 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
         try
         {
             c.runOnClient(mc -> DevWorldCreation.open(mc, "World 5", "halcyon_horizon"));
-            c.waitFor(mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
             c.runOnClient(mc ->
             {
                 var create = (CreateWorldScreen) mc.gui.screen();
@@ -63,7 +64,7 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
             });
             c.takeScreenshot("nullspace-dev-restart-creation");
             c.runOnClient(mc -> click(mc.gui.screen(), "Create New World"));
-            c.waitFor(mc ->
+            ClientWaits.waitFor(c, mc ->
             {
                 if (mc.gui.screen() instanceof ConfirmScreen confirm)
                     confirm.children().stream().filter(Button.class::isInstance).map(Button.class::cast).filter(b -> java.util.Set.of("Proceed", "Yes").contains(b.getMessage().getString())).findFirst().ifPresent(b -> click(confirm, b.getMessage().getString()));
@@ -97,7 +98,7 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
                     failure.set(error);
                 }
             }));
-            c.waitFor(mc -> checked.get() || failure.get() != null, 300);
+            ClientWaits.waitFor(c, mc -> checked.get() || failure.get() != null, 300);
             if (failure.get() != null)
                 throw new AssertionError("Dev creation options failed", failure.get());
             c.waitTicks(30);
@@ -107,7 +108,7 @@ public final class DevWorldCreationClientGameTest implements FabricClientGameTes
                 closing.set(mc.getSingleplayerServer());
                 mc.disconnectFromWorld(net.minecraft.client.multiplayer.ClientLevel.DEFAULT_QUIT_MESSAGE);
             });
-            c.waitFor(mc -> mc.level == null && mc.player == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 100);
+            ClientWaits.waitFor(c, mc -> mc.level == null && mc.player == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 100);
             c.waitTicks(10);
             c.runOnClient(mc ->
             {

@@ -4,6 +4,7 @@ import com.nullandkale.nullspace.core.save.ShipRepository;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -59,7 +60,7 @@ public final class SpaceGridClientGameTest implements FabricClientGameTest
             });
             // The observer ship carries the real player into space.
             move(context, world, fixture, 0);
-            context.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
+            ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -77,7 +78,7 @@ public final class SpaceGridClientGameTest implements FabricClientGameTest
             });
             // A wider view, so the whole grid fits close in.
             context.runOnClient(mc -> mc.options.fov().set(85));
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.waitTicks(40);
             context.takeScreenshot("nullspace-space-grid-0-empty");
             // Every frame of the video is one screenshot, two game ticks apart: ten frames per real second.

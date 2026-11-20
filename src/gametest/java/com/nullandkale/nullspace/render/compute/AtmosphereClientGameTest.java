@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.render.scene.SpaceSceneRenderer;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -208,7 +209,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
             return;
         try (var world = context.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.runOnClient(client ->
             {
                 boolean oldClouds = SpaceSettings.get().clouds, oldTemporal = SpaceSettings.get().temporal;
@@ -370,7 +371,7 @@ public final class AtmosphereClientGameTest implements FabricClientGameTest
                 player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
                 player.teleportTo(level, 886.5, 65, -81.5, Set.of(), 0, -15, true);
             });
-            context.waitFor(client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 300);
+            ClientWaits.waitFor(context, client -> SpaceSceneRenderer.planetSkyReady() && SpaceSceneRenderer.viewport().compute().atmosphereReady(), 300);
             context.waitTicks(25);
             var samples = new ArrayList<double[]>();
             for (int i = 0; i < 32; i++)

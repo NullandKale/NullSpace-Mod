@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.gameplay.navigation;
 
 import com.nullandkale.nullspace.model.galaxy.GalaxyPlan;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 
@@ -23,7 +24,7 @@ public final class GalaxySurfacesClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var bodies = world.getServer().computeOnServer(server ->
             {
                 var examples = new EnumMap<GalaxyPlan.BodyType, GalaxyPlan.Body>(GalaxyPlan.BodyType.class);
@@ -48,7 +49,7 @@ public final class GalaxySurfacesClientGameTest implements FabricClientGameTest
                     p.setGameMode(GameType.SPECTATOR);
                     p.teleportTo(level, 72.5, y + 6, 72.5, Set.of(), 225, 20, true);
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 c.waitTicks(30);
                 c.takeScreenshot("nullspace-surface-" + body.type().name().toLowerCase(Locale.ROOT));
             }

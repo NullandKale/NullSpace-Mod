@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.ship.structure.HullEntities;
 import com.nullandkale.nullspace.gameplay.ship.structure.HullScan;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.ui.terminal.ComputerTerminal;
@@ -40,7 +41,7 @@ public final class LabArrivalClientGameTest implements FabricClientGameTest
                 if (!save.getSaveDirectory().getFileName().toString().equals("NullSpace-Lab"))
                     throw new AssertionError("Regression must use the actual lab login handler");
                 playerId = world.getServer().computeOnServer(server -> world.getConnection().getServerPlayer().getUUID());
-                context.waitFor(c -> Files.exists(save.getSaveDirectory().resolve("nullspace-lab-boarded-" + playerId)), 6000);
+                ClientWaits.waitFor(context, c -> Files.exists(save.getSaveDirectory().resolve("nullspace-lab-boarded-" + playerId)), 6000);
                 launch(context, world, 1);
                 world.getServer().runOnServer(LabArrivalClientGameTest::checkTracking);
             }
@@ -57,7 +58,7 @@ public final class LabArrivalClientGameTest implements FabricClientGameTest
             });
             try (var world = save.open())
             {
-                context.waitFor(c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && Files.exists(root.resolve("nullspace-lab-boarded-" + playerId)), 6000);
+                ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(Level.OVERWORLD) && Files.exists(root.resolve("nullspace-lab-boarded-" + playerId)), 6000);
                 context.waitTicks(20);
                 world.getServer().runOnServer(server ->
                 {
@@ -98,13 +99,13 @@ public final class LabArrivalClientGameTest implements FabricClientGameTest
             player.teleportTo(server.overworld(), base.getX() + 6.5, base.getY() + 2, base.getZ() + 7.5, Set.of(), 0, 0, true);
             ShipService.open(player, gallery.controller(plot), "Inspect lab arrival regression ship");
         });
-        context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 6000);
+        ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen, 6000);
         context.waitTicks(20);
         send(context, ComputerTerminal.Action.INSPECT);
-        context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
+        ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 6000);
         context.waitTicks(20);
         send(context, ComputerTerminal.Action.LAUNCH);
-        context.waitFor(c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
+        ClientWaits.waitFor(context, c -> c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null, 6000);
     }
 
     private static void send(ClientGameTestContext context, ComputerTerminal.Action action)

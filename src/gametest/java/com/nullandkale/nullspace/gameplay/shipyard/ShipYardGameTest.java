@@ -43,7 +43,7 @@ public final class ShipYardGameTest
             }
             catch (IllegalArgumentException loading)
             {
-                if (attempt >= 600 || loading.getMessage() == null || !loading.getMessage().startsWith("The delivery area's creatures and items are still loading"))
+                if (attempt >= 3000 || loading.getMessage() == null || !loading.getMessage().startsWith("The delivery area's creatures and items are still loading"))
                     throw loading;
                 long until = System.nanoTime() + 20_000_000L;
                 server.managedBlock(() -> System.nanoTime() > until);

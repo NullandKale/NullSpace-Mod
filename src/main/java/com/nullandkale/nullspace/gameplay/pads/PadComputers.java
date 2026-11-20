@@ -100,9 +100,11 @@ public final class PadComputers
             open(player, pos, "Cannot use this pad computer. Move within 8 blocks and check the computer still exists" + " and is accessible.");
             return 0;
         }
-        long now = System.nanoTime();
+        // One action every ten server ticks (half a second at full speed), counted in ticks like the computer terminal's: a limit in wall-clock time is a
+        // different length on every machine, and a test whose ticks race could not wait for it except by sleeping.
+        long now = player.level().getServer().getTickCount();
         Long previous = requests(player.level().getServer()).put(player.getUUID(), now);
-        if (previous != null && now - previous < 500_000_000L)
+        if (previous != null && now - previous < 10)
         {
             open(player, pos, "Please wait a moment before the next action");
             return 0;

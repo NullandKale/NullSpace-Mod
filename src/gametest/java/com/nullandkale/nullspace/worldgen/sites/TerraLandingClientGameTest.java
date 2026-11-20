@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.worldgen.sites;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -32,7 +33,7 @@ public final class TerraLandingClientGameTest implements FabricClientGameTest
                 p.onUpdateAbilities();
                 p.teleportTo(level, TerrainPadFixture.X - 25.5, 96, TerrainPadFixture.Z - 35.5, Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(10);
             c.getInput().lookAt(new BlockPos(TerrainPadFixture.X + 12, 73, TerrainPadFixture.Z - 6));
             c.waitTicks(8);
@@ -48,7 +49,7 @@ public final class TerraLandingClientGameTest implements FabricClientGameTest
             c.getInput().holdKey(InputConstants.KEY_W);
             try
             {
-                c.waitFor(mc -> mc.player != null && mc.player.getZ() < TerrainPadFixture.Z - 23 && mc.player.getY() <= TerrainPadFixture.GROUND + 1.1, 300);
+                ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.getZ() < TerrainPadFixture.Z - 23 && mc.player.getY() <= TerrainPadFixture.GROUND + 1.1, 300);
             }
             finally
             {

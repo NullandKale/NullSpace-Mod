@@ -12,6 +12,7 @@ import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.model.space.PlanetSky;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.testing.TestZones;
 import com.nullandkale.nullspace.ui.screen.ShipPilotScreen;
@@ -35,7 +36,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
         try (var world = c.worldBuilder().create())
         {
             final net.minecraft.core.BlockPos[] launchHelm = new net.minecraft.core.BlockPos[1];
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(12);
             world.getServer().runOnServer(server ->
             {
@@ -53,10 +54,10 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     throw new java.io.UncheckedIOException(e);
                 }
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
-            world.getConnection().waitForChunksRender();
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(12);
-            world.getServer().waitFor(server ->
+            ClientWaits.waitFor(world.getServer(), server ->
             {
                 var p = world.getConnection().getServerPlayer();
                 try
@@ -72,7 +73,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
             ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
             try
             {
-                c.waitFor(mc -> mc.level != null && mc.level.dimension().equals(TravelService.SPACE) && mc.gui.screen() == null, 600);
+                ClientWaits.waitFor(c, mc -> mc.level != null && mc.level.dimension().equals(TravelService.SPACE) && mc.gui.screen() == null, 600);
             }
             catch (AssertionError error)
             {
@@ -87,10 +88,10 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 ShipService.open(p, WorldStore.pos(SceneService.observer(p), "controller"), "Ready");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             c.waitTicks(12);
             ShipControlTestUi.action(c, ShipControl.Action.PILOT);
-            c.waitFor(mc -> mc.gui.screen() instanceof ShipPilotScreen s && s.viewport() != null && s.viewport().compute() != null, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ShipPilotScreen s && s.viewport() != null && s.viewport().compute() != null, 200);
             c.runOnClient(mc ->
             {
                 var s = (ShipPilotScreen) mc.gui.screen();
@@ -136,7 +137,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     image.close();
                 }
             }));
-            c.waitFor(mc -> pixels.get() >= 0, 100);
+            ClientWaits.waitFor(c, mc -> pixels.get() >= 0, 100);
             if (pixels.get() < 200)
                 throw new AssertionError("Third-person hull must be framed and readable, got " + pixels.get() + " visible center pixels");
             c.takeScreenshot("nullspace-third-person-flight");
@@ -154,10 +155,10 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Releasing the helm must leave the ship's momentum; the computer brakes it over time");
                 ShipService.open(p, WorldStore.pos(s, "controller"), "Ready");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 100);
             c.waitTicks(12);
             ShipControlTestUi.action(c, ShipControl.Action.CAMERA);
-            c.waitFor(mc -> mc.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ShipPilotScreen s && !s.canPilot(), 100);
             c.runOnClient(mc -> mc.gui.screen().onClose());
             c.waitTicks(3);
             ShipControlTestUi.ensureScanner(world);
@@ -173,7 +174,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     var p = world.getConnection().getServerPlayer();
                     Piloting.navigation(p, WorldStore.pos(SceneService.observer(p), "controller"));
                 });
-                c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+                ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                 c.waitTicks(12);
                 c.takeScreenshot("nullspace-helm-navigation");
                 var bodyName = new String[1];
@@ -181,8 +182,8 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.destination(c, world, bodyName[0], "Regions");
                 c.takeScreenshot("nullspace-unified-destination");
                 ShipControlTestUi.action(c, ShipControl.Action.JUMP);
-                c.waitFor(mc -> mc.gui.screen() instanceof TravelScreen, 100);
-                c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 300);
+                ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TravelScreen, 100);
+                ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 300);
                 c.takeScreenshot("nullspace-ftl-walkable-cabin");
                 if (destination.equals("sol_luna"))
                 {
@@ -191,18 +192,18 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                         var ship = SceneService.observer(world.getConnection().getServerPlayer());
                         ship.getCompoundOrEmpty("journey").putInt("contactAt", 0);
                     });
-                    world.getServer().waitFor(server -> JourneyService.stopReason(server, SceneService.observer(world.getConnection().getServerPlayer())).isEmpty(), 600);
+                    ClientWaits.waitFor(world.getServer(), server -> JourneyService.stopReason(server, SceneService.observer(world.getConnection().getServerPlayer())).isEmpty(), 600);
                     world.getServer().runOnServer(server ->
                     {
                         var player = world.getConnection().getServerPlayer();
                         ShipControl.open(player, WorldStore.pos(SceneService.observer(player), "controller"), "Signal found");
                     });
-                    c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     c.waitTicks(5);
                     c.takeScreenshot("nullspace-ftl-investigate");
                     ShipControlTestUi.action(c, ShipControl.Action.INVESTIGATE);
-                    c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:e_"), 300);
-                    world.getServer().waitFor(server ->
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:e_"), 300);
+                    ClientWaits.waitFor(world.getServer(), server ->
                     {
                         var ship = SceneService.observer(world.getConnection().getServerPlayer());
                         if (ship.getCompoundOrEmpty("course").getStringOr("state", "").equals("PAUSED"))
@@ -215,12 +216,12 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                         var player = world.getConnection().getServerPlayer();
                         ShipControl.open(player, WorldStore.pos(SceneService.observer(player), "controller"), "Ready to resume");
                     });
-                    c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     c.waitTicks(5);
                     c.takeScreenshot("nullspace-ftl-resume");
                     ShipControlTestUi.action(c, ShipControl.Action.RESUME);
                     // Departure backs away 112 blocks at .35 blocks/tick before re-entering FTL.
-                    c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 800);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_"), 800);
                 }
                 world.getServer().runOnServer(server ->
                 {
@@ -231,7 +232,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     var journey = ship.getCompoundOrEmpty("journey");
                     journey.putInt("elapsed", journey.getIntOr("duration", 0) - 20);
                 });
-                c.waitFor(mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(destination.equals(LocalSpaces.HOME) ? "nullspace:local-space" : "nullspace:" + destination), 500);
+                ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(destination.equals(LocalSpaces.HOME) ? "nullspace:local-space" : "nullspace:" + destination), 500);
                 world.getServer().runOnServer(server ->
                 {
                     var p = world.getConnection().getServerPlayer();
@@ -265,11 +266,11 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                         var ship = SceneService.observer(player);
                         ShipService.open(player, WorldStore.pos(ship, "controller"), "Land on the generated planet");
                     });
-                    c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     ShipControlTestUi.destination(c, world, bodyName[0] + " Landing", "Pads");
                     ShipControlTestUi.action(c, ShipControl.Action.LAND);
-                    c.waitFor(mc -> mc.level != null && mc.level.dimension().identifier().toString().equals("nullspace:sol_ares") && mc.gui.screen() == null, 600);
-                    world.getConnection().waitForChunksRender();
+                    ClientWaits.waitFor(c, mc -> mc.level != null && mc.level.dimension().identifier().toString().equals("nullspace:sol_ares") && mc.gui.screen() == null, 600);
+                    ClientWaits.chunksRendered(world.getConnection());
                     c.waitTicks(12);
                     c.takeScreenshot("nullspace-generated-planet-surface");
                     world.getServer().runOnServer(server ->
@@ -283,9 +284,9 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                             throw new AssertionError("Generated surface must reference its actual planet");
                         ShipService.open(player, WorldStore.pos(ship, "controller"), "Launch from the generated planet");
                     });
-                    c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
-                    c.waitFor(mc -> mc.level != null && mc.level.dimension().equals(TravelService.SPACE) && mc.gui.screen() == null, 600);
+                    ClientWaits.waitFor(c, mc -> mc.level != null && mc.level.dimension().equals(TravelService.SPACE) && mc.gui.screen() == null, 600);
                     world.getServer().runOnServer(server ->
                     {
                         var player = world.getConnection().getServerPlayer();
@@ -305,7 +306,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                 p.teleportTo(p.level(), helm.getX() + .5, helm.getY(), helm.getZ() - 2, java.util.Set.of(), 0, 0, true);
                 NavigationService.open(p, helm, false);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof ShipPilotScreen view && view.viewport() != null && view.viewport().cachedSubjects() > 0, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof ShipPilotScreen view && view.viewport() != null && view.viewport().cachedSubjects() > 0, 200);
             c.waitTicks(12);
             c.takeScreenshot("nullspace-third-person-sphere");
             c.runOnClient(mc ->

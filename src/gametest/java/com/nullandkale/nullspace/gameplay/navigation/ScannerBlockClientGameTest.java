@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.MachineScreen;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
@@ -49,15 +50,15 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(level, stand.getX() + .5, stand.getY(), stand.getZ() + .5, Set.of(), 0, 0, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(8);
-            c.waitFor(mc ->
+            ClientWaits.waitFor(c, mc ->
             // The server may nudge the player off the exact spot; being within reach is enough.
             mc.player != null && mc.player.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(scanner[0])) < 3, 200);
             c.getInput().lookAt(scanner[0]);
-            c.waitFor(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(scanner[0]), 100);
+            ClientWaits.waitFor(c, mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(scanner[0]), 100);
             c.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
             c.takeScreenshot("nullspace-scanner-block-browser");
             c.runOnClient(mc ->
             {
@@ -65,9 +66,10 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.click(screen, 3, 1);
                 ShipControlTestUi.click(screen, 3, 1);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("STAR MAP"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("STAR MAP"), 100);
             c.takeScreenshot("nullspace-scanner-approved-full-width-map");
 
+            ClientWaits.withoutOverlay(c);
             c.runOnClient(mc ->
             {
                 var screen = (TerminalScreen) mc.gui.screen();
@@ -77,7 +79,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 ShipControlTestUi.click(screen, 3, 3);
                 ShipControlTestUi.click(screen, 3, 23);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.status().contains("Destination set:"), 100);
             world.getServer().runOnServer(server ->
             {
                 var ship = WorldStore.get(server).repository().find(id[0]);
@@ -85,7 +87,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                     throw new AssertionError("Scanner directly sets the shared destination and starts no movement");
             });
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 32, 23));
-            c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals("local_scanner"), 100);
             c.takeScreenshot("nullspace-scanner-upgrades");
             c.runOnClient(mc ->
             {
@@ -96,7 +98,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 var open = buttons.stream().filter(b -> b.getMessage().getString().equals("Open scanner")).findFirst().orElseThrow();
                 screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(open.getX() + open.getWidth() / 2.0, open.getY() + open.getHeight() / 2.0, new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0)), false);
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("SCANNER"), 100);
             c.takeScreenshot("nullspace-scanner-return-from-upgrades");
             world.getServer().runOnServer(server ->
             {
@@ -107,7 +109,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.x, at.y, at.z);
                 ShipControl.open(p, helm[0], "Scanner destination selected");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains("Luna"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains("Luna"), 100);
             c.runOnClient(mc ->
             {
                 var screen = (TerminalScreen) mc.gui.screen();
@@ -131,7 +133,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
             {
                 c.waitTicks(5);
                 c.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT);
-                world.getServer().waitFor(server -> WorldStore.get(server).ships().size() == before + 1, 100);
+                ClientWaits.waitFor(world.getServer(), server -> WorldStore.get(server).ships().size() == before + 1, 100);
             }
             finally
             {

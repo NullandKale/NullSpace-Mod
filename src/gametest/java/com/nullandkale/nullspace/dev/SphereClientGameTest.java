@@ -2,6 +2,7 @@ package com.nullandkale.nullspace.dev;
 
 import com.nullandkale.nullspace.gameplay.navigation.ShipControl;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 
@@ -50,7 +51,7 @@ public final class SphereClientGameTest implements FabricClientGameTest
             });
             try
             {
-                context.waitFor(c -> c.level.hasChunkAt(base) && c.level.hasChunkAt(base.offset(31, 32, 31)), 600);
+                ClientWaits.waitFor(context, c -> c.level.hasChunkAt(base) && c.level.hasChunkAt(base.offset(31, 32, 31)), 600);
                 context.waitTicks(60);
                 context.takeScreenshot("nullspace-meridian-exterior");
             }
@@ -72,7 +73,7 @@ public final class SphereClientGameTest implements FabricClientGameTest
                 var door = base.offset(15, 2, 1);
                 ((DoorBlock) level.getBlockState(door).getBlock()).setOpen(null, level, level.getBlockState(door), door, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             walk(context, base, 15.5, 2.5);
             world.getServer().runOnServer(server ->
             {
@@ -116,11 +117,11 @@ public final class SphereClientGameTest implements FabricClientGameTest
             }
             context.getInput().lookAt(annex.controller());
             context.waitTicks(2);
-            context.waitFor(c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(annex.controller()), 40);
+            ClientWaits.waitFor(context, c -> c.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(annex.controller()), 40);
             context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.action(context, ShipControl.Action.INSPECT);
-            context.waitFor(c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 200);
+            ClientWaits.waitFor(context, c -> c.gui.screen() instanceof TerminalScreen t && t.status().startsWith("Ship ready"), 200);
             context.takeScreenshot("nullspace-meridian-terminal");
             world.getServer().runOnServer(server ->
             {
@@ -153,7 +154,7 @@ public final class SphereClientGameTest implements FabricClientGameTest
         context.getInput().holdKey(InputConstants.KEY_W);
         try
         {
-            context.waitFor(c -> Math.hypot(c.player.getX() - targetX, c.player.getZ() - targetZ) < .4, 240);
+            ClientWaits.waitFor(context, c -> Math.hypot(c.player.getX() - targetX, c.player.getZ() - targetZ) < .4, 240);
         }
         finally
         {

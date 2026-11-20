@@ -6,6 +6,7 @@ import com.nullandkale.nullspace.gameplay.systems.EngineEffects;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -89,7 +90,7 @@ public final class EffectsVideoClientGameTest implements FabricClientGameTest
     {
         try (var world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(settings -> settings.setSeed("20261104")).create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var level = new ServerLevel[1];
             var found = new AtomicReference<java.util.List<Shot>>();
             var site = new AtomicReference<CrashSites.Site>();
@@ -169,7 +170,7 @@ public final class EffectsVideoClientGameTest implements FabricClientGameTest
     {
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var level = new ServerLevel[1];
             var shipId = new AtomicReference<String>();
             var shot = new AtomicReference<Shot>();
@@ -226,7 +227,7 @@ public final class EffectsVideoClientGameTest implements FabricClientGameTest
     {
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var controller = new AtomicReference<BlockPos>();
             world.getServer().runOnServer(server ->
             {
@@ -235,10 +236,10 @@ public final class EffectsVideoClientGameTest implements FabricClientGameTest
                 controller.set(WorldStore.pos(ship, "controller"));
             });
             world.getServer().runOnServer(server -> com.nullandkale.nullspace.gameplay.ship.ShipService.open(world.getConnection().getServerPlayer(), controller.get(), "Ready"));
-            c.waitFor(mc -> mc.gui.screen() instanceof com.nullandkale.nullspace.ui.screen.TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof com.nullandkale.nullspace.ui.screen.TerminalScreen, 200);
             c.waitTicks(12);
             com.nullandkale.nullspace.testing.ShipControlTestUi.action(c, com.nullandkale.nullspace.gameplay.navigation.ShipControl.Action.PILOT);
-            c.waitFor(mc -> mc.gui.screen() instanceof com.nullandkale.nullspace.ui.screen.ShipPilotScreen s && s.viewport() != null && s.viewport().compute() != null, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof com.nullandkale.nullspace.ui.screen.ShipPilotScreen s && s.viewport() != null && s.viewport().compute() != null, 200);
             c.waitTicks(20);
             // {from tick, to tick, key}: the keys held over each stretch.
             int w = com.mojang.blaze3d.platform.InputConstants.KEY_W, d = com.mojang.blaze3d.platform.InputConstants.KEY_D, a = com.mojang.blaze3d.platform.InputConstants.KEY_A;

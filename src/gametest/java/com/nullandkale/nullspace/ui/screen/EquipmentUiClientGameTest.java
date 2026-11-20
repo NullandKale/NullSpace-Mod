@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.station.StationGameTest;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.MachineTestUi;
 
 import java.util.*;
@@ -48,7 +49,7 @@ public final class EquipmentUiClientGameTest implements FabricClientGameTest
                     p.teleportTo(level, at.getX() + .5, at.getY(), at.getZ() + 1.5, Set.of(), 0, 0, true);
                     MachineMenus.open(p, at);
                 });
-                c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals(mode), 100);
+                ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getStringOr("mode", "").equals(mode), 100);
                 c.waitTicks(4);
                 c.runOnClient(mc ->
                 {
@@ -63,7 +64,7 @@ public final class EquipmentUiClientGameTest implements FabricClientGameTest
                 {
                     int before = c.computeOnClient(mc -> ((MachineScreen) mc.gui.screen()).getMenu().reading.getIntOr("allocation", -1));
                     MachineTestUi.click(c, 92, 229);
-                    c.waitFor(mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("allocation", -1) == before + 1, 100);
+                    ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof MachineScreen m && m.getMenu().reading.getIntOr("allocation", -1) == before + 1, 100);
                 }
                 c.takeScreenshot("nullspace-ui-batch-" + mode);
             }

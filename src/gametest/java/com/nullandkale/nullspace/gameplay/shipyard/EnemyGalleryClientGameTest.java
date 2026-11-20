@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.gameplay.shipyard;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.Set;
 
@@ -22,7 +23,7 @@ public final class EnemyGalleryClientGameTest implements FabricClientGameTest
             return;
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             long[] origin = new long[3];
             world.getServer().runOnServer(server ->
             {
@@ -43,7 +44,7 @@ public final class EnemyGalleryClientGameTest implements FabricClientGameTest
                     p.setGameMode(GameType.SPECTATOR);
                     p.teleportTo(server.overworld(), origin[0] + stand[0], origin[1] + stand[1], origin[2] + stand[2], Set.of(), -90, 8, true);
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 c.waitTicks(30);
                 c.takeScreenshot("nullspace-enemy-gallery-" + names[i]);
             }
@@ -64,7 +65,7 @@ public final class EnemyGalleryClientGameTest implements FabricClientGameTest
                 var p = world.getConnection().getServerPlayer();
                 p.teleportTo(level, origin[0] + 12.5, origin[1] + 1.8, origin[2] + 7.5, Set.of(), 180, 8, true);
             });
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             c.waitTicks(30);
             c.takeScreenshot("nullspace-enemy-gallery-vanilla-comparison");
             ClientTestEvidence.passed(getClass());

@@ -5,6 +5,7 @@ import com.nullandkale.nullspace.model.space.SpaceDefinition;
 import com.nullandkale.nullspace.render.SpaceSettings;
 import com.nullandkale.nullspace.render.scene.SceneViewport;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -189,7 +190,7 @@ public final class GraphicsSettingsBenchmarkClientGameTest implements FabricClie
         var machine = new String[2];
         try (var world = c.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             var skyFrame = AtmosphereClientGameTest.scene(AtmosphereProfile.temperate(6360, 100. / 6360), .8, 1);
             var spaceFrame = spaceFrame();
             c.runOnClient(mc ->

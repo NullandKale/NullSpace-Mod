@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.render.compute;
 import com.nullandkale.nullspace.NullSpace;
 import com.nullandkale.nullspace.core.ResourceGroup;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -78,7 +79,7 @@ public final class ComputeClientGameTest implements FabricClientGameTest
         });
         try (var world = context.worldBuilder().create())
         {
-            world.getConnection().waitForChunksRender();
+            ClientWaits.chunksRendered(world.getConnection());
             context.waitTicks(5);
             context.takeScreenshot("nullspace-gl43-native-world");
         }

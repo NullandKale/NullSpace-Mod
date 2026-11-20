@@ -9,6 +9,7 @@ import com.nullandkale.nullspace.gameplay.systems.ShipAir;
 import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.ShipControlTestUi;
 import com.nullandkale.nullspace.ui.screen.TerminalScreen;
 import com.nullandkale.nullspace.worldgen.stations.StationBlueprint;
@@ -45,7 +46,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 station[0].putBoolean("buildPaid", true);
                 p.getInventory().add(new ItemStack(ModBlocks.STATION_MODULE, 28));
             });
-            world.getServer().waitFor(server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 600);
+            ClientWaits.waitFor(world.getServer(), server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 600);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -53,15 +54,15 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 p.teleportTo(server.getLevel(TravelService.SPACE), core.getX() + .5, core.getY(), core.getZ() + 1.5, Set.of(), 180, 0, true);
                 StationService.open(p, core, "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 50, 4));
-            world.getServer().waitFor(server -> station[0].getIntOr("width", 32) == 128, 200);
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(4).contains("1/16"), 200);
+            ClientWaits.waitFor(world.getServer(), server -> station[0].getIntOr("width", 32) == 128, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(4).contains("1/16"), 200);
             c.takeScreenshot("nullspace-expanded-station-core");
             c.runOnClient(mc -> ShipControlTestUi.click((TerminalScreen) mc.gui.screen(), 43, 12));
-            world.getServer().waitFor(server -> station[0].contains("stationBuild"), 200);
+            ClientWaits.waitFor(world.getServer(), server -> station[0].contains("stationBuild"), 200);
             c.runOnClient(mc -> mc.gui.screen().onClose());
-            world.getServer().waitFor(server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 1600);
+            ClientWaits.waitFor(world.getServer(), server -> StationAccess.ready(station[0]) && !TransferLocks.inTransit(server, station[0]), 1600);
             world.getServer().runOnServer(server ->
             {
                 if (station[0].getCompoundOrEmpty("roomPieces").size() != 28)
@@ -76,20 +77,20 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 mc.options.renderDistance().set(12);
                 mc.options.broadcastOptions();
             });
-            c.waitFor(mc -> mc.player != null && mc.player.isSpectator() && mc.player.distanceToSqr(64, 188, -36) < 1, 200);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.isSpectator() && mc.player.distanceToSqr(64, 188, -36) < 1, 200);
             var base = world.getServer().computeOnServer(server -> WorldStore.pos(station[0], "base"));
             // The far-side berth: the easternmost port, whichever tile the generated ring puts it on.
             var far = world.getServer().computeOnServer(server -> DockingPorts.ports(server.getLevel(TravelService.SPACE), station[0]).stream().max(Comparator.comparingInt(port -> port.controller().getX())).orElseThrow().controller().subtract(WorldStore.pos(station[0], "base")));
             c.getInput().lookAt(base.offset(64, 4, 64));
 
-            c.waitFor(mc -> mc.level != null && java.util.stream.Stream.of(base.offset(8, 4, 8), base.offset(120, 4, 8), base.offset(8, 4, 120), base.offset(120, 4, 120)).allMatch(at ->
+            ClientWaits.waitFor(c, mc -> mc.level != null && java.util.stream.Stream.of(base.offset(8, 4, 8), base.offset(120, 4, 8), base.offset(8, 4, 120), base.offset(120, 4, 120)).allMatch(at ->
             {
                 long section = net.minecraft.core.SectionPos.asLong(at.getX() >> 4, at.getY() >> 4, at.getZ() >> 4);
                 return mc.levelRenderer.visibleSections().stream().anyMatch(rendered -> rendered.getSectionNode() == section && rendered.getSectionMesh().hasRenderableLayers());
             }), 600);
             c.waitTicks(30);
             c.takeScreenshot("nullspace-full-station-ring");
-            world.getServer().waitFor(server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], base.offset(far).offset(-1, 2, 0)), 2400);
+            ClientWaits.waitFor(world.getServer(), server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], base.offset(far).offset(-1, 2, 0)), 2400);
 
             world.getServer().runOnServer(server ->
             {
@@ -105,11 +106,11 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 doors[0] = DockingPorts.firstPort(level, ship[0]).controller();
                 doors[1] = DockingPorts.ports(level, station[0]).stream().filter(port -> port.controller().equals(base.offset(far))).findFirst().orElseThrow().controller();
             });
-            c.waitFor(mc -> mc.player != null && mc.player.distanceToSqr(4130, 112, 16) < 1 && mc.level.hasChunkAt(new BlockPos(4096, 96, 0)), 200);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.distanceToSqr(4130, 112, 16) < 1 && mc.level.hasChunkAt(new BlockPos(4096, 96, 0)), 200);
             c.getInput().lookAt(new BlockPos(3960, 100, 64));
             c.waitTicks(50);
             c.takeScreenshot("nullspace-full-station-remote");
-            world.getServer().waitFor(server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], doors[1].above().west().above()), 2400);
+            ClientWaits.waitFor(world.getServer(), server -> ShipAir.breathable(server.getLevel(TravelService.SPACE), station[0], doors[1].above().west().above()), 2400);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -123,13 +124,13 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 var p = world.getConnection().getServerPlayer();
                 ShipService.open(p, WorldStore.pos(ship[0], "controller"), "Choose the far-side station port");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 200);
             ShipControlTestUi.destination(c, world, far.getX() + "," + far.getY() + "," + far.getZ(), "Ports");
             c.takeScreenshot("nullspace-far-station-port-discovery");
             ShipControlTestUi.action(c, ShipControl.Action.DOCK);
-            world.getServer().waitFor(server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship[0]), 1800);
+            ClientWaits.waitFor(world.getServer(), server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship[0]), 1800);
             StationClientGameTest.walkThrough(c, world, ship[0], doors[0]);
-            c.waitFor(mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(far).above()), 200);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(far).above()), 200);
             c.waitTicks(12);
             c.takeScreenshot("nullspace-full-station-far-berth");
             world.getServer().runOnServer(server ->
@@ -144,9 +145,9 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 var p = world.getConnection().getServerPlayer();
                 ShipService.open(p, WorldStore.pos(ship[0], "controller"), "");
             });
-            c.waitFor(mc -> mc.gui.screen() instanceof TerminalScreen, 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.action(c, ShipControl.Action.UNDOCK);
-            world.getServer().waitFor(server -> !ship[0].contains("dock"), 1200);
+            ClientWaits.waitFor(world.getServer(), server -> !ship[0].contains("dock"), 1200);
             world.getServer().runOnServer(server -> WorldStore.get(server).save());
             ClientTestEvidence.passed(getClass());
         }

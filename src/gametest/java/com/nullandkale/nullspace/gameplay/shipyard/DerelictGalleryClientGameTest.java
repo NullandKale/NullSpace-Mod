@@ -1,6 +1,7 @@
 package com.nullandkale.nullspace.gameplay.shipyard;
 
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.worldgen.condition.DerelictDamage;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 import com.nullandkale.nullspace.worldgen.shipgen.Spec.Maker;
@@ -31,10 +32,10 @@ public final class DerelictGalleryClientGameTest implements FabricClientGameTest
             player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
             player.teleportTo(server.overworld(), eye.x, eye.y - 1.62, eye.z, Set.of(), yaw, pitch, true);
         });
-        context.waitFor(client -> client.player != null && client.player.getEyePosition().distanceToSqr(eye) < 4, 300);
-        context.waitFor(client -> client.level != null && client.level.hasChunkAt(probe), 600);
+        ClientWaits.waitFor(context, client -> client.player != null && client.player.getEyePosition().distanceToSqr(eye) < 4, 300);
+        ClientWaits.waitFor(context, client -> client.level != null && client.level.hasChunkAt(probe), 600);
         long section = net.minecraft.core.SectionPos.asLong(probe.getX() >> 4, probe.getY() >> 4, probe.getZ() >> 4);
-        context.waitFor(client -> client.levelRenderer.visibleSections().stream().anyMatch(rendered -> rendered.getSectionNode() == section && rendered.getSectionMesh().hasRenderableLayers()), 900);
+        ClientWaits.waitFor(context, client -> client.levelRenderer.visibleSections().stream().anyMatch(rendered -> rendered.getSectionNode() == section && rendered.getSectionMesh().hasRenderableLayers()), 900);
         context.waitTicks(40);
     }
 

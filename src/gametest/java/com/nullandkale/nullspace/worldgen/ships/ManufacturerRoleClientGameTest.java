@@ -7,6 +7,7 @@ import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 
 import java.util.*;
 
@@ -50,7 +51,7 @@ public final class ManufacturerRoleClientGameTest implements FabricClientGameTes
                     var p = world.getConnection().getServerPlayer();
                     p.teleportTo(server.overworld(), base.getX() - 15.5, base.getY() + 20, -15.5, Set.of(), 0, 0, true);
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 c.waitTicks(10);
                 c.getInput().lookAt(base.offset(12, 3, 15));
                 c.waitTicks(10);
@@ -67,7 +68,7 @@ public final class ManufacturerRoleClientGameTest implements FabricClientGameTes
                     var p = world.getConnection().getServerPlayer();
                     p.teleportTo(server.overworld(), door.getX() + .5, door.getY() + 1, door.getZ() + 2.5, Set.of(), 0, 8, true);
                 });
-                world.getConnection().waitForChunksRender();
+                ClientWaits.chunksRendered(world.getConnection());
                 c.waitTicks(10);
                 c.takeScreenshot("nullspace-" + preset.id() + "-inside");
             }

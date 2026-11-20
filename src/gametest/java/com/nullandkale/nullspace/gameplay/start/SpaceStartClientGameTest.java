@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.gameplay.start;
 import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.travel.TravelService;
 import com.nullandkale.nullspace.testing.ClientTestEvidence;
+import com.nullandkale.nullspace.testing.ClientWaits;
 import com.nullandkale.nullspace.testing.DevStoryFixture;
 import com.nullandkale.nullspace.ui.screen.StartingShipScreen;
 import com.nullandkale.nullspace.ui.screen.WorldStartAccess;
@@ -35,7 +36,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
         var selected = new AtomicReference<String>();
         var folder = new AtomicReference<String>();
         c.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
-        c.waitFor(mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
         c.runOnClient(mc ->
         {
             var screen = (CreateWorldScreen) mc.gui.screen();
@@ -56,7 +57,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
                 throw new AssertionError("Start button did not select space");
             click(screen, "Starting ship: " + ShipBlueprints.get(WorldStartSettings.DEFAULT.ship()).name());
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof StartingShipScreen, 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof StartingShipScreen, 100);
         c.runOnClient(mc ->
         {
             for (int page = 0; page < 15; page++)
@@ -71,7 +72,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
             }
             throw new AssertionError("Starting ship is missing from the picker: " + preset.name());
         });
-        c.waitFor(mc -> mc.gui.screen() instanceof CreateWorldScreen, 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 100);
         c.runOnClient(mc ->
         {
             var screen = (CreateWorldScreen) mc.gui.screen();
@@ -83,7 +84,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
         });
         c.takeScreenshot("nullspace-world-start-options");
         c.runOnClient(mc -> click(mc.gui.screen(), "Create New World"));
-        c.waitFor(mc ->
+        ClientWaits.waitFor(c, mc ->
         {
             if (mc.gui.screen() instanceof ConfirmScreen screen)
             {
@@ -113,10 +114,10 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
                 failure.set(error);
             }
         }));
-        c.waitFor(mc -> selected.get() != null || failure.get() != null, 200);
+        ClientWaits.waitFor(c, mc -> selected.get() != null || failure.get() != null, 200);
         if (failure.get() != null)
             throw new AssertionError("Space start validation failed", failure.get());
-        c.waitFor(mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
         c.waitTicks(10);
         c.takeScreenshot("nullspace-world-start-aboard");
         var closing = new AtomicReference<net.minecraft.client.server.IntegratedServer>();
@@ -125,12 +126,12 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
             closing.set(mc.getSingleplayerServer());
             mc.disconnectWithSavingScreen();
         });
-        c.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
         c.runOnClient(mc -> mc.gui.setScreen(new TitleScreen()));
         c.runOnClient(mc -> mc.createWorldOpenFlows().openWorld(folder.get(), () -> mc.gui.setScreen(new TitleScreen())));
-        c.waitFor(mc -> mc.getSingleplayerServer() != null && mc.level != null && mc.player != null && mc.player.level() == mc.level && mc.player.level().dimension().equals(TravelService.SPACE), 6000);
+        ClientWaits.waitFor(c, mc -> mc.getSingleplayerServer() != null && mc.level != null && mc.player != null && mc.player.level() == mc.level && mc.player.level().dimension().equals(TravelService.SPACE), 6000);
         var reloaded = new java.util.concurrent.atomic.AtomicBoolean();
-        c.waitFor(mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
         c.runOnClient(mc -> mc.getSingleplayerServer().execute(() ->
         {
             try
@@ -151,7 +152,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
                 failure.set(error);
             }
         }));
-        c.waitFor(mc -> reloaded.get() || failure.get() != null, 200);
+        ClientWaits.waitFor(c, mc -> reloaded.get() || failure.get() != null, 200);
         if (failure.get() != null)
             throw new AssertionError("Reload validation failed", failure.get());
         c.runOnClient(mc ->
@@ -159,7 +160,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
             closing.set(mc.getSingleplayerServer());
             mc.disconnectWithSavingScreen();
         });
-        c.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
+        ClientWaits.waitFor(c, mc -> mc.level == null && mc.getSingleplayerServer() == null && closing.get().isShutdown(), 1200);
         c.runOnClient(mc -> mc.gui.setScreen(new TitleScreen()));
         ClientTestEvidence.passed(getClass());
     }
