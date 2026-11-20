@@ -14,7 +14,7 @@ Every release attaches the JAR and `SHA256SUMS.txt`. The workflow refuses a JAR 
 ## Releasing
 
 1. Set `mod_version` and commit the batch.
-2. Run [`scripts/test/release-check.ps1`](../../scripts/test/release-check.ps1): the parallel check and the optional multiplayer and crash scripts together.
+2. Run [`scripts/test/release-check.ps1`](../../scripts/test/release-check.ps1): the parallel check and the optional multiplayer and crash scripts together. The `mod_version` line is left out of the source fingerprint ([`LocalVerification.psm1`](../../scripts/lib/LocalVerification.psm1)), so a check that passed before the bump still counts; any other change to sources, scripts or build files needs a new check.
 3. Run [`scripts/release/Publish-Release.ps1`](../../scripts/release/Publish-Release.ps1). It refuses sources that differ from the passing check, pushes the matching version tag, waits for the Release workflow (a failed run publishes nothing), downloads the asset and checks its SHA-256 against `SHA256SUMS.txt`, installs it on the playtest server and in the Modrinth testing profile ([`Deploy-Playtest.ps1`](../../scripts/release/Deploy-Playtest.ps1); `-SkipDeploy` stops before that), and records the release in `docs/release/<version>.md` in one commit.
 4. Use that exact asset for playtests. Local development builds are not release candidates.
 
