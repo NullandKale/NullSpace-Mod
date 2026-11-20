@@ -170,12 +170,12 @@ class GameTestHygieneTest
      */
     static List<String> tightBudgets(Source source)
     {
-        if (!source.text().contains("TestWaits.hold(") || CRASH_HARNESS.contains(source.name()) || FIXTURES_AND_HELPERS.contains(source.name()))
+        if (!(source.text().contains("TestWaits.hold(") || source.text().contains("TestWaits.until(")) || CRASH_HARNESS.contains(source.name()) || FIXTURES_AND_HELPERS.contains(source.name()))
             return List.of();
         var out = new ArrayList<String>();
         for (var test : tests(source.text()))
         {
-            if (!test.body().contains("TestWaits.afterLoaded("))
+            if (!test.body().contains("TestWaits.afterLoaded(") && !test.body().contains("TestWaits.until(") && !test.body().contains("whenLoaded(") && !test.body().contains("whenPassengersLoaded("))
                 continue;
             int fixed = 0;
             var waits = Pattern.compile("TestWaits\\.after(?:Loaded|Ticks)\\(\\s*\\w+\\s*,\\s*(\\d+)\\s*,").matcher(test.body());
@@ -188,6 +188,24 @@ class GameTestHygieneTest
         }
         return out;
     }
+
+    /**
+     * A wait that gives up after a number of ticks and carries on as if it had what it waited for: {@code if (ready || waited >= 150) then.run()}. Ticks pass
+     * at no fixed speed in a test server, so on a slow machine the count runs out first and the test fails later with a message about something else (mobs
+     * spawned on Ares dropped no salvage because their chunk had not yet tagged them as crew). Wait with {@code TestWaits.until}, which never carries on
+     * without it, or fail at once with a message that says what never came.
+     */
+    static List<String> waitsThatCarryOnWithout(Source source)
+    {
+        var out = new ArrayList<String>();
+        var matcher = CARRY_ON.matcher(source.text());
+        while (matcher.find())
+            out.add(source.name() + ": a wait that carries on after a tick count without what it waited for (at character " + matcher.start() + ", \"" + matcher.group().trim() + "\"); use TestWaits.until, or fail with a message");
+        return out;
+    }
+
+    /** {@code if (ready || waited >= 150) then.run()}: a condition, or a count of ticks or tries that has reached a number, and then the rest of the test runs. */
+    private static final Pattern CARRY_ON = Pattern.compile("if\\s*\\([^;{}]*\\|\\|\\s*(?:\\w*(?:waited|tries|attempts|ticks|elapsed|polls|looks)\\w*(?:\\[0\\])?|ctx\\.getTick\\(\\))\\s*>=?\\s*[\\w.]+\\s*\\)\\s*\\{?\\s*\\w+(?:\\[0\\])?\\.run\\(\\)", Pattern.CASE_INSENSITIVE);
 
     /**
      * A callback that schedules itself again with {@code runAfterDelay(n, name[0])}. The framework keeps its scheduled callbacks in a map keyed by the Runnable and
@@ -343,6 +361,12 @@ class GameTestHygieneTest
     }
 
     @Test
+    void waitsNeverCarryOnWithoutWhatTheyWaitedFor() throws IOException
+    {
+        none(sources().stream().flatMap(s -> waitsThatCarryOnWithout(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
     void pollingCallbacksNeverRescheduleThemselves() throws IOException
     {
         none(sources().stream().flatMap(s -> selfSchedulingCallbacks(s).stream()).collect(Collectors.toList()));
@@ -441,6 +465,14 @@ class GameTestHygieneTest
         assertEquals(0, slotPickersThatShare(List.of(new Source("SomeGameTest", withoutComments((picker + "\n" + other).replace("nullspace:slots", "nullspace:concurrent_ship_actions"))))).size());
         var fresh = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, () -> poll[0].run());\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
         assertEquals(0, selfSchedulingCallbacks(fresh).size());
+
+        assertEquals(1, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w(int waited) {\n    if (ready || waited >= 150)\n        then.run();\n}"))).size());
+        assertEquals(1, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w() {\n    if (crews.values().stream().allMatch(m -> m.tagged()) || tries[0] > 40)\n        then.run();\n}"))).size());
+        assertEquals(0, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w() {\n    TestWaits.until(ctx, () -> ready, then);\n    if (++tries[0] > 40)\n        ctx.fail(\"never came\");\n}"))).size());
+        assertEquals(0, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w() {\n    if (distance < 384 || distance > 1280)\n        continue;\n    if (count < 8 || count > 300)\n        ctx.fail(\"out of range\");\n}"))).size());
+        String untilBudget = "@GameTest(maxTicks = 100)\npublic void waits(GameTestHelper ctx)\n{\n    TestWaits.until(ctx, () -> ready, () -> {});\n}";
+        assertEquals(1, tightBudgets(new Source("SomeGameTest", withoutComments(untilBudget))).size());
+        assertEquals(0, tightBudgets(new Source("SomeGameTest", withoutComments(untilBudget.replace("maxTicks = 100", "maxTicks = 300")))).size());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.nullandkale.nullspace.worldgen.encounters;
 import com.nullandkale.nullspace.content.ModBlocks;
 import com.nullandkale.nullspace.content.entity.Stowaways;
 import com.nullandkale.nullspace.gameplay.navigation.PlanetSurfaces;
+import com.nullandkale.nullspace.testing.TestWaits;
 
 import java.util.List;
 
@@ -37,9 +38,9 @@ public final class AirlessCrewsGameTest
             }
     }
 
-    private static Mob spawn(ServerLevel level, EntityType<? extends Mob> type, int i)
+    private static Mob spawn(GameTestHelper ctx, ServerLevel level, EntityType<? extends Mob> type, int i)
     {
-        level.setChunkForced(i >> 4, 0, true);
+        TestWaits.hold(ctx, level, i >> 4, 0);
         FORCED.add(new Object[]{level, i >> 4});
         level.getChunk(i >> 4, 0);
         var mob = type.create(level, EntitySpawnReason.COMMAND);
@@ -82,17 +83,16 @@ public final class AirlessCrewsGameTest
         return found;
     }
 
-    /** A mob is dressed and tagged when its chunk starts ticking it, which on a busy server comes a few ticks after it was added: wait for the last of them. */
-    private static void whenLoaded(GameTestHelper ctx, java.util.Map<EntityType<? extends Mob>, List<Mob>> crews, int waited, Runnable then)
+    /**
+     * A mob is dressed and tagged when its chunk starts ticking it, which comes after the chunk loads on other threads: on a slow machine that is many ticks after
+     * it was added. Waits until every chunk this test holds has its entities and every crew member is tagged; a crew left untagged would die an ordinary mob.
+     */
+    private static void whenLoaded(GameTestHelper ctx, java.util.Map<EntityType<? extends Mob>, List<Mob>> crews, Runnable then)
     {
-        boolean ready = crews.values().stream().allMatch(list -> list.stream().allMatch(m -> m.entityTags().contains("nullspace_airless_crew")));
-        if (ready || waited >= 150)
-            then.run();
-        else
-            ctx.runAfterDelay(2, () -> whenLoaded(ctx, crews, waited + 2, then));
+        TestWaits.afterLoaded(ctx, 1, () -> TestWaits.until(ctx, () -> crews.values().stream().allMatch(list -> list.stream().allMatch(m -> m.entityTags().contains("nullspace_airless_crew"))), then));
     }
 
-    @GameTest(environment = "nullspace:airless_crews", maxTicks = 300)
+    @GameTest(environment = "nullspace:airless_crews", maxTicks = 400)
     public void everySpaceMobOnAnAirlessPlanetDropsSalvageAndTheCrewsWearTheSuitButOnTerraTheyDoNot(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
@@ -108,13 +108,13 @@ public final class AirlessCrewsGameTest
             ctx.assertTrue(AirlessCrews.spaceMob(type), type + " counts as a space mob");
             var list = new java.util.ArrayList<Mob>();
             for (int n = 0; n < 12; n++)
-                list.add(spawn(ares, type, at++));
+                list.add(spawn(ctx, ares, type, at++));
             crews.put(type, list);
         }
         var ordinary = new java.util.ArrayList<Mob>();
         for (int n = 0; n < 40; n++)
-            ordinary.add(spawn(terra, n % 2 == 0 ? EntityTypes.ZOMBIE : Stowaways.PALE_SPIDER, 400 + n));
-        whenLoaded(ctx, crews, 0, () ->
+            ordinary.add(spawn(ctx, terra, n % 2 == 0 ? EntityTypes.ZOMBIE : Stowaways.PALE_SPIDER, 400 + n));
+        whenLoaded(ctx, crews, () ->
         {
             var before = new java.util.HashMap<EntityType<? extends Mob>, String>();
             for (var entry : crews.entrySet())
@@ -154,15 +154,15 @@ public final class AirlessCrewsGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:airless_crews", maxTicks = 100)
+    @GameTest(environment = "nullspace:airless_crews", maxTicks = 400)
     public void aCrewMemberOnlyDropsSalvageWhenAPlayerKillsIt(GameTestHelper ctx)
     {
         var server = ctx.getLevel().getServer();
         var ares = server.getLevel(PlanetSurfaces.dimension(server, "sol_ares"));
         var mobs = new java.util.ArrayList<Mob>();
         for (int i = 600; i < 640; i++)
-            mobs.add(spawn(ares, EntityTypes.ZOMBIE, i));
-        whenLoaded(ctx, java.util.Map.of(EntityTypes.ZOMBIE, mobs), 0, () ->
+            mobs.add(spawn(ctx, ares, EntityTypes.ZOMBIE, i));
+        whenLoaded(ctx, java.util.Map.of(EntityTypes.ZOMBIE, mobs), () ->
         {
             for (var mob : mobs)
                 mob.hurtServer(ares, ares.damageSources().generic(), 1000f);

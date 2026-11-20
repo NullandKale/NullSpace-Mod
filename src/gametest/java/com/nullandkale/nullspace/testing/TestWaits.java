@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.function.BooleanSupplier;
 
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -43,12 +44,18 @@ public final class TestWaits
      */
     public static void afterLoaded(GameTestHelper ctx, int minTicks, Runnable then)
     {
-        ctx.runAfterDelay(minTicks, () -> look(ctx, then));
+        ctx.runAfterDelay(minTicks, () -> until(ctx, () -> held(ctx), then));
     }
 
-    private static void look(GameTestHelper ctx, Runnable then)
+    /**
+     * Runs {@code then} once {@code ready} holds, for a wait on something that loads on other threads (mobs entering a level, a ship's passengers): looks every
+     * tick and pauses as {@link #afterLoaded} does while it is not ready, so the test's tick limit is a floor of real time. It never gives up and carries on: a
+     * test that went ahead without what it waited for would fail later with a message about something else. The test's own tick limit ends a wait that never
+     * finishes.
+     */
+    public static void until(GameTestHelper ctx, BooleanSupplier ready, Runnable then)
     {
-        if (held(ctx))
+        if (ready.getAsBoolean())
         {
             then.run();
             return;
@@ -65,7 +72,7 @@ public final class TestWaits
         }
         // A new callback each time, never this one again: the framework keeps its scheduled callbacks in a map keyed by the Runnable and removes the entry of
         // the one it has just run, so a callback that schedules itself is dropped and the test waits out its tick limit.
-        ctx.runAfterDelay(1, () -> look(ctx, then));
+        ctx.runAfterDelay(1, () -> until(ctx, ready, then));
     }
 
     /** How long a wait for loading gives the loader between looks, in real time. */

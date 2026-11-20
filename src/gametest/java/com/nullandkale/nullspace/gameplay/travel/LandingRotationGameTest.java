@@ -156,34 +156,32 @@ public final class LandingRotationGameTest
     {
         var fixture = EntityTravelGameTest.referenceBed(ctx, 176);
         var target = pad(ctx.getLevel(), new BlockPos(398000, 80, 360000), 8, 8, Direction.EAST, "Rotated rescue target");
-        TestWaits.afterLoaded(ctx, 20, () -> whenPassengersLoaded(ctx, fixture.get(), false, 0, () ->
+        TestWaits.afterLoaded(ctx, 20, () -> whenPassengersLoaded(ctx, fixture.get(), false, () ->
         {
             var bed = fixture.get();
             var server = bed.level().getServer();
             var store = WorldStore.get(server);
             completed(ctx, TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(bed.level(), bed.helm())));
             EntityTravelGameTest.holdOrbit(bed.space(), WorldStore.pos(bed.ship(), "base").getX() / TravelService.SPACE_SPACING, true);
-            TestWaits.afterLoaded(ctx, 10, () -> whenPassengersLoaded(ctx, bed, true, 0, () -> restoreLanding(ctx, bed, target)));
+            TestWaits.afterLoaded(ctx, 10, () -> whenPassengersLoaded(ctx, bed, true, () -> restoreLanding(ctx, bed, target)));
         }));
     }
 
     /** A ship's chunks load their entities a few ticks after a move, or after the fixture; on a busy server a fixed delay is not enough. Waits until the ship can be scanned. */
-    private static void whenPassengersLoaded(GameTestHelper ctx, EntityTravelGameTest.Bed bed, boolean inSpace, int waited, Runnable then)
+    private static void whenPassengersLoaded(GameTestHelper ctx, EntityTravelGameTest.Bed bed, boolean inSpace, Runnable then)
     {
-        boolean ready;
-        try
+        TestWaits.until(ctx, () ->
         {
-            ShipService.preflight(inSpace ? bed.space() : bed.level(), bed.helm());
-            ready = true;
-        }
-        catch (IllegalArgumentException loading)
-        {
-            ready = false;
-        }
-        if (ready || waited >= 200)
-            then.run();
-        else
-            TestWaits.afterLoaded(ctx, 2, () -> whenPassengersLoaded(ctx, bed, inSpace, waited + 2, then));
+            try
+            {
+                ShipService.preflight(inSpace ? bed.space() : bed.level(), bed.helm());
+                return true;
+            }
+            catch (IllegalArgumentException loading)
+            {
+                return false;
+            }
+        }, then);
     }
 
     private static void restoreLanding(GameTestHelper ctx, EntityTravelGameTest.Bed bed, PadRegistry.Pad target)
