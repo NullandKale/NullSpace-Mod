@@ -19,7 +19,9 @@
     "ShipBlockEventsAccessor",
     "MinecraftServerSaveMixin",
     "PlanetDimensionsMixin",
-    "PlanetSeedMixin"
+    "PlanetSeedMixin",
+    "VanillaSoundMixin",
+    "ExplosionSoundMixin"
   ],
   "injectors": {
     "defaultRequire": 1

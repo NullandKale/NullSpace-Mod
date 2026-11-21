@@ -254,6 +254,7 @@ public final class DockingService
                     intact &= DockingPorts.closeSurviving(p.level(), target, WorldStore.pos(target, "base").offset(WorldStore.pos(d, "targetPort")));
                 if (!intact)
                     notice = "Undocking from the damaged berth. Surviving doors are closed; repair any hull" + " leaks.";
+                com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(p.level(), net.minecraft.world.phys.Vec3.atCenterOf(WorldStore.pos(source, "base").offset(WorldStore.pos(d, "sourcePort"))), "dock.release");
                 d.putString("state", "UNDOCKING");
                 d.putLong("expires", server.overworld().getGameTime() + 12000);
                 WorldStore.get(server).requestSave();

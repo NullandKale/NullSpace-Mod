@@ -502,7 +502,7 @@ public final class NavigationService
                         case INVESTIGATE -> "Reaching the signal";
                         case ARRIVE -> "Arriving at " + LocalSpaces.label(server, s);
                     }, "scene:" + target, false);
-                    com.nullandkale.nullspace.gameplay.sound.TravelSounds.jump(server, s, j.mode == Mode.ARRIVE);
+                    com.nullandkale.nullspace.gameplay.sound.TravelSounds.jump(server, s);
                     finish(server, j, underwayMessage(server, j));
                 }
                 catch (RuntimeException error)

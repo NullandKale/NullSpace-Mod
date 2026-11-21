@@ -12,7 +12,7 @@ import com.google.gson.JsonParser;
 
 /**
  * The named sounds the game plays, from {@code assets/nullspace/synth/cues.json}: each name has one or more layers, a {@link SynthPatch} in its text form with
- * an optional {@code delay <seconds>} clause, so a chime can be two notes. Game code plays a cue by name. The client reloads the file with its resources; the
+ * an optional {@code delay <seconds>} clause, so a clamp can be a thump and then a hiss. Game code plays a cue by name. The client reloads the file with its resources; the
  * server reads the copy in the mod for the Synth block's presets.
  */
 public final class SoundCues

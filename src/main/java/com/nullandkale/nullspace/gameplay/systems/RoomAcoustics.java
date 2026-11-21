@@ -34,10 +34,19 @@ public final class RoomAcoustics
     /** The cost of a sound's way from {@code source} to {@code listener} in one hull: 0 in the same room (or a hull without rooms), else the sum of its steps. */
     public static int cost(ServerLevel level, CompoundTag ship, BlockPos source, BlockPos listener)
     {
+        return cost(level, ship, source, listener, true);
+    }
+
+    /**
+     * As {@link #cost(ServerLevel, CompoundTag, BlockPos, BlockPos)}; with {@code rebuild} false, rooms whose hull just changed are used as they were, never
+     * worked out again: a vanilla sound can be played in the middle of a block change, where the hull must not be scanned.
+     */
+    public static int cost(ServerLevel level, CompoundTag ship, BlockPos source, BlockPos listener, boolean rebuild)
+    {
         if (!ShipSystems.enabled(ship))
             return 0;
         var r = ShipSystems.runtime(level, ship);
-        if (r.dirty)
+        if (r.dirty && rebuild)
             ShipSystems.rebuild(level, ship, r, false);
         var topology = r.atmosphere;
         if (topology == null)

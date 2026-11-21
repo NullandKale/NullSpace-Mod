@@ -10,8 +10,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -71,7 +69,7 @@ public final class Turrets
         var step = to.subtract(from).scale(1 / 6.0);
         for (int i = 1; i <= 6; i++)
             level.sendParticles(ParticleTypes.CRIT, from.x + step.x * i, from.y + step.y * i, from.z + step.z * i, 1, 0, 0, 0, 0);
-        level.playSound(null, pos, SoundEvents.ARROW_SHOOT, SoundSource.BLOCKS, 0.6F, 1.4F);
+        com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, from, "turret.fire");
     }
 
     /** The nearest living thing this turret may shoot, or null. */

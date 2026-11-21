@@ -151,6 +151,7 @@ public final class ShipCombat
                 closest = hit;
         }
         owner.putLong("weaponReadyAt", now + 40);
+        com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, Vec3.atCenterOf(gun), "weapon.fire");
         if (bodyDistance < 10000 && (closest == null || bodyDistance < closest.distance))
             return "Shot blocked by " + bodyName;
         if (closest == null)
@@ -260,6 +261,7 @@ public final class ShipCombat
                 }
             }, physical, power, false, Level.ExplosionInteraction.TNT);
             ship.putString("lastDamageEvent", id);
+            com.nullandkale.nullspace.gameplay.sound.ShipSounds.hull(space, ship, physical, "hull.impact");
         }
         finally
         {

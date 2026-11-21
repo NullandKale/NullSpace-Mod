@@ -35,10 +35,16 @@ public final class ShipSounds
 
     /**
      * A loop a producer wants playing now. {@code at} is its place in {@code level}, or null for a sound at the listener ({@code listeners} must then name who
-     * hears it); {@code listeners} null means everyone in range who can hear it.
+     * hears it); {@code listeners} null means everyone in range who can hear it. {@code muffle} is the least it is muffled, whatever lies between (the sound
+     * gallery's stands play a cue as if through a door or a wall).
      */
-    public record Loop(String key, String cue, SynthPatch patch, ServerLevel level, Vec3 at, Collection<ServerPlayer> listeners, float volume, float pitch, float brightness, float rate)
+    public record Loop(String key, String cue, SynthPatch patch, ServerLevel level, Vec3 at, Collection<ServerPlayer> listeners, float volume, float pitch, float brightness, float rate, float muffle)
     {
+        public Loop(String key, String cue, SynthPatch patch, ServerLevel level, Vec3 at, Collection<ServerPlayer> listeners, float volume, float pitch, float brightness, float rate)
+        {
+            this(key, cue, patch, level, at, listeners, volume, pitch, brightness, rate, 0);
+        }
+
         public Loop(String key, String cue, ServerLevel level, Vec3 at, Collection<ServerPlayer> listeners, float volume)
         {
             this(key, cue, null, level, at, listeners, volume, 1, 0, 1);
@@ -78,6 +84,12 @@ public final class ShipSounds
     /** Plays a cue, or a patch of its own, once at a place. */
     public static void play(ServerLevel level, Vec3 at, String cue, SynthPatch patch, float volume, float pitch)
     {
+        play(level, at, cue, patch, volume, pitch, 0, 1, 0);
+    }
+
+    /** As {@link #play(ServerLevel, Vec3, String, SynthPatch, float, float)}, with the live controls, and muffled at least by {@code least}. */
+    public static void play(ServerLevel level, Vec3 at, String cue, SynthPatch patch, float volume, float pitch, float brightness, float rate, float least)
+    {
         long id = ThreadLocalRandom.current().nextLong();
         for (var p : level.players())
         {
@@ -85,11 +97,11 @@ public final class ShipSounds
                 continue;
             float muffle = Hearing.muffle(level, p.getEyePosition(), at);
             if (muffle != Hearing.SILENT)
-                send(p, new SoundPackets.Play(id, cue, patch, false, at.x, at.y, at.z, volume, pitch, 0, 1, muffle));
+                send(p, new SoundPackets.Play(id, cue, patch, false, at.x, at.y, at.z, volume, pitch, brightness, rate, Math.max(muffle, least)));
         }
     }
 
-    /** Plays a cue once at the listener for everyone aboard a ship: the jolt into FTL, the arrival chime. */
+    /** Plays a cue once at the listener for everyone aboard a ship: the jolt into FTL. */
     public static void crew(MinecraftServer server, CompoundTag ship, String cue)
     {
         long id = ThreadLocalRandom.current().nextLong();
@@ -99,6 +111,28 @@ public final class ShipSounds
             var aboard = SceneService.observer(p);
             if (aboard != null && aboard.getStringOr("id", "").equals(shipId))
                 send(p, new SoundPackets.Play(id, cue, null, true, 0, 0, 0, 1, 1, 0, 1, 0));
+        }
+    }
+
+    /**
+     * Plays a cue once where something struck a hull, for everyone aboard it. The hull itself carries the blow, so it is heard even in vacuum: through the
+     * rooms between, and at worst as through a wall.
+     */
+    public static void hull(ServerLevel level, CompoundTag ship, Vec3 at, String cue)
+    {
+        long id = ThreadLocalRandom.current().nextLong();
+        String shipId = ship.getStringOr("id", "");
+        var store = com.nullandkale.nullspace.core.save.WorldStore.get(level.getServer());
+        float wall = Hearing.rooms(com.nullandkale.nullspace.gameplay.systems.RoomAcoustics.WALL);
+        for (var p : level.players())
+        {
+            var aboard = store.at(level, net.minecraft.core.BlockPos.containing(p.getEyePosition()));
+            if (aboard == null || !aboard.getStringOr("id", "").equals(shipId))
+                continue;
+            float muffle = Hearing.muffle(level, p.getEyePosition(), at);
+            if (muffle == Hearing.SILENT || muffle > wall)
+                muffle = wall;
+            send(p, new SoundPackets.Play(id, cue, null, false, at.x, at.y, at.z, 1, 1, 0, 1, muffle));
         }
     }
 
@@ -160,14 +194,15 @@ public final class ShipSounds
             {
                 if (loop.listeners() != null && !loop.listeners().contains(p))
                     continue;
-                float muffle = 0;
+                float muffle = loop.muffle();
                 if (loop.at() != null)
                 {
                     if (p.level() != loop.level() || p.distanceToSqr(loop.at()) > RANGE * RANGE)
                         continue;
-                    muffle = Hearing.muffle(loop.level(), p.getEyePosition(), loop.at());
-                    if (muffle == Hearing.SILENT)
+                    float heard = Hearing.muffle(loop.level(), p.getEyePosition(), loop.at());
+                    if (heard == Hearing.SILENT)
                         continue;
+                    muffle = Math.max(muffle, heard);
                 }
                 var at = loop.at() == null ? Vec3.ZERO : loop.at();
                 var sent = new Sent(loop.cue(), loop.patch() == null ? "" : loop.patch().text(), Math.round(loop.volume() * 20), Math.round(loop.pitch() * 50), Math.round(loop.brightness() * 20), Math.round(loop.rate() * 20), Math.round(muffle * 20), (int) Math.floor(at.x * 2), (int) Math.floor(at.y * 2), (int) Math.floor(at.z * 2));

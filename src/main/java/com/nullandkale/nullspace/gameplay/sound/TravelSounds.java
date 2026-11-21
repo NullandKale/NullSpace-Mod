@@ -13,8 +13,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * The sounds of travel: the jolt into and out of FTL and the arrival chime (played by the jump itself, see {@code NavigationService}), and the low drone the
- * crew hear while their ship cruises.
+ * The sounds of travel: the jolt into and out of FTL (played by the jump itself, see {@code NavigationService}) and the low drone the crew hear while their ship
+ * cruises.
  */
 public final class TravelSounds
 {
@@ -23,12 +23,10 @@ public final class TravelSounds
         ShipSounds.producer(TravelSounds::loops);
     }
 
-    /** What a jump step sounds like for the crew: a jolt as the ship enters or leaves FTL, and the chime when the journey ends. */
-    public static void jump(MinecraftServer server, CompoundTag ship, boolean arriving)
+    /** What a jump step sounds like for the crew: a jolt as the ship enters or leaves FTL. */
+    public static void jump(MinecraftServer server, CompoundTag ship)
     {
         ShipSounds.crew(server, ship, "ftl.jolt");
-        if (arriving)
-            ShipSounds.crew(server, ship, "ftl.arrive");
     }
 
     static void loops(MinecraftServer server, Consumer<ShipSounds.Loop> out)

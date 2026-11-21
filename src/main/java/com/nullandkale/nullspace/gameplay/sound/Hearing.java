@@ -22,6 +22,12 @@ public final class Hearing
     /** How muffled a sound at {@code source} is for a listener whose head is at {@code ear}: 0 clear to 1 almost gone, or {@link #SILENT}. */
     public static float muffle(ServerLevel level, Vec3 ear, Vec3 source)
     {
+        return muffle(level, ear, source, true);
+    }
+
+    /** As {@link #muffle(ServerLevel, Vec3, Vec3)}; with {@code rebuild} false a hull's rooms are taken as they were last worked out ({@link RoomAcoustics}). */
+    public static float muffle(ServerLevel level, Vec3 ear, Vec3 source, boolean rebuild)
+    {
         var store = WorldStore.get(level.getServer());
         var at = BlockPos.containing(ear);
         var from = BlockPos.containing(source);
@@ -29,7 +35,7 @@ public final class Hearing
         var sourceHull = store.at(level, from);
         boolean air = !PlanetSurfaces.vacuum(level);
         if (listenerHull != null && sourceHull != null && id(listenerHull).equals(id(sourceHull)))
-            return rooms(RoomAcoustics.cost(level, listenerHull, from, at));
+            return rooms(RoomAcoustics.cost(level, listenerHull, from, at, rebuild));
         if (listenerHull != null && sourceHull != null && docked(listenerHull, sourceHull))
             return rooms(RoomAcoustics.DOOR);
         if (!air)

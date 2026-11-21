@@ -4,7 +4,10 @@ import com.nullandkale.nullspace.core.save.WorldStore;
 import com.nullandkale.nullspace.gameplay.scene.SceneService;
 import com.nullandkale.nullspace.gameplay.ship.ShipService;
 import com.nullandkale.nullspace.gameplay.ship.structure.ShipDoors;
+import com.nullandkale.nullspace.gameplay.sound.ShipSounds;
 import com.nullandkale.nullspace.gameplay.station.StationGameTest;
+import com.nullandkale.nullspace.gameplay.systems.EngineEffects;
+import com.nullandkale.nullspace.gameplay.systems.EngineSounds;
 import com.nullandkale.nullspace.gameplay.systems.FuelSystem;
 import com.nullandkale.nullspace.gameplay.systems.ShipSystems;
 import com.nullandkale.nullspace.gameplay.systems.SystemsUpgrade;
@@ -209,13 +212,19 @@ public final class DockingPresetGameTest
             var normal = SceneService.pose(station).toUniverse(DockingMotion.normal(target.facing())).subtract(SceneService.pose(station).position());
             pose(ship, new ScenePose(goal.position().add(normal.scale(2)), goal.orientation()));
             d.putString("state", "CONNECTING");
+            // The first step in: the engines burn (their plume and hum) and a maneuvering jet puffs, heard through the hull.
+            DockingManeuver.tickMotion(server, ship);
+            ctx.assertTrue(ship.getIntOr("thrustDemand", 0) > 0 && !EngineEffects.exhausts(level, ship).isEmpty() && EngineSounds.hum(level, ship) != null, preset.name() + " burns its engines as it closes in: demand " + ship.getIntOr("thrustDemand", 0) + ", " + ship.getStringOr("flightStatus", ""));
+            ctx.assertTrue(ShipSounds.recent(server).getLast().contains("rcs.puff"), preset.name() + " fires a maneuvering jet: " + ShipSounds.recent(server));
             for (int step = 0; step < 10 && !ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"); step++)
                 DockingManeuver.tickMotion(server, ship);
             ctx.assertTrue(ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), preset.name() + " clamps: " + ship.getStringOr("flightStatus", ""));
+            ctx.assertTrue(ship.getIntOr("thrustDemand", 0) == 0, preset.name() + " shuts its engines once clamped");
             DockingService.perform(player, ship, helm, "DOCK_UNDOCK");
             for (int step = 0; step < 8; step++)
                 DockingManeuver.tickMotion(server, ship);
             ctx.assertTrue(ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("UNDOCKING") && SceneService.pose(ship).position().distanceTo(goal.position()) > 1, preset.name() + " backs away without collision");
+            ctx.assertTrue(ship.getIntOr("thrustDemand", 0) > 0, preset.name() + " burns its engines to back away");
             DockingService.perform(player, ship, helm, "DOCK_CANCEL");
             WorldStore.get(server).ships().remove(ship);
         }

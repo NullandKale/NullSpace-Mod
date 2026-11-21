@@ -97,7 +97,16 @@ public final class Synths
         return "Loaded " + cue;
     }
 
-    /** Plays the block's patch: once, or as a loop until stopped. */
+    /** Makes the block play one of the game's cues as the game plays it, until its patch is changed (the sound gallery's stands). */
+    public static void cue(ServerLevel level, BlockPos pos, SynthBlockEntity.Cue cue)
+    {
+        var first = SoundCues.preset(cue.name());
+        if (first == null)
+            throw new IllegalArgumentException("No cue called " + cue.name());
+        at(level, pos).cue(cue, first);
+    }
+
+    /** Plays the block's patch (or its game cue): once, or as a loop until stopped. */
     public static String play(ServerLevel level, BlockPos pos)
     {
         var synth = at(level, pos);
@@ -110,7 +119,11 @@ public final class Synths
             playing(level.getServer()).add(new Placed(level, pos.immutable()));
             return "Playing (loop)";
         }
-        ShipSounds.play(level, Vec3.atCenterOf(pos), "", synth.patch(), 1, 1);
+        var cue = synth.cue();
+        if (cue != null)
+            ShipSounds.play(level, Vec3.atCenterOf(pos), cue.name(), null, cue.volume(), cue.pitch(), cue.brightness(), cue.rate(), cue.muffle());
+        else
+            ShipSounds.play(level, Vec3.atCenterOf(pos), "", synth.patch(), 1, 1);
         return "Played";
     }
 
@@ -159,14 +172,22 @@ public final class Synths
     {
         for (var placed : List.copyOf(playing(server)))
         {
-            if (!placed.level().hasChunkAt(placed.pos()) || !(placed.level().getBlockEntity(placed.pos()) instanceof SynthBlockEntity synth) || !synth.playing())
+            // An unloaded Synth is skipped, not forgotten: its chunk can drop out and come back without loading the block entity again.
+            if (!placed.level().hasChunkAt(placed.pos()))
+                continue;
+            if (!(placed.level().getBlockEntity(placed.pos()) instanceof SynthBlockEntity synth) || !synth.playing())
             {
                 playing(server).remove(placed);
                 continue;
             }
             if (!silence(placed.level(), placed.pos()).isEmpty())
                 continue;
-            out.accept(new ShipSounds.Loop("synth:" + placed.level().dimension().identifier() + ":" + placed.pos().asLong(), "", synth.patch(), placed.level(), Vec3.atCenterOf(placed.pos()), null, 1, 1, 0, 1));
+            String key = "synth:" + placed.level().dimension().identifier() + ":" + placed.pos().asLong();
+            var cue = synth.cue();
+            if (cue != null)
+                out.accept(new ShipSounds.Loop(key, cue.name(), null, placed.level(), Vec3.atCenterOf(placed.pos()), null, cue.volume(), cue.pitch(), cue.brightness(), cue.rate(), cue.muffle()));
+            else
+                out.accept(new ShipSounds.Loop(key, "", synth.patch(), placed.level(), Vec3.atCenterOf(placed.pos()), null, 1, 1, 0, 1));
         }
     }
 
@@ -250,7 +271,7 @@ public final class Synths
                 yield preset(level, pos, rest.get(1));
             }
             case "dump" -> at(level, pos).patch().text();
-            case "tone", "noise", "env", "pulse", "loop", "wave", "from", "to", "sweep", "tonelevel", "noiselevel", "bright", "attack", "hold", "release", "rate", "duty" -> apply(level, pos, String.join(" ", rest));
+            case "tone", "noise", "env", "pulse", "loop", "wave", "from", "to", "sweep", "tonelevel", "noiselevel", "bright", "focus", "attack", "hold", "release", "rate", "duty" -> apply(level, pos, String.join(" ", rest));
             default -> throw new IllegalArgumentException("ship synth play | stop | preset <cue> | dump | cues | tone ... | noise ... | env ... | pulse ... | loop on|off");
         };
     }

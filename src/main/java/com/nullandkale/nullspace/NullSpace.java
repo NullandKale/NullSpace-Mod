@@ -95,7 +95,9 @@ public final class NullSpace implements ModInitializer
         com.nullandkale.nullspace.content.synth.Synths.initialize();
         com.nullandkale.nullspace.gameplay.sound.SoundCommand.initialize();
         com.nullandkale.nullspace.gameplay.sound.TravelSounds.initialize();
+        com.nullandkale.nullspace.gameplay.sound.ShipAmbience.initialize();
         com.nullandkale.nullspace.gameplay.systems.AirSounds.initialize();
+        com.nullandkale.nullspace.gameplay.systems.EngineSounds.initialize();
         ShipSystems.initialize();
         SceneService.initialize();
         TerrainService.initialize();
@@ -119,6 +121,7 @@ public final class NullSpace implements ModInitializer
         StationGallery.initialize();
         com.nullandkale.nullspace.gameplay.shipyard.EnemyGallery.initialize();
         com.nullandkale.nullspace.gameplay.shipyard.MaterialsGallery.initialize();
+        com.nullandkale.nullspace.gameplay.shipyard.SoundGallery.initialize();
         com.nullandkale.nullspace.gameplay.shipyard.HabGallery.initialize();
         SpaceStart.initialize();
         ServerContext.initialize();

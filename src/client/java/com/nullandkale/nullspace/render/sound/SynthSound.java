@@ -14,11 +14,14 @@ import net.minecraft.sounds.SoundSource;
 
 /**
  * One playing synth voice as a Minecraft sound: the sound event {@code nullspace:synth} points at Fabric's empty stream, and this hands the engine the voice's
- * own stream instead. Its volume and position change every tick, so a sound that is muffled by a closing door, or that follows a moving source, changes at once.
+ * own stream instead. Its position follows its source every tick, and its volume glides to each new loudness over about a fifth of a second, so a door shutting
+ * or a step into the next room fades the sound rather than switching it.
  */
 final class SynthSound extends AbstractTickableSoundInstance
 {
     static final SoundEvent EVENT = SoundEvent.createVariableRangeEvent(Identifier.parse("nullspace:synth"));
+    /** How far the volume moves toward its latest each tick: about 0.2 s to settle, as the voice's own live values do. */
+    private static final float GLIDE = (float) (1 - Math.exp(-1 / 4.0));
 
     final SynthVoice voice;
     private volatile float target;
@@ -53,7 +56,9 @@ final class SynthSound extends AbstractTickableSoundInstance
     @Override
     public void tick()
     {
-        volume = target;
+        volume += (target - volume) * GLIDE;
+        if (Math.abs(target - volume) < .002f)
+            volume = target;
         if (voice.finished())
             stop();
     }

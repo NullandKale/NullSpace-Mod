@@ -349,6 +349,7 @@ public final class DockingManeuver
             return;
         }
         pose(own, next);
+        DockingThrusters.fire(server, level, own, old, next);
         if (next.position().distanceTo(escape) < .001)
             release(server, own, "Undocked safely");
         else
@@ -407,6 +408,7 @@ public final class DockingManeuver
         }
         own.remove("dock");
         Piloting.stop(own);
+        DockingThrusters.stop(server, own);
         ServerContext.get(server).service(ROUTES, HashMap::new).remove(DockingService.id(own));
         WorldStore.get(server).requestSave();
     }
@@ -476,7 +478,11 @@ public final class DockingManeuver
             if (!StationAccess.allowed(actor, target))
                 throw new IllegalArgumentException("Station permission changed");
             if (phase.equals("WAITING_CONSENT"))
+            {
+                // Holding station for the other crew's answer: nothing burns.
+                own.putInt("thrustDemand", 0);
                 return;
+            }
             if (NavigationService.propulsion(level, own) == 0)
                 throw new IllegalArgumentException("Docking stopped: propulsion has no power");
             var sourceFace = localFace(own, source.controller(), source.facing());
@@ -539,6 +545,8 @@ public final class DockingManeuver
                     pose(own, next);
                     d.putString("state", "CLAMPED");
                     saveEscape(d, standOff.position());
+                    // Played once clamped, so the other vessel's crew hear it as through their own docking door.
+                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, Vec3.atCenterOf(source.outer()), "dock.clamp");
                     WorldStore.get(server).requestSave();
                 }
             }
@@ -549,6 +557,10 @@ public final class DockingManeuver
             if ((phase.equals("APPROACHING") || phase.equals("ALIGNING")) && nearHull(level, own, next))
                 throw new IllegalArgumentException("A nearby hull obstructs the automatic maneuver");
             pose(own, next);
+            if (d.getStringOr("state", "").equals("CLAMPED"))
+                DockingThrusters.stop(server, own);
+            else
+                DockingThrusters.fire(server, level, own, old, next);
             reportFlight(server, own, d.getStringOr("state", phase), false);
         }
         catch (IllegalArgumentException unavailable)

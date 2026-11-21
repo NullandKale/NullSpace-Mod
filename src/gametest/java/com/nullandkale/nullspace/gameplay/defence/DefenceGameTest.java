@@ -166,6 +166,7 @@ public final class DefenceGameTest
         until(ctx, () -> player.getHealth() < player.getMaxHealth(), 0, 300, () ->
         {
             ctx.assertTrue(zombie.getHealth() == zombie.getMaxHealth(), "A security turret leaves the mobs alone");
+            ctx.assertTrue(com.nullandkale.nullspace.gameplay.sound.ShipSounds.recent(level.getServer()).contains("defence-test turret.fire muffle 0.0"), "The player hears the shot in the room: " + com.nullandkale.nullspace.gameplay.sound.ShipSounds.recent(level.getServer()));
             turret.hostile(false);
             float health = player.getHealth();
             ctx.runAfterDelay(80, () ->

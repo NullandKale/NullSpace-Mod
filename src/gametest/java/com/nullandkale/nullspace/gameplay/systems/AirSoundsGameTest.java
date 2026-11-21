@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 
-/** A breached cabin on an airless world hisses at the breach, and once its air is thin the crew's alarm sounds, needing no power. */
+/** A breached cabin on an airless world hisses at the breach and sounds the ship's klaxon, and once its air is thin the crew's alarm sounds, needing no power. */
 public final class AirSoundsGameTest
 {
     private static List<ShipSounds.Loop> loops(MinecraftServer server)
@@ -32,7 +32,7 @@ public final class AirSoundsGameTest
     }
 
     @GameTest(environment = "nullspace:air_sounds", maxTicks = 2400)
-    public void aBreachHissesAndThinAirSoundsTheCrewsAlarm(GameTestHelper ctx) throws Exception
+    public void aBreachHissesAndSoundsTheKlaxonAndThinAirSoundsTheCrewsAlarm(GameTestHelper ctx) throws Exception
     {
         var server = ctx.getLevel().getServer();
         var luna = server.getLevel(PlanetSurfaces.dimension(server, "sol_luna"));
@@ -59,6 +59,7 @@ public final class AirSoundsGameTest
             luna.setBlock(base.offset(6, 4, 2), Blocks.AIR.defaultBlockState(), 3);
             TestWaits.until(ctx, () -> loops(server).stream().anyMatch(l -> l.key().startsWith("air.breach:") && (l.cue().equals("air.hiss") || l.cue().equals("air.leak")) && l.at() != null), () ->
             {
+                ctx.assertTrue(loops(server).stream().anyMatch(l -> l.key().equals("alarm.breach:" + ship.getStringOr("id", "")) && l.listeners().contains(crew) && l.at() == null), "The ship's klaxon sounds for its crew while air is lost: " + loops(server).stream().map(ShipSounds.Loop::key).toList());
                 var breach = loops(server).stream().filter(l -> l.key().startsWith("air.breach:")).findFirst().orElseThrow();
                 ctx.assertTrue(breach.at().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(base.offset(6, 4, 2))) < 2, "The hiss comes from the breach: " + breach.at());
                 TestWaits.until(ctx, () -> loops(server).stream().anyMatch(l -> l.key().equals("alarm.lowair:" + crew.getUUID()) && l.listeners().contains(crew) && l.at() == null), () ->

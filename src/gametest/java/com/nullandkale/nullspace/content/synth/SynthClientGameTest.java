@@ -42,16 +42,15 @@ public final class SynthClientGameTest implements FabricClientGameTest
             c.runOnClient(mc -> ShipControlTestUi.clickLabel((TerminalScreen) mc.gui.screen(), "[+]"));
             ClientWaits.waitFor(world.getServer(), server -> server.overworld().getBlockEntity(synth[0]) instanceof SynthBlockEntity entity && Math.abs(entity.patch().toneFrom() - 440 * Math.pow(2, 1 / 12.0)) < .5, 200);
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(6).contains("466.2 Hz"), 100);
-            double before = ClientSounds.longest();
             // A terminal takes one action every two server ticks (ComputerTerminal), and the pitch change just now was one.
             c.waitTicks(5);
             c.runOnClient(mc -> ShipControlTestUi.clickLabel((TerminalScreen) mc.gui.screen(), "[ Play ]"));
             // The voice's clock moves only as the sound engine reads its samples: sound was made.
-            ClientWaits.waitFor(c, mc -> ClientSounds.longest() > before + .2, 400);
+            ClientWaits.waitFor(c, mc -> ClientSounds.heard("patch") > .2, 400);
             c.takeScreenshot("nullspace-synth-played");
             c.runOnClient(mc -> mc.gui.setScreen(null));
             world.getServer().runOnServer(server -> ShipSounds.player(world.getConnection().getServerPlayer(), "ftl.jolt"));
-            ClientWaits.waitFor(c, mc -> ClientSounds.longest() > .8, 400);
+            ClientWaits.waitFor(c, mc -> ClientSounds.heard("ftl.jolt") > .8, 400);
         }
         ClientTestEvidence.passed(getClass());
     }

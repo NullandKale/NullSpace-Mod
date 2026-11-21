@@ -54,4 +54,22 @@ class SynthPatchTest
         assertThrows(IllegalArgumentException.class, () -> SynthPatch.parse("noise loud"));
         assertThrows(IllegalArgumentException.class, () -> SynthPatch.parse("loop maybe"));
     }
+
+    @Test
+    void theNoiseFocusIsAFourthNumberWrittenOnlyWhenSet()
+    {
+        var plain = SynthPatch.parse("noise 0.3 0.8");
+        assertEquals(0, plain.focus(), 1e-4);
+        assertTrue(plain.text().contains("noise 0.3 0.8;"), "A plain noise writes two numbers, as before: " + plain.text());
+        var focused = plain.with("noise 0.3 0.8 0.6");
+        assertEquals(.6f, focused.focus(), 1e-4);
+        assertTrue(focused.text().contains("noise 0.3 0.8 0.6;"), focused.text());
+        assertEquals(focused, SynthPatch.parse(focused.text()));
+        assertEquals(.25f, focused.with("focus 0.25").focus(), 1e-4, "It can be changed alone");
+        assertEquals(.6f, focused.with("noise 0.5").focus(), 1e-4, "A shorter noise clause keeps it");
+        assertEquals(1, plain.with("focus 7").focus(), 1e-4, "It is kept in range");
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        focused.write(buffer);
+        assertEquals(focused, SynthPatch.read(buffer), "It travels to the client");
+    }
 }

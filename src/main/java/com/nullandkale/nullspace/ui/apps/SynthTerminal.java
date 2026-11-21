@@ -206,7 +206,8 @@ public final class SynthTerminal implements ControllerApplication
         setting(x, 7, "level", number(patch.toneLevel()), "tonelevel", d -> level(patch.toneLevel(), d));
         text(2, 9, "Noise", TerminalTheme.MUTED);
         x = setting(10, 9, "level", number(patch.noiseLevel()), "noiselevel", d -> level(patch.noiseLevel(), d));
-        setting(x, 9, "brightness", number(patch.brightness()), "bright", d -> level(patch.brightness(), d));
+        x = setting(x, 9, "brightness", number(patch.brightness()), "bright", d -> level(patch.brightness(), d));
+        setting(x, 9, "focus", number(patch.focus()), "focus", d -> level(patch.focus(), d));
         text(2, 11, "Shape", TerminalTheme.MUTED);
         x = setting(10, 11, "attack", number(patch.attack()) + " s", "attack", d -> Math.max(.001f, time(patch.attack(), d)));
         x = setting(x, 11, "hold", number(patch.hold()) + " s", "hold", d -> time(patch.hold(), d));
