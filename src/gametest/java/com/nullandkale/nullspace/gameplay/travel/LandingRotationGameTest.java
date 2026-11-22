@@ -28,9 +28,10 @@ import net.minecraft.world.phys.Vec3;
 
 public final class LandingRotationGameTest
 {
-    static PadRegistry.Pad pad(ServerLevel level, BlockPos base, int width, int depth, Direction side, String name) throws java.io.IOException
+    static PadRegistry.Pad pad(GameTestHelper ctx, BlockPos base, int width, int depth, Direction side, String name) throws java.io.IOException
     {
-        EntityTravelGameTest.hold(level, base.getX() - 2, base.getX() + width + 2, base.getZ() - 2, base.getZ() + depth + 2, true);
+        var level = ctx.getLevel();
+        EntityTravelGameTest.hold(ctx, level, base.getX() - 2, base.getX() + width + 2, base.getZ() - 2, base.getZ() + depth + 2);
         for (int x = -1; x <= width; x++)
             for (int z = -1; z <= depth; z++)
                 level.setBlock(base.offset(x, 0, z), (x == -1 || x == width || z == -1 || z == depth ? Blocks.COBBLESTONE : Blocks.DIRT).defaultBlockState(), 18);
@@ -79,7 +80,7 @@ public final class LandingRotationGameTest
     private static void edge(GameTestHelper ctx, Direction side, int slot) throws Exception
     {
         var source = EntityTravelGameTest.referenceBed(ctx, slot);
-        var destination = pad(ctx.getLevel(), new BlockPos(370000 + slot * 64, 80, 360000), 8, 8, side, "Rotate " + side);
+        var destination = pad(ctx, new BlockPos(370000 + slot * 64, 80, 360000), 8, 8, side, "Rotate " + side);
         TestWaits.afterLoaded(ctx, 20, () ->
         {
             var bed = source.get();
@@ -155,14 +156,14 @@ public final class LandingRotationGameTest
     public void interruptedRotatedLandingCanBeRestoredWithoutLeavingItsStagedHull(GameTestHelper ctx) throws Exception
     {
         var fixture = EntityTravelGameTest.referenceBed(ctx, 176);
-        var target = pad(ctx.getLevel(), new BlockPos(398000, 80, 360000), 8, 8, Direction.EAST, "Rotated rescue target");
+        var target = pad(ctx, new BlockPos(398000, 80, 360000), 8, 8, Direction.EAST, "Rotated rescue target");
         TestWaits.afterLoaded(ctx, 20, () -> whenPassengersLoaded(ctx, fixture.get(), false, () ->
         {
             var bed = fixture.get();
             var server = bed.level().getServer();
             var store = WorldStore.get(server);
             completed(ctx, TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(bed.level(), bed.helm())));
-            EntityTravelGameTest.holdOrbit(bed.space(), WorldStore.pos(bed.ship(), "base").getX() / TravelService.SPACE_SPACING, true);
+            EntityTravelGameTest.holdOrbit(ctx, bed.space(), WorldStore.pos(bed.ship(), "base").getX() / TravelService.SPACE_SPACING);
             TestWaits.afterLoaded(ctx, 10, () -> whenPassengersLoaded(ctx, bed, true, () -> restoreLanding(ctx, bed, target)));
         }));
     }
@@ -250,8 +251,8 @@ public final class LandingRotationGameTest
     {
         var fixture = EntityTravelGameTest.catalogBed(ctx, 175, "rivet_bolt");
         var preset = ShipBlueprints.get("rivet_bolt");
-        var wrong = pad(ctx.getLevel(), new BlockPos(390000, 80, 360000), preset.depth(), preset.width(), Direction.NORTH, "Wrong rotation footprint");
-        var right = pad(ctx.getLevel(), new BlockPos(390128, 80, 360000), preset.depth(), preset.width(), Direction.EAST, "Swapped rotation footprint");
+        var wrong = pad(ctx, new BlockPos(390000, 80, 360000), preset.depth(), preset.width(), Direction.NORTH, "Wrong rotation footprint");
+        var right = pad(ctx, new BlockPos(390128, 80, 360000), preset.depth(), preset.width(), Direction.EAST, "Swapped rotation footprint");
         TestWaits.afterLoaded(ctx, 20, () ->
         {
             var bed = fixture.get();

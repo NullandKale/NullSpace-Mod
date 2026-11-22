@@ -158,7 +158,8 @@ class GameTestHygieneTest
         if (!launches(source.text()))
             return List.of();
         var out = new ArrayList<String>();
-        var matcher = Pattern.compile("\\.setChunkForced\\([^;]*,\\s*true\\)").matcher(source.text());
+        // Any flag but a literal false forces it: a helper that passes its own flag through hid a hold from the waits (0.9.0).
+        var matcher = Pattern.compile("\\.setChunkForced\\([^;]*,\\s*+(?!false\\s*\\))[^,;()]*\\)").matcher(source.text());
         while (matcher.find())
             out.add(source.name() + ": forces a chunk loaded with setChunkForced (at character " + matcher.start() + ") in a file that launches, lands or recovers ships; use TestWaits.hold");
         return out;
@@ -452,6 +453,7 @@ class GameTestHygieneTest
 
         var forced = new Source("SomeGameTest", withoutComments("void f() {\n    TravelService.transfer(a, b, c, d);\n    level.setChunkForced(x, z, true);\n}"));
         assertEquals(1, untrackedHolds(forced).size());
+        assertEquals(1, untrackedHolds(new Source("SomeGameTest", withoutComments("void f(boolean on) {\n    TravelService.transfer(a, b, c, d);\n    level.setChunkForced(x, z, on);\n}"))).size());
         var held = new Source("SomeGameTest", withoutComments("void f() {\n    TravelService.transfer(a, b, c, d);\n    TestWaits.hold(ctx, level, x, z);\n    level.setChunkForced(x, z, false);\n}"));
         assertEquals(0, untrackedHolds(held).size());
         var elsewhere = new Source("SomeGameTest", withoutComments("void f() {\n    level.setChunkForced(x, z, true);\n}"));

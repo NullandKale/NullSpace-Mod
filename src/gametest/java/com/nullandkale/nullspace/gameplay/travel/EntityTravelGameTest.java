@@ -99,22 +99,38 @@ public final class EntityTravelGameTest
         return slot;
     }
 
-    /** Holds the orbit area of the next few free ship slots loaded, so a launch never waits for entities there. */
-    public static void holdOrbit(ServerLevel space, int first, boolean on)
+    /** Holds the orbit area of the next few free ship slots loaded, so a launch never waits for entities there; the test's waits load them first. */
+    public static void holdOrbit(GameTestHelper ctx, ServerLevel space, int first)
     {
         for (int slot = first; slot < first + 4; slot++)
-            hold(space, slot * TravelService.SPACE_SPACING - 2, slot * TravelService.SPACE_SPACING + 33, -2, 33, on);
+            hold(ctx, space, slot * TravelService.SPACE_SPACING - 2, slot * TravelService.SPACE_SPACING + 33, -2, 33);
     }
 
-    public static void hold(ServerLevel level, int minX, int maxX, int minZ, int maxZ, boolean on)
+    public static void releaseOrbit(GameTestHelper ctx, ServerLevel space, int first)
+    {
+        for (int slot = first; slot < first + 4; slot++)
+            release(ctx, space, slot * TravelService.SPACE_SPACING - 2, slot * TravelService.SPACE_SPACING + 33, -2, 33);
+    }
+
+    /**
+     * Holds the chunks over an area loaded through {@link TestWaits#hold}, so {@code TestWaits.afterLoaded} waits for their entities: forced directly, the
+     * wait did not know them, ran on after its fixed ticks, and a launch on a busy machine found "Ship passengers are still loading" (0.9.0).
+     */
+    public static void hold(GameTestHelper ctx, ServerLevel level, int minX, int maxX, int minZ, int maxZ)
     {
         for (int x = minX >> 4; x <= maxX >> 4; x++)
             for (int z = minZ >> 4; z <= maxZ >> 4; z++)
             {
-                level.setChunkForced(x, z, on);
-                if (on)
-                    level.getChunk(x, z);
+                TestWaits.hold(ctx, level, x, z);
+                level.getChunk(x, z);
             }
+    }
+
+    public static void release(GameTestHelper ctx, ServerLevel level, int minX, int maxX, int minZ, int maxZ)
+    {
+        for (int x = minX >> 4; x <= maxX >> 4; x++)
+            for (int z = minZ >> 4; z <= maxZ >> 4; z++)
+                TestWaits.release(ctx, level, x, z);
     }
 
     /** Builds the small reference ship (7 x 7) on a pad registered by name; the bed itself is made later, once its entities have loaded. */
@@ -126,11 +142,11 @@ public final class EntityTravelGameTest
         var helm = ShipTestFixture.build(level, base);
         String name = "EntityTravel " + UUID.randomUUID().toString().substring(0, 6);
         registerPad(ctx, base, name);
-        hold(level, base.getX() - 2, base.getX() + 9, base.getZ() - 2, base.getZ() + 9, true);
+        hold(ctx, level, base.getX() - 2, base.getX() + 9, base.getZ() - 2, base.getZ() + 9);
         var player = ctx.makeMockServerPlayerInLevel();
         player.teleportTo(base.getX() + 4.5, base.getY() + 3, base.getZ() + 3.5);
         int orbit = firstFreeSlot(server);
-        holdOrbit(server.getLevel(TravelService.SPACE), orbit, true);
+        holdOrbit(ctx, server.getLevel(TravelService.SPACE), orbit);
         return () ->
         {
             var ship = com.nullandkale.nullspace.gameplay.ship.structure.ShipTopology.resolve(level, helm);
@@ -145,7 +161,7 @@ public final class EntityTravelGameTest
         var level = ctx.getLevel();
         var server = level.getServer();
         var base = new BlockPos(310000 + slot * 128, 70, 260000);
-        hold(level, base.getX() - 2, base.getX() + 33, base.getZ() - 2, base.getZ() + 33, true);
+        hold(ctx, level, base.getX() - 2, base.getX() + 33, base.getZ() - 2, base.getZ() + 33);
         try
         {
             ShipYard.buildPad(level, base, 32, 32, "EntityYard " + UUID.randomUUID().toString().substring(0, 8));
@@ -159,7 +175,7 @@ public final class EntityTravelGameTest
         var player = ctx.makeMockServerPlayerInLevel();
         player.teleportTo(level, base.getX() - 2.5, base.getY() + 1, base.getZ() + 1.5, Set.of(), 0, 0, true);
         int orbit = firstFreeSlot(server);
-        holdOrbit(server.getLevel(TravelService.SPACE), orbit, true);
+        holdOrbit(ctx, server.getLevel(TravelService.SPACE), orbit);
         return () ->
         {
             var ship = ShipYardService.deliver(player, beacon, design);
@@ -323,7 +339,7 @@ public final class EntityTravelGameTest
     }
 
     /** Launches, checks, lands back on the same pad, checks again. Returns every problem found along the way. */
-    public static List<String> roundTrip(Bed bed, List<Entity> aboard, Set<UUID> snapping)
+    public static List<String> roundTrip(GameTestHelper ctx, Bed bed, List<Entity> aboard, Set<UUID> snapping)
     {
         var problems = new ArrayList<String>();
         var server = bed.level().getServer();
@@ -336,7 +352,7 @@ public final class EntityTravelGameTest
         int slot = 0;
         while (!TransferLocks.spaceSlotFree(server, slot))
             slot++;
-        hold(bed.space(), slot * TravelService.SPACE_SPACING - 2, slot * TravelService.SPACE_SPACING + 33, -17, 49, true);
+        hold(ctx, bed.space(), slot * TravelService.SPACE_SPACING - 2, slot * TravelService.SPACE_SPACING + 33, -17, 49);
         refuel(bed.level(), before);
         var launched = TravelService.transfer(bed.player(), bed.helm(), "", ShipService.preflight(bed.level(), bed.helm()));
         if (launched.outcome() != TravelService.Outcome.COMPLETED)
@@ -409,7 +425,7 @@ public final class EntityTravelGameTest
 
     public static void finish(GameTestHelper ctx, Bed bed, List<String> problems)
     {
-        holdOrbit(bed.space(), bed.orbit(), false);
+        releaseOrbit(ctx, bed.space(), bed.orbit());
         sweepOrbit(bed);
         var level = bed.level();
         for (var entity : HullEntities.inBounds(level, WorldStore.bounds(bed.ship())))
@@ -424,7 +440,7 @@ public final class EntityTravelGameTest
     // ------------------------------------------------------------------ the cases
 
     /** The bug report: two pigs on leads tied to a fence post could not travel. */
-    @GameTest(maxTicks = 100)
+    @GameTest(maxTicks = 400)
     public void pigsLeashedToAFencePostTravelWithTheShip(GameTestHelper ctx)
     {
         var make = referenceBed(ctx, 0);
@@ -439,12 +455,12 @@ public final class EntityTravelGameTest
             pigA.setLeashedTo(knot, true);
             pigB.setLeashedTo(knot, true);
             var wolf = spawn(level, EntityTypes.WOLF, base.offset(2, 3, 4));
-            finish(ctx, bed, roundTrip(bed, List.of(pigA, pigB, wolf, knot), Set.of()));
+            finish(ctx, bed, roundTrip(ctx, bed, List.of(pigA, pigB, wolf, knot), Set.of()));
         });
     }
 
     /** Fence posts in several places, a lead held by the player, a lead between animals, and a post left outside the ship. */
-    @GameTest(maxTicks = 200)
+    @GameTest(maxTicks = 400)
     public void everyKindOfLeashSurvivesALaunchAndALanding(GameTestHelper ctx)
     {
         var make = catalogBed(ctx, 1, "rivet_ranger");
@@ -495,7 +511,7 @@ public final class EntityTravelGameTest
             stray.setLeashedTo(outsidePost, true);
             aboard.add(stray);
             snaps.add(stray.getUUID());
-            var problems = roundTrip(bed, aboard, snaps);
+            var problems = roundTrip(ctx, bed, aboard, snaps);
             LeashFenceKnotEntity.getKnot(level, wall).ifPresent(Entity::discard);
             level.setBlock(wall, Blocks.AIR.defaultBlockState(), 18);
             finish(ctx, bed, problems);
@@ -503,7 +519,7 @@ public final class EntityTravelGameTest
     }
 
     /** A failed move puts the pigs back on their post at the other end of the journal. */
-    @GameTest(maxTicks = 120)
+    @GameTest(maxTicks = 400)
     public void pigsOnAFencePostComeBackWhenALaunchIsRolledBack(GameTestHelper ctx)
     {
         var make = referenceBed(ctx, 2);
@@ -585,13 +601,13 @@ public final class EntityTravelGameTest
         // Every design launches in this one tick, to the first free orbit slot. Other tests hold some slots, so the free one
         // is not always the same, and a slot's entities load over ticks: hold the first eight now, so the wait below loads them.
         var space = ctx.getLevel().getServer().getLevel(TravelService.SPACE);
-        holdOrbit(space, 0, true);
-        holdOrbit(space, 4, true);
+        holdOrbit(ctx, space, 0);
+        holdOrbit(ctx, space, 4);
         TestWaits.afterLoaded(ctx, 120, () ->
         {
             animalsOnEveryDesign(ctx, sites);
-            holdOrbit(space, 0, false);
-            holdOrbit(space, 4, false);
+            releaseOrbit(ctx, space, 0);
+            releaseOrbit(ctx, space, 4);
         });
     }
 
@@ -619,7 +635,7 @@ public final class EntityTravelGameTest
             pigA.setLeashedTo(knot, true);
             pigB.setLeashedTo(knot, true);
             var wolf = spawn(level, EntityTypes.WOLF, cells.get(4));
-            for (var problem : roundTrip(bed, List.of(pigA, pigB, wolf, knot), Set.of()))
+            for (var problem : roundTrip(ctx, bed, List.of(pigA, pigB, wolf, knot), Set.of()))
                 failures.add(preset.name + " - " + problem);
             for (var entity : HullEntities.inBounds(level, WorldStore.bounds(bed.ship())))
                 if (!(entity instanceof ServerPlayer))
@@ -714,7 +730,7 @@ public final class EntityTravelGameTest
                 aboard.add(entity);
             }
             ctx.assertTrue(aboard.size() >= 100, "The sweep covers most of the registry: " + aboard.size() + " types, skipped " + skipped);
-            finish(ctx, bed, roundTrip(bed, aboard, Set.of()));
+            finish(ctx, bed, roundTrip(ctx, bed, aboard, Set.of()));
         });
     }
 }

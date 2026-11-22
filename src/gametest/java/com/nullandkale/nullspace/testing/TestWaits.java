@@ -39,6 +39,23 @@ public final class TestWaits
     }
 
     /**
+     * Lets a chunk this test held go again: the test's waits no longer wait for it, and it is no longer forced once no other test holds it. Tests running side
+     * by side hold the same orbit slots; one that let them go while another still waited for them left that wait looking at chunks that would never load.
+     */
+    public static void release(GameTestHelper ctx, ServerLevel level, int chunkX, int chunkZ)
+    {
+        var chunk = new Held(level, new ChunkPos(chunkX, chunkZ).pack());
+        synchronized (HELD)
+        {
+            var held = HELD.get(ctx);
+            if (held != null)
+                held.remove(chunk);
+            if (HELD.values().stream().noneMatch(others -> others.contains(chunk)))
+                level.setChunkForced(chunkX, chunkZ, false);
+        }
+    }
+
+    /**
      * Runs {@code then} once at least {@code minTicks} have passed and every chunk this test holds has its entities. With none held it is a plain delay. The
      * test's own tick limit ends a wait that never finishes.
      */
