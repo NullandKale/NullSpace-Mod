@@ -314,6 +314,19 @@ class GameTestHygieneTest
         return out;
     }
 
+    /**
+     * A loop that calls a server tick step until something is done, all in one tick: what the step waits for (entities and chunks loading on other threads)
+     * cannot arrive in between, so the loop runs out on a busy machine. Let the server's own tick do the work and wait with {@code TestWaits.until}.
+     */
+    static List<String> sameTickWaits(Source source)
+    {
+        var out = new ArrayList<String>();
+        var loop = Pattern.compile("(?:for\\s*\\([^;\\n]*;[^;\\n]*![^;\\n]*;|while\\s*\\([^\\n]*!)[^\\n]*\\)\\s*\\{?\\s*(?:[a-z]\\w*\\.)*(StationBuilds\\.tickBuilds)\\(").matcher(source.text());
+        while (loop.find())
+            out.add(source.name() + ": loops " + loop.group(1) + " until it is done within one tick (at character " + loop.start() + "); wait for the server's own tick with TestWaits.until");
+        return out;
+    }
+
     /** An environment that a test names and that has no file: the test would not start. */
     static List<String> missingEnvironments(Source source)
     {
@@ -397,6 +410,12 @@ class GameTestHygieneTest
     }
 
     @Test
+    void noTestWaitsForTickWorkWithinOneTick() throws IOException
+    {
+        none(sources().stream().flatMap(s -> sameTickWaits(s).stream()).collect(Collectors.toList()));
+    }
+
+    @Test
     void everyNamedEnvironmentHasItsFile() throws IOException
     {
         none(sources().stream().flatMap(s -> missingEnvironments(s).stream()).collect(Collectors.toList()));
@@ -467,6 +486,8 @@ class GameTestHygieneTest
         var fresh = new Source("SomeGameTest", withoutComments("void f() {\n    Runnable[] poll = {null};\n    poll[0] = () ->\n    {\n        if (!ready())\n        {\n            ctx.runAfterDelay(5, () -> poll[0].run());\n            return;\n        }\n    };\n    ctx.runAfterDelay(5, poll[0]);\n}"));
         assertEquals(0, selfSchedulingCallbacks(fresh).size());
 
+        assertEquals(1, sameTickWaits(new Source("SomeGameTest", withoutComments("void f() {\n    for (int i = 0; i < 100 && !StationAccess.ready(station); i++)\n        StationBuilds.tickBuilds(server);\n}"))).size());
+        assertEquals(0, sameTickWaits(new Source("SomeGameTest", withoutComments("void f() {\n    for (int pause = 0; pause < 3; pause++)\n        StationBuilds.tickBuilds(server);\n}"))).size());
         assertEquals(1, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w(int waited) {\n    if (ready || waited >= 150)\n        then.run();\n}"))).size());
         assertEquals(1, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w() {\n    if (crews.values().stream().allMatch(m -> m.tagged()) || tries[0] > 40)\n        then.run();\n}"))).size());
         assertEquals(0, waitsThatCarryOnWithout(new Source("SomeGameTest", withoutComments("void w() {\n    TestWaits.until(ctx, () -> ready, then);\n    if (++tries[0] > 40)\n        ctx.fail(\"never came\");\n}"))).size());

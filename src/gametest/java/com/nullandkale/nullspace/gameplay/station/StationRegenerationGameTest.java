@@ -83,20 +83,33 @@ public final class StationRegenerationGameTest
         ctx.assertTrue(blocksBefore == blocksAfter, "An unexpected visitor pauses regeneration instead of being cleared with the station");
         visitor.teleportTo(base.getX() + 50, base.getY() + 3, base.getZ() + 8);
         server.getPlayerList().remove(visitor);
-        for (int i = 0; i < 100 && !StationAccess.ready(station); i++)
-            StationBuilds.tickBuilds(server);
-        ctx.assertTrue(StationAccess.ready(station) && DockingPorts.ports(level, station).size() == 2, "Both current compact ports exist after replay");
-        ctx.assertTrue(WorldStore.pos(station, "base").equals(base), "Station identity and location survive regeneration");
-        ctx.assertTrue(level.getEntities(null, WorldStore.bounds(station).box()).stream().noneMatch(e -> e instanceof net.minecraft.world.entity.item.ItemEntity), "Old container contents are reset without dropping duplicate cargo into space");
-        ctx.assertTrue(level.getBlockState(outside).is(Blocks.DIAMOND_BLOCK), "Blocks outside the station remain intact");
-        var barrel = chest;
-        var inventory = (net.minecraft.world.Container) level.getBlockEntity(barrel);
-        inventory.setItem(0, new ItemStack(Items.DIAMOND, 7));
-        var archive = file.resolveSibling("station-regeneration-queued-" + request.get("id").getAsString() + ".json");
-        Files.copy(archive, file, StandardCopyOption.REPLACE_EXISTING);
-        ctx.assertTrue(StationRegeneration.applyPending(server) == 0 && StationAccess.ready(station), "A completed request never rebuilds on revisit");
-        ctx.assertTrue(inventory.getItem(0).is(Items.DIAMOND) && inventory.getItem(0).getCount() == 7, "Later station edits and cargo survive duplicate requests");
-        store.ships().removeIf(t -> Set.of(id, other.getStringOr("id", "")).contains(((CompoundTag) t).getStringOr("id", "")));
-        ctx.succeed();
+        // The server's own build tick replays the station: a rebuild first waits for the entities of its area to load, which takes ticks of their own.
+        com.nullandkale.nullspace.testing.TestWaits.until(ctx, () -> StationAccess.ready(station), () ->
+        {
+            try
+            {
+                ctx.assertTrue(StationAccess.ready(station) && DockingPorts.ports(level, station).size() == 2, "Both current compact ports exist after replay");
+                ctx.assertTrue(WorldStore.pos(station, "base").equals(base), "Station identity and location survive regeneration");
+                ctx.assertTrue(level.getEntities(null, WorldStore.bounds(station).box()).stream().noneMatch(e -> e instanceof net.minecraft.world.entity.item.ItemEntity), "Old container contents are reset without dropping duplicate cargo into space");
+                ctx.assertTrue(level.getBlockState(outside).is(Blocks.DIAMOND_BLOCK), "Blocks outside the station remain intact");
+                var barrel = chest;
+                var inventory = (net.minecraft.world.Container) level.getBlockEntity(barrel);
+                inventory.setItem(0, new ItemStack(Items.DIAMOND, 7));
+                var archive = file.resolveSibling("station-regeneration-queued-" + request.get("id").getAsString() + ".json");
+                Files.copy(archive, file, StandardCopyOption.REPLACE_EXISTING);
+                ctx.assertTrue(StationRegeneration.applyPending(server) == 0 && StationAccess.ready(station), "A completed request never rebuilds on revisit");
+                ctx.assertTrue(inventory.getItem(0).is(Items.DIAMOND) && inventory.getItem(0).getCount() == 7, "Later station edits and cargo survive duplicate requests");
+                store.ships().removeIf(t -> Set.of(id, other.getStringOr("id", "")).contains(((CompoundTag) t).getStringOr("id", "")));
+                ctx.succeed();
+            }
+            catch (RuntimeException failed)
+            {
+                throw failed;
+            }
+            catch (Exception failed)
+            {
+                throw new IllegalStateException(failed);
+            }
+        });
     }
 }

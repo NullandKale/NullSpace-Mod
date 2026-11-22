@@ -12,6 +12,8 @@ The native GameTests run about ninety at a time on one server in one world, so a
 
 5. **Never hand a callback back to the scheduler from inside itself.** The framework keeps scheduled callbacks in a map keyed by the `Runnable` and removes the entry of the one it has just run, so `poll[0] = () -> { ... ctx.runAfterDelay(5, poll[0]); }` is dropped the first time it reschedules, and the poll silently stops: the test waits out its tick limit. This hid in a wait that only rescheduled when a chunk was slow to load, so it passed on an idle machine and timed out on a busy one. Schedule a new lambda each time: `ctx.runAfterDelay(5, () -> poll[0].run())`.
 
+6. **Never wait within one tick for work the server does over ticks.** `for (int i = 0; i < 100 && !StationAccess.ready(station); i++) StationBuilds.tickBuilds(server);` runs every step in the same tick, so nothing that loads on other threads can arrive between them. A station rebuild first waits for the entities of its area to load, and under the release check's load they had not: the loop ran out and the test failed on "Both current compact ports exist after replay" (0.9.0). Let the server's own tick do the work and wait with `TestWaits.until`. Calling a tick step a fixed number of times to check that it does nothing (a paused build) is fine.
+
 The test also checks that every environment a test names has its file, and that the scan still sees the tests (so a moved folder cannot make the rules pass by finding nothing). Its last test feeds each rule a sample that must be found and one that must not.
 
 ## Graphical tests

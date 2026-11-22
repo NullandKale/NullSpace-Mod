@@ -93,6 +93,8 @@ public final class CourseClientGameTest implements FabricClientGameTest
                 if (i == 219)
                     throw new AssertionError("Outbound course timed out");
             }
+            // The course arrives once the hull has joined the berth; the crew's arrival behind the loading screen finishes before the helm opens.
+            com.nullandkale.nullspace.gameplay.station.StationClientGameTest.docked(c, world, id[0], 900);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();

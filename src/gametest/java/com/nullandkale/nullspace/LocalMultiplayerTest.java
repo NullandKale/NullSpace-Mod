@@ -250,6 +250,12 @@ public final class LocalMultiplayerTest
         return c.level != null && c.level.dimension().equals(TravelService.SPACE) && c.gui.screen() == null;
     }
 
+    /** In space after a jump: a jump keeps open screens open, so a ship terminal may still be up (the pilot's helm, the crew's terminal under a closed view). */
+    private static boolean jumped(net.minecraft.client.Minecraft c)
+    {
+        return c.level != null && c.level.dimension().equals(TravelService.SPACE) && (c.gui.screen() == null || c.gui.screen() instanceof TerminalScreen);
+    }
+
     private static void action(ClientGameTestContext ctx, ComputerTerminal.Action action)
     {
         if (ctx.computeOnClient(c -> c.gui.screen() instanceof TerminalScreen t && t.shipController()))
@@ -562,7 +568,7 @@ public final class LocalMultiplayerTest
                     dedicated.runOnServer(s -> SceneService.observer(s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow()).putInt("nextJourneySeconds", 4));
                     ShipControlTestUi.action(ctx, ShipControl.Action.JUMP);
                     String sceneId = route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";
-                    waitFor(ctx, c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
+                    waitFor(ctx, c -> jumped(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
                     String phase = route.equals("sol_luna") ? "luna" : "home";
                     verifyComputeScene(ctx, phase);
                     await(ctx, "crew-" + phase);
@@ -853,7 +859,7 @@ public final class LocalMultiplayerTest
         {
             await(ctx, "jump-" + phase);
             String sceneId = phase.equals("luna") ? "nullspace:sol_luna" : "nullspace:local-space";
-            waitFor(ctx, c -> space(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
+            waitFor(ctx, c -> jumped(c) && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().equals(sceneId), 6000);
             verifyComputeScene(ctx, phase);
             signal("crew-" + phase);
         }

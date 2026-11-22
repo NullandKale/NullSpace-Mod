@@ -320,6 +320,9 @@ public final class CourseService
             finish(server, ship, "PAUSED", "Destination moved or is unavailable. Choose a new course.");
             return;
         }
+        // A hull joining its berth moves beside it behind the loading screen after it clamps: the course has arrived once it has joined.
+        if (atDock(ship, target) && dock.getBooleanOr("join", false) && !dock.getBooleanOr("joined", false))
+            return;
         if (atPad(ship, target) || atDock(ship, target))
         {
             finish(server, ship, "ARRIVED", "Arrived at " + target.name() + (atDock(ship, target) ? ". Open the dock door to walk through." : ""));
