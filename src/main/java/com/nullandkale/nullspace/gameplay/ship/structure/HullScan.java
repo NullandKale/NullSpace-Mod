@@ -50,6 +50,9 @@ public final class HullScan
             fail(level, "The helm is outside this pad. Move it above the grass or dirt interior.", controller);
         Set<BlockPos> blocks = new HashSet<>();
         var docking = DockingTunnel.positions(level);
+        // A docked hull stands against its berth's area: the berth's blocks are another vessel's, never this hull's.
+        var store = com.nullandkale.nullspace.core.save.WorldStore.get(level.getServer());
+        var own = level.dimension().equals(com.nullandkale.nullspace.gameplay.travel.TravelService.SPACE) ? store.at(level, controller) : null;
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         queue.add(controller);
         var queued = new HashSet<BlockPos>();
@@ -66,6 +69,8 @@ public final class HullScan
                 continue;
             // A pad's own computer and a delivery beacon stand at the pad edge, and are never part of the ship, even when the hull's ground step touches one.
             if (state.is(com.nullandkale.nullspace.gameplay.pads.PadComputers.BLOCK) || state.is(ModBlocks.SHIP_BEACON))
+                continue;
+            if (!allowed.contains(pos) && own != null && store.at(level, pos) != null && store.at(level, pos) != own)
                 continue;
             if (!allowed.contains(pos))
                 fail(level, "This connected block extends outside the pad or above the 32-block height limit. Move" + " it inside the build area.", pos);

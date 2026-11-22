@@ -135,8 +135,23 @@ public final class DockingManeuver
         double gap = StationConstruction.protrusion(p.level(), own, sourcePort) + StationConstruction.protrusion(p.level(), target, destination) + .05;
         if (gap > 4.05)
             return new Readiness(false, "The docking door is recessed more than four blocks behind the hull. Move the Docking" + " Base outward or clear blocks in front of it.");
+        // The hulls will stand side by side, joined by a docking arm: the ship stops where its blocks can stand beside the berth. A berth too deep in its
+        // station for an arm, or with no room beside it, is docked as before: the hulls stay apart and the crew board through the door.
+        boolean join = true;
+        try
+        {
+            int arm = DockJoin.gap(p.level(), own, sourcePort, target, destination);
+            DockJoin.placement(p.level(), own, sourcePort, target, destination, arm, DockJoin.hull(p.level(), own));
+            gap = arm;
+        }
+        catch (IllegalArgumentException apart)
+        {
+            join = false;
+            NullSpace.LOGGER.info("Docking {} at {} without joining the hulls: {}", own.getStringOr("home", "Ship"), target.getStringOr("home", "a berth"), apart.getMessage());
+        }
         var d = new CompoundTag();
         d.putDouble("gap", gap);
+        d.putBoolean("join", join);
         d.putString("source", DockingService.id(own));
         d.putString("target", DockingService.id(target));
         d.putLong("sourcePort", sourcePort.controller().subtract(WorldStore.pos(own, "base")).asLong());
@@ -374,7 +389,8 @@ public final class DockingManeuver
             case "APPROACHING" -> "Docking: approaching the selected port.";
             case "ALIGNING" -> "Docking: aligning with the selected port.";
             case "CONNECTING" -> "Docking: making the final approach.";
-            case "CLAMPED" -> "Docked. Open the dock door and walk through.";
+            case "CLAMPED" -> own.getCompoundOrEmpty("dock").getBooleanOr("join", false) ? "Docked. Open the dock door and walk through the docking arm." : "Docked. Open the dock door and walk through.";
+            case "SEPARATING" -> "Undocking: separating from the berth.";
             case "UNDOCKING" -> "Undocking: backing away from the port.";
             case "WAITING_CONSENT" -> "Docking: waiting for the other ship to accept.";
             default -> "Docking " + (blocked ? "stopped: " : "") + message;
@@ -439,6 +455,30 @@ public final class DockingManeuver
             depart(server, level, own, d);
             return;
         }
+        if (phase.equals("SEPARATING"))
+        {
+            // A joined visitor first goes back to an area of its own, then backs away as any other.
+            own.putInt("thrustDemand", 0);
+            // The move and the crew's arrival behind the loading screen finish first.
+            if (TransferLocks.inTransit(server, own))
+                return;
+            if (d.getBooleanOr("joined", false))
+                DockJoin.requestSeparation(server, level, own);
+            else
+            {
+                // The release is heard once the hull and its crew stand in their own area: played as Undock was pressed, the move would leave it behind.
+                if (d.getBooleanOr("releaseSound", false))
+                {
+                    d.remove("releaseSound");
+                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, Vec3.atCenterOf(WorldStore.pos(own, "base").offset(WorldStore.pos(d, "sourcePort"))), "dock.release");
+                }
+                d.putString("state", d.getStringOr("then", "UNDOCKING"));
+                d.remove("then");
+                d.putLong("expires", server.overworld().getGameTime() + 12000);
+                reportFlight(server, own, d.getStringOr("state", ""), false);
+            }
+            return;
+        }
         try
         {
             var source = DockingPorts.readPort(level, own, WorldStore.pos(own, "base").offset(WorldStore.pos(d, "sourcePort")), !phase.equals("CLAMPED") && !phase.equals("UNDOCKING"));
@@ -455,14 +495,30 @@ public final class DockingManeuver
             }
             if (phase.equals("CLAMPED"))
             {
+                // The clamp, heard once the hull stands where it stays (beside the berth when joined), at its docking door, by both crews.
+                if (d.getBooleanOr("clampSound", false) && (!d.getBooleanOr("join", false) || d.getBooleanOr("joined", false)) && !TransferLocks.inTransit(server, own))
+                {
+                    d.remove("clampSound");
+                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, Vec3.atCenterOf(source.outer()), "dock.clamp");
+                }
                 if (d.getBooleanOr("construction", false))
                 {
                     StationConstruction.commissionConstruction(server, target);
                     if (!d.getBooleanOr("construction", false))
                         return;
                 }
-                DockingTunnel.ensure(server, d, source, destination);
                 own.putInt("thrustDemand", 0);
+                // While the hull is moving to the berth or back, its blocks and the area round it are reserved: wait.
+                if (TransferLocks.inTransit(server, own))
+                    return;
+                if (d.getBooleanOr("join", false) && !d.getBooleanOr("joined", false))
+                {
+                    DockJoin.requestJoin(server, level, own, target);
+                    return;
+                }
+                DockingTunnel.ensure(server, d, source, destination);
+                if (d.getBooleanOr("joined", false))
+                    reportFlight(server, own, "CLAMPED", false);
                 return;
             }
             if (phase.equals("UNDOCKING"))
@@ -545,8 +601,9 @@ public final class DockingManeuver
                     pose(own, next);
                     d.putString("state", "CLAMPED");
                     saveEscape(d, standOff.position());
-                    // Played once clamped, so the other vessel's crew hear it as through their own docking door.
-                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(level, Vec3.atCenterOf(source.outer()), "dock.clamp");
+                    // The clamp is heard once the hull is where it stays (see the CLAMPED step): a joined hull first moves beside the berth behind the
+                    // loading screen, which would leave a sound played now behind it.
+                    d.putBoolean("clampSound", true);
                     WorldStore.get(server).requestSave();
                 }
             }

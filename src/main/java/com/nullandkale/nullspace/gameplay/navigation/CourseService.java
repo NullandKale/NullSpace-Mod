@@ -290,7 +290,7 @@ public final class CourseService
         String phase = dock.getStringOr("state", "");
         if (course.getStringOr("state", "").equals("STOPPING"))
         {
-            if (JourneyService.cruising(ship) || phase.equals("UNDOCKING") || phase.equals("EMERGENCY_BACKOFF"))
+            if (JourneyService.cruising(ship) || phase.equals("SEPARATING") || phase.equals("UNDOCKING") || phase.equals("EMERGENCY_BACKOFF"))
                 return;
             if (!phase.isBlank() && !phase.equals("CLAMPED"))
             {

@@ -44,7 +44,8 @@ Changing region or dimension needs the client to discard one scene and load anot
 Launching, landing and boarding move players and blocks, and keep a fade ([`TransitFade`](../../src/main/java/com/nullandkale/nullspace/model/flight/TransitFade.java)):
 
 - Dimension transfers fade out over **0.4 seconds**, switch, and fade back in once the destination is ready.
-- Walking through a docking door (boarding) uses a shorter **0.12-second** fade.
+- A docked hull joining its berth, or separating from it, moves its crew with the same fade; crossing between joined hulls is a walk with no fade (see [docking](space-encounters-and-docking.md#two-hulls-one-walk)).
+- Walking through the door of a dock whose hulls stand apart (boarding) uses a shorter **0.12-second** fade.
 - The curve is a smoothstep from the clock, not from frames or loading time, so it looks the same on a slow load.
 - Physical transfers also wait for the player's terrain section to be compiled before revealing, and the existing scene readiness and arrival acknowledgements still protect loading (see [independent ship actions](independent-ship-actions.md)).
 
@@ -54,7 +55,7 @@ A captured tunnel stays usable if either ship loses power. **Undock** needs cont
 
 ## Looking through a docking port
 
-Two docked ships have different orientations in space. When a passenger steps through a port, [`BoardingView.between`](../../src/main/java/com/nullandkale/nullspace/model/docking/BoardingView.java) converts their look direction from the source ship's frame into the destination ship's frame. Walking forward through opposing ports leaves the player looking into the receiving cabin, while deliberate sideways looks and head tilt are kept. The return trip uses the same conversion, and the saved reconnect target stores the corrected angles, so logging out in the middle of boarding is safe.
+Two joined vessels share an orientation, so walking across needs no conversion. Two docked ships whose hulls stand apart have different orientations in space. When a passenger steps through such a port, [`BoardingView.between`](../../src/main/java/com/nullandkale/nullspace/model/docking/BoardingView.java) converts their look direction from the source ship's frame into the destination ship's frame. Walking forward through opposing ports leaves the player looking into the receiving cabin, while deliberate sideways looks and head tilt are kept. The return trip uses the same conversion, and the saved reconnect target stores the corrected angles, so logging out in the middle of boarding is safe.
 
 ## Where this is tested
 

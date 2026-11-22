@@ -166,7 +166,7 @@ public final class SoundGameTest
         Synths.command(level, ship, helm, List.of("preset", "alarm.lowair"));
         Synths.command(level, ship, helm, List.of("from", "1000"));
         var synth = (SynthBlockEntity) level.getBlockEntity(synthAt);
-        ctx.assertTrue(synth.patch().loop() && synth.patch().toneFrom() == 1000 && Synths.command(level, ship, helm, List.of("dump")).startsWith("tone square 1000"), "A preset and a setting change the block's patch: " + synth.patch().text());
+        ctx.assertTrue(synth.patch().loop() && synth.patch().toneFrom() == 1000 && Synths.command(level, ship, helm, List.of("dump")).startsWith("tone sine 1000"), "A preset and a setting change the block's patch: " + synth.patch().text());
         ctx.assertTrue(Synths.silence(level, synthAt).isEmpty(), "The ship powers its Synth: " + Synths.silence(level, synthAt));
         ctx.assertTrue(Synths.command(level, ship, helm, List.of("play")).equals("Playing (loop)"), "A loop starts");
         String key = "synth:" + level.dimension().identifier() + ":" + synthAt.asLong();

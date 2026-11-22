@@ -9,10 +9,25 @@ class SoundCuesTest
     @Test
     void everyCueTheGamePlaysIsInTheBundledFile()
     {
-        for (String name : new String[]{"ship.hum", "ftl.jolt", "ftl.drone", "air.hiss", "air.refill", "air.leak", "alarm.lowair", "alarm.breach", "engine.hum", "dock.clamp", "dock.release", "rcs.puff", "weapon.fire", "turret.fire", "hull.impact"})
+        for (String name : new String[]{"ship.hum", "ftl.jolt", "ftl.drone", "air.hiss", "air.refill", "air.leak", "air.suit", "alarm.lowair", "engine.hum", "dock.clamp", "dock.release", "rcs.puff", "weapon.fire", "turret.fire", "hull.impact"})
             assertFalse(SoundCues.get(name).isEmpty(), name);
         assertTrue(SoundCues.preset("ftl.drone").loop() && SoundCues.preset("ship.hum").loop());
         assertNull(SoundCues.preset("made.up"));
+    }
+
+    /** The game has no sirens and no buzz: a sound that keeps playing holds a steady, smooth tone (a sine at one pitch), or none. */
+    @Test
+    void noLoopingCueWailsOrBuzzes()
+    {
+        for (String name : SoundCues.names())
+            for (var layer : SoundCues.get(name))
+            {
+                var patch = layer.patch();
+                if (!patch.loop() || patch.wave() == SynthPatch.Wave.OFF)
+                    continue;
+                assertEquals(SynthPatch.Wave.SINE, patch.wave(), name + " loops a square wave, which buzzes");
+                assertEquals(patch.toneFrom(), patch.toneTo(), 1e-4, name + " sweeps its pitch up and down while it loops, like a siren");
+            }
     }
 
     @Test

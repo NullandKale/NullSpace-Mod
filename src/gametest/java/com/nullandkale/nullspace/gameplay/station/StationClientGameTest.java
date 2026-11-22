@@ -36,18 +36,79 @@ import com.mojang.blaze3d.platform.InputConstants;
 /** Real terminal packets and loading-screen acknowledgments, without synthetic readiness. */
 public final class StationClientGameTest implements FabricClientGameTest
 {
-    public static void walkThrough(ClientGameTestContext c, TestSingleplayerContext world, CompoundTag vessel, BlockPos base)
+    /** A docked visitor and its berth as they stand once their hulls have joined: their ids and the Docking Bases under their two doors. */
+    public record Docked(String visitor, String host, BlockPos visitorDoor, BlockPos hostDoor)
+    {}
+
+    private static CompoundTag vessel(net.minecraft.server.MinecraftServer server, String id)
     {
-        world.getServer().runOnServer(server ->
+        return WorldStore.get(server).repository().find(id);
+    }
+
+    /**
+     * Waits for {@code visitor} to clamp and join its berth (its hull moved beside the berth, with the crew, behind the fade) and for the fade to clear, and
+     * returns where the two doors now are. Joining replaces the saved records, so read them again by id afterwards.
+     */
+    public static Docked docked(ClientGameTestContext c, TestSingleplayerContext world, String visitor, int ticks)
+    {
+        ClientWaits.waitFor(world.getServer(), server ->
+        {
+            var v = vessel(server, visitor);
+            var d = v == null ? new CompoundTag() : v.getCompoundOrEmpty("dock");
+            return d.getStringOr("state", "").equals("CLAMPED") && d.getBooleanOr("joined", false) && !TransferLocks.inTransit(server, v) && !TransferLocks.busy(world.getConnection().getServerPlayer()) && !CourseService.active(v);
+        }, ticks);
+        ClientWaits.waitFor(c, mc -> !(mc.gui.screen() instanceof com.nullandkale.nullspace.ui.screen.TravelScreen), 200);
+        // The clamp is heard beside the berth, where the crew now are, after the loading screen.
+        ClientWaits.waitFor(c, mc -> com.nullandkale.nullspace.render.sound.ClientSounds.heard("dock.clamp") > .3 && com.nullandkale.nullspace.render.sound.ClientSounds.heardHere("dock.clamp") > 0, 200);
+        return world.getServer().computeOnServer(server ->
+        {
+            var v = vessel(server, visitor);
+            var d = v.getCompoundOrEmpty("dock");
+            var h = vessel(server, d.getStringOr("target", ""));
+            return new Docked(visitor, h.getStringOr("id", ""), WorldStore.pos(v, "base").offset(WorldStore.pos(d, "sourcePort")), WorldStore.pos(h, "base").offset(WorldStore.pos(d, "targetPort")));
+        });
+    }
+
+    /**
+     * Walks from one joined vessel into the other with real input: from the chamber behind {@code fromDoor}, a click opens that door, the player walks the
+     * docking arm, a click opens the far door, and they walk on into the other vessel, which makes them its crew.
+     */
+    public static void walkThrough(ClientGameTestContext c, TestSingleplayerContext world, String from, BlockPos fromDoor, String to, BlockPos toDoor)
+    {
+        float yaw = world.getServer().computeOnServer(server ->
         {
             var p = world.getConnection().getServerPlayer();
             p.closeContainer();
-            var port = DockingPorts.readPort(p.level(), vessel, base, false);
+            var port = DockingPorts.readPort(p.level(), vessel(server, from), fromDoor, false);
             var at = port.anchors().getFirst();
             p.teleportTo(p.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), port.facing().toYRot(), 0, true);
+            return port.facing().toYRot();
         });
         ClientWaits.waitFor(c, mc -> mc.gui.screen() == null, 100);
         c.waitTicks(8);
+        openDoor(c, world, fromDoor);
+        c.getInput().lookAt(yaw, 0);
+        // Part of the arm may lie inside the far vessel's area (its hull ahead of its door), so progress is measured from the far door, outward along its facing.
+        walk(c, world, () -> outward(world, to, toDoor) < 2.3);
+        openDoor(c, world, toDoor);
+        c.getInput().lookAt(yaw, 0);
+        walk(c, world, () -> outward(world, to, toDoor) < -.7);
+        ClientWaits.waitFor(world.getServer(), server -> vessel(server, to).getListOrEmpty("crew").stream().anyMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(world.getConnection().getServerPlayer().getUUID().toString())), 60);
+    }
+
+    /** How far the player stands outside the door over {@code base}, along the door's outward facing: negative once they are through it, in the cabin. */
+    private static double outward(TestSingleplayerContext world, String vessel, BlockPos base)
+    {
+        return world.getServer().computeOnServer(server ->
+        {
+            var p = world.getConnection().getServerPlayer();
+            var port = DockingPorts.readPort(p.level(), vessel(server, vessel), base, false);
+            return p.position().subtract(net.minecraft.world.phys.Vec3.atBottomCenterOf(port.outer())).dot(com.nullandkale.nullspace.model.docking.DockingMotion.normal(port.facing()));
+        });
+    }
+
+    private static void openDoor(ClientGameTestContext c, TestSingleplayerContext world, BlockPos base)
+    {
         c.getInput().lookAt(base.above());
         c.waitTicks(3);
         boolean open = world.getServer().computeOnServer(server -> ShipDoors.open(world.getConnection().getServerPlayer().level().getBlockState(base.above())));
@@ -56,13 +117,19 @@ public final class StationClientGameTest implements FabricClientGameTest
             c.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
             ClientWaits.waitFor(world.getServer(), server -> ShipDoors.open(world.getConnection().getServerPlayer().level().getBlockState(base.above())), 100);
         }
-        float yaw = world.getServer().computeOnServer(server -> DockingPorts.readPort(world.getConnection().getServerPlayer().level(), vessel, base, false).facing().toYRot());
-        c.getInput().lookAt(yaw, 0);
-        double startX = world.getServer().computeOnServer(server -> world.getConnection().getServerPlayer().getX());
+    }
+
+    private static void walk(ClientGameTestContext c, TestSingleplayerContext world, java.util.function.BooleanSupplier arrived)
+    {
         c.getInput().holdKey(InputConstants.KEY_W);
         try
         {
-            ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.player != null && Math.abs(mc.player.getX() - startX) > 100, 600);
+            for (int tick = 0; !arrived.getAsBoolean(); tick++)
+            {
+                if (tick > 400)
+                    throw new AssertionError("The player did not get across the docking arm; standing at " + world.getServer().computeOnServer(server -> world.getConnection().getServerPlayer().position()));
+                c.waitTicks(1);
+            }
         }
         finally
         {
@@ -140,7 +207,19 @@ public final class StationClientGameTest implements FabricClientGameTest
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(5).contains("Test station"), 200);
             c.takeScreenshot("nullspace-unified-docking");
             ShipControlTestUi.action(c, ShipControl.Action.ENGAGE);
-            ClientWaits.waitFor(world.getServer(), server -> vessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, vessels[0]) && !CourseService.active(vessels[0]), 1800);
+            var ids = new String[]{world.getServer().computeOnServer(server -> vessels[0].getStringOr("id", "")), world.getServer().computeOnServer(server -> vessels[1].getStringOr("id", ""))};
+            var docked = docked(c, world, ids[0], 1800);
+            // Joining moved the ship's blocks and replaced the saved records: read them again.
+            world.getServer().runOnServer(server ->
+            {
+                vessels[0] = vessel(server, ids[0]);
+                vessels[1] = vessel(server, ids[1]);
+                doors[0] = docked.visitorDoor();
+                doors[1] = docked.hostDoor();
+                var p = world.getConnection().getServerPlayer();
+                if (!WorldStore.bounds(vessels[0]).contains(p.blockPosition()))
+                    throw new AssertionError("The crew move with the hull to the berth");
+            });
             c.runOnClient(mc ->
             {
                 if (mc.gui.screen() != null)
@@ -150,7 +229,6 @@ public final class StationClientGameTest implements FabricClientGameTest
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
-                doors[1] = WorldStore.pos(vessels[1], "base").offset(WorldStore.pos(vessels[0].getCompoundOrEmpty("dock"), "targetPort"));
                 var at = DockingPorts.readPort(p.level(), vessels[0], doors[0], true).anchors().getFirst();
                 p.teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
                 MachineMenus.open(p, doors[0]);
@@ -171,7 +249,25 @@ public final class StationClientGameTest implements FabricClientGameTest
                         throw new AssertionError("Blackout fixture still has controls power");
                 }
             });
-            walkThrough(c, world, vessels[0], doors[0]);
+            // The docking arm from the ship's chamber, seen through its open door.
+            world.getServer().runOnServer(server ->
+            {
+                var p = world.getConnection().getServerPlayer();
+                var port = DockingPorts.readPort(p.level(), vessels[0], doors[0], false);
+                var at = port.anchors().getFirst();
+                ShipDoors.setOpen(p.level(), doors[0].above(), true);
+                ShipDoors.setOpen(p.level(), doors[1].above(), true);
+                p.teleportTo(p.level(), at.getX() + .5, at.getY(), at.getZ() + .5, Set.of(), port.facing().toYRot(), 8, true);
+            });
+            ClientWaits.chunksRendered(world.getConnection());
+            c.waitTicks(10);
+            c.takeScreenshot("nullspace-docking-arm");
+            world.getServer().runOnServer(server ->
+            {
+                ShipDoors.setOpen(world.getConnection().getServerPlayer().level(), doors[0].above(), false);
+                ShipDoors.setOpen(world.getConnection().getServerPlayer().level(), doors[1].above(), false);
+            });
+            walkThrough(c, world, ids[0], doors[0], ids[1], doors[1]);
             c.takeScreenshot("nullspace-docked-blackout-arrival");
             world.getServer().runOnServer(server ->
             {
@@ -272,7 +368,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                     ShipSystems.tick(server.getLevel(TravelService.SPACE), vessel);
                 }
             });
-            walkThrough(c, world, vessels[1], doors[1]);
+            walkThrough(c, world, ids[1], doors[1], ids[0], doors[0]);
             world.getServer().runOnServer(server ->
             {
                 for (int i = 0; i < 2; i++)
@@ -290,8 +386,36 @@ public final class StationClientGameTest implements FabricClientGameTest
             });
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             c.waitTicks(4);
+            Object releaseBefore = c.computeOnClient(mc -> com.nullandkale.nullspace.render.sound.ClientSounds.latest("dock.release"));
+            String before = world.getServer().computeOnServer(server -> "propulsion " + com.nullandkale.nullspace.gameplay.navigation.NavigationService.propulsion(server.getLevel(TravelService.SPACE), vessel(server, ids[0])) + ", dock " + vessel(server, ids[0]).getCompoundOrEmpty("dock") + ", station crew " + vessel(server, ids[1]).getListOrEmpty("crew"));
             ShipControlTestUi.action(c, ShipControl.Action.UNDOCK);
-            ClientWaits.waitFor(world.getServer(), server -> !vessels[0].contains("dock"), 600);
+            c.waitTicks(10);
+            String screen = c.computeOnClient(mc ->
+            {
+                if (!(mc.gui.screen() instanceof TerminalScreen t))
+                    return String.valueOf(mc.gui.screen());
+                var rows = new StringBuilder();
+                for (int row = 0; row < 24; row++)
+                    rows.append(t.buffer().row(row).strip()).append(" | ");
+                return rows.toString();
+            });
+            // The hull first moves to an area of its own (with the player, behind the fade), then backs away.
+            try
+            {
+                ClientWaits.waitFor(world.getServer(), server -> vessel(server, ids[0]) != null && !vessel(server, ids[0]).contains("dock"), 900);
+            }
+            catch (AssertionError stuck)
+            {
+                String after = world.getServer().computeOnServer(server -> vessel(server, ids[0]).getStringOr("flightStatus", "") + " " + vessel(server, ids[0]).getCompoundOrEmpty("dock"));
+                throw new AssertionError("Undocking never finished. Before: " + before + ". Terminal: " + screen + ". Now: " + after, stuck);
+            }
+            // The release is heard where the crew now are, after the loading screen, not left behind at the berth.
+            ClientWaits.waitFor(c, mc -> com.nullandkale.nullspace.render.sound.ClientSounds.latest("dock.release") != releaseBefore && com.nullandkale.nullspace.render.sound.ClientSounds.heard("dock.release") > .3 && com.nullandkale.nullspace.render.sound.ClientSounds.heardHere("dock.release") > 0, 200);
+            world.getServer().runOnServer(server ->
+            {
+                if (!WorldStore.bounds(vessel(server, ids[0])).contains(world.getConnection().getServerPlayer().blockPosition()))
+                    throw new AssertionError("The crew leave with the hull");
+            });
             ClientWaits.waitFor(world.getServer(), server -> !TransferLocks.busy(world.getConnection().getServerPlayer()), 100);
             ClientTestEvidence.passed(getClass());
         }

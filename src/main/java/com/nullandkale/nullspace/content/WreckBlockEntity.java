@@ -19,6 +19,9 @@ public final class WreckBlockEntity extends BlockEntity
         super(BrokenMachines.TYPE, pos, state);
     }
 
+    /** How loud a burning wreck crackles: Minecraft's fire, a little quieter (the sound gallery plays it at this). */
+    public static final float FIRE_VOLUME = .6f;
+
     static void clientTick(Level level, BlockPos pos, BlockState state, WreckBlockEntity wreck)
     {
         var random = level.getRandom();
@@ -30,6 +33,6 @@ public final class WreckBlockEntity extends BlockEntity
         if (random.nextInt(25) == 0)
             level.addParticle(ParticleTypes.FLAME, x, pos.getY() + 1.0, z, 0, .02, 0);
         if (random.nextInt(80) == 0)
-            level.playLocalSound(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, .6f, .8f + random.nextFloat() * .4f, false);
+            level.playLocalSound(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, FIRE_VOLUME, .8f + random.nextFloat() * .4f, false);
     }
 }

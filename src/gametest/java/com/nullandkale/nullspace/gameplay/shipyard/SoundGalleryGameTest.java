@@ -19,7 +19,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.LeverBlock;
 
-/** The sound gallery: every cue the game plays on a stand, a lever for each loop and a button for the rest, and pulling and pressing them plays the cue. */
+/**
+ * The sound gallery: every cue the game plays on a stand, and the Minecraft sounds it borrows, a lever for each loop and a button for the rest, and pulling and
+ * pressing them plays the sound.
+ */
 public final class SoundGalleryGameTest
 {
     @GameTest(environment = "nullspace:sound_gallery", maxTicks = 900)
@@ -75,25 +78,35 @@ public final class SoundGalleryGameTest
             var button = level.getBlockState(clampAt.above());
             ((ButtonBlock) button.getBlock()).press(button, level, clampAt.above(), null);
             ctx.assertTrue(ShipSounds.recent(server).getLast().equals("gallery-listener dock.clamp muffle 0.0"), "The button plays the clamp: " + ShipSounds.recent(server));
-            // The hearing row's last stand: a hit on the hull as through a wall.
-            var southX = SoundGallery.columns(south);
-            var wall = south.size() - 1;
-            BlockPos wallAt = null;
-            for (int dx = 0; dx < northX[northX.length - 1] + 8 && wallAt == null; dx++)
-            {
-                var at = origin.offset(dx, 1, SoundGallery.SOUTH_Z);
-                if (level.getBlockEntity(at) instanceof SynthBlockEntity synth && south.get(wall).cue().equals(synth.cue()))
-                    wallAt = at;
-            }
-            ctx.assertTrue(wallAt != null, "The hearing row has its hull hit through a wall (" + southX.length + " stands)");
-            listener.teleportTo(level, wallAt.getX() + .5, origin.getY() + 1, origin.getZ() + SoundGallery.DEPTH / 2.0, Set.of(), 0, 0, true);
-            var wallButton = level.getBlockState(wallAt.above());
-            ((ButtonBlock) wallButton.getBlock()).press(wallButton, level, wallAt.above(), null);
+            // A borrowed Minecraft sound: the iron ship door closing, played as the game plays it.
+            press(ctx, level, listener, origin, north, northX, SoundGallery.NORTH_Z, "ship door", "iron, closing");
+            ctx.assertTrue(ShipSounds.recent(server).getLast().equals("gallery-listener minecraft:block.iron_trapdoor.close muffle 0.0"), "The button plays the door's own sound: " + ShipSounds.recent(server));
+            // The hearing row: a hit on the hull and a ship door as through a wall, and the explosion as heard through a hull.
+            var southX = SoundGallery.hearingColumns();
+            press(ctx, level, listener, origin, south, southX, SoundGallery.SOUTH_Z, "hull.impact", "a wall");
             ctx.assertTrue(ShipSounds.recent(server).getLast().equals("gallery-listener hull.impact muffle " + Hearing.rooms(RoomAcoustics.WALL)), "It is heard as through a wall: " + ShipSounds.recent(server));
+            press(ctx, level, listener, origin, south, southX, SoundGallery.SOUTH_Z, "ship door shut", "a wall");
+            ctx.assertTrue(ShipSounds.recent(server).getLast().equals("gallery-listener minecraft:block.iron_trapdoor.close muffle " + Hearing.rooms(RoomAcoustics.WALL)), "The door is heard quieter, as through a wall: " + ShipSounds.recent(server));
+            press(ctx, level, listener, origin, south, southX, SoundGallery.SOUTH_Z, "explosion", "through a hull");
+            ctx.assertTrue(ShipSounds.recent(server).getLast().equals("gallery-listener nullspace:muffled_explosion muffle 0.0"), "Through a hull an explosion is its muffled recording: " + ShipSounds.recent(server));
             // A second visit builds the hall again in the same place.
             ctx.assertTrue(SoundGallery.build(server).equals(origin) && level.getBlockEntity(engineAt) instanceof SynthBlockEntity again && !again.playing(), "A second build replaces the first");
             server.getPlayerList().remove(listener);
             ctx.succeed();
         });
+    }
+
+    /** Stands the listener in front of the named stand and presses its button. */
+    private static void press(GameTestHelper ctx, net.minecraft.server.level.ServerLevel level, ServerPlayer listener, BlockPos origin, java.util.List<SoundGallery.Stand> row, int[] x, int z, String name, String detail)
+    {
+        int i = 0;
+        while (i < row.size() && !(row.get(i).name().equals(name) && row.get(i).detail().equals(detail)))
+            i++;
+        ctx.assertTrue(i < row.size(), "The gallery has a stand for " + name + ", " + detail);
+        var at = origin.offset(x[i], 1, z);
+        ctx.assertTrue(level.getBlockEntity(at) instanceof SynthBlockEntity synth && row.get(i).cue().equals(synth.cue()), "The stand for " + name + ", " + detail + " stands at " + at);
+        listener.teleportTo(level, at.getX() + .5, origin.getY() + 1, origin.getZ() + SoundGallery.DEPTH / 2.0, Set.of(), 0, 0, true);
+        var button = level.getBlockState(at.above());
+        ((ButtonBlock) button.getBlock()).press(button, level, at.above(), null);
     }
 }

@@ -73,6 +73,8 @@ final class DockingThrusters
     static void stop(MinecraftServer server, CompoundTag own)
     {
         ServerContext.get(server).service(STEPS, HashMap::new).remove(DockingService.id(own));
+        // A docked hull moves to its berth and back, so it is measured afresh next time.
+        ServerContext.get(server).service(HULLS, HashMap::new).remove(DockingService.id(own));
     }
 
     /** The turn from one pose to the next in the hull's own frame, as an axis scaled by the angle in radians. */

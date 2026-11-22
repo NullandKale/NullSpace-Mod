@@ -176,7 +176,8 @@ public final class ShipService
             if (vessel == null)
                 throw new IllegalArgumentException("No registered ship occupies this area");
             BlockPos base = WorldStore.pos(vessel, "base");
-            var pad = new PadScanner.Pad(base.getX(), base.getX() + 31, base.getY() - 1, base.getZ(), base.getZ() + 31);
+            // A docked hull's area fits it exactly, with its berth just beyond: the scan stays inside the ship's own area.
+            var pad = new PadScanner.Pad(base.getX(), base.getX() + vessel.getIntOr("width", 32) - 1, base.getY() - 1, base.getZ(), base.getZ() + vessel.getIntOr("depth", 32) - 1);
             return new Inspection(HullScan.inspect(level, controller, pad, false, LooseBlocks.approved(level, controller), reviewing), null, vessel, base);
         }
         var pads = PadRegistry.below(level, controller).stream().toList();

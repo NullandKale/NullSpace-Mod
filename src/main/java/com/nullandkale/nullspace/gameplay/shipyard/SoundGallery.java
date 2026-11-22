@@ -35,8 +35,9 @@ import net.minecraft.world.phys.Vec3;
  * Every sound cue on a stand, in a lit hall for listening. {@code /nullspace shipyard sounds} builds it. Each stand is a Synth block that plays its cue exactly
  * as the game does (every layer, and the live values the game would give it), with a button on top for a sound that plays once or a lever for one that loops,
  * and a sign saying what it is. The north row has every cue in groups, with the live values that matter side by side (a small leak and a rushing one, light
- * and full thrust, the alarm at the threshold and with almost no air). The south row plays the same sounds clear, through a closed door, through two and
- * through a wall, as the hearing rules muffle them. A stand's screen shows the cue's patch; changing it there makes the stand an ordinary Synth to tune from.
+ * and full thrust, the alarm at the threshold and with almost no air), then the Minecraft sounds the game borrows for its own things (ship doors, suits, a
+ * burning wreck). The south row plays sounds clear, through a closed door, through two and through a wall, as the hearing rules muffle them, and an explosion
+ * clear and through a hull. A stand's screen shows the cue's patch; changing it there makes the stand an ordinary Synth to tune from.
  * The hall is rebuilt in the same place each visit.
  */
 public final class SoundGallery
@@ -82,9 +83,9 @@ public final class SoundGallery
         out.add(new Stand("AIR", DyeColor.CYAN, "air.leak", "rushing breach", breach(150)));
         out.add(new Stand("AIR", DyeColor.CYAN, "air.refill", "room filling", cue("air.refill", AirSounds.refillVolume(50), 1, AirSounds.refillBrightness(50), 1, 0)));
         out.add(new Stand("AIR", DyeColor.CYAN, "air.refill", "nearly full", cue("air.refill", AirSounds.refillVolume(90), 1, AirSounds.refillBrightness(90), 1, 0)));
-        out.add(new Stand("ALARMS", DyeColor.RED, "alarm.lowair", "air 39%", cue("alarm.lowair", AirSounds.ALARM_VOLUME, 1, 0, AirSounds.alarmRate(39), 0)));
-        out.add(new Stand("ALARMS", DyeColor.RED, "alarm.lowair", "air 5%", cue("alarm.lowair", AirSounds.ALARM_VOLUME, 1, 0, AirSounds.alarmRate(5), 0)));
-        out.add(new Stand("ALARMS", DyeColor.RED, "alarm.breach", "hull venting", cue("alarm.breach", AirSounds.KLAXON_VOLUME, 1, 0, 1, 0)));
+        out.add(new Stand("ALARMS", DyeColor.RED, "air.suit", "on suit air", cue("air.suit", AirSounds.SUIT_VOLUME, 1, 0, 1, 0)));
+        out.add(new Stand("ALARMS", DyeColor.RED, "alarm.lowair", "air " + (AirSounds.DYING - 1) + "%", cue("alarm.lowair", AirSounds.ALARM_VOLUME, 1, 0, AirSounds.alarmRate(AirSounds.DYING - 1), 0)));
+        out.add(new Stand("ALARMS", DyeColor.RED, "alarm.lowair", "air 2%", cue("alarm.lowair", AirSounds.ALARM_VOLUME, 1, 0, AirSounds.alarmRate(2), 0)));
         out.add(new Stand("ENGINES", DyeColor.ORANGE, "engine.hum", "light thrust", engine(.1, 0, 0)));
         out.add(new Stand("ENGINES", DyeColor.ORANGE, "engine.hum", "half thrust", engine(.5, .5, 0)));
         out.add(new Stand("ENGINES", DyeColor.ORANGE, "engine.hum", "full, at speed", engine(1, 1, 0)));
@@ -95,10 +96,31 @@ public final class SoundGallery
         out.add(new Stand("COMBAT", DyeColor.MAGENTA, "turret.fire", "turret shot", new Cue("turret.fire")));
         out.add(new Stand("COMBAT", DyeColor.MAGENTA, "hull.impact", "hit on the hull", new Cue("hull.impact")));
         out.add(new Stand("AMBIENCE", DyeColor.LIGHT_GRAY, "ship.hum", "aboard in space", cue("ship.hum", ShipAmbience.VOLUME, 1, 0, 1, 0)));
+        // Minecraft's sounds that the game chooses for its own things, played as the game plays them.
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "ship door", "iron, opening", recording("minecraft:block.iron_trapdoor.open", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "ship door", "iron, closing", recording("minecraft:block.iron_trapdoor.close", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "ship door", "wood, opening", recording("minecraft:block.wooden_trapdoor.open", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "ship door", "wood, closing", recording("minecraft:block.wooden_trapdoor.close", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "space suit", "putting it on", recording("minecraft:item.armor.equip_iron", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "armored suit", "putting it on", recording("minecraft:item.armor.equip_netherite", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "wreck", "burning", recording("minecraft:block.fire.ambient", com.nullandkale.nullspace.content.WreckBlockEntity.FIRE_VOLUME, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "golden tree", "picking fruit", recording("minecraft:block.sweet_berry_bush.pick_berries", 1, 1, 0)));
+        out.add(new Stand("BORROWED", DyeColor.GREEN, "green fluid", "filling a bucket", recording("minecraft:item.bucket.fill", 1, 1, 0)));
         return out;
     }
 
-    /** The south row: a loop and a one-shot clear, through a closed door, through two and through a wall. */
+    /** How the client plays an explosion: four times as loud as a block's sound, lower. */
+    static final float BLAST_VOLUME = 4, BLAST_PITCH = .7f;
+
+    private static Cue recording(String sound, float volume, float pitch, float muffle)
+    {
+        return new Cue(sound, volume, pitch, 0, 1, muffle);
+    }
+
+    /**
+     * The south row: a loop and a one-shot clear, through a closed door, through two and through a wall; a ship door (one of Minecraft's sounds, which can only
+     * be made quieter) the same way; and an explosion, clear and as the muffled recording heard through a hull or a door.
+     */
     public static List<Stand> hearing()
     {
         String[] where = {"clear", "closed door", "two doors", "a wall"};
@@ -108,6 +130,10 @@ public final class SoundGallery
             out.add(new Stand("HEARING ENGINE", DyeColor.WHITE, "engine.hum full", where[i], engine(1, 1, muffle[i])));
         for (int i = 0; i < where.length; i++)
             out.add(new Stand("HEARING HIT", DyeColor.WHITE, "hull.impact", where[i], cue("hull.impact", 1, 1, 0, 1, muffle[i])));
+        for (int i = 0; i < where.length; i++)
+            out.add(new Stand("HEARING DOOR", DyeColor.WHITE, "ship door shut", where[i], recording("minecraft:block.iron_trapdoor.close", 1, 1, muffle[i])));
+        out.add(new Stand("HEARING BLAST", DyeColor.WHITE, "explosion", "clear", recording("minecraft:entity.generic.explode", BLAST_VOLUME, BLAST_PITCH, 0)));
+        out.add(new Stand("HEARING BLAST", DyeColor.WHITE, "explosion", "through a hull", recording("nullspace:muffled_explosion", BLAST_VOLUME, BLAST_PITCH, 0)));
         return out;
     }
 
@@ -121,7 +147,7 @@ public final class SoundGallery
                 var server = player.level().getServer();
                 var origin = build(server);
                 player.teleportTo(server.overworld(), origin.getX() + 2.5, origin.getY() + 1, origin.getZ() + DEPTH / 2.0, Set.of(), -90, 10, true);
-                player.sendSystemMessage(Component.literal("Sound gallery, going east. North wall: every cue as the game plays it, in groups (travel, air, alarms, engines, docking, combat, terminal). South wall: the full engine and a hull hit, clear, through a closed door, through two and through a wall. Buttons play once; levers start and stop a loop. A stand's screen shows its patch; change it there to tune from it."));
+                player.sendSystemMessage(Component.literal("Sound gallery, going east. North wall: every cue as the game plays it, in groups (travel, air, alarms, engines, docking, combat, ambience), then the Minecraft sounds the game borrows. South wall: the full engine, a hull hit and a ship door, clear, through a closed door, through two and through a wall, then an explosion clear and through a hull. Buttons play once; levers start and stop a loop. A synth stand's screen shows its patch; change it there to tune from it."));
                 return 1;
             }
             catch (Exception error)

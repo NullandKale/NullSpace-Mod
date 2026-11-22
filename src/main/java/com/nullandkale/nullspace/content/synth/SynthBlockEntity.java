@@ -14,12 +14,22 @@ import net.minecraft.world.level.storage.ValueOutput;
  */
 public final class SynthBlockEntity extends BlockEntity
 {
-    /** A game cue with its live controls fixed: loudness, pitch, brightness, pace, and the least it is muffled. */
+    /**
+     * A game cue with its live controls fixed: loudness, pitch, brightness, pace, and the least it is muffled. A name with a namespace
+     * ({@code minecraft:block.iron_trapdoor.close}) is a Minecraft sound the game uses, played as a recording at that loudness and pitch, quieter by the muffle as
+     * Minecraft's sounds are heard through doors; brightness and pace do not apply to it.
+     */
     public record Cue(String name, float volume, float pitch, float brightness, float rate, float muffle)
     {
         public Cue(String name)
         {
             this(name, 1, 1, 0, 1, 0);
+        }
+
+        /** A Minecraft sound rather than one of the synth's cues. */
+        public boolean recording()
+        {
+            return name.contains(":");
         }
     }
 

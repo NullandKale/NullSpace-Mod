@@ -94,6 +94,7 @@ public final class NullSpace implements ModInitializer
         com.nullandkale.nullspace.gameplay.sound.ShipSounds.initialize();
         com.nullandkale.nullspace.content.synth.Synths.initialize();
         com.nullandkale.nullspace.gameplay.sound.SoundCommand.initialize();
+        com.nullandkale.nullspace.gameplay.scene.HoldingView.initialize();
         com.nullandkale.nullspace.gameplay.sound.TravelSounds.initialize();
         com.nullandkale.nullspace.gameplay.sound.ShipAmbience.initialize();
         com.nullandkale.nullspace.gameplay.systems.AirSounds.initialize();

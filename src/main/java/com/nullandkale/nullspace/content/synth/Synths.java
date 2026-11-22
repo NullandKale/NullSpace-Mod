@@ -100,7 +100,8 @@ public final class Synths
     /** Makes the block play one of the game's cues as the game plays it, until its patch is changed (the sound gallery's stands). */
     public static void cue(ServerLevel level, BlockPos pos, SynthBlockEntity.Cue cue)
     {
-        var first = SoundCues.preset(cue.name());
+        // A recording has no patch: the block keeps the plain default one, which is what tuning starts from if its patch is changed.
+        var first = cue.recording() ? SynthPatch.DEFAULT : SoundCues.preset(cue.name());
         if (first == null)
             throw new IllegalArgumentException("No cue called " + cue.name());
         at(level, pos).cue(cue, first);
@@ -120,7 +121,9 @@ public final class Synths
             return "Playing (loop)";
         }
         var cue = synth.cue();
-        if (cue != null)
+        if (cue != null && cue.recording())
+            ShipSounds.recording(level, Vec3.atCenterOf(pos), Identifier.parse(cue.name()), cue.volume(), cue.pitch(), cue.muffle());
+        else if (cue != null)
             ShipSounds.play(level, Vec3.atCenterOf(pos), cue.name(), null, cue.volume(), cue.pitch(), cue.brightness(), cue.rate(), cue.muffle());
         else
             ShipSounds.play(level, Vec3.atCenterOf(pos), "", synth.patch(), 1, 1);

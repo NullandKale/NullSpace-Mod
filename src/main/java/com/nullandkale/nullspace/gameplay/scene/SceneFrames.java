@@ -233,7 +233,25 @@ public final class SceneFrames
         data.putString("dimension", level.dimension().identifier().toString());
         data.putString("observer", ship.getStringOr("id", ""));
         var subjects = new ListTag();
-        SceneService.neighbours(level.getServer(), level.dimension().identifier().toString(), ship).forEach(t -> SceneService.addSubject(subjects, level, t));
+        // Vessels joined at a dock stand beside the observer's blocks and are drawn as blocks, not as pictures over them.
+        var joined = com.nullandkale.nullspace.gameplay.docking.DockJoin.group(level.getServer(), ship).stream().filter(t -> t != ship).toList();
+        SceneService.neighbours(level.getServer(), level.dimension().identifier().toString(), ship).stream().filter(t -> joined.stream().noneMatch(j -> j == t)).forEach(t -> SceneService.addSubject(subjects, level, t));
+        if (!joined.isEmpty())
+            for (var tag : subjects)
+                if (((CompoundTag) tag).getStringOr("id", "").equals(ship.getStringOr("id", "")))
+                {
+                    var areas = new ListTag();
+                    for (var other : joined)
+                    {
+                        var area = new CompoundTag();
+                        area.putLong("base", other.getLongOr("base", 0));
+                        area.putInt("width", other.getIntOr("width", 32));
+                        area.putInt("height", other.getIntOr("height", 32));
+                        area.putInt("depth", other.getIntOr("depth", 32));
+                        areas.add(area);
+                    }
+                    ((CompoundTag) tag).put("joined", areas);
+                }
         data.put("subjects", subjects);
         data.putLong("seed", SceneCatalog.get(level.getServer()).getLongOr("seed", 79419843));
         SceneService.deliver(player, new Frame(UUID.fromString(ship.getStringOr("id", "")), level.getServer().getTickCount(), data));

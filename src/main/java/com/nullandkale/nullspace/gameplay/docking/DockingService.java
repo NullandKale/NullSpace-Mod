@@ -136,6 +136,8 @@ public final class DockingService
                     throw new IllegalArgumentException("No outgoing docking maneuver");
                 if (s.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"))
                     throw new IllegalArgumentException("Use Undock after capture");
+                if (s.getCompoundOrEmpty("dock").getStringOr("state", "").equals("SEPARATING"))
+                    throw new IllegalArgumentException("Wait for the ship to separate from the berth");
                 DockingManeuver.release(server, s, "Docking cancelled; ship stopped");
             }
             case "DOCK_DECLINE" ->
@@ -170,6 +172,10 @@ public final class DockingService
             {
                 if (d == null || !d.getStringOr("state", "").equals("CLAMPED"))
                     throw new IllegalArgumentException("Wait for automatic capture before boarding");
+                if (d.getBooleanOr("joined", false))
+                    throw new IllegalArgumentException("Walk through the docking arm to board");
+                if (d.getBooleanOr("join", false))
+                    throw new IllegalArgumentException("Wait for the hulls to join, then walk through the docking arm");
                 var source = find(server, d.getStringOr("source", ""));
                 var target = find(server, d.getStringOr("target", ""));
                 boolean forward = s == source;
@@ -230,6 +236,16 @@ public final class DockingService
                         }
                     }
                 d.putString("state", "EMERGENCY_BACKOFF");
+                if (!d.getBooleanOr("joined", false))
+                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(p.level(), net.minecraft.world.phys.Vec3.atCenterOf(WorldStore.pos(s, "base").offset(WorldStore.pos(d, "sourcePort"))), "dock.release");
+                if (d.getBooleanOr("joined", false))
+                {
+                    // The hull leaves its berth for an area of its own before backing away; its release is heard once it has.
+                    d.putBoolean("releaseSound", true);
+                    DockingTunnel.retract(server, d);
+                    d.putString("state", "SEPARATING");
+                    d.putString("then", "EMERGENCY_BACKOFF");
+                }
                 WorldStore.get(server).requestSave();
             }
             case "DOCK_UNDOCK" ->
@@ -254,8 +270,18 @@ public final class DockingService
                     intact &= DockingPorts.closeSurviving(p.level(), target, WorldStore.pos(target, "base").offset(WorldStore.pos(d, "targetPort")));
                 if (!intact)
                     notice = "Undocking from the damaged berth. Surviving doors are closed; repair any hull" + " leaks.";
-                com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(p.level(), net.minecraft.world.phys.Vec3.atCenterOf(WorldStore.pos(source, "base").offset(WorldStore.pos(d, "sourcePort"))), "dock.release");
+                // A joined hull is heard releasing once it has separated (see DockingManeuver's SEPARATING step).
+                if (!d.getBooleanOr("joined", false))
+                    com.nullandkale.nullspace.gameplay.sound.ShipSounds.play(p.level(), net.minecraft.world.phys.Vec3.atCenterOf(WorldStore.pos(source, "base").offset(WorldStore.pos(d, "sourcePort"))), "dock.release");
                 d.putString("state", "UNDOCKING");
+                if (d.getBooleanOr("joined", false))
+                {
+                    d.putBoolean("releaseSound", true);
+                    // The hull leaves its berth for an area of its own before backing away.
+                    DockingTunnel.retract(server, d);
+                    d.putString("state", "SEPARATING");
+                    d.putString("then", "UNDOCKING");
+                }
                 d.putLong("expires", server.overworld().getGameTime() + 12000);
                 WorldStore.get(server).requestSave();
             }
@@ -276,6 +302,8 @@ public final class DockingService
             }
             Boarding.tickBoarding(server);
             DockingPorts.walkThrough(server);
+            if (server.getTickCount() % 5 == 0)
+                DockJoin.crossings(server);
             if (server.getTickCount() % 40 == 0)
                 WorldStore.get(server).requestSave();
         });

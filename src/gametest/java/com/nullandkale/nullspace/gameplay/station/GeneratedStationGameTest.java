@@ -129,13 +129,24 @@ public final class GeneratedStationGameTest
                     tries[0] = 0;
                 }
                 var current = WorldStore.get(server).repository().find(ship.getStringOr("id", ""));
-                if (current == null || !current.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"))
+                if (current == null || !current.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") || !current.getCompoundOrEmpty("dock").getBooleanOr("joined", false) || com.nullandkale.nullspace.gameplay.travel.TransferLocks.busy(server, current))
                 {
                     if (++tries[0] > 120)
-                        ctx.assertTrue(false, "The ship never captured: " + (current == null ? "record missing" : current.getStringOr("flightStatus", "") + " " + current.getCompoundOrEmpty("dock")));
+                        ctx.assertTrue(false, "The ship never captured and joined the berth: " + (current == null ? "record missing" : current.getStringOr("flightStatus", "") + " " + current.getCompoundOrEmpty("dock")));
                     ctx.runAfterDelay(20, () -> poll[0].run());
                     return;
                 }
+                // The ship's blocks stand beside the generated station's berth, just outside its area, joined by a walkable arm.
+                var host = WorldStore.get(server).repository().find(station.getStringOr("id", ""));
+                var area = WorldStore.bounds(current).box();
+                ctx.assertTrue(!area.intersects(WorldStore.bounds(host).box()) && area.inflate(.5).intersects(WorldStore.bounds(host).box()), "The ship stands beside the generated station: " + area + " / " + WorldStore.bounds(host).box());
+                var berth = WorldStore.pos(host, "base").offset(WorldStore.pos(current.getCompoundOrEmpty("dock"), "targetPort"));
+                var facing = space.getBlockState(berth).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+                int arm = (int) Math.round(current.getCompoundOrEmpty("dock").getDoubleOr("gap", 0));
+                ctx.assertTrue(arm == 0 || com.nullandkale.nullspace.gameplay.docking.DockingTunnel.walkway(space, berth.above().relative(facing)), "The docking arm leads from the berth door: " + arm + " blocks");
+                ship.putLong("base", current.getLongOr("base", 0));
+                ship.putInt("width", current.getIntOr("width", 32));
+                ship.putInt("depth", current.getIntOr("depth", 32));
                 ctx.succeed();
             }
             catch (RuntimeException failure)

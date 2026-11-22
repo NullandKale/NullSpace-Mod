@@ -103,9 +103,24 @@ public final class TravelService
         int ticks;
         boolean moved;
         String targetDimension = "";
+        /** A docking join or separation, or null for launch, landing and the rest. */
+        final DockMove dock;
+
+        /** A docking move: within space, for whoever is aboard, with no pilot needed. */
+        Pending(UUID actor, BlockPos pos, ShipService.Inspection inspection, DockMove dock)
+        {
+            this.actor = actor;
+            this.computer = pos;
+            this.destination = "";
+            this.dock = dock;
+            sourceDimension = SPACE.identifier().toString();
+            ship = inspection.vessel().getStringOr("id", "");
+            sourceBounds = new HullScan.Bounds(inspection.base(), inspection.base().offset(inspection.vessel().getIntOr("width", 32) - 1, 31, inspection.vessel().getIntOr("depth", 32) - 1));
+        }
 
         Pending(ServerPlayer actor, BlockPos pos, String destination, ShipService.Inspection inspection)
         {
+            dock = null;
             this.actor = actor.getUUID();
             this.computer = pos;
             this.destination = destination;
@@ -241,9 +256,138 @@ public final class TravelService
         for (UUID id : pending.crew.keySet())
         {
             var player = server.getPlayerList().getPlayer(id);
-            if (player != null)
+            if (player != null && (pending.dock == null || ServerPlayNetworking.canSend(player, TravelPackets.Progress.TYPE)))
                 ServerPlayNetworking.send(player, new TravelPackets.Progress(pending.id, message, dimension, done));
         }
+    }
+
+    /**
+     * Starts a docking move of {@code vessel}: everyone in its hull is moved with it behind a short fade, and nobody else. A crew member whose client cannot
+     * show the fade counts as ready at once. Returns why it is waiting (crew outside the hull), or null when the move has started or has failed (failures go to
+     * the move's own handler).
+     */
+    public static String requestDock(ServerLevel level, CompoundTag vessel, UUID actor, DockMove move)
+    {
+        var server = level.getServer();
+        if (TransferLocks.busy(server, vessel))
+            return null;
+        ShipService.Inspection inspection;
+        DockMove.Placement placement;
+        try
+        {
+            inspection = ShipService.inspect(level, WorldStore.pos(vessel, "controller"));
+            placement = move.place().apply(inspection.scan());
+        }
+        catch (IllegalArgumentException problem)
+        {
+            move.failed().accept(ShipMessages.failure(problem));
+            return null;
+        }
+        var pending = new Pending(actor, WorldStore.pos(vessel, "controller"), inspection, move);
+        pending.targetBase = placement.transform().target();
+        pending.targetDimension = SPACE.identifier().toString();
+        pending.targetBounds = placement.transform().bounds(inspection.scan().bounds());
+        if (TransferLocks.areaBusy(level, pending.sourceBounds) || TransferLocks.areaBusy(level, pending.targetBounds))
+        {
+            move.failed().accept("Another ship's travel holds this area");
+            return null;
+        }
+        for (ServerPlayer member : level.players())
+            if (inspection.scan().bounds().box().intersects(member.getBoundingBox()) && member.isAlive() && !member.isSpectator())
+                pending.crew.put(member.getUUID(), member.position());
+        for (Tag tag : vessel.getListOrEmpty("crew"))
+        {
+            var member = level.getPlayerByUUID(UUID.fromString(((CompoundTag) tag).getStringOr("id", "")));
+            if (member instanceof ServerPlayer player && player.isAlive() && !player.isSpectator() && !pending.crew.containsKey(player.getUUID()))
+                return "waiting for " + player.getPlainTextName() + " to come back aboard";
+        }
+        for (var id : pending.crew.keySet())
+        {
+            var member = server.getPlayerList().getPlayer(id);
+            member.closeContainer();
+            if (!ServerPlayNetworking.canSend(member, TravelPackets.Progress.TYPE))
+                pending.ready.add(id);
+        }
+        NavigationService.closeShip(server, vessel.getStringOr("id", ""));
+        ShipSystems.cancelTransit(level, vessel);
+        pending(server).put(pending.id, pending);
+        broadcast(server, pending, move.operation().equals("undock") ? "Separating from the berth" : "Joining the docking arm", "", false);
+        return null;
+    }
+
+    /** The move a player is waiting on, as their client learns it from the progress packets; for tests that stand in for a client. */
+    public static Optional<UUID> pendingFor(ServerPlayer player)
+    {
+        return pending(player.level().getServer()).values().stream().filter(p -> p.crew.containsKey(player.getUUID())).map(p -> p.id).findFirst();
+    }
+
+    private static void tickDock(MinecraftServer server, Pending pending)
+    {
+        pending.ticks++;
+        if (pending.moved)
+        {
+            if (allOnline(server, pending, pending.arrived) || pending.ticks > 200)
+                arrive(server, pending);
+            return;
+        }
+        if (pending.ticks > 200)
+        {
+            failDock(server, pending, "a crew member's client did not get ready in time");
+            return;
+        }
+        if (pending.ticks < 2 || !allOnline(server, pending, pending.ready))
+            return;
+        var level = server.getLevel(SPACE);
+        try
+        {
+            ShipService.Inspection inspected;
+            try
+            {
+                inspected = ShipService.inspect(level, pending.computer);
+            }
+            catch (IllegalArgumentException changed)
+            {
+                failDock(server, pending, ShipMessages.failure(changed));
+                return;
+            }
+            var result = new ShipTransfer(level, pending, inspected).run();
+            if (result.outcome() == Outcome.WAITING)
+                return;
+            if (result.outcome() == Outcome.REJECTED)
+            {
+                failDock(server, pending, result.message());
+                return;
+            }
+            pending.moved = true;
+            pending.ticks = 0;
+            for (UUID id : pending.crew.keySet())
+            {
+                var player = server.getPlayerList().getPlayer(id);
+                if (player != null && !ServerPlayNetworking.canSend(player, TravelPackets.Progress.TYPE))
+                    pending.arrived.add(id);
+            }
+            broadcast(server, pending, "Docking arm", pending.targetDimension, false);
+        }
+        catch (Exception error)
+        {
+            NullSpace.LOGGER.error("Docking move failed", error);
+            try
+            {
+                TransferRecovery.recover(server);
+            }
+            catch (Exception recovery)
+            {
+                throw new IllegalStateException("Transfer recovery failed; server must stop before further world interactions", recovery);
+            }
+            failDock(server, pending, ShipMessages.failure(error));
+        }
+    }
+
+    private static void failDock(MinecraftServer server, Pending pending, String message)
+    {
+        NullSpace.LOGGER.info("Docking move {} of {} stopped: {}", pending.dock.operation(), pending.ship, message.replace('\n', ' '));
+        finish(server, pending, message);
+        pending.dock.failed().accept(message);
     }
 
     private static boolean allOnline(MinecraftServer server, Pending p, Set<UUID> set)
@@ -262,7 +406,10 @@ public final class TravelService
                     TransferRecovery.resolveArrival(player);
             }
         for (var job : List.copyOf(pending(server).values()))
-            tick(server, job);
+            if (job.dock != null)
+                tickDock(server, job);
+            else
+                tick(server, job);
     }
 
     private static void tick(MinecraftServer server, Pending pending)
@@ -335,24 +482,28 @@ public final class TravelService
             }
         }
         else if (allOnline(server, pending, pending.arrived) || pending.ticks > 200)
+            arrive(server, pending);
+    }
+
+    private static void arrive(MinecraftServer server, Pending pending)
+    {
+        for (UUID id : pending.crew.keySet())
         {
-            for (UUID id : pending.crew.keySet())
-            {
-                var player = server.getPlayerList().getPlayer(id);
-                if (player != null && !pending.arrived.contains(id))
-                    player.connection.disconnect(net.minecraft.network.chat.Component.literal("Arrival timed out. Reconnect to finish boarding safely."));
-                else if (player != null)
-                    TransferRecovery.clearTarget(player);
-            }
-            finish(server, pending, "Arrived");
+            var player = server.getPlayerList().getPlayer(id);
+            if (player != null && !pending.arrived.contains(id))
+                player.connection.disconnect(net.minecraft.network.chat.Component.literal("Arrival timed out. Reconnect to finish boarding safely."));
+            else if (player != null)
+                TransferRecovery.clearTarget(player);
         }
+        finish(server, pending, "Arrived");
     }
 
     private static void finish(MinecraftServer server, Pending pending, String message)
     {
         broadcast(server, pending, message, pending.targetDimension, true);
         pending(server).remove(pending.id, pending);
-        var actor = server.getPlayerList().getPlayer(pending.actor);
+        // A docking move tells its crew through the docking messages instead.
+        var actor = pending.dock == null ? server.getPlayerList().getPlayer(pending.actor) : null;
         if (actor != null)
             actor.sendSystemMessage(net.minecraft.network.chat.Component.literal(message));
     }

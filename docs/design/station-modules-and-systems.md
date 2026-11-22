@@ -68,7 +68,7 @@ Node identities survive a reload. Replacing a door creates a new node and invali
 | Navigation | The node graph finds routes. Blocked doors, permission, pressure and suit needs constrain a usable route |
 | Cargo and workshops | Ordinary inventories and machines. Adjacency never transfers items |
 
-Docking two vessels adds a controlled boarding connection. It does not merge their air or power. A station has no engines, ship controller or launch inspection and needs none.
+Docking two vessels joins them with a walkable docking arm. It does not merge their air or power. A station has no engines, ship controller or launch inspection and needs none.
 
 ## Where generation is deterministic
 
@@ -79,7 +79,7 @@ Placement is queued as a replayable list of blocks and placed in bounded work pe
 ## Not built
 
 - Rotated or vertical kit placement beyond quarter turns of a tile.
-- Utility sharing between docked vessels, and continuous rendering across docked ships' frames (boarding uses a short transition instead).
+- Utility sharing between docked vessels.
 - Full manufacturer-specific harbors: piers, rings and docking arms for a Rivet Exchange, Halcyon Observatory and Bastion Watchpost (see [procedural ships](procedural-ships.md)).
 
 ## Where this is tested

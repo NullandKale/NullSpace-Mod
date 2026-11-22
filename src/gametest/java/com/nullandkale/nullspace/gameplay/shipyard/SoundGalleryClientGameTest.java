@@ -35,10 +35,16 @@ public final class SoundGalleryClientGameTest implements FabricClientGameTest
                 origin[1] = at.getY();
                 origin[2] = at.getZ();
             });
-            var northX = SoundGallery.columns(SoundGallery.cues());
-            // Spectator views: the hall from the west end, the north row close up in two halves, the hearing row from across the aisle.
-            String[] names = {"hall", "north-west", "north-east", "hearing"};
-            double[][] views = {{1.5, 4.5, SoundGallery.DEPTH / 2.0, -90, 15}, {northX[4] + .5, 2.2, 7.5, 180, 15}, {northX[14] + .5, 2.2, 7.5, 180, 15}, {northX[12] + .5, 2.2, 5.5, 0, 15}};
+            var cues = SoundGallery.cues();
+            var northX = SoundGallery.columns(cues);
+            int borrowed = 0;
+            while (!cues.get(borrowed).group().equals("BORROWED"))
+                borrowed++;
+            var southX = SoundGallery.hearingColumns();
+            double middle = (southX[0] + southX[southX.length - 1]) / 2.0;
+            // Spectator views: the hall from the west end, the north row close up in three parts, the hearing row from across the aisle in two halves.
+            String[] names = {"hall", "north-west", "north-middle", "north-borrowed", "hearing-east", "hearing-west"};
+            double[][] views = {{1.5, 4.5, SoundGallery.DEPTH / 2.0, -90, 15}, {northX[4] + .5, 2.2, 7.5, 180, 15}, {northX[14] + .5, 2.2, 7.5, 180, 15}, {northX[borrowed + 4] + .5, 2.2, 7.5, 180, 15}, {middle + 13, 2.2, 5.5, 0, 15}, {middle - 13, 2.2, 5.5, 0, 15}};
             for (int i = 0; i < views.length; i++)
             {
                 double[] view = views[i];

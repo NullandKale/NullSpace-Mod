@@ -227,8 +227,10 @@ public final class NullSpaceClient implements ClientModInitializer
             else if (payload.revision() == 1 && context.client().level != null)
                 context.client().gui.setScreen(new ViewportScreen(payload));
         }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(com.nullandkale.nullspace.gameplay.scene.HoldingView.Raw.TYPE, (payload, context) -> context.client().execute(() -> SpaceSceneRenderer.holdingView(payload.on())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
         {
+            SpaceSceneRenderer.holdingView(false);
             if (activeConnection == null || activeConnection.getConnection() != handler.getConnection())
                 clearScenes();
             activeConnection = handler;

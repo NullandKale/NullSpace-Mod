@@ -9,7 +9,8 @@ import net.minecraft.network.FriendlyByteBuf;
 
 /**
  * One synthesizer voice's settings: a tone (sine or square, sweeping from one pitch to another) and white noise through a filter, shaped by an envelope and an
- * optional pulse. A looping patch sustains until it is stopped, and a sweep in a loop goes back and forth, for sirens and wavering whistles.
+ * optional pulse. A looping patch sustains until it is stopped, and a sweep in a loop goes back and forth. The game's own cues never loop a sweep or a square
+ * wave (no sirens, no buzz); a player's Synth may.
  *
  * <p>The noise's {@code brightness} sets its filter's frequency (dark rumble to bright hiss) and its {@code focus} the filter's kind: at 0 a smoothing filter
  * that lets everything below that frequency through, above 0 a band around it that narrows as focus rises, so the noise has a pitch of its own (a machine's

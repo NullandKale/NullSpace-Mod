@@ -75,6 +75,21 @@ public final class ShipSounds
         PRODUCERS.add(producer);
     }
 
+    /**
+     * Plays one of Minecraft's sounds once at a place, as the game plays it, quieter by {@code muffle} as Minecraft's sounds are heard through doors and walls
+     * ({@link VanillaHearing}). The sound gallery uses it for the sounds the game borrows from Minecraft. Who it reaches is logged in {@link #recent}.
+     */
+    public static void recording(ServerLevel level, Vec3 at, net.minecraft.resources.Identifier sound, float volume, float pitch, float muffle)
+    {
+        float loudness = volume * (muffle > 0 ? com.nullandkale.nullspace.model.sound.SynthVoice.muffledGain(muffle) : 1);
+        level.playSound(null, at.x, at.y, at.z, net.minecraft.sounds.SoundEvent.createVariableRangeEvent(sound), net.minecraft.sounds.SoundSource.BLOCKS, loudness, pitch);
+        // A sound carries 16 blocks for each unit of loudness above 1.
+        double range = 16 * Math.max(1, loudness);
+        for (var p : level.players())
+            if (p.position().distanceTo(at) < range)
+                log(level.getServer(), p.getPlainTextName() + " " + sound + " muffle " + Math.round(muffle * 100) / 100f);
+    }
+
     /** Plays a cue once at a place, for everyone near enough who can hear it. */
     public static void play(ServerLevel level, Vec3 at, String cue)
     {
@@ -144,19 +159,24 @@ public final class ShipSounds
 
     private static void send(ServerPlayer p, SoundPackets.Play packet)
     {
-        var log = ServerContext.get(p.level().getServer()).service(RECENT, java.util.ArrayDeque::new);
-        synchronized (log)
-        {
-            log.addLast(p.getPlainTextName() + " " + (packet.patch() == null ? packet.cue() : "patch") + " muffle " + Math.round(packet.muffle() * 100) / 100f);
-            while (log.size() > 64)
-                log.removeFirst();
-        }
+        log(p.level().getServer(), p.getPlainTextName() + " " + (packet.patch() == null ? packet.cue() : "patch") + " muffle " + Math.round(packet.muffle() * 100) / 100f);
         if (ServerPlayNetworking.canSend(p, SoundPackets.Play.TYPE))
             ServerPlayNetworking.send(p, packet);
     }
 
     /** The last sounds the server decided to send, newest last ({@code player cue muffle m}), for diagnosing what someone heard. */
     private static final ServerContext.Key<java.util.ArrayDeque<String>> RECENT = new ServerContext.Key<>();
+
+    private static void log(MinecraftServer server, String line)
+    {
+        var log = ServerContext.get(server).service(RECENT, java.util.ArrayDeque::new);
+        synchronized (log)
+        {
+            log.addLast(line);
+            while (log.size() > 64)
+                log.removeFirst();
+        }
+    }
 
     public static List<String> recent(MinecraftServer server)
     {

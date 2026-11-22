@@ -157,7 +157,8 @@ public final class DockingPorts
                 if (!port.inner().equals(port.outer()) || !ShipDoors.open(level.getBlockState(port.outer())))
                     continue;
                 var d = DockingService.link(server, own, port.controller());
-                if (d == null || !d.getStringOr("state", "").equals("CLAMPED"))
+                // A joined dock is walked through; one still joining waits for its hulls.
+                if (d == null || !d.getStringOr("state", "").equals("CLAMPED") || d.getBooleanOr("join", false))
                     continue;
                 if (!compactEntrance(p, own, port))
                     continue;

@@ -70,6 +70,7 @@
       "com.nullandkale.nullspace.gameplay.travel.EntityTravelGameTest",
       "com.nullandkale.nullspace.gameplay.combat.CombatGameTest",
       "com.nullandkale.nullspace.content.RecipeGameTest",
+      "com.nullandkale.nullspace.gameplay.scene.HoldingViewGameTest",
       "com.nullandkale.nullspace.gameplay.scene.SceneCacheGameTest",
       "com.nullandkale.nullspace.gameplay.systems.EngineeringGameTest",
       "com.nullandkale.nullspace.model.space.SpaceDefinitionGameTest",

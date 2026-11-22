@@ -370,6 +370,8 @@ public final class StationGameTest
         p.teleportTo(level, start.x, start.y, start.z, Set.of(), 0, 0, true);
         var target = DockingPorts.ports(level, wreck).stream().filter(port -> port.facing() == Direction.EAST).findFirst().orElseThrow();
         DockingManeuver.request(p, ship, wreck.getStringOr("id", ""), target.controller().subtract(b));
+        // Claiming is about the derelict, not the join: the hulls stay apart and the player boards through the door.
+        ship.getCompoundOrEmpty("dock").putBoolean("join", false);
         ctx.runAfterDelay(1000, () ->
         {
             var own = WorldStore.get(server).repository().find(ship.getStringOr("id", ""));
@@ -522,6 +524,8 @@ public final class StationGameTest
             ctx.assertTrue(rejected, "Claimed ships still require power at their docking hardware");
         }
         DockingManeuver.request(p, ship, station.getStringOr("id", ""), target.controller().subtract(b));
+        // Boarding through the door, kept for older docks and hulls that could not be joined.
+        ship.getCompoundOrEmpty("dock").putBoolean("join", false);
         ctx.assertTrue(DockingService.motionLocked(ship), "Autopilot immediately owns all movement");
         ctx.runAfterDelay(1000, () ->
         {
@@ -762,38 +766,50 @@ public final class StationGameTest
                 ctx.runAfterDelay(10, () ->
                 {
                     StationBuilds.buildRoom(p, station, "arrival 0 0", false);
-                    ctx.runAfterDelay(35, () ->
+                    // Each module is built over several ticks, as fast as its chunks allow: the next starts once the station is idle again.
+                    java.util.function.BooleanSupplier idle = () -> StationAccess.ready(station) && !station.contains("dock") && !com.nullandkale.nullspace.gameplay.travel.TransferLocks.busy(server, station);
+                    com.nullandkale.nullspace.testing.TestWaits.until(ctx, idle, () ->
                     {
                         ctx.assertTrue(StationAccess.ready(station), "Arrival module finishes without losing the construction return" + " route");
                         StationBuilds.buildRoom(p, station, "engineering 1 0", false);
-                        ctx.runAfterDelay(35, () -> StationBuilds.buildRoom(p, station, "tunnel_straight 0 1", false));
-                        ctx.runAfterDelay(70, () -> StationBuilds.buildRoom(p, station, "dome_garden 1 1", false));
-                        ctx.runAfterDelay(105, () ->
+                        com.nullandkale.nullspace.testing.TestWaits.until(ctx, idle, () ->
                         {
-                            try
+                            StationBuilds.buildRoom(p, station, "tunnel_straight 0 1", false);
+                            com.nullandkale.nullspace.testing.TestWaits.until(ctx, idle, () ->
                             {
-                                var rooms = station.getCompoundOrEmpty("roomPieces");
-                                ctx.assertTrue(rooms.getStringOr("0_1", "").equals("tunnel_straight") && rooms.getStringOr("1_1", "").equals("dome_garden"), "A tunnel and a dome are placed by doorway: " + rooms);
-                                for (int x : new int[]{3, 12})
-                                    for (int y : new int[]{2, 9})
-                                        ctx.assertTrue(level.getBlockState(WorldStore.pos(station, "base").offset(x, y, 15)).getBlock() instanceof net.minecraft.world.level.block.DoorBlock && level.getBlockState(WorldStore.pos(station, "base").offset(x, y, 16)).isAir(), "The tunnel opens into the entrance through a door at x " + x + ", height " + y);
-                                ctx.assertTrue(StationAccess.ready(station) && DockingPorts.ports(level, station).size() == 2, "Engineering joins the existing module through a valid" + " bulkhead");
-                                ctx.assertTrue(ShipSystems.power(level, station, PowerBus.System.CONTROLS) > 0, "Station systems run without a helm or engines");
-                                ctx.assertTrue(p.getInventory().countItem(ModBlocks.STATION_CORE.asItem()) == 0 && p.getInventory().countItem(ModBlocks.STATION_MODULE) == 0, "Core and module kits are consumed exactly once: core=" + p.getInventory().countItem(ModBlocks.STATION_CORE.asItem()) + " kits=" + p.getInventory().countItem(ModBlocks.STATION_MODULE) + " creative=" + p.isCreative());
-                                var graph = StationGraph.inspect(level, station);
-                                ctx.assertTrue(graph.nodes().size() >= 3, "Player-assembled rooms have real doorway nodes");
-                                ctx.succeed();
-                            }
-                            finally
-                            {
-                                server.getPlayerList().remove(p);
-                                cleanup(level, ship);
-                                cleanup(level, station);
-                            }
+                                StationBuilds.buildRoom(p, station, "dome_garden 1 1", false);
+                                com.nullandkale.nullspace.testing.TestWaits.until(ctx, idle, () -> finishModules(ctx, server, level, p, ship, station));
+                            });
                         });
                     });
                 });
             });
         });
+    }
+
+    private static void finishModules(GameTestHelper ctx, net.minecraft.server.MinecraftServer server, ServerLevel level, net.minecraft.server.level.ServerPlayer p, CompoundTag ship, CompoundTag station)
+    {
+        {
+            try
+            {
+                var rooms = station.getCompoundOrEmpty("roomPieces");
+                ctx.assertTrue(rooms.getStringOr("0_1", "").equals("tunnel_straight") && rooms.getStringOr("1_1", "").equals("dome_garden"), "A tunnel and a dome are placed by doorway: " + rooms);
+                for (int x : new int[]{3, 12})
+                    for (int y : new int[]{2, 9})
+                        ctx.assertTrue(level.getBlockState(WorldStore.pos(station, "base").offset(x, y, 15)).getBlock() instanceof net.minecraft.world.level.block.DoorBlock && level.getBlockState(WorldStore.pos(station, "base").offset(x, y, 16)).isAir(), "The tunnel opens into the entrance through a door at x " + x + ", height " + y);
+                ctx.assertTrue(StationAccess.ready(station) && DockingPorts.ports(level, station).size() == 2, "Engineering joins the existing module through a valid" + " bulkhead");
+                ctx.assertTrue(ShipSystems.power(level, station, PowerBus.System.CONTROLS) > 0, "Station systems run without a helm or engines");
+                ctx.assertTrue(p.getInventory().countItem(ModBlocks.STATION_CORE.asItem()) == 0 && p.getInventory().countItem(ModBlocks.STATION_MODULE) == 0, "Core and module kits are consumed exactly once: core=" + p.getInventory().countItem(ModBlocks.STATION_CORE.asItem()) + " kits=" + p.getInventory().countItem(ModBlocks.STATION_MODULE) + " creative=" + p.isCreative());
+                var graph = StationGraph.inspect(level, station);
+                ctx.assertTrue(graph.nodes().size() >= 3, "Player-assembled rooms have real doorway nodes");
+                ctx.succeed();
+            }
+            finally
+            {
+                server.getPlayerList().remove(p);
+                cleanup(level, ship);
+                cleanup(level, station);
+            }
+        }
     }
 }

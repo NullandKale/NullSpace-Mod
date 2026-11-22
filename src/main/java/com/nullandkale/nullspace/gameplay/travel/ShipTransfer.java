@@ -50,7 +50,7 @@ import static com.nullandkale.nullspace.gameplay.travel.TravelService.SPACE;
 import static com.nullandkale.nullspace.gameplay.travel.TravelService.SPACE_SPACING;
 
 /**
- * One physical ship move (launch, landing, detaching loose blocks, recall or storage), run as a
+ * One physical ship move (launch, landing, detaching loose blocks, recall, storage, or a docking join or separation), run as a
  * sequence of phases. Checks come first and may stop the move. From the PREPARED checkpoint on, the
  * transfer journal records each stage so a crash can be replayed or rolled back (TransferRecovery).
  */
@@ -64,6 +64,9 @@ final class ShipTransfer
     private final ShipService.Inspection inspected;
     private final boolean recall;
     private final MinecraftServer server;
+    /** A docking move, or null; its pilot may be offline, so {@link #actor} may then be null. */
+    private final Pending dock;
+    private DockMove.Placement placement;
 
     // Source ship
     private Pending current;
@@ -103,6 +106,20 @@ final class ShipTransfer
         this.inspected = inspected;
         this.recall = recall;
         this.server = source.getServer();
+        this.dock = null;
+    }
+
+    /** A docking move within space, whoever is aboard. */
+    ShipTransfer(ServerLevel space, Pending dock, ShipService.Inspection inspected)
+    {
+        this.actor = space.getServer().getPlayerList().getPlayer(dock.actor);
+        this.source = space;
+        this.controller = dock.computer;
+        this.destination = "";
+        this.inspected = inspected;
+        this.recall = false;
+        this.server = space.getServer();
+        this.dock = dock;
     }
 
     Result run()
@@ -146,8 +163,8 @@ final class ShipTransfer
     /** The request still matches, nothing else holds the area, and engines still have power. */
     private Result checkSource()
     {
-        current = recall ? null : TravelService.pending(server).values().stream().filter(p -> p.actor.equals(actor.getUUID()) && p.computer.equals(controller) && p.destination.equals(destination) && p.sourceDimension.equals(source.dimension().identifier().toString())).findFirst().orElse(null);
-        detaching = current != null && current.destination.equals(TravelService.DETACH);
+        current = dock != null ? dock : recall ? null : TravelService.pending(server).values().stream().filter(p -> p.actor.equals(actor.getUUID()) && p.computer.equals(controller) && p.destination.equals(destination) && p.sourceDimension.equals(source.dimension().identifier().toString())).findFirst().orElse(null);
+        detaching = dock == null && current != null && current.destination.equals(TravelService.DETACH);
         if (detaching && LooseBlocks.approved(source, controller).isEmpty())
             return Result.rejected("Loose blocks changed; review and confirm them again");
         if (TransferLocks.areaBusy(source, inspected.scan().bounds(), current, recall ? actor.getUUID() : null))
@@ -155,14 +172,16 @@ final class ShipTransfer
         ComputerService.flush(source.getServer());
         if (inspected.vessel() != null)
         {
-            if (!recall && !detaching && ShipSystems.enabled(inspected.vessel()) && ShipSystems.power(source, inspected.vessel(), PowerBus.System.ENGINES) == 0)
+            if (dock == null && !recall && !detaching && ShipSystems.enabled(inspected.vessel()) && ShipSystems.power(source, inspected.vessel(), PowerBus.System.ENGINES) == 0)
                 return Result.rejected("Propulsion lost power before transfer");
             ShipSystems.cancelTransit(source, inspected.vessel());
         }
         store = WorldStore.get(server);
         scan = inspected.scan();
         sourceBase = inspected.base();
-        leavingPieces = !recall && !LooseBlocks.approved(source, controller).isEmpty();
+        leavingPieces = dock == null && !recall && !LooseBlocks.approved(source, controller).isEmpty();
+        if (dock != null && !LooseBlocks.approved(source, controller).isEmpty())
+            return Result.rejected("Reconnect or remove the loose blocks approved to leave behind, then dock again");
         vessel = inspected.vessel();
         id = vessel == null ? UUID.randomUUID().toString() : vessel.getStringOr("id", "");
         return null;
@@ -171,6 +190,20 @@ final class ShipTransfer
     /** A clear, registered landing pad below, or a free storage slot in space. */
     private Result chooseDestination()
     {
+        if (dock != null)
+        {
+            target = source;
+            try
+            {
+                placement = dock.dock.place().apply(scan);
+            }
+            catch (IllegalArgumentException problem)
+            {
+                return Result.rejected(problem.getMessage());
+            }
+            targetBase = placement.transform().target();
+            return null;
+        }
         if (source.dimension().equals(SPACE) && !detaching)
         {
             landing = PadRegistry.read(server).stream().filter(p -> destination.startsWith("id:") ? p.id().equals(destination.substring(3)) : p.name().equalsIgnoreCase(destination.strip())).findFirst().orElse(null);
@@ -217,7 +250,9 @@ final class ShipTransfer
     {
         delta = targetBase.subtract(sourceBase);
         int turns = 0;
-        if (landing != null)
+        if (dock != null)
+            transform = placement.transform();
+        else if (landing != null)
         {
             var ports = new ArrayList<com.nullandkale.nullspace.gameplay.docking.DockingPorts.Port>();
             for (var at : scan.blocks().stream().sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList())
@@ -263,7 +298,8 @@ final class ShipTransfer
                 }
             }
         }
-        transform = new ShipTransform(sourceBase, targetBase, vessel == null ? inspected.pad().bounds().width() : vessel.getIntOr("width", 32), vessel == null ? inspected.pad().bounds().depth() : vessel.getIntOr("depth", 32), turns);
+        if (dock == null)
+            transform = new ShipTransform(sourceBase, targetBase, vessel == null ? inspected.pad().bounds().width() : vessel.getIntOr("width", 32), vessel == null ? inspected.pad().bounds().depth() : vessel.getIntOr("depth", 32), turns);
         if (landing != null && turns != 0)
         {
             var rotated = transform.bounds(scan.bounds());
@@ -321,7 +357,8 @@ final class ShipTransfer
     {
         if (!HullEntities.loaded(source, scan.bounds()))
             return Result.waiting();
-        var occupants = Occupants.inspect(source, scan, recall);
+        // A docking move takes whoever is in the hull, wherever they stand in it: the docking checks put the crew in sealed cabins.
+        var occupants = Occupants.inspect(source, scan, recall, dock != null);
         cargo = occupants.cargo();
         crew = occupants.crew();
         if (recall && !crew.isEmpty())
@@ -335,7 +372,7 @@ final class ShipTransfer
             fuelShip.putLong("controller", controller.asLong());
         }
         int fuelCost = FuelSystem.travelCost(source, fuelShip, FuelSystem.transfer(scan.blocks().size()));
-        if (!recall && !detaching && !FuelSystem.spend(source, fuelShip, fuelCost))
+        if (dock == null && !recall && !detaching && !FuelSystem.spend(source, fuelShip, fuelCost))
             return Result.rejected("Not enough fuel for travel: needs " + FuelSystem.display(fuelCost) + ". Load furnace fuel into a connected generator.");
         return null;
     }
@@ -351,7 +388,7 @@ final class ShipTransfer
             SceneCatalog.forShip(server, vessel);
         try
         {
-            journal = Journals.create(store.directory, Journals.Kind.MOVE, recall ? "recall" : target.dimension().equals(SPACE) ? "launch" : "landing", List.of(id));
+            journal = Journals.create(store.directory, Journals.Kind.MOVE, dock != null ? dock.dock.operation() : recall ? "recall" : target.dimension().equals(SPACE) ? "launch" : "landing", List.of(id));
         }
         catch (java.io.IOException error)
         {
@@ -506,9 +543,9 @@ final class ShipTransfer
         }
         if (!source.dimension().equals(target.dimension()))
             Piloting.stop(next);
-        next.putInt("width", landing == null ? 32 : landing.bounds().width());
-        next.putInt("depth", landing == null ? 32 : landing.bounds().depth());
-        next.putInt("height", landing == null ? 32 : PadRegistry.buildHeight(target, landing.bounds()));
+        next.putInt("width", dock != null ? placement.width() : landing == null ? 32 : landing.bounds().width());
+        next.putInt("depth", dock != null ? placement.depth() : landing == null ? 32 : landing.bounds().depth());
+        next.putInt("height", dock != null ? placement.height() : landing == null ? 32 : PadRegistry.buildHeight(target, landing.bounds()));
         next.putLong("base", targetBase.asLong());
         if (!source.dimension().equals(SPACE))
         {
@@ -540,7 +577,8 @@ final class ShipTransfer
             next.putString("home", home.name());
             next.putString("homeId", home.id());
         }
-        CrewRelease.authorize(next, actor);
+        if (actor != null)
+            CrewRelease.authorize(next, actor);
         // Recall lands an empty ship on a planet pad; storing moves one into space instead.
         if (recall && !target.dimension().equals(SPACE))
         {
@@ -551,6 +589,8 @@ final class ShipTransfer
             for (String field : List.of("simX", "simY", "simZ"))
                 next.remove(field);
         }
+        if (dock != null)
+            dock.dock.after().accept(next, transform);
         return next;
     }
 
@@ -570,7 +610,7 @@ final class ShipTransfer
                 UUID uuid = UUID.fromString(member.getStringOr("id", ""));
                 if (server.getPlayerList().getPlayer(uuid) == null)
                 {
-                    if (leavingPieces)
+                    if (leavingPieces || dock != null)
                         TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
                     RotatedShipState.crew(member, transform);
                     members.add(member);
@@ -612,7 +652,7 @@ final class ShipTransfer
                 member.putDouble("x", position.x - sourceBase.getX());
                 member.putDouble("y", position.y - sourceBase.getY());
                 member.putDouble("z", position.z - sourceBase.getZ());
-                if (leavingPieces)
+                if (leavingPieces || dock != null)
                     TransferRecovery.safeOfflineArrival(source, scan, sourceBase, member);
                 RotatedShipState.crew(member, transform);
                 members.add(member);

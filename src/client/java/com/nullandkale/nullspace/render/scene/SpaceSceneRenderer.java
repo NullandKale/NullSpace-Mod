@@ -57,6 +57,13 @@ public final class SpaceSceneRenderer
     private static GpuBuffer depth;
     private static boolean prepared;
     private static final Matrix4f nativeViewProjection = new Matrix4f();
+    /** An operator's debug view of the holding dimension: every real block and entity, and no sky or ship pictures ({@code /nullspace debug holding}). */
+    private static boolean holding;
+
+    public static void holdingView(boolean on)
+    {
+        holding = on;
+    }
 
     public static void update(ScenePackets.Frame next)
     {
@@ -71,6 +78,8 @@ public final class SpaceSceneRenderer
     {
         prepared = false;
         var mc = Minecraft.getInstance();
+        if (holding)
+            return;
         if (mc.gui.screen() instanceof SceneScreen screen)
         {
             screen.renderFrame();
@@ -85,7 +94,7 @@ public final class SpaceSceneRenderer
         if (observer == null)
             return;
         var origin = BlockPos.of(observer.getLongOr("base", 0));
-        if (!scene.getBooleanOr("planetSky", false) && mc.player != null && !observerBounds(observer).contains(mc.player.position()))
+        if (!scene.getBooleanOr("planetSky", false) && mc.player != null && observerBounds(observer).stream().noneMatch(box -> box.contains(mc.player.position())))
             return;
         var offset = camera.pos.subtract(Vec3.atLowerCornerOf(origin));
         var pose = ScenePose.read(observer);
@@ -139,23 +148,33 @@ public final class SpaceSceneRenderer
     public static boolean physicalVisible(net.minecraft.world.phys.AABB box)
     {
         var mc = Minecraft.getInstance();
-        if (mc.level == null || !mc.level.dimension().equals(TravelService.SPACE))
+        if (holding || mc.level == null || !mc.level.dimension().equals(TravelService.SPACE))
             return true;
         if (frame == null)
             return mc.player == null || mc.player.getBoundingBox().inflate(104).intersects(box);
         var observer = frame.scene().getListOrEmpty("subjects").stream().map(t -> (CompoundTag) t).filter(t -> t.getStringOr("id", "").equals(frame.scene().getStringOr("observer", ""))).findFirst().orElse(null);
         if (observer == null)
             return mc.player == null || mc.player.getBoundingBox().inflate(104).intersects(box);
-        var p = BlockPos.of(observer.getLongOr("base", 0));
-        if (mc.player != null && !observerBounds(observer).contains(mc.player.position()))
+        var areas = observerBounds(observer);
+        if (mc.player != null && areas.stream().noneMatch(area -> area.contains(mc.player.position())))
             return mc.player.getBoundingBox().inflate(104).intersects(box);
-        return observerBounds(observer).intersects(box);
+        return areas.stream().anyMatch(area -> area.intersects(box));
     }
 
-    private static net.minecraft.world.phys.AABB observerBounds(CompoundTag observer)
+    /** The real blocks drawn around the player: the observer's area, and those of vessels joined to it at a dock, each with room for EVA. */
+    private static java.util.List<net.minecraft.world.phys.AABB> observerBounds(CompoundTag observer)
     {
-        var p = BlockPos.of(observer.getLongOr("base", 0));
-        return new net.minecraft.world.phys.AABB(p.getX(), p.getY(), p.getZ(), p.getX() + observer.getIntOr("width", 32), p.getY() + observer.getIntOr("height", 32), p.getZ() + observer.getIntOr("depth", 32)).inflate(72);
+        var out = new java.util.ArrayList<net.minecraft.world.phys.AABB>();
+        out.add(area(observer));
+        for (var tag : observer.getListOrEmpty("joined"))
+            out.add(area((CompoundTag) tag));
+        return out;
+    }
+
+    private static net.minecraft.world.phys.AABB area(CompoundTag vessel)
+    {
+        var p = BlockPos.of(vessel.getLongOr("base", 0));
+        return new net.minecraft.world.phys.AABB(p.getX(), p.getY(), p.getZ(), p.getX() + vessel.getIntOr("width", 32), p.getY() + vessel.getIntOr("height", 32), p.getZ() + vessel.getIntOr("depth", 32)).inflate(72);
     }
 
     public static SceneViewport viewport()

@@ -128,8 +128,17 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             ShipControlTestUi.destination(c, world, far.getX() + "," + far.getY() + "," + far.getZ(), "Ports");
             c.takeScreenshot("nullspace-far-station-port-discovery");
             ShipControlTestUi.action(c, ShipControl.Action.DOCK);
-            ClientWaits.waitFor(world.getServer(), server -> ship[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship[0]), 1800);
-            StationClientGameTest.walkThrough(c, world, ship[0], doors[0]);
+            String shipId = world.getServer().computeOnServer(server -> ship[0].getStringOr("id", ""));
+            var docked = StationClientGameTest.docked(c, world, shipId, 1800);
+            // Joining moved the ship's blocks beside the far berth and replaced the saved records: read them again.
+            world.getServer().runOnServer(server ->
+            {
+                ship[0] = WorldStore.get(server).repository().find(shipId);
+                station[0] = WorldStore.get(server).repository().find(docked.host());
+                doors[0] = docked.visitorDoor();
+                doors[1] = docked.hostDoor();
+            });
+            StationClientGameTest.walkThrough(c, world, shipId, doors[0], docked.host(), doors[1]);
             ClientWaits.waitFor(c, mc -> mc.player != null && mc.level != null && mc.player.getX() > base.getX() + 96 && mc.player.getX() < base.getX() + 128 && mc.level.hasChunkAt(base.offset(far).above()), 200);
             c.waitTicks(12);
             c.takeScreenshot("nullspace-full-station-far-berth");
@@ -139,7 +148,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
                 if (!WorldStore.bounds(station[0]).contains(p.blockPosition()) || p.getX() < base.getX() + 96)
                     throw new AssertionError("Boarded far side of station");
             });
-            StationClientGameTest.walkThrough(c, world, station[0], doors[1]);
+            StationClientGameTest.walkThrough(c, world, docked.host(), doors[1], shipId, doors[0]);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();
@@ -147,7 +156,7 @@ public final class StationExpansionClientGameTest implements FabricClientGameTes
             });
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen, 200);
             ShipControlTestUi.action(c, ShipControl.Action.UNDOCK);
-            ClientWaits.waitFor(world.getServer(), server -> !ship[0].contains("dock"), 1200);
+            ClientWaits.waitFor(world.getServer(), server -> WorldStore.get(server).repository().find(shipId) != null && !WorldStore.get(server).repository().find(shipId).contains("dock"), 1200);
             world.getServer().runOnServer(server -> WorldStore.get(server).save());
             ClientTestEvidence.passed(getClass());
         }

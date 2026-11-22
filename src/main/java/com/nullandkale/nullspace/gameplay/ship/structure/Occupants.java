@@ -24,6 +24,12 @@ public final class Occupants
 
     public static Contents inspect(ServerLevel level, HullScan.Result scan, boolean recall)
     {
+        return inspect(level, scan, recall, false);
+    }
+
+    /** As above; {@code anywhere} takes living occupants wherever they stand in the hull, for a docking move. */
+    public static Contents inspect(ServerLevel level, HullScan.Result scan, boolean recall, boolean anywhere)
+    {
         HullEntities.requireLoaded(level, scan.bounds());
         var contents = HullEntities.inBounds(level, scan.bounds());
         List<Entity> cargo = new ArrayList<>();
@@ -34,7 +40,7 @@ public final class Occupants
                 continue;
             // Every entity fully inside the ship travels: mobs, vehicles, decorations, projectiles,
             // items. Only living occupants must be inside the sealed cabin.
-            if (!recall && entity instanceof LivingEntity && !scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
+            if (!recall && !anywhere && entity instanceof LivingEntity && !scan.pressure().breathable(BlockPos.containing(entity.getEyePosition())))
                 throw ShipMessages.entityProblem(entity, "Move fully inside a sealed cabin before launch; this occupant is outside the safe" + " cabin area.");
             if (!scan.bounds().box().contains(entity.getBoundingBox().minX, entity.getBoundingBox().minY, entity.getBoundingBox().minZ) || !scan.bounds().box().contains(entity.getBoundingBox().maxX - 0.001, entity.getBoundingBox().maxY - 0.001, entity.getBoundingBox().maxZ - 0.001))
                 throw ShipMessages.entityProblem(entity, "Move completely inside the ship; part of this occupant crosses the ship boundary.");

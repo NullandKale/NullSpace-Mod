@@ -18,7 +18,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-/** Saved, retractable boarding collars. The normal boarding handoff joins their storage frames. */
+/**
+ * Saved, retractable boarding collars. For a joined dock ({@link DockJoin}) one docking arm runs from the berth's door to the visitor's, walked through with no
+ * end stops; for an older dock, or one whose hulls could not be joined, each hull has a short collar and the boarding handoff joins their storage frames.
+ */
 public final class DockingTunnel
 {
     private static BlockState state(String kind)
@@ -32,18 +35,21 @@ public final class DockingTunnel
         };
     }
 
-    private static CompoundTag plan(ServerLevel level, DockingPorts.Port port, int length)
+    private static CompoundTag plan(ServerLevel level, DockingPorts.Port port, int length, boolean stops)
     {
         var result = new CompoundTag();
         result.putString("id", UUID.randomUUID().toString());
         var blocks = new ListTag();
+        var walk = new ArrayList<Long>();
         var forward = port.facing();
         var right = forward.getClockWise();
-        for (int depth = 1; depth <= length + 1; depth++)
+        for (int depth = 1; depth <= length + (stops ? 1 : 0); depth++)
             for (int side = -1; side <= 1; side++)
                 for (int y = -1; y <= 2; y++)
                 {
-                    boolean stop = depth == length + 1;
+                    boolean stop = stops && depth == length + 1;
+                    if (!stop && side == 0 && y >= 0 && y <= 1)
+                        walk.add(port.outer().relative(forward, depth).offset(0, y, 0).asLong());
                     if (stop ? side != 0 || y < 0 || y > 1 : side == 0 && y >= 0 && y <= 1)
                         continue;
                     var at = port.outer().relative(forward, depth).relative(right, side).offset(0, y, 0);
@@ -55,6 +61,7 @@ public final class DockingTunnel
                     blocks.add(block);
                 }
         result.put("blocks", blocks);
+        result.putLongArray("walk", walk.stream().mapToLong(Long::longValue).toArray());
         return result;
     }
 
@@ -64,11 +71,17 @@ public final class DockingTunnel
             return;
         var level = server.getLevel(TravelService.SPACE);
         var tunnel = dock.getCompoundOrEmpty("tunnel");
-        if (tunnel.isEmpty())
+        if (tunnel.isEmpty() && dock.getBooleanOr("joined", false))
+        {
+            // One arm from the berth's door to the visitor's, the whole gap between them.
+            tunnel.put("source", new CompoundTag());
+            tunnel.put("target", plan(level, target, (int) Math.round(dock.getDoubleOr("gap", 0)), false));
+        }
+        else if (tunnel.isEmpty())
         {
             int length = Math.max(1, (int) Math.ceil(Math.clamp(dock.getDoubleOr("gap", .05), .05, 4.05) / 2));
-            tunnel.put("source", plan(level, source, length));
-            tunnel.put("target", plan(level, target, length));
+            tunnel.put("source", plan(level, source, length, true));
+            tunnel.put("target", plan(level, target, length, true));
         }
         var planned = tunnel;
         boolean missing = List.of("source", "target").stream().flatMap(side -> planned.getCompoundOrEmpty(side).getListOrEmpty("blocks").stream()).anyMatch(t -> level.getBlockState(WorldStore.pos((CompoundTag) t, "at")).isAir());
@@ -88,6 +101,24 @@ public final class DockingTunnel
                 }
             return null;
         });
+    }
+
+    /** Whether {@code at} is on the walkway of a joined dock's arm, where the crew breathe as in a cabin while they cross. */
+    public static boolean walkway(ServerLevel level, BlockPos at)
+    {
+        if (!level.dimension().equals(TravelService.SPACE))
+            return false;
+        long cell = at.asLong();
+        for (var tag : WorldStore.get(level.getServer()).ships())
+        {
+            var dock = ((CompoundTag) tag).getCompoundOrEmpty("dock");
+            if (!dock.getBooleanOr("joined", false) || !dock.getStringOr("state", "").equals("CLAMPED") || dock.getBooleanOr("tunnelRetracted", false))
+                continue;
+            for (long walk : dock.getCompoundOrEmpty("tunnel").getCompoundOrEmpty("target").getLongArray("walk").orElse(new long[0]))
+                if (walk == cell)
+                    return true;
+        }
+        return false;
     }
 
     public static boolean occupied(MinecraftServer server, CompoundTag dock)

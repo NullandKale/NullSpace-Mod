@@ -162,23 +162,25 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             // Engage carries out the whole trip; the berth is assigned on final approach.
             ShipControlTestUi.action(context, ShipControl.Action.ENGAGE);
             // The orbital station sits 900 blocks out (the old Waypoint was 640), so the autopilot needs about twice as long to arrive.
-            ClientWaits.waitFor(world.getServer(), server -> dockingVessels[0].getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED"), 4000);
+            String shipId = world.getServer().computeOnServer(server -> dockingVessels[0].getStringOr("id", ""));
+            var docked = StationClientGameTest.docked(context, world, shipId, 4000);
+            // Joining moved the ship's blocks beside the berth and replaced the saved records: read them again.
             world.getServer().runOnServer(server ->
             {
-                var dock = dockingVessels[0].getCompoundOrEmpty("dock");
-                dockingVessels[1] = WorldStore.get(server).repository().find(dock.getStringOr("target", ""));
-                dockingDoors[0] = WorldStore.pos(dockingVessels[0], "base").offset(BlockPos.of(dock.getLongOr("sourcePort", 0)));
-                dockingDoors[1] = WorldStore.pos(dockingVessels[1], "base").offset(BlockPos.of(dock.getLongOr("targetPort", 0)));
+                dockingVessels[0] = WorldStore.get(server).repository().find(shipId);
+                dockingVessels[1] = WorldStore.get(server).repository().find(docked.host());
+                dockingDoors[0] = docked.visitorDoor();
+                dockingDoors[1] = docked.hostDoor();
             });
             context.runOnClient(client ->
             {
                 if (client.gui.screen() != null)
                     client.gui.screen().onClose();
             });
-            StationClientGameTest.walkThrough(context, world, dockingVessels[0], dockingDoors[0]);
+            StationClientGameTest.walkThrough(context, world, shipId, dockingDoors[0], docked.host(), dockingDoors[1]);
             context.waitTicks(12);
             context.takeScreenshot("nullspace-purchased-ship-station-visit");
-            StationClientGameTest.walkThrough(context, world, dockingVessels[1], dockingDoors[1]);
+            StationClientGameTest.walkThrough(context, world, docked.host(), dockingDoors[1], shipId, dockingDoors[0]);
             world.getServer().runOnServer(server ->
             {
                 var player = world.getConnection().getServerPlayer();
@@ -189,7 +191,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             });
             ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen t && t.shipController(), 150);
             ShipControlTestUi.action(context, ShipControl.Action.UNDOCK);
-            ClientWaits.waitFor(world.getServer(), server -> !dockingVessels[0].contains("dock"), 1200);
+            ClientWaits.waitFor(world.getServer(), server -> WorldStore.get(server).repository().find(shipId) != null && !WorldStore.get(server).repository().find(shipId).contains("dock"), 1200);
             context.runOnClient(client ->
             {
                 if (client.gui.screen() != null)

@@ -31,9 +31,9 @@ Doors operated by docking cannot be toggled by hand. A door under a redstone sig
 
 ### The tunnel and the joint
 
-After a compact dock captures, a lit tunnel with a floor and glass walls bridges the gap between the hulls. Its collars have a saved recovery plan and retract before departure, preserving the hulls' own blocks. They are excluded from ship inspection and from cargo capture. A passenger standing in a collar prevents retraction.
+After a compact dock captures, the visitor's hull moves beside the berth and a lit docking arm with a floor and glass walls runs from door to door, walked through with no transfer (see [docking](space-encounters-and-docking.md#two-hulls-one-walk)); a dock whose hulls stand apart has a short collar on each hull instead. Its collars have a saved recovery plan and retract before departure, preserving the hulls' own blocks. They are excluded from ship inspection and from cargo capture. A passenger standing in a collar prevents retraction.
 
-Boarding and returning across an established joint need power from neither vessel: the transfer holds passengers on an interior floor, and low cabin oxygen never locks the route. Oxygen simulation, and the power needed to move a ship, are unchanged. Docking does not merge the vessels' air or power.
+Boarding and returning across an established joint need power from neither vessel: the arm carries its own air for the crossing (and a door transfer holds passengers on an interior floor), and low cabin oxygen never locks the route. Oxygen simulation, and the power needed to move a ship, are unchanged. Docking does not merge the vessels' air or power.
 
 An exterior door that is not part of a mated joint opens into vacuum, so wear a suit when using it outside a sealed connection.
 

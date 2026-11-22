@@ -18,9 +18,15 @@ final class RotatedShipState
         member.putFloat("yaw", transform.yaw(member.getFloatOr("yaw", 0)));
     }
 
+    /** Whether ship-local positions change: a turn, or a shift of the hull within its area (a docked hull's area fits it exactly). */
+    private static boolean moves(ShipTransform transform)
+    {
+        return transform.turns() != 0 || !transform.offset().equals(net.minecraft.core.BlockPos.ZERO);
+    }
+
     static void ship(CompoundTag ship, ShipTransform transform)
     {
-        if (transform.turns() != 0)
+        if (moves(transform))
         {
             if (ship.contains("mainExit"))
                 ship.putLong("mainExit", transform.local(WorldStore.pos(ship, "mainExit")).asLong());
@@ -70,7 +76,7 @@ final class RotatedShipState
 
     static void beds(CompoundTag store, String shipId, ShipTransform transform)
     {
-        if (transform.turns() == 0)
+        if (!moves(transform))
             return;
         var placements = store.getCompoundOrEmpty("bedPlacements");
         var moved = new CompoundTag();

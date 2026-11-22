@@ -17,6 +17,7 @@ import com.nullandkale.nullspace.gameplay.travel.TransferLocks;
 import com.nullandkale.nullspace.gameplay.travel.TravelPackets;
 import com.nullandkale.nullspace.model.galaxy.JourneyPlan;
 import com.nullandkale.nullspace.model.galaxy.LocalSpaces;
+import com.nullandkale.nullspace.testing.TestWaits;
 import com.nullandkale.nullspace.worldgen.blueprint.ShipRooms;
 import com.nullandkale.nullspace.worldgen.encounters.EncounterSites;
 
@@ -188,7 +189,7 @@ public final class JourneyGameTest
         });
     }
 
-    @GameTest(environment = "nullspace:journey_offline_reload", maxTicks = 300)
+    @GameTest(environment = "nullspace:journey_offline_reload", maxTicks = 320)
     public void twoCrewsMeetTheirOwnSignalsAndKeepIndependentSavedProgress(GameTestHelper ctx) throws Exception
     {
         var a = ConcurrentShipActionsGameTest.client(ctx, 41);
@@ -229,7 +230,7 @@ public final class JourneyGameTest
                 ctx.succeed();
             }
         });
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             Jumps.jump(a.player(), WorldStore.pos(a.fixture().ship(), "controller"), "sol_luna");
             Jumps.jump(b.player(), WorldStore.pos(b.fixture().ship(), "controller"), "sol_luna");
@@ -384,8 +385,9 @@ public final class JourneyGameTest
         Object packet;
         while ((packet = c.channel().readOutbound()) != null)
         {
-            if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof TravelPackets.Progress progress && !progress.done())
-                NavigationService.ready(c.player(), new TravelPackets.Ready(progress.id(), !progress.dimension().isEmpty()));
+            // As the game's receiver does: a jump's progress goes to navigation, a hull move's (a docking join or separation) to travel.
+            if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof TravelPackets.Progress progress && !progress.done() && !NavigationService.ready(c.player(), new TravelPackets.Ready(progress.id(), !progress.dimension().isEmpty())))
+                com.nullandkale.nullspace.gameplay.travel.TravelService.ready(c.player(), new TravelPackets.Ready(progress.id(), !progress.dimension().isEmpty()));
             io.netty.util.ReferenceCountUtil.release(packet);
         }
         for (var tag : WorldStore.get(c.player().level().getServer()).list("stationBoarding"))
@@ -485,15 +487,16 @@ public final class JourneyGameTest
                 ctx.assertTrue(CourseService.active(ship), "The encounter course automatically continues into docking");
                 phase[0] = 3;
             }
-            else if (phase[0] == 3 && ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && !TransferLocks.inTransit(server, ship))
+            else if (phase[0] == 3 && ship.getCompoundOrEmpty("dock").getStringOr("state", "").equals("CLAMPED") && ship.getCompoundOrEmpty("dock").getBooleanOr("joined", false) && !TransferLocks.inTransit(server, ship) && !TransferLocks.busy(c.player()))
             {
-                var port = DockingPorts.firstPort(level, ship);
-                var at = port.anchors().getFirst();
+                // The hulls are joined: walk across the docking arm into the encounter vessel (its berth's chamber).
+                var vessel = WorldStore.get(server).repository().find(vesselId[0]);
+                var berth = DockingPorts.readPort(level, vessel, WorldStore.pos(vessel, "base").offset(WorldStore.pos(ship.getCompoundOrEmpty("dock"), "targetPort")), false);
+                var at = berth.anchors().getFirst();
                 c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
-                DockingService.perform(c.player(), ship, port.controller(), "DOCK_BOARD");
                 phase[0] = 4;
             }
-            else if (phase[0] == 4 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])) && SceneService.observer(c.player()).getStringOr("id", "").equals(vesselId[0]))
+            else if (phase[0] == 4 && !Boarding.busy(c.player()) && !TransferLocks.inTransit(server, ship) && !TransferLocks.inTransit(server, WorldStore.get(server).repository().find(vesselId[0])) && WorldStore.get(server).repository().find(vesselId[0]).getListOrEmpty("crew").stream().anyMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(c.player().getUUID().toString())))
             {
                 var vessel = WorldStore.get(server).repository().find(vesselId[0]);
                 if (encounterKind == 1)
@@ -538,13 +541,14 @@ public final class JourneyGameTest
             {
                 var vessel = WorldStore.get(server).repository().find(vesselId[0]);
                 var connected = WorldStore.pos(vessel, "base").offset(WorldStore.pos(ship.getCompoundOrEmpty("dock"), "targetPort"));
-                var port = DockingPorts.ports(level, vessel).stream().filter(p -> p.controller().equals(connected)).findFirst().orElseThrow(() -> new AssertionError("The ship's connected return berth must remain present"));
-                var at = port.anchors().getFirst();
+                ctx.assertTrue(DockingPorts.ports(level, vessel).stream().anyMatch(p -> p.controller().equals(connected)), "The ship's connected return berth must remain present");
+                // Walk back across the arm into the ship's own chamber.
+                var home = DockingPorts.readPort(level, ship, WorldStore.pos(ship, "base").offset(WorldStore.pos(ship.getCompoundOrEmpty("dock"), "sourcePort")), false);
+                var at = home.anchors().getFirst();
                 c.player().teleportTo(at.getX() + .5, at.getY(), at.getZ() + .5);
-                DockingService.perform(c.player(), vessel, port.controller(), "DOCK_BOARD");
                 phase[0] = 5;
             }
-            else if (phase[0] == 5 && !Boarding.busy(c.player()) && SceneService.observer(c.player()) == ship)
+            else if (phase[0] == 5 && !Boarding.busy(c.player()) && ship.getListOrEmpty("crew").stream().anyMatch(t -> ((CompoundTag) t).getStringOr("id", "").equals(c.player().getUUID().toString())))
             {
                 c.board();
                 var view = ShipControl.open(c.player(), WorldStore.pos(ship, "controller"), "Ready");
@@ -582,7 +586,7 @@ public final class JourneyGameTest
                 ctx.succeed();
             }
         });
-        ctx.runAfterDelay(20, () ->
+        TestWaits.afterLoaded(ctx, 20, () ->
         {
             c.fixture().ship().putDouble("simYaw", 37);
             long nonce = 0;

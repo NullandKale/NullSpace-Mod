@@ -49,6 +49,27 @@ public final class LifeSupport
         return ServerContext.get(server).service(AIR, HashMap::new);
     }
 
+    /** The players breathing from their suit (room air too thin, full suit on), as of their last breath. */
+    private static final ServerContext.Key<java.util.Set<UUID>> SUIT = new ServerContext.Key<>();
+
+    private static java.util.Set<UUID> suitAir(net.minecraft.server.MinecraftServer server)
+    {
+        return ServerContext.get(server).service(SUIT, java.util.HashSet::new);
+    }
+
+    /** A player's oxygen meter, 0-100, where life support manages their air (in space and on airless worlds); empty elsewhere. */
+    public static java.util.OptionalInt oxygen(ServerPlayer player)
+    {
+        Integer meter = air(player.level().getServer()).get(player.getUUID());
+        return meter == null ? java.util.OptionalInt.empty() : java.util.OptionalInt.of(Math.clamp(meter / 10, 0, 100));
+    }
+
+    /** Whether the player is breathing from their suit: the air where they stand is too thin and they wear a full suit. */
+    public static boolean onSuitAir(ServerPlayer player)
+    {
+        return suitAir(player.level().getServer()).contains(player.getUUID());
+    }
+
     private static final ServerContext.Key<Map<UUID, Vec3>> LAST = new ServerContext.Key<>();
 
     private static Map<UUID, Vec3> last(net.minecraft.server.MinecraftServer server)
@@ -116,7 +137,11 @@ public final class LifeSupport
     static int suitTarget(ServerPlayer player, int local, boolean tethered)
     {
         if (local >= SpatialAir.percent(Atmosphere.BREATHABLE) || !suited(player))
+        {
+            suitAir(player.level().getServer()).remove(player.getUUID());
             return local;
+        }
+        suitAir(player.level().getServer()).add(player.getUUID());
         if (drawCanister(player))
             return 100;
         return tethered ? Math.max(local, SUIT_TETHER_FLOOR) : local;
@@ -233,6 +258,7 @@ public final class LifeSupport
                         surfaceAir(player, store, savedAir);
                         continue;
                     }
+                    suitAir(server).remove(player.getUUID());
                     if (air(player.level().getServer()).remove(player.getUUID()) != null && !player.isCreative() && !player.isSpectator())
                     {
                         player.getAbilities().mayfly = false;
@@ -272,7 +298,9 @@ public final class LifeSupport
                     continue;
                 }
                 BlockPos anchor = WorldStore.pos(vessel, "controller");
-                if (tetherDistance(vessel, player.position()) > TETHER_RANGE)
+                // A joined dock's arm carries its own air, separate from both vessels', and is never beyond the tether.
+                boolean arm = com.nullandkale.nullspace.gameplay.docking.DockingTunnel.walkway(player.level(), player.blockPosition()) || com.nullandkale.nullspace.gameplay.docking.DockingTunnel.walkway(player.level(), BlockPos.containing(player.getEyePosition()));
+                if (!arm && tetherDistance(vessel, player.position()) > TETHER_RANGE)
                 {
                     var anchorState = player.level().getBlockState(anchor);
                     var boarding = ModBlocks.navigation(anchorState) ? anchor.relative(anchorState.getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING)) : anchor.above();
@@ -290,7 +318,8 @@ public final class LifeSupport
                     cabin = ShipAir.breathable(player.level(), vessel, BlockPos.containing(player.getEyePosition()));
                     source = !cabin && suited(player) && !insideWreck(store, player, vessel) && ShipAir.tether(player.level(), vessel);
                 }
-                boolean construction = StationConstruction.constructionAir(player, vessel);
+                boolean construction = StationConstruction.constructionAir(player, vessel) || arm;
+                cabin |= arm;
                 if (!player.isSpectator())
                 {
                     boolean vacuumFlight = (player.isCreative() || suited(player)) && !cabin;
@@ -308,6 +337,8 @@ public final class LifeSupport
                 if (!player.isCreative() && !player.isSpectator())
                 {
                     int local = localOxygen(player, vessel);
+                    if (construction)
+                        suitAir(server).remove(player.getUUID());
                     breathe(player, construction ? 100 : suitTarget(player, local, source), savedAir);
                 }
                 if (server.getTickCount() % 20 == 0)
@@ -376,6 +407,7 @@ public final class LifeSupport
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
         {
             ServerContext.get(server).remove(AIR);
+            ServerContext.get(server).remove(SUIT);
             ServerContext.get(server).remove(LAST);
         });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damage) ->
@@ -391,6 +423,7 @@ public final class LifeSupport
                     store.list("targets").removeIf(t -> ((CompoundTag) t).getStringOr("id", "").equals(p.getUUID().toString()));
                     store.section("oxygen").remove(p.getUUID().toString());
                     air(p.level().getServer()).remove(p.getUUID());
+                    suitAir(p.level().getServer()).remove(p.getUUID());
                     last(p.level().getServer()).remove(p.getUUID());
                     store.requestSave();
                     return null;

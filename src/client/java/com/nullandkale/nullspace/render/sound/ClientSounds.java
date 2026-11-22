@@ -70,6 +70,22 @@ public final class ClientSounds
         return layered == null ? 0 : layered.sounds.stream().mapToDouble(s -> s.voice.time()).max().orElse(0);
     }
 
+    /** The latest sound started under a name, as an opaque token, or null: a test compares tokens to tell that a new one started. */
+    public static Object latest(String name)
+    {
+        return LATEST.get(name);
+    }
+
+    /**
+     * How loud the latest sound under a name is where the player stands now (its loudness, falling with distance), 0 if none: a test tells by it that a sound
+     * plays near the player, not somewhere they have since left.
+     */
+    public static double heardHere(String name)
+    {
+        var layered = LATEST.get(name);
+        return layered == null ? 0 : heardAt(layered);
+    }
+
     public static void initialize()
     {
         ClientPlayNetworking.registerGlobalReceiver(SoundPackets.Play.TYPE, (packet, context) -> context.client().execute(() -> play(packet)));

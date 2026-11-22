@@ -17,19 +17,20 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The sounds of a hull's air, from the air system's last step, for ships with someone aboard: a hiss where air escapes or enters through a breach (a whistle
- * when it rushes), a soft vent at each Air Supply while its room fills, the ship's breach klaxon while air is lost to the outside, and, for each player
- * breathing thin air, an alarm that beeps faster as the air falls. The low-air alarm is the crew's own warning and needs no power; the klaxon is the ship's and
- * needs power for its controls, which a battery gives when the generators stop.
+ * The sounds of air. For ships with someone aboard, from the air system's last step: a hiss where air escapes or enters through a breach (a whistle when it
+ * rushes) and a soft vent at each Air Supply while its room fills. For each player: a quiet chime every few seconds while they breathe from their suit inside a
+ * hull, and the low-air alarm, which beeps faster as their air runs out, only once they are close to suffocating, wherever they are. Both are the suit's own
+ * and need no power from the ship.
  */
 public final class AirSounds
 {
     /** Air per tick through a breached face that is heard as a hiss, and that rushes into a whistle. */
     public static final int HISS = 1, WHISTLE = 60;
-    /** Oxygen, as players see it, below which the alarm sounds. */
-    public static final int LOW_AIR = 40;
-    /** Air per tick lost through all of a hull's breaches that sounds the klaxon. */
-    static final int KLAXON = 10;
+    /**
+     * A player's oxygen meter, as they see it, below which the low-air alarm sounds: a couple of seconds before they start to drown. A suited player on the
+     * ship's air line rests at this level (the tether floor) and is not dying, so they hear the suit chime and not the alarm.
+     */
+    public static final int DYING = com.nullandkale.nullspace.gameplay.crew.LifeSupport.SUIT_TETHER_FLOOR;
 
     public static void initialize()
     {
@@ -67,8 +68,6 @@ public final class AirSounds
                 var at = Vec3.atCenterOf(base.offset(grid.x(breach.cell()), grid.y(breach.cell()), grid.z(breach.cell()))).add(breach.dx() * .5, breach.dy() * .5, breach.dz() * .5);
                 out.accept(new ShipSounds.Loop("air.breach:" + entry.getKey(), breachCue(breach.amount()), null, aboard.level(), at, null, breachVolume(breach.amount()), 1, breachBrightness(breach.amount()), 1));
             }
-            if (escaping(r) >= KLAXON && ShipSystems.power(aboard.level(), aboard.ship(), com.nullandkale.nullspace.model.power.PowerBus.System.CONTROLS) > 0)
-                out.accept(new ShipSounds.Loop("alarm.breach:" + entry.getKey(), "alarm.breach", null, aboard.level(), null, List.copyOf(aboard.players()), KLAXON_VOLUME, 1, 0, 1));
             // An Air Supply reports its flow only while its room takes air; a room that is nearly full fills gently.
             int index = 0;
             for (var outlet : r.outlets)
@@ -82,20 +81,25 @@ public final class AirSounds
                 if (index >= 3)
                     break;
             }
-            for (var p : aboard.players())
-            {
-                if (p.isCreative())
-                    continue;
-                int oxygen = ShipAir.oxygen(aboard.level(), aboard.ship(), BlockPos.containing(p.getEyePosition()));
-                if (oxygen >= LOW_AIR)
-                    continue;
-                out.accept(new ShipSounds.Loop("alarm.lowair:" + p.getUUID(), "alarm.lowair", null, aboard.level(), null, List.of(p), ALARM_VOLUME, 1, 0, alarmRate(oxygen)));
-            }
+        }
+        // The suit's own sounds, for each player whose air life support manages: the alarm close to suffocating anywhere, the chime on suit air in a hull.
+        for (var p : server.getPlayerList().getPlayers())
+        {
+            if (p.isSpectator() || p.isCreative() || !p.isAlive())
+                continue;
+            ServerLevel level = p.level();
+            var meter = com.nullandkale.nullspace.gameplay.crew.LifeSupport.oxygen(p);
+            if (meter.isEmpty())
+                continue;
+            if (meter.getAsInt() < DYING)
+                out.accept(new ShipSounds.Loop("alarm.lowair:" + p.getUUID(), "alarm.lowair", null, level, null, List.of(p), ALARM_VOLUME, 1, 0, alarmRate(meter.getAsInt())));
+            else if (com.nullandkale.nullspace.gameplay.crew.LifeSupport.onSuitAir(p) && store.at(level, BlockPos.containing(p.getEyePosition())) != null)
+                out.accept(new ShipSounds.Loop("air.suit:" + p.getUUID(), "air.suit", null, level, null, List.of(p), SUIT_VOLUME, 1, 0, 1));
         }
     }
 
-    /** How loud the alarms are: the low-air alarm and the breach klaxon. */
-    public static final float ALARM_VOLUME = .8f, KLAXON_VOLUME = .55f;
+    /** How loud the suit's sounds are: the low-air alarm, and the chime on suit air, which is meant to be heard without being noticed. */
+    public static final float ALARM_VOLUME = .6f, SUIT_VOLUME = .22f;
 
     /** The sound of a breach through which {@code amount} air flows per tick: a hiss, a whistle when it rushes. */
     public static String breachCue(int amount)
@@ -124,32 +128,10 @@ public final class AirSounds
         return percent >= 80 ? -.2f : 0;
     }
 
-    /** The low-air alarm's pace for a player's oxygen: the cue's own (two beeps a second) at the threshold, three times that with no air. */
+    /** The low-air alarm's pace for a player's oxygen: the cue's own (about one and a half beeps a second) at the threshold, twice that with no air. */
     public static float alarmRate(int oxygen)
     {
-        return 1 + 2 * (LOW_AIR - Math.clamp(oxygen, 0, LOW_AIR)) / (float) LOW_AIR;
-    }
-
-    /**
-     * Air lost to the outside per tick: the exterior flows that point out of their room. A flow of air coming in (on a world with more air than the hull) points
-     * into its cell, where the next cell is the room's own.
-     */
-    static int escaping(ShipRuntime r)
-    {
-        if (r.atmosphere == null)
-            return 0;
-        var grid = r.atmosphere.grid();
-        var roomAt = r.atmosphere.roomAt();
-        int total = 0;
-        for (var flow : r.flows)
-        {
-            if (!flow.exterior())
-                continue;
-            int x = grid.x(flow.cell()) + flow.dx(), y = grid.y(flow.cell()) + flow.dy(), z = grid.z(flow.cell()) + flow.dz();
-            if (!grid.contains(x, y, z) || roomAt[grid.index(x, y, z)] < 0)
-                total += flow.amount();
-        }
-        return total;
+        return 1 + (DYING - Math.clamp(oxygen, 0, DYING)) / (float) DYING;
     }
 
     private AirSounds()

@@ -88,6 +88,9 @@ public final class DockingRecoveryGameTest
         var ready = DockingManeuver.request(player, ship, station.getStringOr("id", ""), target.controller().subtract(WorldStore.pos(station, "base")));
         ctx.assertTrue(ready.ready(), ready.message());
         var dock = ship.getCompoundOrEmpty("dock");
+        // Recovery is about collars and damaged ports: the dock stays apart, as an older dock or one whose hulls could not be joined.
+        dock.putBoolean("join", false);
+        dock.putDouble("gap", .05 + StationConstruction.protrusion(level, ship, DockingPorts.firstPort(level, ship)) + StationConstruction.protrusion(level, station, target));
         var source = DockingPorts.firstPort(level, ship);
         var goal = DockingManeuver.matingPose(ship, source, station, target, dock.getDoubleOr("gap", .05));
         var normal = FlightDynamics.rotate(SceneService.pose(station).orientation(), DockingMotion.normal(target.facing()));
@@ -212,6 +215,7 @@ public final class DockingRecoveryGameTest
             var ready = DockingManeuver.request(player, ship, station.getStringOr("id", ""), target.controller().subtract(WorldStore.pos(station, "base")));
             ctx.assertTrue(ready.ready(), ready.message());
             var dock = ship.getCompoundOrEmpty("dock");
+            dock.putBoolean("join", false);
             dock.putString("state", "CLAMPED");
             dock.remove("gap");
             var oldGoal = DockingManeuver.matingPose(ship, source, station, target, .05);

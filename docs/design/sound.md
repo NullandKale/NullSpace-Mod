@@ -6,7 +6,7 @@ NullSpace had almost no sound of its own: ship doors borrowed trapdoor sounds, t
 
 One voice mixes two sources:
 
-- **Tone.** Sine (thumps, hums) or square (alarms, engines). Its pitch can sweep from a start to an end frequency over a time.
+- **Tone.** Sine (thumps, hums, alarms) or square (engines, shots). Its pitch can sweep from a start to an end frequency over a time.
 - **Noise.** White noise through a filter. Its brightness sets the filter's frequency: a hiss (bright), a rumble (dark) or a whoosh (changing). Its focus sets the filter's kind: at 0 a smoothing filter that lets everything below that frequency through, above 0 a band around it that narrows as focus rises. A focused noise has a pitch of its own, a machine's growl or a pitched whoosh, so when the sound shifts the shift is heard as a change of pitch, not only of brightness. A second, steep filter just above the first cuts what is left high up: a gentle filter alone leaves enough of white noise's highs that a low rumble is heard as a faint hiss over it, because the ear is far keener there. Bright noise is above most of that filter and hardly changes.
 
 Three shapers act on the voice:
@@ -33,13 +33,13 @@ A **cue** is a named patch, or a few layered ones with start delays, in [`cues.j
 | --- | --- | --- | --- |
 | `ship.hum` | low sine with a quiet, slightly detuned fifth over it | dark band, quiet | steady loop aboard any hull in space |
 | `ftl.jolt` | low sine sweeping down | dark burst | sharp attack, about a second of fade, with the [jump flash](flight-motion-and-transitions.md) |
-| `ftl.drone` | very low sine | dark, quiet | loop that swells with the FTL streaks |
+| `ftl.drone` | very low sine, steady | dark, quiet | loop that swells with the FTL streaks |
 | `air.hiss` | none | bright | loop; level and brightness follow the flow through an opening |
 | `air.refill` | none | soft | gentle loop while a room climbs from about 80% to full |
-| `air.leak` | high sine, slightly wavering | bright, quiet | loop while a breach vents |
-| `alarm.lowair` | square | none | beeps that speed up as the air falls |
-| `alarm.breach` | square, two pitches alternating | none | klaxon |
-| `engine.hum` | low, softened square | dark | loop; pitch and level follow thrust |
+| `air.leak` | none | bright, with a pitch of its own | a whistling rush while a breach vents |
+| `air.suit` | soft sine, two notes falling | none | a quiet chime every 4 s while breathing from the suit inside a hull |
+| `alarm.lowair` | sine with a quieter octave under it | none | beeps that speed up as the player's air runs out |
+| `engine.hum` | low sine with a quieter octave over it | dark | loop; pitch and level follow thrust |
 | `dock.clamp` | short low thump | short dark burst | then a hiss |
 | `dock.release` | a hiss | then a short low thump | undocking |
 | `rcs.puff` | short low sine sweeping down | a pitched puff | a maneuvering jet, heard through the hull |
@@ -47,13 +47,15 @@ A **cue** is a named patch, or a few layered ones with start delays, in [`cues.j
 | `turret.fire` | short high square sweeping down | bright tick | a turret's shot |
 | `hull.impact` | very low sine sweeping down | dark burst | a hit on the hull |
 
+No sirens and no buzz: a cue that keeps playing holds a smooth sine at one pitch, or no tone at all. Alarms are steady beeps, and only square waves and pitch sweeps that are over in a moment (a shot, a thump) are used. A unit test ([`SoundCuesTest`](../../src/test/java/com/nullandkale/nullspace/model/sound/SoundCuesTest.java)) holds every looping cue to this.
+
 Where each cue is played:
 
 - **Aboard in space** ([`ShipAmbience`](../../src/main/java/com/nullandkale/nullspace/gameplay/sound/ShipAmbience.java)): the hum, for everyone inside a hull in space, at the same level wherever they stand, under every other sound. The fifth's slight detuning makes it beat slowly, so it is never quite still. On EVA there is silence, and on a world the world's own sounds take over.
 - **Travel** ([`TravelSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/sound/TravelSounds.java)): the jolt with every jump step and the drone while cruising. Arrival has no chime of its own.
-- **Air**, from the air system's last step ([`AirSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/AirSounds.java)): a hiss at the strongest breach (a whistle when it rushes); a vent at each Air Supply while its room fills (softer once it is over 80%); the breach klaxon for the whole crew while the hull loses at least 10 air a tick to the outside, which needs power for the controls (a battery counts); and, for a player whose air is below 40%, the low-air alarm, which speeds up as the air falls and needs no power. Air particles follow the flow's strength: more, larger and brighter for a stronger breach, and a single faint wisp at a supply topping up a room over 80%.
+- **Air**, from the air system's last step ([`AirSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/AirSounds.java)): a hiss at the strongest breach (a whistle when it rushes); and a vent at each Air Supply while its room fills (softer once it is over 80%). A breach has no alarm of its own: the hiss says where it is. Each player's suit makes its own sounds, heard only by them and needing no power from the ship. Inside a hull, while they breathe from their suit because the room air is too thin, it chimes quietly every few seconds. The low-air alarm sounds only when they are suffocating: their oxygen meter is below 20%, a couple of seconds before they start to drown, anywhere (aboard, on EVA or on an airless world). It speeds up as the air runs out. A suited player on the ship's air line rests at 20% and hears the chime, not the alarm. Air particles follow the flow's strength: more, larger and brighter for a stronger breach, and a single faint wisp at a supply topping up a room over 80%.
 - **Engines** ([`EngineSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/EngineSounds.java)): the hum while the engines thrust, under the same rule as the exhaust plume ([`EngineEffects`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/EngineEffects.java)). It plays at the engine nearest the middle of the ship's engines; harder thrust makes it louder and higher, and speed makes it brighter.
-- **Docking**: the clamp at the ship's docking door as it locks on ([`DockingManeuver`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingManeuver.java)), heard by both crews, and the release as undocking starts ([`DockingService`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingService.java)). While the maneuver moves the ship, in and out, its engines burn with the plume and hum of piloted flight, harder the faster it goes, and maneuvering jets puff cold gas from the hull, a short puff heard through the hull about every 0.4 s ([`DockingThrusters`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingThrusters.java)). A jet fires from the side of the hull away from where the ship is pushed, and a turn fires a pair at the two ends of the hull in opposite directions. Nothing burns while the ship waits for the other crew's consent or once it is clamped.
+- **Docking**: the clamp at the ship's docking door as it locks on ([`DockingManeuver`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingManeuver.java)), heard by both crews, and the release as undocking starts ([`DockingService`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingService.java)), an emergency undock included. A hull that joins its berth moves there behind the loading screen, and moves back to an area of its own when it leaves, so its sounds wait for those moves: the clamp plays once it stands beside the berth with its crew, and the release once it is back in its own area, just before it backs away. Played earlier, the move would leave them behind. While the maneuver moves the ship, in and out, its engines burn with the plume and hum of piloted flight, harder the faster it goes, and maneuvering jets puff cold gas from the hull, a short puff heard through the hull about every 0.4 s ([`DockingThrusters`](../../src/main/java/com/nullandkale/nullspace/gameplay/docking/DockingThrusters.java)). A jet fires from the side of the hull away from where the ship is pushed, and a turn fires a pair at the two ends of the hull in opposite directions. Nothing burns while the ship waits for the other crew's consent or once it is clamped.
 - **Combat**: the weapon's shot at the weapon ([`ShipCombat`](../../src/main/java/com/nullandkale/nullspace/gameplay/combat/ShipCombat.java)) and a turret's shot at the turret ([`Turrets`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/Turrets.java)), in place of the old arrow sound. A hit on a hull is heard by everyone aboard at the point of impact ([`ShipSounds.hull`](../../src/main/java/com/nullandkale/nullspace/gameplay/sound/ShipSounds.java)): the hull carries it, so it is heard even in vacuum, through a wall at worst.
 - **Terminals** make no sound of their own when an action is taken or refused.
 
@@ -83,14 +85,14 @@ One setting can also be changed alone: `wave`, `from`, `to`, `sweep`, `tonelevel
 
 Tuning a cue: load it as a preset, adjust it until it sounds right, `dump` it and paste the text into the cue file.
 
-A Synth can also play one of the game's cues exactly as the game plays it: every layer, with its live values (loudness, pitch, brightness, pace) and a least muffling fixed. The sound gallery sets this on its stands. Changing the patch on the screen or from a terminal ends it, so a stand is also a starting point for tuning.
+A Synth can also play one of the game's cues exactly as the game plays it: every layer, with its live values (loudness, pitch, brightness, pace) and a least muffling fixed. The sound gallery sets this on its stands. Changing the patch on the screen or from a terminal ends it, so a stand is also a starting point for tuning. A stand can also play one of Minecraft's own sounds that the game borrows, as a recording at the game's loudness and pitch, quieter by its muffling as Minecraft's sounds are heard through doors.
 
 ## The sound gallery
 
-`/nullspace shipyard sounds` builds a lit, closed hall to listen to every cue ([`SoundGallery`](../../src/main/java/com/nullandkale/nullspace/gameplay/shipyard/SoundGallery.java)). Each stand is a Synth playing its cue as the game does, with a button on top for a sound that plays once or a lever for a loop, and a sign with its group, cue, the moment it stands for and its control.
+`/nullspace shipyard sounds` builds a lit, closed hall to listen to every sound the game makes ([`SoundGallery`](../../src/main/java/com/nullandkale/nullspace/gameplay/shipyard/SoundGallery.java)). Each stand is a Synth playing its cue as the game does, with a button on top for a sound that plays once or a lever for a loop, and a sign with its group, cue, the moment it stands for and its control.
 
-- **North wall:** every cue, in groups: travel, air, alarms, engines, docking, combat and ambience. Where the game changes a cue as it plays, the values that matter stand side by side: a small, a strong and a rushing breach; a room filling and one nearly full; the low-air alarm at 39% and at 5% air; the engines at light thrust, half thrust and full thrust at speed. Those values come from the same functions the game uses ([`AirSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/AirSounds.java), [`EngineSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/EngineSounds.java)), so the gallery follows any change to them.
-- **South wall:** the full engine and a hit on the hull, each clear, through a closed door, through two closed doors and through a wall, muffled as the hearing rules muffle them.
+- **North wall:** every cue, in groups: travel, air, alarms, engines, docking, combat and ambience. Where the game changes a cue as it plays, the values that matter stand side by side: a small, a strong and a rushing breach; a room filling and one nearly full; the suit chime, and the low-air alarm at 19% and at 2% air; the engines at light thrust, half thrust and full thrust at speed. Those values come from the same functions the game uses ([`AirSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/AirSounds.java), [`EngineSounds`](../../src/main/java/com/nullandkale/nullspace/gameplay/systems/EngineSounds.java)), so the gallery follows any change to them. Then the Minecraft sounds the game borrows for its own things: ship doors (iron and wood trapdoors, opening and closing, from [`ShipDoors`](../../src/main/java/com/nullandkale/nullspace/gameplay/ship/structure/ShipDoors.java)), putting on a space suit and an armored suit, a burning wreck, picking a golden tree's fruit and filling a bucket of green fluid.
+- **South wall:** the full engine, a hit on the hull and a ship door shutting, each clear, through a closed door, through two closed doors and through a wall, muffled as the hearing rules muffle them (the door, one of Minecraft's sounds, only quieter). Then an explosion clear and as the muffled recording heard through a hull or a door.
 
 The hall is built in the same place on every visit; the first visit finds the ground and the world remembers its height.
 
@@ -107,7 +109,7 @@ Unit tests cover the patch text, the voice (one-shots end, loops sustain, muffli
 
 The other tests:
 
-- [`AirSoundsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/systems/AirSoundsGameTest.java) breaches a cabin on Luna: the hiss, the klaxon, then the low-air alarm.
+- [`AirSoundsGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/systems/AirSoundsGameTest.java) breaches a cabin on Luna: the hiss and no alarm, the suit chime for a suited crew member, then the low-air alarm only once their suit is off and their air runs out.
 - [`DefenceGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/defence/DefenceGameTest.java) checks that a player hears a turret's shot.
 - [`SynthClientGameTest`](../../src/gametest/java/com/nullandkale/nullspace/content/synth/SynthClientGameTest.java) uses the screen and checks the client's sound engine really reads the voice.
 - [`SoundGalleryGameTest`](../../src/gametest/java/com/nullandkale/nullspace/gameplay/shipyard/SoundGalleryGameTest.java) checks every cue has a stand with the right control, and that a lever and buttons play their cues, muffled where they should be.
@@ -116,4 +118,4 @@ The other tests:
 ## Power and recipe
 
 - The Synth block is made from a note block, a circuit board and iron, and draws a little power from the ship like any device.
-- Alarms keep sounding from a battery when generation stops: a ship that loses power still warns its crew. Engines and air fall silent with the systems they belong to.
+- The suit's chime and alarm need no power from the ship. Engines and air fall silent with the systems they belong to.

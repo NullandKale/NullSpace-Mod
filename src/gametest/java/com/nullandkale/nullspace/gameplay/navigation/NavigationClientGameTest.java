@@ -191,13 +191,16 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     return JumpFlashOverlay.opacity() > .5;
                 }, 100);
                 c.takeScreenshot("nullspace-ftl-flash");
-                // The cabin once the flash has passed: the crew are where they were, under the FTL sky.
+                // Once the flash has passed the crew are where they were, under the FTL sky, with the helm still open.
                 ClientWaits.waitFor(c, mc ->
                 {
                     if (mc.gui.screen() instanceof TravelScreen)
                         throw new AssertionError("A jump opened the transit screen");
-                    return mc.gui.screen() == null && !JumpFlashOverlay.active() && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_");
+                    return mc.gui.screen() instanceof TerminalScreen && !JumpFlashOverlay.active() && NullSpaceClient.definitions().scene() != null && NullSpaceClient.definitions().scene().id().startsWith("nullspace:j_");
                 }, 300);
+                c.takeScreenshot("nullspace-ftl-helm-after-jump");
+                c.runOnClient(mc -> mc.gui.setScreen(null));
+                c.waitTicks(3);
                 c.takeScreenshot("nullspace-ftl-walkable-cabin");
                 if (destination.equals("sol_luna"))
                 {

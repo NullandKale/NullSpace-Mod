@@ -49,7 +49,7 @@ public record TripPresentation(Phase phase, String title, String hint)
         String dockState = dock.getStringOr("state", "");
         if (dockState.equals("CLAMPED"))
             return BuildJournal.pending(server, id) || TransferLocks.inTransit(server, ship) || CourseService.active(ship) ? new TripPresentation(Phase.CAPTURING, "Securing the docking connection", "Wait for the collar to be saved before boarding or continuing.") : new TripPresentation(Phase.CAPTURED, "Docked", JourneyService.active(ship) ? "Open the dock door to visit. Continue journey departs automatically." : "Open the connected dock door to board; return through the same port.");
-        if (Set.of("UNDOCKING", "EMERGENCY_BACKOFF").contains(dockState))
+        if (Set.of("SEPARATING", "UNDOCKING", "EMERGENCY_BACKOFF").contains(dockState))
             return new TripPresentation(Phase.DEPARTING, "Leaving the dock", "Backing away safely. Stay aboard until departure finishes.");
         if (!dockState.isEmpty())
             return new TripPresentation(Phase.APPROACH, dockState.equals("WAITING_CONSENT") ? "Waiting for docking permission" : "Approaching the docking port", "Automatic alignment and capture are in progress.");
