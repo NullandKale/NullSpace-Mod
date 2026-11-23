@@ -27,7 +27,7 @@ import org.joml.Quaterniond;
  * hull. A ship's blocks keep their own frame in space while its pose moves, so the jets fire in the hull's frame: from the side away from where the ship is
  * pushed, and for a turn from both ends of the hull in opposite directions.
  */
-final class DockingThrusters
+public final class DockingThrusters
 {
     /** The longest docking step, in blocks a tick: the approach's pace, which is full thrust. */
     private static final double FULL_STEP = .8;
@@ -50,7 +50,7 @@ final class DockingThrusters
      * Fires the engines and jets for one docking step from {@code from} to {@code to}. Placing the ship stops its piloted flight ({@code Piloting.stop}), which
      * clears the engines' demand, so this runs after the step is placed.
      */
-    static void fire(MinecraftServer server, ServerLevel level, CompoundTag own, ScenePose from, ScenePose to)
+    public static void fire(MinecraftServer server, ServerLevel level, CompoundTag own, ScenePose from, ScenePose to)
     {
         own.putInt("thrustDemand", NavigationService.propulsion(level, own));
         var move = from.directionToLocal(to.position().subtract(from.position()));
@@ -70,7 +70,7 @@ final class DockingThrusters
     }
 
     /** Forgets a maneuver's jets once it ends, so the next one starts with a burst. */
-    static void stop(MinecraftServer server, CompoundTag own)
+    public static void stop(MinecraftServer server, CompoundTag own)
     {
         ServerContext.get(server).service(STEPS, HashMap::new).remove(DockingService.id(own));
         // A docked hull moves to its berth and back, so it is measured afresh next time.

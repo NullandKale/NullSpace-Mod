@@ -142,8 +142,8 @@ No fuel tank item, cables, batteries or allocation edits are required. The gener
 1. While standing inside with the door closed, press **Launch** at the Ship Controller.
 2. Stay aboard during loading. Wait until the travel overlay finishes.
 3. Right-click the controller again and choose **Look at ship** to see the ship and surroundings without piloting it. Escape returns to the ship controls when the controller is still reachable.
-4. In the controller, read **Destination**. If it is already **Home**, keep it selected. Otherwise click **Destination**, choose **Landing pads**, select **Home**, then **Set destination**.
-5. Press **Land**. Stay inside until the transfer completes.
+4. In the controller's **Trip** tab, read **Going to**. If it is already **Home**, keep it. Otherwise click **Home** in the list of places here.
+5. Press **Engage**. The ship flies close to the planet first, then lands. Stay inside until the transfer completes.
 6. Open the ordinary door and step back onto the pad.
 
 This exercise does not use Jump, Dock or Undock. Do not open the exterior door in space. A suit and a usable resource destination belong in the next exploration story; they are not required to prove this enclosed launch-and-return loop.

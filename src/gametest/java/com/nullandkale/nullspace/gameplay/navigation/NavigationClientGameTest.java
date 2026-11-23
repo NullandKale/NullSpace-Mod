@@ -286,7 +286,7 @@ public final class NavigationClientGameTest implements FabricClientGameTest
                     ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
                     ShipControlTestUi.destination(c, world, bodyName[0] + " Landing", "Pads");
                     ShipControlTestUi.action(c, ShipControl.Action.LAND);
-                    ClientWaits.waitFor(c, mc -> mc.level != null && mc.level.dimension().identifier().toString().equals("nullspace:sol_ares") && mc.gui.screen() == null, 600);
+                    ClientWaits.waitFor(c, mc -> mc.level != null && mc.level.dimension().identifier().toString().equals("nullspace:sol_ares") && mc.gui.screen() == null, 1500);
                     ClientWaits.chunksRendered(world.getConnection());
                     c.waitTicks(12);
                     c.takeScreenshot("nullspace-generated-planet-surface");

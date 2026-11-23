@@ -14,12 +14,22 @@ import java.util.*;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BarrelBlockEntity;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -144,6 +154,7 @@ public final class GeneratedStationGameTest
                 var facing = space.getBlockState(berth).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
                 int arm = (int) Math.round(current.getCompoundOrEmpty("dock").getDoubleOr("gap", 0));
                 ctx.assertTrue(arm == 0 || com.nullandkale.nullspace.gameplay.docking.DockingTunnel.walkway(space, berth.above().relative(facing)), "The docking arm leads from the berth door: " + arm + " blocks");
+                visitorUsesAnUnownedStation(ctx, space, player, host);
                 ship.putLong("base", current.getLongOr("base", 0));
                 ship.putInt("width", current.getIntOr("width", 32));
                 ship.putInt("depth", current.getIntOr("depth", 32));
@@ -159,5 +170,43 @@ public final class GeneratedStationGameTest
             StationGameTest.cleanup(space, station);
         };
         ctx.runAfterDelay(20, () -> poll[0].run());
+    }
+
+    /**
+     * Nobody owns a station the world generated: a visitor (no operator) opens its containers and breaks its blocks, as at a derelict. Once a player owns
+     * it, the same visitor is refused both. Orbital stations used to refuse every visitor, silently, so nothing in one seemed to work (0.9.0).
+     */
+    private static void visitorUsesAnUnownedStation(GameTestHelper ctx, ServerLevel space, ServerPlayer visitor, CompoundTag station)
+    {
+        ctx.assertTrue(!visitor.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER), "The visitor is not an operator");
+        var containers = new ArrayList<BlockPos>();
+        for (var at : BlockPos.betweenClosed(WorldStore.bounds(station).min(), WorldStore.bounds(station).max()))
+            if (space.getBlockEntity(at) instanceof BaseContainerBlockEntity container && BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(container.getType()).getNamespace().equals("minecraft") && !(container instanceof ShulkerBoxBlockEntity) && !(container instanceof ChestBlockEntity && ChestBlock.isChestBlockedAt(space, at)))
+                containers.add(at.immutable());
+        ctx.assertTrue(containers.size() >= 2, "The station has containers to open: " + containers.size());
+        var owned = containers.getFirst();
+        var unowned = containers.getLast();
+        station.putString("owner", UUID.randomUUID().toString());
+        try
+        {
+            ctx.assertTrue(!opens(space, visitor, owned), "A player's station keeps its containers closed to a visitor: " + space.getBlockState(owned));
+            ctx.assertTrue(!visitor.gameMode.destroyBlock(owned) && !space.getBlockState(owned).isAir(), "A visitor cannot break a player's station: " + space.getBlockState(owned));
+        }
+        finally
+        {
+            station.putString("owner", "");
+        }
+        ctx.assertTrue(opens(space, visitor, unowned), "A visitor opens a container in an unowned station: " + space.getBlockState(unowned));
+        ctx.assertTrue(visitor.gameMode.destroyBlock(unowned) && space.getBlockState(unowned).isAir(), "A visitor breaks a block in an unowned station");
+    }
+
+    /** Right-clicks the block as the player would, and says whether a container screen opened. */
+    private static boolean opens(ServerLevel level, ServerPlayer player, BlockPos at)
+    {
+        player.closeContainer();
+        player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(at), Direction.UP, at, false));
+        boolean open = player.containerMenu != player.inventoryMenu;
+        player.closeContainer();
+        return open;
     }
 }

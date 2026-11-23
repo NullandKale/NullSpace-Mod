@@ -29,6 +29,8 @@ public final class ClientWaits
 
     public static int waitFor(ClientGameTestContext context, Predicate<Minecraft> predicate, int ticks)
     {
+        // The banner over the window says where the test is, so a stuck wait can be found by line.
+        StackWalker.getInstance().walk(frames -> frames.filter(f -> !f.getClassName().equals(ClientWaits.class.getName())).findFirst()).ifPresent(f -> com.nullandkale.nullspace.dev.TestBanner.step("waiting at " + f.getFileName() + ":" + f.getLineNumber()));
         try
         {
             return untilFloor(() -> context.waitFor(predicate, ticks), ticks);

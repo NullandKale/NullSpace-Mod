@@ -12,7 +12,7 @@ A third option, the [crash-landing start](crash-start.md), builds the same ship 
 
 ## Choosing the start
 
-**Single-player.** On *Create New World*, the *Start* control switches between **On a planet** and **Aboard a ship**. The *Starting ship* button picks a design from the Ship Beacon catalog. Rivet Bolt is the default. Game mode, difficulty, seed and world generation remain the ordinary Minecraft choices. The choice is stored in the world as `nullspace/world-start.properties`.
+**Single-player.** On *Create New World*, the *Start* control cycles through **On a planet**, **Aboard a ship** and **Crash-landed**. A new world offers the crash landing on Terra in the tiny Rivet Spark first ([`WorldStartSettings.NEW_WORLD`](../../src/main/java/com/nullandkale/nullspace/gameplay/start/WorldStartSettings.java)); up to 0.9.0 it offered the ordinary start. The *Starting ship* button picks a design from the Ship Beacon catalog. Game mode, difficulty, seed and world generation remain the ordinary Minecraft choices. The choice is stored in the world as `nullspace/world-start.properties`.
 
 ![Space-start choices in the normal world creation menu](../images/world-start-options.png)
 
@@ -23,7 +23,7 @@ nullspace-space-start=true
 nullspace-starting-ship=rivet_bolt
 ```
 
-Both paths use the same two property names ([`WorldStartSettings`](../../src/main/java/com/nullandkale/nullspace/gameplay/start/WorldStartSettings.java)), so single-player and server behave identically. The ship id must be one of the catalog ships: `rivet_bolt`, `rivet_hauler`, `rivet_ranger`, `halcyon_swift`, `halcyon_courier`, `halcyon_horizon`, `bastion_ward`, `bastion_tender`, `bastion_pioneer`. These are the presets defined in [`data/nullspace/catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json); see [the ship generator](ship-generator.md).
+A server without these properties keeps the ordinary Minecraft start ([`WorldStartSettings.DEFAULT`](../../src/main/java/com/nullandkale/nullspace/gameplay/start/WorldStartSettings.java)), so updating the mod never changes how an existing server starts its new players. Both paths use the same two property names ([`WorldStartSettings`](../../src/main/java/com/nullandkale/nullspace/gameplay/start/WorldStartSettings.java)), so single-player and server behave identically. The ship id must be one of the catalog ships: `rivet_bolt`, `rivet_hauler`, `rivet_ranger`, `halcyon_swift`, `halcyon_courier`, `halcyon_horizon`, `bastion_ward`, `bastion_tender`, `bastion_pioneer`. These are the presets defined in [`data/nullspace/catalog/ships.json`](../../src/main/resources/data/nullspace/catalog/ships.json); see [the ship generator](ship-generator.md).
 
 An unknown ship id **stops the server at startup** with a clear message. This includes the retired pre-0.5 ids such as `sparrow`: the shipyard maps those to their replacements, but the start setting checks the current catalog only, so a server that still names one must be changed. The alternative, quietly falling back to another ship, would hand every new player a ship the operator did not choose. The settings are read once, when the server starts. This also means that an update which renames or removes a preset needs the property changed before the server will start.
 
@@ -51,6 +51,8 @@ New arrivals are queued at login and commissioned on a later server tick, never 
 6. **Provision.** Generators get coal, systems are upgraded to the current version, and default requests are written for air, power and doors.
 7. **Verify the cabin.** The cell in front of the helm and the one above it must be breathable. If not, the start fails instead of placing a player in vacuum.
 8. **Place the player.** They are added to the crew, teleported to the helm, given supplies once (a tag stops a second grant), their air is filled, and the start is marked `completed`.
+
+**The player never sees the spawn first.** A new player logs in at the world's spawn like anyone else, and the ship is built a tick or more later. At login the server tells the client a start is coming ([`StartPackets`](../../src/main/java/com/nullandkale/nullspace/gameplay/start/StartPackets.java)), and a dark "Preparing your ship" screen ([`StartScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/StartScreen.java)) covers the world until the player stands in the ship and the ground under them has been drawn. Up to 0.9.0 the player saw the ordinary spawn and was then pulled away, which was confusing. A start that keeps failing shows its retry on the screen and offers **Disconnect** after thirty seconds.
 
 A failed attempt is logged, the player is told it will retry, and the next try is scheduled for one minute later (1,200 ticks). An interrupted start never rerolls the planet and never replaces conflicting blocks.
 

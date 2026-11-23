@@ -50,20 +50,26 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
         if (System.getProperty("nullspace.local.role") != null)
             return;
         var failure = new AtomicReference<Throwable>();
-        c.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
+        // Offer what players are offered (the other client tests get the plain start), and only for this screen.
+        c.runOnClient(mc ->
+        {
+            com.nullandkale.nullspace.ui.screen.WorldStartDefaults.playersDefault(true);
+            CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen()));
+        });
         ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
         c.runOnClient(mc ->
         {
             var screen = (CreateWorldScreen) mc.gui.screen();
+            com.nullandkale.nullspace.ui.screen.WorldStartDefaults.playersDefault(false);
             screen.getUiState().setName("NullSpace crash-start test");
             screen.getUiState().setSeed("20261104");
             var tabs = screen.children().stream().filter(MenuTabBar.class::isInstance).map(MenuTabBar.class::cast).findFirst().orElseThrow();
             tabs.selectTab(3, false);
-            click(screen, "Start: On a planet");
-            click(screen, "Start: Aboard a ship");
-            click(screen, "Planet: Random planet");
-            if (!((WorldStartAccess) screen).nullspace$start().equals(new WorldStartSettings(true, WorldStartSettings.DEFAULT.ship(), true, false, "terra")))
-                throw new AssertionError("The third start option did not select the crash landing: " + ((WorldStartAccess) screen).nullspace$start());
+            // The crash on Terra in the tiny starter is what a new world offers first: no clicks needed.
+            if (!((WorldStartAccess) screen).nullspace$start().equals(WorldStartSettings.NEW_WORLD) || !WorldStartSettings.NEW_WORLD.equals(new WorldStartSettings(true, WorldStartSettings.DEFAULT.ship(), true, false, "terra")))
+                throw new AssertionError("Create New World must offer the crash landing on Terra first: " + ((WorldStartAccess) screen).nullspace$start());
+            if (screen.children().stream().filter(AbstractButton.class::isInstance).map(AbstractButton.class::cast).noneMatch(b -> b.getMessage().getString().equals("Start: Crash-landed")))
+                throw new AssertionError("The Start button shows the crash landing");
         });
         c.takeScreenshot("nullspace-crash-start-options");
         c.runOnClient(mc -> click(mc.gui.screen(), "Create New World"));
@@ -100,6 +106,20 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
                             broken.add(at.immutable());
                     if (broken.isEmpty())
                         throw new AssertionError("No machine is broken");
+                    // Even on Terra, where the air outside is breathable, the bridge keeps its own air: the generator nearest the helm and an air supply survive.
+                    var controller = WorldStore.pos(ship, "controller");
+                    var generators = new ArrayList<BlockPos>();
+                    boolean air = false;
+                    for (var at : BlockPos.betweenClosed(bounds.min(), bounds.max()))
+                    {
+                        var state = level.getBlockState(at);
+                        if (state.is(com.nullandkale.nullspace.content.ModBlocks.GENERATOR) || state.is(BrokenMachines.GENERATOR))
+                            generators.add(at.immutable());
+                        air |= state.is(com.nullandkale.nullspace.content.ModBlocks.AIR_SUPPLY);
+                    }
+                    generators.sort(java.util.Comparator.comparingDouble(p -> p.distSqr(controller)));
+                    if (generators.isEmpty() || !level.getBlockState(generators.getFirst()).is(com.nullandkale.nullspace.content.ModBlocks.GENERATOR) || !air)
+                        throw new AssertionError("A crash on Terra must still leave the bridge a working generator and air supply");
                     var center = new Vec3((bounds.min().getX() + bounds.max().getX() + 1) / 2.0, (bounds.min().getY() + bounds.max().getY()) / 2.0, (bounds.min().getZ() + bounds.max().getZ() + 1) / 2.0);
                     var list = new ArrayList<Shot>();
                     double reach = Math.max(bounds.max().getX() - bounds.min().getX(), bounds.max().getZ() - bounds.min().getZ()) * .5 + 12;
@@ -144,6 +164,11 @@ public final class CrashStartClientGameTest implements FabricClientGameTest
             throw new AssertionError("Crash start validation failed", failure.get());
         if (!done.get())
             throw new AssertionError("The crash start never finished");
+        // The cover goes up once vanilla's own terrain screen closes, which can be after the server has finished the start.
+        for (int i = 0; i < 200 && c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.covers()) == 0; i++)
+            c.waitTicks(2);
+        if (c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.covers()) == 0)
+            throw new AssertionError("The start cover must hide the spawn while the wreck is built: " + c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.state()));
         ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && mc.level.dimension().equals(Level.OVERWORLD) && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
         c.waitTicks(60);
         c.takeScreenshot("nullspace-crash-cabin");

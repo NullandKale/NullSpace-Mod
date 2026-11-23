@@ -29,7 +29,10 @@ class StartDifficultyTest
         var terra = StartDifficulty.describe("terra", false, null);
         assertEquals(Level.EASY, terra.level());
         assertTrue(terra.warnings().isEmpty(), "Terra has nothing to warn about");
-        assertTrue(StartDifficulty.describe("random", false, null).warnings().getFirst().contains("any star system"), "Random says it may be far away");
+        assertTrue(StartDifficulty.describe("random", true, null).warnings().getFirst().contains("any star system"), "A random crash says it may be far away");
+        // A start in orbit is always over a planet of the home system, so it must not warn about distance (0.9.0 did).
+        var orbit = StartDifficulty.describe("random", false, null).warnings();
+        assertTrue(orbit.getFirst().contains("home system") && orbit.stream().noneMatch(w -> w.contains("any star system") || w.contains("far from Terra")), "Random in orbit stays in the home system: " + orbit);
     }
 
     @Test

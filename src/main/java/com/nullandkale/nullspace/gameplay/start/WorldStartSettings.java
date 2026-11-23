@@ -15,7 +15,10 @@ public record WorldStartSettings(boolean space, String ship, boolean crash, bool
 {
 
     public static final String FILE = "nullspace/world-start.properties";
+    /** A server with no start setting, and a world without the settings file: the ordinary Minecraft start. */
     public static final WorldStartSettings DEFAULT = new WorldStartSettings(false, ShipBlueprints.DEFAULT_STARTER);
+    /** What Create New World offers first: the tiny starter, crash-landed on Terra, one wreck for everyone. */
+    public static final WorldStartSettings NEW_WORLD = new WorldStartSettings(true, ShipBlueprints.DEFAULT_STARTER, true, false, "terra");
 
     public WorldStartSettings
     {

@@ -10,13 +10,15 @@ Access is decided in [`StationAccess`](../../src/main/java/com/nullandkale/nulls
 | --- | --- | --- |
 | **Owner** | The player who started it, or any server operator | Everything, plus rename, invite and remove builders, change public or private |
 | **Builder** | Invited by the owner (the invited player must be online at the time) | Build, edit blocks, use storage and the core |
-| **Visitor** | Anyone, if the station is public. Everyone, if it is a derelict | Operate internal doors, use dock controls, the Station Core, a crafting table and a stonecutter. Cannot edit blocks, open protected storage or change berths |
+| **Visitor** | Anyone, if the station is public. Everyone, if nobody owns it | Operate internal doors, use dock controls, the Station Core, a crafting table and a stonecutter. Cannot edit blocks, open protected storage or change berths |
 
 A **returning visitor** (a player aboard whose record says which ship they came from) keeps the door access needed to get back, even if public access is switched off. A station under construction cannot be edited or used except through the build itself.
 
-Derelicts from [encounters](ftl-journeys.md) are the exception to protection: visitors may open storage and change blocks, because salvage is the point. A derelict becomes protected property when a player claims it (see [ship ownership](ship-recall.md)).
+**A station nobody owns is not protected.** Derelicts from [encounters](ftl-journeys.md) and the stations the world generates, such as those orbiting planets, have no owner, so any visitor may open their storage, use their machines and change their blocks ([`StationAccess.unowned`](../../src/main/java/com/nullandkale/nullspace/gameplay/station/StationAccess.java)). Up to 0.9.0, generated stations were protected like a player's, and a visitor found every chest, machine and block refused without a word. A derelict becomes protected property when a player claims it (see [ship ownership](ship-recall.md)). The rename, builder and access controls stay with an owner, so nobody holds them on an unowned station.
 
 Doors operated by docking cannot be toggled by hand. A door under a redstone signal cannot be overridden remotely, and the player is told so.
+
+While a vessel jumps, moves or docks, its area refuses block changes. A pressure plate or button that tries to come up in that time tries again every half second until the lock ends ([`TransferLocks.retryRelease`](../../src/main/java/com/nullandkale/nullspace/gameplay/travel/TransferLocks.java)). Up to 0.9.0, a plate stepped off during a jump stayed down for good and held its door open.
 
 ## Visiting a station
 

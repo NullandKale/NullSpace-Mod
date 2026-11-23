@@ -63,8 +63,9 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
             c.runOnClient(mc ->
             {
                 var screen = (TerminalScreen) mc.gui.screen();
-                ShipControlTestUi.click(screen, 3, 1);
-                ShipControlTestUi.click(screen, 3, 1);
+                if (!screen.buffer().row(3).contains("HERE"))
+                    throw new AssertionError("The Scanner starts with the places here");
+                ShipControlTestUi.clickLabel(screen, "Star map");
             });
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(0).contains("STAR MAP"), 100);
             c.takeScreenshot("nullspace-scanner-approved-full-width-map");
@@ -109,7 +110,7 @@ public final class ScannerBlockClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.x, at.y, at.z);
                 ShipControl.open(p, helm[0], "Scanner destination selected");
             });
-            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains("Luna"), 100);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(14).contains("Luna"), 100);
             c.runOnClient(mc ->
             {
                 var screen = (TerminalScreen) mc.gui.screen();

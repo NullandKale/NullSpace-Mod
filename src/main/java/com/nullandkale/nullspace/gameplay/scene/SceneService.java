@@ -369,7 +369,7 @@ public final class SceneService
         {
             if (server.getTickCount() % INTERVAL != 0)
             {
-                if (NavigationService.moving(server) && server.getTickCount() % 2 == 0)
+                if ((NavigationService.moving(server) || com.nullandkale.nullspace.gameplay.navigation.PlanetApproach.moving(server)) && server.getTickCount() % 2 == 0)
                     refresh(server);
                 return;
             }

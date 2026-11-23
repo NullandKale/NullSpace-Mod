@@ -54,8 +54,14 @@ public final class ControllerPackets
         }
     }
 
-    public record View(UUID session, BlockPos position, boolean scanner, boolean opening, String ship, String summary, String selected, String destination, String location, String message, List<Entry> entries, List<Button> buttons, int response, String here, String connection, String details, List<ChartPlace> chart, double range, TripPresentation trip) implements CustomPacketPayload
+    public record View(UUID session, BlockPos position, boolean scanner, boolean opening, String ship, String summary, String selected, String destination, String location, String message, List<Entry> entries, List<Button> buttons, int response, String here, String connection, String details, List<ChartPlace> chart, double range, TripPresentation trip, String hereRegion) implements CustomPacketPayload
     {
+        /** {@code hereRegion}: the region the ship is in, so both the helm and the Scanner can list what is at this place the same way. */
+        public View(UUID session, BlockPos position, boolean scanner, boolean opening, String ship, String summary, String selected, String destination, String location, String message, List<Entry> entries, List<Button> buttons, int response, String here, String connection, String details, List<ChartPlace> chart, double range, TripPresentation trip)
+        {
+            this(session, position, scanner, opening, ship, summary, selected, destination, location, message, entries, buttons, response, here, connection, details, chart, range, trip, "");
+        }
+
         public View(UUID session, BlockPos position, boolean scanner, boolean opening, String ship, String summary, String selected, String destination, String location, String message, List<Entry> entries, List<Button> buttons, int response, String here, String connection, String details, List<ChartPlace> chart, double range)
         {
             this(session, position, scanner, opening, ship, summary, selected, destination, location, message, entries, buttons, response, here, connection, details, chart, range, TripPresentation.EMPTY);
@@ -87,6 +93,7 @@ public final class ControllerPackets
             b.writeEnum(p.trip.phase());
             b.writeUtf(p.trip.title(), 160);
             b.writeUtf(p.trip.hint(), 256);
+            b.writeUtf(p.hereRegion, 64);
             b.writeBlockPos(p.position);
             b.writeBoolean(p.scanner);
             b.writeBoolean(p.opening);
@@ -134,6 +141,7 @@ public final class ControllerPackets
             int response = b.readInt();
             String here = b.readUtf(160), connection = b.readUtf(160), details = b.readUtf(2048);
             var trip = new TripPresentation(b.readEnum(TripPresentation.Phase.class), b.readUtf(160), b.readUtf(256));
+            String hereRegion = b.readUtf(64);
             var position = b.readBlockPos();
             boolean scanner = b.readBoolean(), opening = b.readBoolean();
             String ship = b.readUtf(160), summary = b.readUtf(160), selected = b.readUtf(36), destination = b.readUtf(160), location = b.readUtf(160), message = b.readUtf(2048);
@@ -156,7 +164,7 @@ public final class ControllerPackets
             var chart = new ArrayList<ChartPlace>();
             for (int i = 0; i < count; i++)
                 chart.add(new ChartPlace(b.readUtf(32), b.readUtf(64), b.readUtf(32), b.readVarInt(), b.readVarInt(), b.readUtf(32), b.readDouble(), b.readDouble(), b.readBoolean(), b.readBoolean(), b.readUtf(160), b.readUtf(160)));
-            return new View(session, position, scanner, opening, ship, summary, selected, destination, location, message, List.copyOf(entries), List.copyOf(buttons), response, here, connection, details, List.copyOf(chart), range, trip);
+            return new View(session, position, scanner, opening, ship, summary, selected, destination, location, message, List.copyOf(entries), List.copyOf(buttons), response, here, connection, details, List.copyOf(chart), range, trip, hereRegion);
         });
 
         @Override

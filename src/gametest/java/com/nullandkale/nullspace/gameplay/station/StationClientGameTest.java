@@ -204,7 +204,7 @@ public final class StationClientGameTest implements FabricClientGameTest
                 p.teleportTo(at.x, at.y, at.z);
                 ShipService.open(p, WorldStore.pos(vessels[0], "controller"), "Scanner target selected");
             });
-            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(5).contains("Test station"), 200);
+            ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(14).contains("Test station"), 200);
             c.takeScreenshot("nullspace-unified-docking");
             ShipControlTestUi.action(c, ShipControl.Action.ENGAGE);
             var ids = new String[]{world.getServer().computeOnServer(server -> vessels[0].getStringOr("id", "")), world.getServer().computeOnServer(server -> vessels[1].getStringOr("id", ""))};

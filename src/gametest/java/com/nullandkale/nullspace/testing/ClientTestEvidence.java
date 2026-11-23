@@ -25,6 +25,7 @@ public final class ClientTestEvidence
         START_TIMES.put(name, Instant.now().toString());
         running = name;
         save();
+        com.nullandkale.nullspace.dev.TestBanner.test(test.getSimpleName());
         NullSpace.LOGGER.info("NULLSPACE_TEST_STARTED {}", name);
     }
 
@@ -43,6 +44,7 @@ public final class ClientTestEvidence
         }
         running = "";
         save();
+        com.nullandkale.nullspace.dev.TestBanner.clear();
         NullSpace.LOGGER.info("NULLSPACE_TEST_PASSED {}", test.getName());
     }
 

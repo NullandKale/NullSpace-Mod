@@ -11,6 +11,8 @@
       "com.nullandkale.nullspace.gameplay.ship.structure.LooseBlocksGameTest",
       "com.nullandkale.nullspace.worldgen.sites.TerraLandingGameTest",
       "com.nullandkale.nullspace.gameplay.travel.LandingRotationGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.LockedPlatesGameTest",
+      "com.nullandkale.nullspace.gameplay.travel.PlanetApproachGameTest",
       "com.nullandkale.nullspace.gameplay.travel.ConcurrentShipActionsGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.JourneyGameTest",
       "com.nullandkale.nullspace.gameplay.navigation.FlightPhysicsGameTest",

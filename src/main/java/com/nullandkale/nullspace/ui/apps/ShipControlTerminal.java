@@ -11,13 +11,16 @@ import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 
 import java.util.*;
 
-/** One course action and a destination browser organized by system and planet. */
+/**
+ * The helm and the Scanner. The helm lists the places here on its Trip tab, where one click chooses and Engage goes. The Scanner lists the same places
+ * first, then this system's planets (each opens in place to show its pads and contacts), then the star map.
+ */
 public final class ShipControlTerminal implements TerminalDevice
 {
     // Shared terminal palette: shaded backgrounds only on things that can be clicked.
     private static final int CANVAS = TerminalTheme.BACKGROUND, SURFACE = TerminalTheme.PANEL, FOCUS = TerminalTheme.SELECTED;
 
-    record Hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason)
+    record Hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason, Runnable twice)
     {}
 
     final TerminalBuffer display = new TerminalBuffer();
@@ -38,19 +41,68 @@ public final class ShipControlTerminal implements TerminalDevice
     int selection, page, statusScroll;
     String notice = "";
     int tab; // 0 Trip, 1 Manual steps, 2 More
-    String scopeSystem = "", scopeRegion = "", chartSelected = "";
+    /** The Scanner's system: blank for the ship's own. {@code map} shows the star map instead of the list. */
+    String scopeSystem = "", chartSelected = "";
+    boolean map;
+    /** First line of the Scanner's list shown, the helm's page of places here, and the planets opened in the Scanner. */
+    int listScroll, nearbyPage;
+    final Set<String> opened = new HashSet<>();
+    /** The mouse cell, -1 when off the grid, and why the control under it is unavailable. */
+    int hoverColumn = -1, hoverRow = -1;
+    String hoverReason = "";
 
     public ShipControlTerminal(ControllerPackets.View view)
     {
         this.view = view;
         picker = view.scanner();
         highlighted = view.selected();
-        if (!view.here().isBlank())
-        {
-            scopeSystem = view.here().split(" / ")[0];
-            String body = view.here().split(" / ").length > 1 ? view.here().split(" / ")[1] : "";
-            scopeRegion = view.entries().stream().filter(e -> e.kind() == ShipDestination.Kind.REGION && e.name().equals(scopeSystem + " / " + body)).map(ControllerPackets.Entry::region).findFirst().orElse("");
-        }
+    }
+
+    /** The system and place the ship is at, from "System / Place / Orbit". */
+    String hereSystem()
+    {
+        return view.here().split(" / ")[0];
+    }
+
+    String herePlace()
+    {
+        var parts = view.here().split(" / ");
+        return parts.length > 1 ? parts[1] : parts[0];
+    }
+
+    /** The rows both screens list for this place: its orbit (when landed or docked), then pads, then stations and ships. */
+    List<ControllerPackets.Entry> nearby()
+    {
+        var out = new ArrayList<ControllerPackets.Entry>();
+        for (var kind : List.of(ShipDestination.Kind.REGION, ShipDestination.Kind.PAD, ShipDestination.Kind.VESSEL))
+            for (var e : view.entries())
+                if (e.kind() == kind && e.region().equals(view.hereRegion()))
+                    out.add(e);
+        return out;
+    }
+
+    /** Chooses a place as the ship's destination. It never starts travel: Engage does. */
+    void choose(String id)
+    {
+        if (pending || id.isEmpty())
+            return;
+        highlighted = id;
+        pendingTarget = id;
+        send(ShipControl.Action.SELECT, id);
+    }
+
+    @Override
+    public boolean hover(int column, int row)
+    {
+        hoverColumn = column;
+        hoverRow = row;
+        return true;
+    }
+
+    @Override
+    public boolean scrolls()
+    {
+        return true;
     }
 
     public void update(ControllerPackets.View next)
@@ -65,11 +117,6 @@ public final class ShipControlTerminal implements TerminalDevice
         if (pending && next.response() > pendingResponse)
         {
             pending = false;
-            if (!pendingTarget.isBlank() && next.selected().equals(pendingTarget) && !view.scanner())
-            {
-                picker = false;
-                selection = 0;
-            }
             pendingTarget = "";
         }
         view = next;
@@ -175,8 +222,14 @@ public final class ShipControlTerminal implements TerminalDevice
 
     void hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason, boolean plain, int color, int background)
     {
+        hit(x, y, width, text, run, enabled, reason, plain, color, background, null);
+    }
+
+    /** A clickable area; {@code twice} runs on a double click (a list row: choose it). */
+    void hit(int x, int y, int width, String text, Runnable run, boolean enabled, String reason, boolean plain, int color, int background, Runnable twice)
+    {
         int index = hits.size();
-        hits.add(new Hit(x, y, width, text, run, enabled, reason));
+        hits.add(new Hit(x, y, width, text, run, enabled, reason, twice));
         String label = clean(text);
         label = label.substring(0, Math.min(width, label.length()));
         display.put(x, y, label + " ".repeat(width - label.length()), enabled ? color : TerminalTheme.MUTED, selection == index ? FOCUS : plain ? background : SURFACE);
@@ -212,7 +265,44 @@ public final class ShipControlTerminal implements TerminalDevice
         if (picker && viewMenu)
             DestinationPicker.drawViewMenu(this);
         selection = Math.clamp(selection, 0, Math.max(0, hits.size() - 1));
+        drawHover();
         return display;
+    }
+
+    /** Lights the control under the mouse, and says why it is unavailable when it is (on the helm's free line or the Scanner's hint line). */
+    private void drawHover()
+    {
+        hoverReason = "";
+        var hit = hitAt(hoverColumn, hoverRow);
+        if (hit == null)
+            return;
+        if (!hit.enabled() && !hit.reason().isEmpty())
+        {
+            String label = hit.text().replace("[", "").replace("]", "").strip();
+            hoverReason = label + ": " + hit.reason();
+            int row = picker ? 21 : 19;
+            display.put(2, row, " ".repeat(76), TerminalTheme.TEXT, CANVAS);
+            line(row, hoverReason, TerminalTheme.AMBER);
+            return;
+        }
+        if (!hit.enabled())
+            return;
+        for (int x = hit.x(); x < hit.x() + hit.width() && x < TerminalBuffer.COLUMNS; x++)
+        {
+            var cell = display.cell(x, hit.y());
+            display.put(x, hit.y(), String.valueOf(cell.glyph()), cell.foreground(), FOCUS);
+        }
+    }
+
+    private Hit hitAt(int column, int row)
+    {
+        for (int i = hits.size() - 1; i >= 0; i--)
+        {
+            var hit = hits.get(i);
+            if (row == hit.y && column >= hit.x && column < hit.x + hit.width)
+                return hit;
+        }
+        return null;
     }
 
     void openViewMenu()
@@ -284,6 +374,8 @@ public final class ShipControlTerminal implements TerminalDevice
             return "Review loose blocks";
         if (action == ShipControl.Action.CONFIRM_LEAVE_BLOCKS)
             return "Confirm leave blocks";
+        if (action == ShipControl.Action.EMERGENCY_LAND)
+            return "Emergency landing";
         String name = action.name().toLowerCase(Locale.ROOT);
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
@@ -311,13 +403,30 @@ public final class ShipControlTerminal implements TerminalDevice
                 if (p.row() == hit.y && p.column() >= hit.x && p.column() < hit.x + hit.width)
                 {
                     selection = i;
-                    if (hit.enabled)
+                    // The first click of a double click has already run; the second chooses the row instead of running it again.
+                    if (p.twice() && hit.twice != null)
+                        hit.twice.run();
+                    else if (hit.enabled)
                         hit.run.run();
                     else if (!hit.reason.isEmpty())
                         hit.run.run();
                     break;
                 }
             }
+        }
+        else if (input instanceof TerminalInput.Scroll wheel)
+        {
+            if (picker && map)
+                return;
+            if (picker)
+            {
+                listScroll = Math.max(0, listScroll - wheel.steps() * 3);
+                page = Math.max(0, page - wheel.steps());
+            }
+            else if (tab == 0 && wheel.row() >= 7 && wheel.row() <= 13)
+                nearbyPage = Math.max(0, nearbyPage - wheel.steps());
+            else
+                statusScroll = Math.clamp(statusScroll - wheel.steps() * 3, 0, Math.max(0, wrapped(statusForDisplay()).size() - 3));
         }
         else if (input instanceof TerminalInput.Text && picker && searchFocused)
         {
@@ -370,18 +479,15 @@ public final class ShipControlTerminal implements TerminalDevice
                 }
                 case ESCAPE ->
                 {
-                    if (picker && !view.scanner())
-                    {
-                        picker = false;
-                        selection = 0;
-                    }
+                    if (picker && map)
+                        map = false;
                 }
                 case PAGE_UP ->
                 {
                     if (picker)
                     {
                         page = Math.max(0, page - 1);
-                        highlighted = "";
+                        listScroll = Math.max(0, listScroll - DestinationPicker.PAGE_SIZE);
                     }
                     else
                         statusScroll = Math.max(0, statusScroll - 3);
@@ -391,7 +497,7 @@ public final class ShipControlTerminal implements TerminalDevice
                     if (picker)
                     {
                         page++;
-                        highlighted = "";
+                        listScroll += DestinationPicker.PAGE_SIZE;
                     }
                     else
                         statusScroll = Math.min(Math.max(0, wrapped(statusForDisplay()).size() - 3), statusScroll + 3);

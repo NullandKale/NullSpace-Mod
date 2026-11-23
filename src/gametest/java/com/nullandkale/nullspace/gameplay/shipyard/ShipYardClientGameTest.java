@@ -208,7 +208,7 @@ public final class ShipYardClientGameTest implements FabricClientGameTest
             ClientWaits.waitFor(context, client -> client.gui.screen() instanceof TerminalScreen, 150);
             ShipControlTestUi.destination(context, "Beacon Test", "Pads");
             choose(context, 3);
-            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 400);
+            ClientWaits.waitFor(context, client -> client.gui.screen() == null && client.level != null && client.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD), 1500);
             world.getServer().runOnServer(server ->
             {
                 var player = world.getConnection().getServerPlayer();

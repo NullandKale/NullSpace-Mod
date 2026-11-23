@@ -72,7 +72,7 @@ public final class ShipControlTestUi
             String label = switch (action)
             {
                 case ENGAGE -> "[ Engage ]";
-                case DISENGAGE -> "[ Stop course ]";
+                case DISENGAGE -> "[ Stop ]";
                 case LAUNCH -> "[ Launch ]";
                 case JUMP -> "[ Jump ]";
                 case LAND -> "[ Land ]";
@@ -103,30 +103,49 @@ public final class ShipControlTestUi
         });
     }
 
+    /**
+     * Chooses a place here on the helm's Trip tab, the way a player does: one click on its row (paging through the list if needed). Places elsewhere are
+     * set at the Scanner, with the overload that takes a world.
+     */
     public static void destination(ClientGameTestContext c, String name, String kind)
     {
-        // Select a controller destination. Remote contacts require the overload with a world and a physical Scanner.
         ClientWaits.withoutOverlay(c);
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
-            clickLabel(screen, "[ Change ]");
-            search(c, screen, name, kind);
+            if (!screen.buffer().row(1).contains("SHIP CONTROLLER"))
+                throw new AssertionError("Open the ship controller to choose a place here");
+            if (!screen.buffer().row(7).contains("NEARBY"))
+                clickLabel(screen, "[ Trip ]");
+            for (int page = 0; page < 20; page++)
+            {
+                for (int row = 8; row <= 13; row++)
+                    if (screen.buffer().row(row).contains(name))
+                    {
+                        click(screen, screen.buffer().row(row).indexOf(name) + 1, row);
+                        return;
+                    }
+                if (!screen.buffer().row(7).contains("[ > ]") || !clickLabel(screen, "[ > ]"))
+                    break;
+            }
+            throw new AssertionError("Not a place here; set it at the Scanner: " + name + " (" + kind + ")");
         });
-        boolean browser = c.computeOnClient(mc -> ((TerminalScreen) mc.gui.screen()).buffer().row(3).isBlank());
-        if (browser)
-        {
-            throw new AssertionError("Use the physical Scanner for this destination: " + name);
-        }
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(14).contains(name), 100);
+    }
+
+    /**
+     * Sets a farther region from the helm's own session, as the Scanner sets it: the helm lists only places here, and some tests (a dedicated server with
+     * no Scanner in reach) still need to jump. The server checks the choice as it checks any.
+     */
+    public static void farRegion(ClientGameTestContext c, String region, String name)
+    {
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
-            if (screen.buffer().row(3).isBlank())
-                throw new AssertionError("No destination matching " + name);
-            click(screen, 3, 3);
-            click(screen, 3, 23);
+            var id = new com.nullandkale.nullspace.gameplay.navigation.ShipDestination(com.nullandkale.nullspace.gameplay.navigation.ShipDestination.Kind.REGION, region, net.minecraft.core.BlockPos.ZERO, region, name, "").id();
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.nullandkale.nullspace.gameplay.navigation.ControllerPackets.Input(screen.sessionId(), ShipControl.Action.SELECT, id));
         });
-        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(14).contains(name.contains(" / ") ? name.substring(name.indexOf(" / ") + 3) : name), 100);
     }
 
     public static void destination(ClientGameTestContext c, net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world, String name, String kind)
@@ -150,7 +169,7 @@ public final class ShipControlTestUi
             p.teleportTo(at.x, at.y, at.z);
             ShipService.open(p, WorldStore.pos(ship, "controller"), "Scanner destination selected");
         });
-        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(5).contains(name), 100);
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.buffer().row(1).contains("SHIP CONTROLLER") && t.buffer().row(14).contains(name), 100);
     }
 
     /** Selects from the existing Scanner session without toggling the physical block again. */
@@ -187,10 +206,8 @@ public final class ShipControlTestUi
         c.runOnClient(mc ->
         {
             var screen = (TerminalScreen) mc.gui.screen();
-            for (int i = 0; i < 3 && !screen.buffer().row(0).contains("STAR MAP"); i++)
-                click(screen, 3, 1);
-            if (!screen.buffer().row(0).contains("STAR MAP"))
-                throw new AssertionError("The Scanner's top level is the star map");
+            if (!clickLabel(screen, "Star map") || !screen.buffer().row(0).contains("STAR MAP"))
+                throw new AssertionError("The Scanner's list ends with the star map");
             boolean you = false;
             for (int y = 3; y <= 20; y++)
                 you |= screen.buffer().row(y).contains("@ ");

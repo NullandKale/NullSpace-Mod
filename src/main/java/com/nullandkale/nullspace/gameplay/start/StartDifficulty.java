@@ -65,9 +65,14 @@ public final class StartDifficulty
         var warnings = new ArrayList<String>();
         if (choice.equals("random"))
         {
-            warnings.add("Any planet in any star system: it may have no air, and you may start far from Terra.");
+            // A crash may come down anywhere; a start in orbit is always over a planet of the home system (SpaceStart.planet).
             if (crash)
+            {
+                warnings.add("Any planet in any star system: it may have no air, and you may start far from Terra.");
                 warnings.add("The ship is wrecked: repairs come first.");
+            }
+            else
+                warnings.add("A planet of the home system that you can land on. It may have no air.");
             return new Result(Level.HARD, warnings);
         }
         var level = planet(choice);

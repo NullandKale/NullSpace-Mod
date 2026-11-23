@@ -330,9 +330,7 @@ public final class TerminalScreen extends Screen
             onClose();
             return true;
         }
-        float scale = scale();
-        int col = (int) Math.floor((event.x() - (width - 480 * scale) / 2) / scale / 6);
-        int row = (int) Math.floor((event.y() - (height - 250 * scale) / 2) / scale / 10);
+        int col = column(event.x()), row = row(event.y());
         if (col < 0 || col >= COLUMNS || row < 0 || row >= ROWS)
             return false;
         if (hasParent() && row == 24 && col >= 66)
@@ -340,7 +338,32 @@ public final class TerminalScreen extends Screen
             backToParent();
             return true;
         }
-        input(new TerminalInput.Pointer(col, row));
+        input(new TerminalInput.Pointer(col, row, doubleClick));
+        return true;
+    }
+
+    private int column(double x)
+    {
+        return (int) Math.floor((x - (width - 480 * scale()) / 2) / scale() / 6);
+    }
+
+    private int row(double y)
+    {
+        return (int) Math.floor((y - (height - 250 * scale()) / 2) / scale() / 10);
+    }
+
+    /** The wheel scrolls a device that scrolls, and otherwise pages it, a page a notch. */
+    @Override
+    public boolean mouseScrolled(double x, double y, double scrollX, double scrollY)
+    {
+        int steps = (int) Math.signum(scrollY);
+        if (steps == 0)
+            return false;
+        int col = column(x), row = row(y);
+        if (device.scrolls())
+            input(new TerminalInput.Scroll(col, row, steps));
+        else
+            input(steps > 0 ? TerminalInput.Key.PAGE_UP : TerminalInput.Key.PAGE_DOWN);
         return true;
     }
 
@@ -436,7 +459,21 @@ public final class TerminalScreen extends Screen
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mx, int my, float delta)
     {
+        int hoverColumn = column(mx), hoverRow = row(my);
+        boolean onGrid = hoverColumn >= 0 && hoverColumn < COLUMNS && hoverRow >= 0 && hoverRow < ROWS;
+        boolean ownHover = device.hover(onGrid ? hoverColumn : -1, onGrid ? hoverRow : -1);
         var buffer = device.display();
+        // A device without its own hover gets the shaded control under the mouse lit: the run of panel cells on that row.
+        int litFrom = -1, litTo = -1;
+        if (!ownHover && onGrid && buffer.cell(hoverColumn, hoverRow).background() == TerminalTheme.PANEL)
+        {
+            litFrom = hoverColumn;
+            litTo = hoverColumn;
+            while (litFrom > 0 && buffer.cell(litFrom - 1, hoverRow).background() == TerminalTheme.PANEL)
+                litFrom--;
+            while (litTo < COLUMNS - 1 && buffer.cell(litTo + 1, hoverRow).background() == TerminalTheme.PANEL)
+                litTo++;
+        }
         if (hasParent())
             buffer.put(66, 24, "[ Back ]", TerminalTheme.CYAN, TerminalTheme.PANEL);
         float scale = scale();
@@ -449,7 +486,7 @@ public final class TerminalScreen extends Screen
             {
                 var cell = buffer.cell(col, row);
                 int x = col * 6, y = row * 10;
-                graphics.fill(x, y, x + 6, y + 10, cell.background());
+                graphics.fill(x, y, x + 6, y + 10, row == hoverRow && col >= litFrom && col <= litTo ? TerminalTheme.SELECTED : cell.background());
                 if (cell.glyph() != ' ')
                 {
                     var glyph = Component.literal(String.valueOf(cell.glyph()));

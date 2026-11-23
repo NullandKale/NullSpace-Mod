@@ -35,11 +35,17 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
         var failure = new AtomicReference<Throwable>();
         var selected = new AtomicReference<String>();
         var folder = new AtomicReference<String>();
-        c.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
+        // Offer what players are offered (the other client tests get the plain start), and only for this screen.
+        c.runOnClient(mc ->
+        {
+            com.nullandkale.nullspace.ui.screen.WorldStartDefaults.playersDefault(true);
+            CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen()));
+        });
         ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 1200);
         c.runOnClient(mc ->
         {
             var screen = (CreateWorldScreen) mc.gui.screen();
+            com.nullandkale.nullspace.ui.screen.WorldStartDefaults.playersDefault(false);
             screen.getUiState().setName(preparing ? "World 5" : "NullSpace space-start test");
             if (preparing)
             {
@@ -48,13 +54,20 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
                 screen.getUiState().setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.SURVIVAL);
             }
             var access = (WorldStartAccess) screen;
-            if (access.nullspace$start().space())
-                throw new AssertionError("Ordinary world creation must default to a planet");
+            if (!access.nullspace$start().equals(WorldStartSettings.NEW_WORLD))
+                throw new AssertionError("Create New World offers the tiny starter crash-landed on Terra first: " + access.nullspace$start());
             var tabs = screen.children().stream().filter(MenuTabBar.class::isInstance).map(MenuTabBar.class::cast).findFirst().orElseThrow();
             tabs.selectTab(3, false);
+            click(screen, "Start: Crash-landed");
             click(screen, "Start: On a planet");
-            if (!access.nullspace$start().space())
-                throw new AssertionError("Start button did not select space");
+            if (!access.nullspace$start().space() || access.nullspace$start().crash())
+                throw new AssertionError("Start button did not select a start in orbit");
+            // In orbit over a planet drawn from the home system, as this test (and the World 5 it prepares) always started. Shift-click steps the Planet
+            // button back from Terra to Random; stepping forward through the planet types would rewrite the seed field for each.
+            var planet = screen.children().stream().filter(AbstractButton.class::isInstance).map(AbstractButton.class::cast).filter(b -> b.getMessage().getString().startsWith("Planet: ")).findFirst().orElseThrow();
+            planet.mouseClicked(new MouseButtonEvent(planet.getX() + planet.getWidth() / 2.0, planet.getY() + planet.getHeight() / 2.0, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, InputConstants.MOD_SHIFT)), false);
+            if (!access.nullspace$start().planet().equals("random"))
+                throw new AssertionError("The Planet button cycles back to a random planet");
             click(screen, "Starting ship: " + ShipBlueprints.get(WorldStartSettings.DEFAULT.ship()).name());
         });
         ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof StartingShipScreen, 100);
@@ -83,6 +96,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
                 throw new AssertionError("Starting ship button must show the chosen design");
         });
         c.takeScreenshot("nullspace-world-start-options");
+        ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof CreateWorldScreen, 200);
         c.runOnClient(mc -> click(mc.gui.screen(), "Create New World"));
         ClientWaits.waitFor(c, mc ->
         {
@@ -117,6 +131,11 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
         ClientWaits.waitFor(c, mc -> selected.get() != null || failure.get() != null, 200);
         if (failure.get() != null)
             throw new AssertionError("Space start validation failed", failure.get());
+        // The cover goes up once vanilla's own terrain screen closes, which can be after the server has finished the start.
+        for (int i = 0; i < 200 && c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.covers()) == 0; i++)
+            c.waitTicks(2);
+        if (c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.covers()) == 0)
+            throw new AssertionError("The start cover must hide the spawn while the ship is built: " + c.computeOnClient(mc -> com.nullandkale.nullspace.ui.screen.StartScreen.state()));
         ClientWaits.waitFor(c, mc -> mc.gui.screen() == null && mc.level != null && mc.player != null && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1200);
         c.waitTicks(10);
         c.takeScreenshot("nullspace-world-start-aboard");
@@ -167,7 +186,7 @@ public final class SpaceStartClientGameTest implements FabricClientGameTest
 
     private static void click(Screen screen, String label)
     {
-        var button = screen.children().stream().filter(AbstractButton.class::isInstance).map(AbstractButton.class::cast).filter(b -> b.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new AssertionError("Missing button: " + label + "; visible: " + screen.children()));
+        var button = screen.children().stream().filter(AbstractButton.class::isInstance).map(AbstractButton.class::cast).filter(b -> b.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new AssertionError("Missing button: " + label + " on " + screen.getClass().getSimpleName() + " (" + screen.getTitle().getString() + "); visible: " + screen.children()));
         if (!button.active)
             throw new AssertionError("Disabled button: " + label);
         screen.mouseClicked(new MouseButtonEvent(button.getX() + button.getWidth() / 2.0, button.getY() + button.getHeight() / 2.0, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false);

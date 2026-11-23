@@ -13,7 +13,7 @@ Food keeps the player going, fuel keeps the ship going, and materials let them b
 | Start | Starting situation | First motivation |
 | --- | --- | --- |
 | Ship start | Begins in orbit aboard a working ship (see [starting in space](space-start.md)) | Explore to find fuel, food and resources, keep the ship going and improve it |
-| Crash start | Begins in a ship that has crash-landed on Terra, with its hull torn and some machines broken (see [crash-landing start](crash-start.md)) | Gather iron and copper, craft the broken machines again and place them, then fly |
+| Crash start (the default for a new world) | Begins in a ship that has crash-landed on Terra, with its hull torn and some machines broken (see [crash-landing start](crash-start.md)) | Gather iron and copper, craft the broken machines again and place them, then fly |
 | Vanilla start | Begins in an ordinary new Minecraft world | Build a first ship, launch it, and begin exploring space |
 
 ## A. Starting aboard a ship
@@ -53,13 +53,13 @@ Food keeps the player going, fuel keeps the ship going, and materials let them b
 | I recover from trouble | What went wrong, what I can still do, how to retrieve my ship or belongings | A mistake gives me a way forward ([recall](ship-recall.md)) |
 | I play alongside other pilots | I use my ship while friends use theirs | [Independent ship actions](independent-ship-actions.md): ships travel, dock and recall at once, with clear local reservations for shared pads and berths |
 
-Travel works like this today: browse destinations on the Scanner or the controller list, select one, and press **Engage**, which previews and runs every phase (the individual **Launch**, **Jump**, **Land**, **Dock** and **Undock** buttons remain under Manual steps; see [ship navigation](ship-navigation.md)). Local travel needs no Scanner, and a powered stock Scanner shows more destinations.
+Travel works like this today: click a place here on the controller's Trip tab (or set a farther one at the Scanner) and press **Engage**, which previews and runs every phase; a landing first flies close to the planet (the individual **Launch**, **Jump**, **Land**, **Dock** and **Undock** buttons remain under Manual steps; see [ship navigation](ship-navigation.md)). Local travel needs no Scanner, and a powered stock Scanner shows more destinations.
 
 ## Why a station would matter
 
 A station belongs in the loop when visiting it lets the player do something they care about, such as supplies, work on the ship, or a place to explore. The question for any station is: **what can I do here that makes this trip worthwhile?** Decide that before making more variants. Layout, equipment, signs and interactions follow from the purpose, and manufacturer style gives it character.
 
-Public stations allow ordinary door use and crafting but protect storage and machinery from visitors ([stations](stations.md)). They should not be presented as fuel or food stops until those services exist.
+A player's public station allows ordinary door use and crafting but protects storage and machinery from visitors; the stations the world generates have no owner and are open to everyone ([stations](stations.md)). They should not be presented as fuel or food stops until those services exist.
 
 ## Where the build falls short
 

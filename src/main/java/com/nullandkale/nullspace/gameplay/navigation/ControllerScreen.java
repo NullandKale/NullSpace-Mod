@@ -86,6 +86,7 @@ public final class ControllerScreen
         actions.add(Action.ACCEPT);
         actions.add(Action.DECLINE);
         actions.add(Action.CANCEL);
+        actions.add(Action.EMERGENCY_LAND);
         return List.copyOf(actions);
     }
 
@@ -103,21 +104,7 @@ public final class ControllerScreen
         if (!s.scanner && JourneyService.active(ship))
             visibleActions.add(JourneyService.cruising(ship) ? Action.INVESTIGATE : Action.RESUME);
         var buttons = visibleActions.stream().map(a -> new Button(a, limit(ControllerChecks.reason(p, ship, target, a), 256))).toList();
-        String system = LocalSpaces.get(p.level().getServer(), LocalSpaces.address(ship)).system();
-        var listed = new ArrayList<Entry>();
-        for (var d : s.catalog)
-        {
-            if (listed.size() >= 512)
-                break;
-            if (!s.scanner)
-            {
-                boolean local = (d.kind() == ShipDestination.Kind.REGION || d.kind() == ShipDestination.Kind.PAD) && LocalSpaces.get(p.level().getServer(), d.region()).system().equals(system);
-                boolean chosen = target != null && d.id().equals(target.id());
-                if (!local && !chosen)
-                    continue;
-            }
-            listed.add(new Entry(d.id(), d.kind(), limit(d.name(), 160), d.region(), limit(d.state(), 32)));
-        }
+        var listed = places(p, s, ship);
         var entries = List.copyOf(listed);
         String location = target == null ? "No destination selected" : LocalSpaces.get(p.level().getServer(), target.region()).systemName() + " / " + LocalSpaces.get(p.level().getServer(), target.region()).name() + " | " + switch (target.kind())
         {
@@ -158,7 +145,48 @@ public final class ControllerScreen
         String name = limit(ship.getStringOr("home", "Ship"), 160);
         String destinationId = target == null ? "" : target.id();
         String destinationName = target == null ? "Choose destination" : limit(target.name(), 160);
-        return new View(s.id, s.position, s.scanner, opening, name, summary, destinationId, destinationName, limit(location, 160), limit(flight, 2048), entries, buttons, s.response, locationHere(p, ship), course, plan, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0, trip);
+        return new View(s.id, s.position, s.scanner, opening, name, summary, destinationId, destinationName, limit(location, 160), limit(flight, 2048), entries, buttons, s.response, locationHere(p, ship), course, plan, s.scanner ? chart(p, ship) : List.of(), s.scanner ? StarSystems.range(p.level(), ship) : 0, trip, LocalSpaces.address(ship));
+    }
+
+    /**
+     * What a screen lists. The helm lists only this place: the planet or region the ship is at, its pads and the stations and ships around it, and its
+     * orbit when the ship is landed or docked (in orbit already, there is nothing to do there). The Scanner lists the same rows first, then the rest of
+     * the system, then everything farther, so a long list that the packet cuts short loses the farthest places first.
+     */
+    static List<Entry> places(ServerPlayer p, Session s, CompoundTag ship)
+    {
+        var server = p.level().getServer();
+        String here = LocalSpaces.address(ship), system = LocalSpaces.get(server, here).system();
+        boolean docked = ship.contains("dock"), landed = !p.level().dimension().equals(TravelService.SPACE);
+        var local = new ArrayList<Entry>();
+        var near = new ArrayList<Entry>();
+        var far = new ArrayList<Entry>();
+        for (var d : s.catalog)
+        {
+            boolean atHere = d.region().equals(here);
+            if (!s.scanner && (!atHere || d.kind() == ShipDestination.Kind.PORT))
+                continue;
+            if (atHere && d.kind() == ShipDestination.Kind.REGION)
+            {
+                if (!docked && !landed)
+                    continue;
+                local.add(new Entry(d.id(), d.kind(), limit(LocalSpaces.get(server, here).name() + " orbit", 160), d.region(), docked ? "Undock and stay in orbit" : "Launch to orbit"));
+                continue;
+            }
+            var entry = new Entry(d.id(), d.kind(), limit(d.name(), 160), d.region(), limit(d.state(), 32));
+            if (atHere)
+                local.add(entry);
+            else if (LocalSpaces.get(server, d.region()).system().equals(system))
+                near.add(entry);
+            else
+                far.add(entry);
+        }
+        // Here, in the order both screens show it: the orbit, then pads, then stations and ships (berths last, for the Scanner's Docking ports view).
+        local.sort(Comparator.comparingInt(e -> List.of(ShipDestination.Kind.REGION, ShipDestination.Kind.PAD, ShipDestination.Kind.VESSEL, ShipDestination.Kind.PORT).indexOf(e.kind())));
+        var out = new ArrayList<Entry>(local);
+        out.addAll(near);
+        out.addAll(far);
+        return List.copyOf(out.subList(0, Math.min(512, out.size())));
     }
 
     /** The star map from this ship's place: every system and feature, with jump fuel and range. */

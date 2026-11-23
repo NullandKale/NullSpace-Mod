@@ -9,7 +9,7 @@ The Creative System Upgrade (`nullspace:creative_system_upgrade`, no recipe) mak
 The "scanner" is really two screens:
 
 - **The block screen**, a grey container screen: On, Name, Open scanner, power, the upgrade slots and the creative controls.
-- **The terminal screen**, the blue monospace star map ([`TerminalScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/TerminalScreen.java)): Back, Stars, Search, View, Clear, Set destination, Upgrades and Close. It is the same look as the ship controller and has far more room.
+- **The terminal screen**, the blue monospace star map ([`TerminalScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/TerminalScreen.java)): the scrolling list (places here, this system's planets, the star map), Search, View, Clear, Set destination, Upgrades and Close. It is the same look as the ship controller and has far more room.
 
 The server side is [`CreativeSpawns`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/CreativeSpawns.java): `system` adds one generated star system within one hop of the ship with a random seed (the Seed box is ignored), and `journey` starts FTL to a temporary encounter with every setting chosen ([`CreativeEncounter`](../../src/main/java/com/nullandkale/nullspace/gameplay/navigation/CreativeEncounter.java)).
 

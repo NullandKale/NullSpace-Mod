@@ -4,7 +4,7 @@
       "id": "aboard",
       "title": "Already on a ship",
       "pages": [
-        "Put furnace fuel in the generator. Open the Ship Controller, choose a destination, then Engage. The Trip tab shows what happens next. You can walk around during FTL.",
+        "Your generator starts with fuel. Open the Ship Controller: places here are listed on its Trip tab. Click one, then Engage. You can walk around during FTL.",
         "Signals are optional. Visit signal approaches and docks. Ignore it to keep travelling. Return to your ship and press Continue journey to depart; the jump is already paid."
       ]
     },
@@ -45,8 +45,8 @@
       "id": "controllers",
       "title": "Controllers",
       "pages": [
-        "Ship Controller: choose a destination, Engage, fly manually or manage systems. Manual steps also offer Launch, Jump, Land, Dock and Undock.",
-        "Scanner: browse destinations and Set destination. This changes the shared selection; it never starts travel. Return to the Ship Controller to Engage."
+        "Ship Controller: the Trip tab lists places here. Click one to choose it, then Engage. Manual steps also offer Launch, Jump, Land, Dock and Undock.",
+        "Scanner: lists places here, then this system and the star map. Double-click a place to set it; this never starts travel. Return to the Ship Controller to Engage."
       ]
     },
     {
@@ -94,14 +94,14 @@
       "title": "Planet travel",
       "pages": [
         "Every nongas planet and moon has its own surface. Ocean and jungle worlds have breathable air; other types need a suit and air. Terra is the Overworld.",
-        "Choose a landing pad on your destination planet and Engage. The first visit creates a starter pad. Lava can allow arrival but remains dangerous and can obstruct takeoff."
+        "Choose a landing pad on your destination planet and Engage. The ship flies close, then lands. With no fuel left, Emergency landing crash-lands on the pad."
       ]
     },
     {
       "id": "sensors",
       "title": "Scanners",
       "pages": [
-        "Open the Scanner. Browse Stars, a system, then a planet or berth. Highlight a result and Set destination. Go back to the Ship Controller and Engage.",
+        "Open the Scanner. Places here come first, then this system's planets: click one to open it. Double-click a place, then Engage at the Ship Controller.",
         "Grey map targets need intermediate hops or better engines. Set a reachable next stop. Each hop is a separate trip. Sensor equipment needs Cameras power."
       ]
     },

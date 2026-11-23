@@ -412,4 +412,64 @@ public final class ShipControlGameTest
         }
         ctx.succeed();
     }
+
+    /**
+     * The helm lists only this place: its pads and the stations and ships here, never another planet's, and its orbit only when docked or landed. The
+     * Scanner lists those same rows first, then the rest of the system, then everything farther.
+     */
+    @GameTest(environment = "nullspace:ship_control")
+    public void theHelmListsOnlyThisPlaceAndTheScannerListsTheSameRowsFirst(GameTestHelper ctx)
+    {
+        var server = ctx.getLevel().getServer();
+        var level = server.getLevel(TravelService.SPACE);
+        var own = StationGameTest.fixture(level, new BlockPos(357000, 96, 350000), true);
+        var station = StationGameTest.fixture(level, new BlockPos(356000, 96, 350000), false);
+        var player = ctx.makeMockServerPlayerInLevel();
+        var at = StationGameTest.boardingPoint(level, own);
+        player.teleportTo(level, at.x, at.y, at.z, Set.of(), 0, 0, true);
+        try
+        {
+            String here = LocalSpaces.address(own), system = LocalSpaces.get(server, here).system();
+            var helm = new ShipControl.Session(player, WorldStore.pos(own, "controller"), own, "");
+            helm.catalog = ControllerScreen.catalog(player, helm, own);
+            var helmPlaces = ControllerScreen.places(player, helm, own);
+            ctx.assertTrue(!helmPlaces.isEmpty() && helmPlaces.stream().allMatch(e -> e.region().equals(here)), "The helm lists only places here: " + helmPlaces.stream().map(e -> e.name() + "@" + e.region()).toList());
+            ctx.assertTrue(helmPlaces.stream().noneMatch(e -> e.kind() == ShipDestination.Kind.PORT), "Berths are not helm rows; a station is one row");
+            ctx.assertTrue(helmPlaces.stream().anyMatch(e -> e.kind() == ShipDestination.Kind.VESSEL && e.name().equals(station.getStringOr("home", ""))), "The station here is listed at the helm");
+            ctx.assertTrue(helmPlaces.stream().noneMatch(e -> e.kind() == ShipDestination.Kind.REGION), "In orbit already, the orbit is not offered");
+            own.put("dock", new CompoundTag());
+            var docked = ControllerScreen.places(player, helm, own);
+            own.remove("dock");
+            ctx.assertTrue(docked.getFirst().kind() == ShipDestination.Kind.REGION && docked.getFirst().name().endsWith(" orbit") && docked.getFirst().state().equals("Undock and stay in orbit"), "Docked, the orbit comes first and says what it does: " + docked.getFirst());
+            var scannerPos = ShipSystems.connected(level, own).stream().filter(p -> level.getBlockState(p).is(ModBlocks.LOCAL_SCANNER)).findFirst().orElseThrow();
+            var scanner = new ShipControl.Session(player, scannerPos, own, "");
+            scanner.catalog = ControllerScreen.catalog(player, scanner, own);
+            var all = ControllerScreen.places(player, scanner, own);
+            var helmIds = helmPlaces.stream().map(ControllerPackets.Entry::id).toList();
+            var scannerLocal = all.stream().filter(e -> e.region().equals(here) && e.kind() != ShipDestination.Kind.PORT).map(ControllerPackets.Entry::id).toList();
+            ctx.assertTrue(scannerLocal.equals(helmIds), "The Scanner lists what the helm lists here, in the same order");
+            int lastLocal = -1, firstNear = Integer.MAX_VALUE, lastNear = -1, firstFar = Integer.MAX_VALUE;
+            for (int i = 0; i < all.size(); i++)
+            {
+                var e = all.get(i);
+                if (e.region().equals(here))
+                    lastLocal = i;
+                else if (LocalSpaces.get(server, e.region()).system().equals(system))
+                {
+                    firstNear = Math.min(firstNear, i);
+                    lastNear = i;
+                }
+                else
+                    firstFar = Math.min(firstFar, i);
+            }
+            ctx.assertTrue(lastLocal < firstNear && lastNear < firstFar && lastNear >= 0, "Here first, then this system, then farther");
+        }
+        finally
+        {
+            server.getPlayerList().remove(player);
+            WorldStore.get(server).ships().remove(own);
+            WorldStore.get(server).ships().remove(station);
+        }
+        ctx.succeed();
+    }
 }

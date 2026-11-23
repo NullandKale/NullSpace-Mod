@@ -21,7 +21,7 @@ Clicking a blocked travel control asks the server for the current reason without
 
 ## Who may do what at a station
 
-A station has an owner and a **public or private** setting. Visitors can open safe internal doors, including iron doors, and use the dock controls, the Station Core and the crafting table. Visitors cannot touch the berth configuration, storage or construction, and cannot edit blocks. The owner and invited builders can do all of that. Visitors already aboard keep their way back to their ship even if public access is later switched off.
+A station has an owner and a **public or private** setting. Visitors can open safe internal doors, including iron doors, and use the dock controls, the Station Core and the crafting table. Visitors cannot touch the berth configuration, storage or construction, and cannot edit blocks. The owner and invited builders can do all of that. A station nobody owns, such as one the world generated around a planet or a derelict, is open to everyone: open its storage, use its machines, take it apart or build onto it. Visitors already aboard keep their way back to their ship even if public access is later switched off.
 
 Another player's ship must accept the dock request at its own controller. **Cancel** stops an approach before capture. Starting or moving a ship needs power, fuel and the crew in breathable cabins, but an established joint stays clamped without power. Cabin air stays finite throughout: losing breathable air never locks the boarding route, and docking never creates oxygen.
 

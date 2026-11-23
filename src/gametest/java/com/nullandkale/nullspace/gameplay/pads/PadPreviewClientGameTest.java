@@ -302,7 +302,7 @@ public final class PadPreviewClientGameTest implements FabricClientGameTest
                 ClientWaits.waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 100);
                 ctx.waitTicks(12);
                 choose(ctx, 3);
-                ClientWaits.waitFor(ctx, c -> c.level != null && c.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && c.gui.screen() == null, 500);
+                ClientWaits.waitFor(ctx, c -> c.level != null && c.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && c.gui.screen() == null, 1500);
                 world.getServer().runOnServer(server ->
                 {
                     for (int i = 0; i < 3; i++)

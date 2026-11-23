@@ -78,10 +78,19 @@ public final class StationAccess
             throw new IllegalArgumentException("Station building is restricted to its owner and invited builders");
     }
 
+    /**
+     * Nobody's station: a derelict, or a place the world generated that no player owns, such as a station orbiting a planet. Anyone may open, use, break
+     * and build in it. Orbital stations were protected like a player's station, so a visitor found every chest, machine and block refused (0.9.0).
+     */
+    public static boolean unowned(CompoundTag s)
+    {
+        return s.getBooleanOr("salvage", false) || s.getBooleanOr("worldGenerated", false) && s.getStringOr("owner", "").isEmpty();
+    }
+
     public static boolean mayEdit(ServerPlayer p, BlockPos at)
     {
         var s = WorldStore.get(p.level().getServer()).at(p.level(), at);
-        return s == null || (!station(s) || builder(p, s) || s.getBooleanOr("salvage", false)) && ready(s);
+        return s == null || (!station(s) || builder(p, s) || unowned(s)) && ready(s);
     }
 
     public static boolean mayUse(ServerPlayer p, BlockPos at)
@@ -91,7 +100,7 @@ public final class StationAccess
             return true;
         if (!ready(s))
             return false;
-        if (s.getBooleanOr("salvage", false))
+        if (unowned(s))
             return true;
         var state = p.level().getBlockState(at);
         if (!builder(p, s) && (allowed(p, s) || returningVisitor(p, s)) && state.getBlock() instanceof DoorBlock)

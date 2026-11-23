@@ -87,6 +87,20 @@ public final class TransferLocks
         return ShipStorage.locked(level, pos) || StationAccess.buildingAt(level, pos) || NavigationService.locked(level, pos) || physicalAreaBusy(level, new HullScan.Bounds(pos, pos), null);
     }
 
+    /** How long a held-down plate or button waits before it tries to come up again. */
+    static final int RELEASE_RETRY_TICKS = 10;
+
+    /**
+     * Called when a lock refuses a block change: a pressure plate or button that the lock keeps down tries again later. Its own tick reschedules only while
+     * something presses it, so a plate stepped off during a jump, a move or a dock stayed down for good, and so did its door (0.9.0).
+     */
+    public static void retryRelease(ServerLevel level, BlockPos pos)
+    {
+        var state = level.getBlockState(pos);
+        if ((state.getBlock() instanceof net.minecraft.world.level.block.BasePressurePlateBlock || state.getBlock() instanceof net.minecraft.world.level.block.ButtonBlock) && state.getSignal(level, pos, Direction.UP) > 0)
+            level.scheduleTick(pos, state.getBlock(), RELEASE_RETRY_TICKS);
+    }
+
     static boolean physicalAreaBusy(ServerLevel level, HullScan.Bounds bounds, Pending ignored)
     {
         String dimension = level.dimension().identifier().toString();

@@ -43,8 +43,8 @@ public final class CrashDamage
     private static final int CABIN = 4;
 
     /**
-     * {@code vacuum} is true on a planet with no air. There the cabin must keep its air: the Generator and Air Supply nearest the
-     * helm are never broken, and no tear reaches a block that touches the cabin's air zone.
+     * {@code vacuum} is true on a planet with no air. On every planet the cabin keeps the ship's own air: the Generator nearest the helm and the Air
+     * Supply that feeds the cabin are never broken, and no tear reaches a block that touches the cabin's air zone.
      */
     public static Report apply(ServerLevel level, CompoundTag ship, long seed, boolean vacuum)
     {
@@ -107,16 +107,14 @@ public final class CrashDamage
         for (var cell : cabin)
             for (var near : BlockPos.betweenClosed(cell.offset(-1, -1, -1), cell.offset(1, 1, 1)))
                 protectedCells.add(near.immutable());
-        if (vacuum)
-        {
-            // Without air outside, the nearest working Generator and Air Supply keep the cabin alive.
-            generators.sort(Comparator.comparingDouble(p -> p.distSqr(controller)));
-            airs.sort(Comparator.comparingDouble(p -> p.distSqr(controller)));
-            if (!generators.isEmpty())
-                generators.removeFirst();
-            if (!airs.isEmpty())
-                airs.removeFirst();
-        }
+        // Every start leaves the bridge breathing on the ship's own air, whatever the planet: the Generator nearest the helm and the Air Supply that blows
+        // into the cabin (the nearest one if none does) are never broken. Up to 0.9.0 only a planet without air spared them.
+        generators.sort(Comparator.comparingDouble(p -> p.distSqr(controller)));
+        airs.sort(Comparator.comparingDouble(p -> p.distSqr(controller)));
+        if (!generators.isEmpty())
+            generators.removeFirst();
+        if (!airs.isEmpty())
+            airs.remove(cabinSupply(level, ship, airs, cabinCell));
         int shipClass = shipClass(ship);
         var wrecks = new ArrayList<BlockPos>();
         wrecks.addAll(breakHalf(level, engines, random, shipClass));
@@ -281,6 +279,20 @@ public final class CrashDamage
     }
 
     /** Replaces some of the machines with their wrecks (see {@link #broken}). Returns how many were broken. */
+    /** The Air Supply whose outlet opens into the cabin's room; the first (nearest) one if none does. {@code airs} is sorted nearest first. */
+    static BlockPos cabinSupply(ServerLevel level, CompoundTag ship, List<BlockPos> airs, BlockPos cabinCell)
+    {
+        var cabin = com.nullandkale.nullspace.gameplay.systems.ShipAir.roomAt(level, ship, cabinCell);
+        if (cabin != null)
+            for (var supply : airs)
+            {
+                var room = com.nullandkale.nullspace.gameplay.systems.ShipAir.roomAt(level, ship, supply.relative(level.getBlockState(supply).getValue(HorizontalDirectionalBlock.FACING)));
+                if (room != null && room.number() == cabin.number())
+                    return supply;
+            }
+        return airs.getFirst();
+    }
+
     private static List<BlockPos> breakHalf(ServerLevel level, List<BlockPos> machines, Random random, int shipClass)
     {
         if (machines.isEmpty())

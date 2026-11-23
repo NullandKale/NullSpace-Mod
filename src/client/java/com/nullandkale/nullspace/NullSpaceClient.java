@@ -163,6 +163,8 @@ public final class NullSpaceClient implements ClientModInitializer
         }));
         ComputerClient.initialize();
         TravelScreen.initialize();
+        com.nullandkale.nullspace.ui.screen.StartScreen.initialize();
+        com.nullandkale.nullspace.dev.TestBanner.initialize();
         com.nullandkale.nullspace.render.sound.ClientSounds.initialize();
         PreviewRenderer.initialize();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(TerminalPackets.Update.TYPE, (payload, context) -> context.client().execute(() ->

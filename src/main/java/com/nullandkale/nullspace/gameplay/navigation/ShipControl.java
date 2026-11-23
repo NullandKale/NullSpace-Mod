@@ -52,7 +52,8 @@ public final class ShipControl
         INVESTIGATE, RESUME, // journeys
         REVIEW_LOOSE_BLOCKS, CONFIRM_LEAVE_BLOCKS, // loose blocks
         ENGAGE, DISENGAGE, MARK, // courses
-        BROWSE_SCANNER, RETURN_TO_CONTROLLER // the scanner
+        BROWSE_SCANNER, RETURN_TO_CONTROLLER, // the scanner
+        EMERGENCY_LAND // landing with no fuel to brake: a crash
     }
 
     static final class Session
@@ -66,6 +67,8 @@ public final class ShipControl
         String message, setupProblem = "";
         Action problemAction = Action.LAUNCH;
         LooseBlocks.Review looseReview;
+        /** When Emergency landing was first pressed: a second press within ten seconds starts it. */
+        int emergencyArmed = -1000;
 
         Session(ServerPlayer p, BlockPos at, CompoundTag vessel, String message)
         {
@@ -270,14 +273,35 @@ public final class ShipControl
                     switch (packet.action())
                     {
                         case ENGAGE -> result = CourseService.engage(p, ship, target);
-                        case DISENGAGE -> result = CourseService.disengage(p.level().getServer(), ship);
-                        case LAUNCH, LAND ->
+                        case DISENGAGE -> result = !CourseService.active(ship) && PlanetApproach.cancel(p.level().getServer(), ship) ? "Approach stopped" : CourseService.disengage(p.level().getServer(), ship);
+                        case LAUNCH ->
                         {
                             var inspection = ShipService.preflight(p.level(), session.position);
                             if (ShipSystems.enabled(ship) && ShipSystems.power(p.level(), ship, PowerBus.System.ENGINES) == 0)
                                 result = "Propulsion has no delivered power";
                             else
-                                TravelService.request(p, session.position, packet.action() == Action.LAUNCH ? "" : "id:" + target.reference(), inspection);
+                                TravelService.request(p, session.position, "", inspection);
+                        }
+                        case LAND ->
+                        {
+                            if (ShipSystems.enabled(ship) && ShipSystems.power(p.level(), ship, PowerBus.System.ENGINES) == 0)
+                                result = "Propulsion has no delivered power";
+                            else
+                                result = PlanetApproach.begin(p, ship, target, false);
+                        }
+                        case EMERGENCY_LAND ->
+                        {
+                            int now = p.level().getServer().getTickCount();
+                            if (now - session.emergencyArmed > 200)
+                            {
+                                session.emergencyArmed = now;
+                                result = "Emergency landing: with no fuel to brake, the ship will crash on " + target.name() + ". Engines, generators and air supplies break and the hull tears; the bridge keeps its air. Press Emergency landing again within ten seconds to go.";
+                            }
+                            else
+                            {
+                                session.emergencyArmed = -1000;
+                                result = PlanetApproach.begin(p, ship, target, true);
+                            }
                         }
                         case JUMP -> Jumps.jump(p, session.position, target.region());
                         case INVESTIGATE ->

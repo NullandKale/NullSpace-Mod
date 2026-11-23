@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.*;
 public abstract class WorldStartMixin implements WorldStartAccess
 {
     @Unique
-    private WorldStartSettings nullspace$selection = WorldStartSettings.DEFAULT;
+    private WorldStartSettings nullspace$selection = com.nullandkale.nullspace.ui.screen.WorldStartDefaults.offered();
 
     @Override
     public WorldStartSettings nullspace$start()

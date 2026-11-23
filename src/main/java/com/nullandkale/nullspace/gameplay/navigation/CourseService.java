@@ -109,7 +109,7 @@ public final class CourseService
             steps.add(StarSystems.sameSystem(player.level().getServer(), LocalSpaces.address(ship), target.region()) ? "Local travel" : "Interstellar jump");
         steps.add(switch (target.kind())
         {
-            case PAD -> "Land";
+            case PAD -> "Approach -> Land";
             case PORT, VESSEL -> "Dock";
             case REGION -> "Hold in orbit";
         });
@@ -147,7 +147,7 @@ public final class CourseService
         int transfer = FuelSystem.transfer(ShipSystems.connected(player.level(), ship).size());
         int cost = player.level().dimension().equals(TravelService.SPACE) ? 0 : FuelSystem.travelCost(player.level(), ship, transfer);
         if (target.kind() == ShipDestination.Kind.PAD)
-            cost += FuelSystem.travelCost(player.level(), ship, transfer);
+            cost += FuelSystem.travelCost(player.level(), ship, transfer) + PlanetApproach.fuel(player.level(), ship, target);
         if (!JourneyService.active(ship) && !LocalSpaces.address(ship).equals(target.region()))
             cost += FuelSystem.travelCost(player.level(), ship, StarSystems.jumpBase(player.level().getServer(), LocalSpaces.address(ship), target.region()));
         return cost;
@@ -278,7 +278,13 @@ public final class CourseService
     private static void step(MinecraftServer server, CompoundTag ship)
     {
         var course = ship.getCompoundOrEmpty(KEY);
-        if (TransferLocks.busy(server, ship) || NavigationService.pending(server, ship.getStringOr("id", "")))
+        if (course.getStringOr("state", "").equals("STOPPING") && PlanetApproach.cancel(server, ship))
+        {
+            finish(server, ship, "STOPPED", "Course disengaged; ship stopped safely");
+            return;
+        }
+        // The landing approach flies on its own and hands over to the landing transfer.
+        if (PlanetApproach.active(ship) || TransferLocks.busy(server, ship) || NavigationService.pending(server, ship.getStringOr("id", "")))
             return;
         var player = server.getPlayerList().getPlayer(UUID.fromString(course.getStringOr("actor", "")));
         if (player == null || !SceneObserver.aboard(player, ship))
@@ -363,7 +369,8 @@ public final class CourseService
         switch (action)
         {
             case "UNDOCK" -> DockingService.perform(player, ship, WorldStore.pos(ship, "controller"), "DOCK_UNDOCK");
-            case "LAUNCH", "LAND" -> TravelService.request(player, WorldStore.pos(ship, "controller"), action.equals("LAUNCH") ? "" : "id:" + target.reference(), ShipService.preflight(player.level(), WorldStore.pos(ship, "controller")));
+            case "LAUNCH" -> TravelService.request(player, WorldStore.pos(ship, "controller"), "", ShipService.preflight(player.level(), WorldStore.pos(ship, "controller")));
+            case "LAND" -> PlanetApproach.begin(player, ship, target, false);
             case "JUMP" -> Jumps.courseJump(player, ship, target.region());
             case "RESUME" -> Jumps.courseResume(player, ship);
             case "DOCK" ->

@@ -172,7 +172,8 @@ final class ShipTransfer
         ComputerService.flush(source.getServer());
         if (inspected.vessel() != null)
         {
-            if (dock == null && !recall && !detaching && ShipSystems.enabled(inspected.vessel()) && ShipSystems.power(source, inspected.vessel(), PowerBus.System.ENGINES) == 0)
+            // A crash landing falls: it needs neither engine power nor fuel (PlanetApproach).
+            if (dock == null && !recall && !detaching && !inspected.vessel().getBooleanOr("crashLanding", false) && ShipSystems.enabled(inspected.vessel()) && ShipSystems.power(source, inspected.vessel(), PowerBus.System.ENGINES) == 0)
                 return Result.rejected("Propulsion lost power before transfer");
             ShipSystems.cancelTransit(source, inspected.vessel());
         }
@@ -372,7 +373,7 @@ final class ShipTransfer
             fuelShip.putLong("controller", controller.asLong());
         }
         int fuelCost = FuelSystem.travelCost(source, fuelShip, FuelSystem.transfer(scan.blocks().size()));
-        if (dock == null && !recall && !detaching && !FuelSystem.spend(source, fuelShip, fuelCost))
+        if (dock == null && !recall && !detaching && !fuelShip.getBooleanOr("crashLanding", false) && !FuelSystem.spend(source, fuelShip, fuelCost))
             return Result.rejected("Not enough fuel for travel: needs " + FuelSystem.display(fuelCost) + ". Load furnace fuel into a connected generator.");
         return null;
     }

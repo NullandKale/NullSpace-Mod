@@ -26,7 +26,10 @@ public abstract class TransitBlocksMixin
     private void nullspace$protectArrival(BlockPos pos, BlockState state, int flags, int limit, CallbackInfoReturnable<Boolean> ci, @Share("nullspace$before") LocalRef<BlockState> before)
     {
         if ((Object) this instanceof ServerLevel level && TransferLocks.locked(level, pos))
+        {
+            TransferLocks.retryRelease(level, pos);
             ci.setReturnValue(false);
+        }
         else if ((Object) this instanceof ServerLevel level)
             before.set(level.getBlockState(pos));
     }

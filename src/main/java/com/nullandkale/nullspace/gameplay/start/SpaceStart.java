@@ -40,11 +40,16 @@ public final class SpaceStart
 {
     private static final ServerContext.Key<WorldStartSettings> SETTINGS = new ServerContext.Key<>();
     private static final ServerContext.Key<Map<UUID, Integer>> ARRIVALS = new ServerContext.Key<>();
+    /** New arrivals whose cover has not gone up yet, with the tick they joined. */
+    private static final ServerContext.Key<Map<UUID, Integer>> UNCOVERED = new ServerContext.Key<>();
+    /** How long a start waits for the client to take the cover before building anyway. */
+    private static final int COVER_WAIT = 100;
     private static final ServerContext.Key<Map<UUID, Integer>> FAILURES = new ServerContext.Key<>();
     private static final String SUPPLIES = "nullspace_start_supplies";
 
     public static void initialize()
     {
+        StartPackets.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server ->
         {
             var file = server.isDedicatedServer() ? server.getServerDirectory().resolve("server.properties") : server.getWorldPath(LevelResource.ROOT).resolve(WorldStartSettings.FILE);
@@ -67,6 +72,8 @@ public final class SpaceStart
             if (!firstArrival(player))
                 return;
             ServerContext.get(server).service(ARRIVALS, HashMap::new).put(player.getUUID(), 0);
+            // The client registers the mod's play channels just after joining, so the cover goes up from the tick, before anything is built.
+            ServerContext.get(server).service(UNCOVERED, HashMap::new).put(player.getUUID(), server.getTickCount());
         });
         ServerContext.tick(ServerContext.Phase.SESSIONS, server ->
         {
@@ -83,10 +90,21 @@ public final class SpaceStart
                 }
                 if (waiting.get(id) > server.getTickCount())
                     continue;
+                var uncovered = ServerContext.get(server).service(UNCOVERED, HashMap::new);
+                if (uncovered.containsKey(id))
+                {
+                    boolean ready = StartPackets.canSend(player);
+                    if (!ready && server.getTickCount() - uncovered.get(id) < COVER_WAIT)
+                        continue;
+                    uncovered.remove(id);
+                    StartPackets.send(player, false, settings(server).crash() ? "Your ship is coming down..." : "Preparing your ship...");
+                    // Packets arrive in order: the cover is up before the teleport that follows.
+                }
                 try
                 {
                     start(player, settings(server));
                     waiting.remove(id);
+                    StartPackets.send(player, true, "");
                 }
                 catch (RuntimeException failure)
                 {
@@ -98,6 +116,7 @@ public final class SpaceStart
                         {
                             CrashStart.fallback(player, settings(server), failure);
                             waiting.remove(id);
+                            StartPackets.send(player, true, "");
                             continue;
                         }
                         catch (RuntimeException last)
@@ -108,6 +127,7 @@ public final class SpaceStart
                     waiting.put(id, server.getTickCount() + 200);
                     NullSpace.LOGGER.error("Space start failed for {}; the saved starting ship will be retried", id, failure);
                     player.sendSystemMessage(Component.literal("Your starting ship could not finish setting up. The server will retry. See" + " the server log for details."));
+                    StartPackets.send(player, false, "Your starting ship could not finish setting up. Retrying in 10 seconds...");
                 }
             }
         });

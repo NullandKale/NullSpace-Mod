@@ -10,12 +10,12 @@ Space travel should take time that the player can use. A short loading screen wo
 
 ## Player walkthrough
 
-1. At the Ship Controller choose a destination and press **Jump**. The destination can be a region, a landing pad or a docking port; the same choice covers all three. The Details panel shows the fuel cost and estimated time before departing.
+1. Set another planet, or a pad or station at it, at the Scanner, then press **Engage** at the Ship Controller (**Jump** under Manual steps does the jump alone). The destination can be a region, a landing pad or a docking port; the same choice covers all three. The trip line shows the fuel needed, and Details the estimated time.
 2. The ship enters the journey. The HUD shows the destination and remaining time, and the controller shows the same journey. Normal movement, inventories and ship controls stay available.
 3. Partway through, a **signal** may be announced in chat. Ignore it and keep travelling, or open **Trip** and press **Visit signal (optional)**.
 4. Investigating pauses the trip and takes the ship to the signal's own space, with its docking port already selected. The ship begins docking automatically; after capture, open the docking door and walk through. Take supplies, repair access with ordinary blocks and tools, or salvage equipment.
 5. Return aboard and press **Continue journey** in **Trip**. The ship undocks and resumes automatically. The original destination and the time already spent are kept, and the jump fee already paid is not charged again.
-6. Arrival happens automatically when the remaining time runs out. **Land** or **Dock** works for the final pad or port, as it always did.
+6. Arrival happens automatically when the remaining time runs out. **Land** (which [flies close first](ship-navigation.md#landing-flies-first)) or **Dock** works for the final pad or port.
 
 ## Controller states and actions
 

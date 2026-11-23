@@ -37,7 +37,8 @@ These are behavior requirements for existing screens, not a proposal for a new m
 - A user page/filter/search change clears a candidate that is no longer visible. Disable Set destination until a visible choice is selected. Never select a different place merely because it inherited the same row number.
 - During live updates, preserve candidate identity while it remains visible. If it disappears or moves off-page, clear the candidate and explain that the list changed. Keep the page stable where possible; no unsolicited jump to another page.
 - A selected candidate can remain visible but become occupied or unavailable. Setting a destination and being able to travel there are separate rules: retain existing server selection permissions and show the travel blocker honestly.
-- Set destination stays pending until the server accepts or rejects that exact ID. The controller picker returns on success; the scanner stays open and shows `Destination set: [name]`. Rejection leaves the picker open.
+- Set destination stays pending until the server accepts or rejects that exact ID. The scanner stays open and shows `Destination set: [name]`. On the controller's Trip tab a click on a place is the choice; rejection leaves the previous destination and says why.
+- Every terminal screen ([`TerminalScreen`](../../src/client/java/com/nullandkale/nullspace/ui/screen/TerminalScreen.java)) lights the control under the mouse; the helm and the Scanner also light list rows and, over a grey control, say why it is unavailable. The mouse wheel scrolls a list (the helm and the Scanner) or pages the screen (the others, as Page Up and Page Down do). A double click on a destination row sets it.
 - A monitor camera row applies immediately, as today. Highlight the server's active camera, with a pending marker for a requested change. Do not add a redundant Apply button.
 
 ### Action and error states
@@ -143,27 +144,27 @@ Distinguish **this generator's inventory/reserve** from **fuel available across 
 
 ### Ship Controller: a trip action, and the steps behind it
 
+The current layout (the Trip tab; Manual steps and More keep the individual actions):
+
 ```text
-SHIP CONTROLLER                 Here: Earth / Surface
-Power: On   Air here: Safe       Fuel: <actual amount>
-Destination: Home                             [Choose]
-Home / Earth / Landing pad
+SHIP CONTROLLER  Rivet Spark
+Here      Sol / Terra / Orbit
+Fuel loaded   Controls online   Engines ready   Air safe
 
-[Launch]  Leave this planet       <available/blocker>
-[Jump]    Go to another region    <available/blocker>
-[Land]    Land at Home            <available/blocker>
-[Dock]    Connect to chosen dock  <available/blocker>
-[Undock]  Leave connected dock    <available/blocker>
+[ Trip ] [ Manual steps ] [ More ]
 
-[Fly ship]  [Look at ship]  [Close all doors]
-Problem/result: <short cause and next step>
-[Show problem]  [Check ship]
-<incoming request OR approach/connection status>
+NEARBY  places at Terra
+> Terra Harbor                     Landing pad   Ready
+  Terra Rivet Works Cargo Station  Station       2 berths free
 
-[Build station]  [Details]  [Advanced]  [Close]
+Going to  Terra Harbor  (landing pad)
+[ Engage ]  Approach -> Land - needs 0.50 fuel
+Farther places (other planets, other stars): open the Scanner
+
+[ Fly manually ]  [ View ship ]  [ Close all doors ]
 ```
 
-Give each travel action its own line so its purpose and immediate blocker have room. Keep positions fixed rather than shuffling buttons as context changes. Show a short `Next: Launch` / `Next: Jump` / `Next: Land` / `Next: Dock` hint only when the existing location/destination state supports it. The hint is not a new action, and never changes the saved destination. Jump's target details name the actual planet/moon/system; the region concept remains available where needed.
+Under Manual steps, give each travel action its own line so its purpose and immediate blocker have room. Keep positions fixed rather than shuffling buttons as context changes. Show a short `Next: Launch` / `Next: Jump` / `Next: Land` / `Next: Dock` hint only when the existing location/destination state supports it. The hint is not a new action, and never changes the saved destination. Jump's target details name the actual planet/moon/system; the region concept remains available where needed.
 
 For a remote Home pad, explain `Jump to Earth first` beside Land; Jump and then Land use that same saved Home destination. A planet-only destination is a place to jump to, not a promise of a landing pad. Docked boarding text appears only for an established connection. Air here means the player's current room; Check ship retains full occupant/cabin diagnostics. Exact action costs stay in action details, and insufficient fuel shows available versus required values without pretending to know a whole trip's cost.
 

@@ -132,7 +132,7 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
             c.takeScreenshot("nullspace-first-trip-repair");
             c.waitTicks(4);
             ShipControlTestUi.action(c, ShipControl.Action.LAUNCH);
-            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(TravelService.SPACE) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(TravelService.SPACE) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 1500);
             ClientWaits.chunksRendered(world.getConnection());
             world.getServer().runOnServer(server ->
             {
@@ -147,11 +147,11 @@ public final class FirstTripClientGameTest implements FabricClientGameTest
             ClientWaits.waitFor(c, mc -> mc.gui.screen() instanceof TerminalScreen t && t.shipController(), 100);
             c.runOnClient(mc ->
             {
-                if (!((TerminalScreen) mc.gui.screen()).buffer().row(5).contains("Home"))
+                if (!((TerminalScreen) mc.gui.screen()).buffer().row(14).contains("Home"))
                     throw new AssertionError("Home must stay selected without a second picker trip");
             });
             ShipControlTestUi.action(c, ShipControl.Action.LAND);
-            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 500);
+            ClientWaits.waitFor(c, mc -> mc.player != null && mc.player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD) && mc.level == mc.player.level() && (mc.gui.screen() == null || mc.gui.screen() instanceof TerminalScreen), 1500);
             world.getServer().runOnServer(server ->
             {
                 var p = world.getConnection().getServerPlayer();

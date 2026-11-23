@@ -7,17 +7,25 @@ import com.nullandkale.nullspace.ui.terminal.TerminalTheme;
 
 import java.util.*;
 
-/** The destination picker: filtering and searching destinations and drawing the list. */
+/**
+ * The Scanner's list. Without a search or a filter it is one scrolling list: HERE (the same rows as the helm), then the system's planets, each opening
+ * in place to show its pads, stations and ships, then OTHER STARS, which opens the star map. A search or a View filter lists matching places flat.
+ * One click highlights a place, a double click sets it, and Set destination sets the highlighted one. Rows 3-20 hold the list.
+ */
 final class DestinationPicker
 {
 
     static final int FIRST_ROW = 3, PAGE_SIZE = 18;
 
+    /** One line of the list: a heading (no action), a place, or a planet that opens. */
+    private record Line(String text, int color, Runnable click, Runnable twice, boolean chosen)
+    {}
+
     static List<ControllerPackets.Entry> filtered(ShipControlTerminal o)
     {
         String query = o.search.value().toLowerCase(Locale.ROOT);
         boolean grouped = o.view.entries().stream().anyMatch(e -> e.kind() == ShipDestination.Kind.VESSEL);
-        return o.view.entries().stream().filter(e -> o.filter.equals("Docking ports") || !grouped || e.kind() != ShipDestination.Kind.PORT).filter(e -> !query.isBlank() || o.scopeRegion.isBlank() || o.filter.equals("Planets & moons") && (o.scopeSystem.isBlank() || system(o, e).equals(o.scopeSystem)) || e.region().equals(o.scopeRegion)).filter(e -> switch (o.filter)
+        return o.view.entries().stream().filter(e -> o.filter.equals("Docking ports") || !grouped || e.kind() != ShipDestination.Kind.PORT).filter(e -> switch (o.filter)
         {
             case "Planets & moons" -> e.kind() == ShipDestination.Kind.REGION;
             case "Landing pads" -> e.kind() == ShipDestination.Kind.PAD;
@@ -28,47 +36,44 @@ final class DestinationPicker
         }).filter(e -> (e.name() + " " + e.region() + " " + e.state()).toLowerCase(Locale.ROOT).contains(query)).toList();
     }
 
+    /** Set destination: the highlighted place, wherever it is listed. */
     static void choose(ShipControlTerminal o)
     {
-        if (o.highlighted.isEmpty() || filtered(o).stream().noneMatch(e -> e.id().equals(o.highlighted)))
+        if (o.highlighted.isEmpty() || o.view.entries().stream().noneMatch(e -> e.id().equals(o.highlighted)))
         {
             o.notice = "Choose a destination from the list";
             return;
         }
-        o.pendingTarget = o.browser() ? "" : o.highlighted;
-        o.send(ShipControl.Action.SELECT, o.highlighted);
+        o.choose(o.highlighted);
     }
 
     static String system(ShipControlTerminal o, ControllerPackets.Entry entry)
     {
+        if (entry.region().equals(o.view.hereRegion()))
+            return o.hereSystem();
         return o.view.entries().stream().filter(e -> e.kind() == ShipDestination.Kind.REGION && e.region().equals(entry.region())).map(e -> e.name().split(" / ")[0]).findFirst().orElse("Local space");
     }
 
-    static boolean chart(ShipControlTerminal o)
+    /** Whether the list is flat: a search or a filter narrows it to matching places. */
+    static boolean flat(ShipControlTerminal o)
     {
-        return o.search.value().isBlank() && o.scopeSystem.isBlank() && !o.view.here().isBlank() && !o.view.chart().isEmpty() && (o.filter.equals("All") || o.filter.equals("Planets & moons"));
-    }
-
-    static int visibleCount(ShipControlTerminal o)
-    {
-        if (chart(o))
-            return 1; // The star map is one o.page.
-        if (!o.search.value().isBlank() || o.view.here().isBlank() || !o.scopeRegion.isBlank() || !(o.filter.equals("All") || o.filter.equals("Planets & moons")))
-            return filtered(o).size();
-        return (int) o.view.entries().stream().filter(e -> e.kind() == ShipDestination.Kind.REGION).filter(e -> o.scopeSystem.isBlank() || system(o, e).equals(o.scopeSystem)).map(e -> o.scopeSystem.isBlank() ? system(o, e) : e.region()).distinct().count();
+        return !o.search.value().isBlank() || !o.filter.equals("All");
     }
 
     static void drawPicker(ShipControlTerminal o)
     {
-        clearHiddenSelection(o);
-        o.text(2, 0, o.view.scanner() ? "SCANNER" : "CHOOSE DESTINATION", TerminalTheme.BLUE);
-        o.text(2, 1, "Ship destination: " + o.view.destination(), TerminalTheme.MUTED);
+        o.text(2, 0, o.map ? "SCANNER / STAR MAP" : "SCANNER", TerminalTheme.BLUE);
+        o.text(o.map ? 21 : 12, 0, o.view.ship(), TerminalTheme.MUTED);
+        o.text(44, 0, String.format(Locale.ROOT, "Range %.0f ly | green: one jump", o.view.range()), TerminalTheme.MUTED);
+        o.text(2, 1, "Destination:", TerminalTheme.MUTED);
+        String destination = ShipControlTerminal.clean(o.view.destination());
+        o.text(15, 1, destination.substring(0, Math.min(46, destination.length())), TerminalTheme.AMBER);
         o.text(2, 2, "Search", TerminalTheme.MUTED);
         o.hit(70, 2, 8, "[Clear]", () ->
         {
             o.search.clear();
             o.page = 0;
-            o.highlighted = "";
+            o.listScroll = 0;
         }, true);
         o.search.draw(o.display, 9, 2, 39, o.searchFocused && !o.viewMenu);
         String viewName = switch (o.filter)
@@ -78,54 +83,107 @@ final class DestinationPicker
             case "Docking ports" -> "Berths";
             default -> o.filter;
         };
-        o.hit(50, 2, 20, "[ View: " + viewName + " v ]", o::openViewMenu, true);
-        o.view.entries().stream().filter(e -> e.id().equals(o.highlighted)).findFirst().ifPresent(e -> o.text(2, 22, "Selected: " + e.name() + " - " + ShipControlTerminal.kind(e.kind()) + " - " + o.state(e.state()), TerminalTheme.TEXT));
-        var entries = filtered(o);
-        boolean scopes = StarMapPanel.drawScopes(o);
-        int count = visibleCount(o);
-        o.page = Math.clamp(o.page, 0, Math.max(0, (count - 1) / PAGE_SIZE));
-        for (int i = 0; !scopes && i < PAGE_SIZE && o.page * PAGE_SIZE + i < entries.size(); i++)
+        o.hit(50, 2, 18, "[ View: " + viewName + " v ]", o::openViewMenu, true);
+        if (o.map && !flat(o))
         {
-            var entry = entries.get(o.page * PAGE_SIZE + i);
-            boolean chosen = o.highlighted.equals(entry.id());
-            o.hit(2, FIRST_ROW + i, 76, (chosen ? "> " : "  ") + String.format(Locale.ROOT, "%-40.40s %-13.13s %s", entry.name(), entry.kind() == ShipDestination.Kind.VESSEL ? entry.state().startsWith("Station") ? "Station" : "Ship" : ShipControlTerminal.kind(entry.kind()), o.state(entry.state())), () -> o.highlighted = entry.id(), true, "", true, chosen ? TerminalTheme.BLUE : TerminalTheme.TEXT);
+            o.hit(62, 1, 16, "[ Back to list ]", () -> o.map = false, true);
+            StarMapPanel.drawMap(o);
         }
-        if (!scopes && entries.isEmpty())
-            o.text(2, FIRST_ROW + 1, o.filter.equals("Docking ports") && !o.view.scanner() ? "No matching ports. Local contacts update automatically; clear the search." : "No matching destinations. The list updates automatically.", TerminalTheme.MUTED);
-        if (count > PAGE_SIZE)
+        else
         {
-            o.hit(2, 21, 8, "[ < ]", () ->
+            var lines = flat(o) ? flatLines(o) : treeLines(o);
+            o.listScroll = Math.clamp(o.listScroll, 0, Math.max(0, lines.size() - PAGE_SIZE));
+            for (int i = 0; i < PAGE_SIZE && o.listScroll + i < lines.size(); i++)
             {
-                o.page = Math.max(0, o.page - 1);
-                o.highlighted = "";
-                o.selection = 0;
-            }, o.page > 0);
-            o.text(11, 21, (o.page + 1) + " / " + ((count + PAGE_SIZE - 1) / PAGE_SIZE), TerminalTheme.MUTED);
-            o.hit(20, 21, 8, "[ > ]", () ->
-            {
-                o.page++;
-                o.highlighted = "";
-                o.selection = 0;
-            }, (o.page + 1) * PAGE_SIZE < count);
-        }
-        if (!o.view.scanner() && count <= PAGE_SIZE)
-            o.text(2, 21, "Set distant destinations at the Scanner block", TerminalTheme.MUTED);
-        o.hit(2, 23, 26, "[ Set destination ]", () -> choose(o), !o.pending && !o.highlighted.isEmpty() && entries.stream().anyMatch(e -> e.id().equals(o.highlighted)));
-        o.hit(31, 23, 26, o.view.scanner() ? "[ Upgrades ]" : "[ Back to controller ]", () ->
-        {
-            if (o.view.scanner())
-                o.command(ShipControl.Action.ADVANCED);
-            else
-            {
-                o.picker = false;
-                o.selection = 0;
+                var line = lines.get(o.listScroll + i);
+                if (line.click() == null)
+                    o.text(2, FIRST_ROW + i, line.text(), line.color());
+                else
+                    o.hit(2, FIRST_ROW + i, 76, line.text(), line.click(), true, "", true, line.chosen() ? TerminalTheme.BLUE : line.color(), line.chosen() ? TerminalTheme.SELECTED : TerminalTheme.BACKGROUND, line.twice());
             }
-        }, true);
+            if (lines.size() > PAGE_SIZE)
+                o.text(66, 21, (o.listScroll + 1) + "-" + Math.min(lines.size(), o.listScroll + PAGE_SIZE) + " of " + lines.size(), TerminalTheme.MUTED);
+            o.text(2, 21, "Wheel or PgUp/PgDn scrolls. Double-click a place to set it.", TerminalTheme.MUTED);
+            o.view.entries().stream().filter(e -> e.id().equals(o.highlighted)).findFirst().ifPresent(e -> o.text(2, 22, "Selected: " + e.name() + " - " + ControllerPanels.kind(o, e) + " - " + ShipControlTerminal.state(e.state()), TerminalTheme.TEXT));
+        }
+        o.hit(2, 23, 26, "[ Set destination ]", () -> choose(o), !o.pending && !o.highlighted.isEmpty() && o.view.entries().stream().anyMatch(e -> e.id().equals(o.highlighted)), o.highlighted.isEmpty() ? "Click a place first" : "");
+        o.hit(31, 23, 26, "[ Upgrades ]", () -> o.command(ShipControl.Action.ADVANCED), true);
+    }
+
+    private static Line place(ShipControlTerminal o, ControllerPackets.Entry e, String indent)
+    {
+        boolean chosen = e.id().equals(o.highlighted);
+        return new Line(ControllerPanels.row(o, e, indent, chosen), TerminalTheme.TEXT, () -> o.highlighted = e.id(), () -> o.choose(e.id()), chosen);
+    }
+
+    private static List<Line> flatLines(ShipControlTerminal o)
+    {
+        var out = new ArrayList<Line>();
+        for (var e : filtered(o))
+            out.add(place(o, e, ""));
+        if (out.isEmpty())
+            out.add(new Line(o.filter.equals("Docking ports") ? "No matching ports. Local contacts update automatically; clear the search." : "No matching destinations. The list updates automatically.", TerminalTheme.MUTED, null, null, false));
+        return out;
+    }
+
+    private static List<Line> treeLines(ShipControlTerminal o)
+    {
+        var out = new ArrayList<Line>();
+        boolean home = o.scopeSystem.isBlank() || o.scopeSystem.equals(o.hereSystem());
+        String system = home ? o.hereSystem() : o.scopeSystem;
+        if (home)
+        {
+            out.add(new Line("HERE  " + o.herePlace(), TerminalTheme.MUTED, null, null, false));
+            var here = o.nearby();
+            for (var e : here)
+                out.add(place(o, e, ""));
+            if (here.isEmpty())
+                out.add(new Line("    Nothing to travel to here", TerminalTheme.MUTED, null, null, false));
+            out.add(new Line("THIS SYSTEM  " + system, TerminalTheme.MUTED, null, null, false));
+        }
+        else
+        {
+            out.add(new Line("SYSTEM  " + system, TerminalTheme.MUTED, null, null, false));
+            out.add(new Line("  < Back to " + o.hereSystem(), TerminalTheme.TEXT, () ->
+            {
+                o.scopeSystem = "";
+                o.listScroll = 0;
+            }, null, false));
+        }
+        for (var body : o.view.entries())
+        {
+            if (body.kind() != ShipDestination.Kind.REGION || body.region().equals(o.view.hereRegion()) || !system(o, body).equals(system))
+                continue;
+            var contents = o.view.entries().stream().filter(e -> e.region().equals(body.region()) && (e.kind() == ShipDestination.Kind.PAD || e.kind() == ShipDestination.Kind.VESSEL)).toList();
+            boolean open = o.opened.contains(body.region());
+            boolean chosen = body.id().equals(o.highlighted);
+            String name = body.name().contains(" / ") ? body.name().substring(body.name().indexOf(" / ") + 3) : body.name();
+            String places = contents.isEmpty() ? "" : contents.size() + (contents.size() == 1 ? " place" : " places");
+            String text = (chosen ? "> " : "  ") + (open ? "v " : "> ") + String.format(Locale.ROOT, "%-34.34s %-26.26s %s", name, ShipControlTerminal.state(body.state()), places);
+            out.add(new Line(text, TerminalTheme.TEXT, () ->
+            {
+                o.highlighted = body.id();
+                if (!o.opened.remove(body.region()))
+                    o.opened.add(body.region());
+            }, () -> o.choose(body.id()), chosen));
+            if (open)
+                for (var e : contents)
+                    out.add(place(o, e, "    "));
+        }
+        out.add(new Line("OTHER STARS", TerminalTheme.MUTED, null, null, false));
+        long reachable = o.view.chart().stream().filter(c -> c.inRange() && !c.here()).count();
+        out.add(new Line("  > Star map   " + reachable + " places within one jump, " + o.view.chart().size() + " charted", TerminalTheme.TEXT, () ->
+        {
+            o.map = true;
+            o.chartSelected = "";
+            o.selection = 0;
+        }, null, false));
+        return out;
     }
 
     static void drawViewMenu(ShipControlTerminal o)
     {
-        String[] filters = o.view.scanner() ? new String[]{"All", "Stations", "Ships", "Planets & moons", "Landing pads", "Docking ports"} : new String[]{"All", "Planets & moons", "Landing pads", "Docking ports"};
+        String[] filters = new String[]{"All", "Stations", "Ships", "Planets & moons", "Landing pads", "Docking ports"};
         o.beginViewMenu();
         for (int i = 0; i < filters.length; i++)
         {
@@ -134,7 +192,7 @@ final class DestinationPicker
             {
                 o.filter = chosen;
                 o.page = 0;
-                o.highlighted = "";
+                o.listScroll = 0;
                 o.viewMenu = false;
                 o.searchFocused = false;
                 o.selection = 0;
@@ -142,14 +200,10 @@ final class DestinationPicker
         }
     }
 
+    /** A highlighted place that is no longer offered is forgotten. */
     static void clearHiddenSelection(ShipControlTerminal o)
     {
-        // On the star map the o.selection is a chart place, not a row on a list o.page.
-        if (o.picker && chart(o))
-            return;
-        var entries = filtered(o);
-        o.page = Math.clamp(o.page, 0, Math.max(0, (visibleCount(o) - 1) / PAGE_SIZE));
-        if (entries.stream().skip(o.page * (long) PAGE_SIZE).limit(PAGE_SIZE).noneMatch(e -> e.id().equals(o.highlighted)))
+        if (!o.highlighted.isEmpty() && o.view.entries().stream().noneMatch(e -> e.id().equals(o.highlighted)))
             o.highlighted = "";
     }
 

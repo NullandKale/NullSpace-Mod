@@ -564,7 +564,7 @@ public final class LocalMultiplayerTest
                     waitFor(ctx, c -> c.gui.screen() instanceof TerminalScreen, 6000);
                     ctx.waitTicks(15);
                     signal(route.equals("sol_luna") ? "jump-luna" : "jump-home");
-                    ShipControlTestUi.destination(ctx, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra", "Regions");
+                    ShipControlTestUi.farRegion(ctx, route, route.equals("sol_luna") ? "Sol / Luna" : "Sol / Terra");
                     dedicated.runOnServer(s -> SceneService.observer(s.getPlayerList().getPlayers().stream().filter(player -> player.getGameProfile().name().equals("NullSpace_pilot")).findFirst().orElseThrow()).putInt("nextJourneySeconds", 4));
                     ShipControlTestUi.action(ctx, ShipControl.Action.JUMP);
                     String sceneId = route.equals("sol_luna") ? "nullspace:sol_luna" : "nullspace:local-space";

@@ -4,7 +4,7 @@ This is the block-by-block reference for every ship, station and computer block:
 
 The [hardware decisions](ship-systems-redesign.md), [fuel/power design](ship-fuel-and-power-design.md) and [recovery rules](ship-recall.md) provide the underlying system reference.
 
-The first [November 5 navigation chunk](../development/playtest-chunks.md#chunk-1-navigation) implements **Engage**. Right-click the Scanner block for its hierarchical destination browser; **Set destination** updates the course directly. The controller shows the destination and operates the trip. There is no marking step or controller Scanner feed. Basic local planet/pad navigation needs no Scanner; interstellar travel requires a powered stock Scanner. **Settings / upgrades** in the Scanner opens its equipment inventory.
+The first [November 5 navigation chunk](../development/playtest-chunks.md#chunk-1-navigation) implements **Engage**. The controller lists the places here on its Trip tab and operates the trip; the Scanner block lists the same places first and everything farther after them, and **Set destination** (or a double click) updates the course directly ([ship navigation](ship-navigation.md#the-ship-controller)). There is no marking step or controller Scanner feed. Going to another planet means setting it at the Scanner; Engage needs a powered Scanner only for interstellar travel. **Settings / upgrades** in the Scanner opens its equipment inventory.
 
 Captured from the focused GUI pass: [generator fuel slots](../images/ui-generator-fuel.png) and [controller repair feedback](../images/ui-controller-repair.png).
 
@@ -124,7 +124,7 @@ Shows the vent's room air, actual pumping/power status and distinct opening/leak
 
 ## Scanner
 
-Right-click the Scanner to open the destination browser, organized by star system and planet/moon. Select a station/ship, landing site or orbit and press **Set destination**. It updates the ship's destination without moving it; Engage remains at the controller.
+Right-click the Scanner to open the destination list ([`DestinationPicker`](../../src/main/java/com/nullandkale/nullspace/ui/apps/DestinationPicker.java)): HERE (the same rows as the controller's Trip tab), then this system's planets, each opening in place to show its pads, stations and ships, then OTHER STARS, which opens the star map. Highlight a place with one click and press **Set destination**, or double-click it. It updates the ship's destination without moving it; Engage remains at the controller. The wheel or Page Up/Down scrolls the list.
 
 **Settings / upgrades** opens the inventory screen with upgrade slots, device power and sensing details. **Open scanner** returns to the shared destination browser. Results refresh automatically; no Scan step is required.
 

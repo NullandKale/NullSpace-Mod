@@ -45,6 +45,11 @@ public record TripPresentation(Phase phase, String title, String hint)
             boolean signal = JourneyService.contact(ship);
             return new TripPresentation(signal ? Phase.SIGNAL : Phase.CRUISING, "FTL: " + seconds / 60 + ":" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + " remaining", signal ? JourneyService.stopReason(server, ship).isEmpty() ? "Optional signal available. Ignore it to keep travelling." : "Signal resolving. Keep travelling or wait for Visit signal." : "Stay aboard; you can move around. Arrival is automatic.");
         }
+        if (PlanetApproach.active(ship))
+        {
+            String planet = com.nullandkale.nullspace.model.galaxy.LocalSpaces.get(server, com.nullandkale.nullspace.model.galaxy.LocalSpaces.address(ship)).name();
+            return PlanetApproach.emergency(ship) ? new TripPresentation(Phase.APPROACH, "Falling toward " + planet, "No fuel to brake: brace for a crash landing. The bridge keeps its air.") : new TripPresentation(Phase.APPROACH, "Approaching " + planet, "Flying close before landing. Stop halts the approach.");
+        }
         var dock = ship.getCompoundOrEmpty("dock");
         String dockState = dock.getStringOr("state", "");
         if (dockState.equals("CLAMPED"))
@@ -76,6 +81,6 @@ public record TripPresentation(Phase phase, String title, String hint)
             return new TripPresentation(Phase.COMPLETE, "Arrived", CourseService.summary(ship));
         if (TransferLocks.inTransit(server, ship))
             return new TripPresentation(Phase.PREPARING, "Preparing the ship", "Wait for the current transfer or construction to finish.");
-        return new TripPresentation(Phase.READY, "Ready to travel", selected == null ? "Choose a destination, then Engage." : "Engage follows the selected trip. Manual steps remain available.");
+        return new TripPresentation(Phase.READY, "Ready to travel", selected == null ? "Click a place nearby, or set one at the Scanner, then Engage." : "Engage follows the selected trip. Manual steps remain available.");
     }
 }

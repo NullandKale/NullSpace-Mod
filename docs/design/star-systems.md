@@ -39,11 +39,11 @@ Time and cost are in [FTL journeys](ftl-journeys.md): a trip between chart place
 
 ## The star map
 
-Open the **Scanner** and go to the top level (**Stars**). The map draws every system and feature at its position:
+Open the **Scanner** and choose **Star map**, the last row of its list. The map draws every system and feature at its position:
 
 `@` you, `*` star, `~` nebula, `:` asteroid field, `o` rogue planet, `+` pulsar, `#` black hole.
 
-Green places are one jump away with the ship's engines; grey ones need hops. Selecting a place shows its distance, jump fuel and contents, and **Set destination** chooses it. Selecting a system again opens its planets. The map is sent to the client as a list of chart places alongside the Scanner view.
+Green places are one jump away with the ship's engines; grey ones need hops. Selecting a place shows its distance, jump fuel and contents, and **Set destination** chooses it. Selecting a system again lists its planets; **Back to list** returns to the ship's own system. The map is sent to the client as a list of chart places alongside the Scanner view.
 
 ## Surfaces
 

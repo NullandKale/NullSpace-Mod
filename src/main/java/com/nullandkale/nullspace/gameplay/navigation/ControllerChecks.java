@@ -33,9 +33,13 @@ public final class ControllerChecks
         if ((action == Action.ENGAGE || action == Action.LAUNCH) && !ShipSystems.enabled(ship) && !p.level().dimension().equals(TravelService.SPACE))
             return NO_SYSTEMS;
         if (action == Action.ENGAGE)
-            return CourseService.reason(p, ship, target);
+            return PlanetApproach.active(ship) ? "Approaching the planet" : CourseService.reason(p, ship, target);
+        if (action == Action.EMERGENCY_LAND)
+            return emergencyReason(p, ship, target);
+        if (PlanetApproach.active(ship) && Set.of(Action.SELECT, Action.LAUNCH, Action.JUMP, Action.LAND, Action.DOCK, Action.UNDOCK, Action.PILOT).contains(action))
+            return "Approaching the planet";
         if (action == Action.DISENGAGE)
-            return CourseService.active(ship) ? "" : "No engaged course";
+            return CourseService.active(ship) || PlanetApproach.active(ship) && !PlanetApproach.emergency(ship) ? "" : PlanetApproach.active(ship) ? "A falling ship cannot stop" : "No engaged course";
         if (action == Action.MARK || action == Action.BROWSE_SCANNER || action == Action.RETURN_TO_CONTROLLER)
             return "Open the Scanner block to browse and set a destination";
         if (CourseService.active(ship) && Set.of(Action.SELECT, Action.LAUNCH, Action.JUMP, Action.LAND, Action.DOCK, Action.UNDOCK, Action.PILOT).contains(action))
@@ -106,7 +110,35 @@ public final class ControllerChecks
             return readiness.ready() ? "" : readiness.message();
         }
         if (action == Action.LAND)
-            return fuelReason(p, ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()));
+            return fuelReason(p, ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size()) + PlanetApproach.fuel(p.level(), ship, target));
+        return "";
+    }
+
+    /**
+     * An emergency landing is offered only when the ship cannot land normally for want of fuel or engine power: in orbit, undocked, with a pad on this
+     * planet chosen. Anything else that blocks a landing (crew outside, a trip underway) blocks it too.
+     */
+    static String emergencyReason(ServerPlayer p, CompoundTag ship, ShipDestination target)
+    {
+        if (!p.level().dimension().equals(TravelService.SPACE))
+            return "Only in orbit";
+        if (StationAccess.station(ship))
+            return "Stations are anchored";
+        if (ship.contains("dock"))
+            return "Undock first";
+        if (JourneyService.active(ship))
+            return "Finish the journey first";
+        if (PlanetApproach.active(ship))
+            return "Already approaching the planet";
+        if (CourseService.active(ship))
+            return "Disengage the current course first";
+        if (TransferLocks.busy(p.level().getServer(), ship))
+            return "This ship is already travelling or boarding";
+        if (target == null || target.kind() != ShipDestination.Kind.PAD || !LocalSpaces.address(ship).equals(target.region()))
+            return "Choose a landing pad on this planet";
+        boolean fuel = FuelSystem.available(p.level(), ship) >= FuelSystem.travelCost(p.level(), ship, FuelSystem.transfer(ShipSystems.connected(p.level(), ship).size())) + PlanetApproach.fuel(p.level(), ship, target);
+        if (NavigationService.propulsion(p.level(), ship) > 0 && fuel)
+            return "The ship has the fuel to land: use Engage";
         return "";
     }
 
